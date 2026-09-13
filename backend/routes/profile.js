@@ -269,44 +269,61 @@ function queueProfilePictureSync(did, dataUrl, recordId) {
     });
 }
 
-async function readProfilePicture(did) {
+async function readProfilePicture(user) {
+  const did = String(user?.did || '').trim();
+  const spaceId = String(user?.dwn?.spaceId || '').trim();
+  const rawSeedHex = user?.raw_seed;
+
+  if (!did) throw new Error('User DID is missing.');
+  if (!spaceId) throw new Error('User DWN space is missing.');
+
   const recordId = profileRecordId(did);
 
-  const message = {
-    descriptor: {
-      interface: 'Records',
-      method: 'Read',
-      recordId
+  const result = await realDwnEngine.readRecord(
+    {
+      spaceId,
+      rawSeedHex,
+      knownDidUri: did
     },
-    authorization: {
-      payload: 'e30',
-      signatures: []
+    recordId
+  );
+
+  if (!result?.ok || !result.data?.length) {
+    if (result?.status === 404 || result?.reason === 'record-not-found') {
+      return null;
     }
-  };
 
-  const reply = await miniDwnProcess(did, message);
-
-  if (reply.status?.code === 404) {
-    return null;
+    throw new Error(
+      result?.error ||
+      result?.detail ||
+      result?.reason ||
+      'Real DWN profile-picture read failed.'
+    );
   }
 
-  if (reply.status?.code !== 200) {
-    throw new Error(reply.status?.detail || 'Mini-DWN profile read failed');
-  }
-
-  const encodedData = reply.encodedData;
-  if (!encodedData) return null;
-
-  const mime = reply.record?.dataFormat || 'image/jpeg';
-
-  const base64 = String(encodedData)
-    .replace(/-/g, '+')
-    .replace(/_/g, '/')
-    .padEnd(Math.ceil(String(encodedData).length / 4) * 4, '=');
+  const mime =
+    result?.descriptor?.dataFormat ||
+    result?.descriptor?.dataFormat ||
+    user?.profile?.avatarMime ||
+    'image/jpeg';
 
   return {
     recordId,
-    avatar: `data:${mime};base64,${base64}`
+    avatar: `data:${mime};base64,${Buffer.from(result.data).toString('base64')}`
+  };
+}
+
+async function readProfilePictureFromUserDwn(user, recordId) {
+  const did = String(user?.did || '').trim();
+  if (!did) throw new Error('User DID is missing.');
+
+  const result = await readProfilePicture(user);
+
+  if (!result) return null;
+
+  return {
+    ...result,
+    recordId: result.recordId || recordId
   };
 }
 
