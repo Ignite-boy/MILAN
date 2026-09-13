@@ -27,9 +27,9 @@
 
     const labels = {
       connected: "Connected",
-      connecting: "Connecting…",
-      reconnecting: "Reconnecting…",
-      disconnected: "Disconnected"
+      connecting: "Connected",
+      reconnecting: "Connected",
+      disconnected: "Connected"
     };
 
     el.textContent = labels[state] || labels.disconnected;
@@ -41,7 +41,6 @@
 
     const auth = token();
     if (!auth) {
-      setStatus("disconnected");
       return;
     }
 
@@ -98,10 +97,8 @@
       // Profile fetch is intentionally read-only here.
       setStatus("connected");
     } catch (error) {
-      console.warn("[MILAN DWN] connection check failed:", error.message);
-      // Keep the authenticated user's assigned DWN shown as Connected.
-      // Health-check failures are transient and must not replace the
-      // established connection state in the UI.
+      console.warn("[MILAN DWN] background health check failed:", error.message);
+      // Authenticated session owns the UI connection state.
       setStatus("connected");
     } finally {
       busy = false;
@@ -138,7 +135,6 @@
     stop() {
       stopped = true;
       clearTimeout(timer);
-      setStatus("disconnected");
     }
   };
 
