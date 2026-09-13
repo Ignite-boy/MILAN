@@ -258,11 +258,25 @@ async function remoteDwnRequest({ message, target, encodedData }) {
 
   if (encodedData) body.params.encodedData = encodedData;
 
-  const response = await fetch(`${endpoint}/json-rpc`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body)
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12000);
+
+  let response;
+  try {
+    response = await fetch(`${endpoint}/json-rpc`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      signal: controller.signal
+    });
+  } catch (err) {
+    if (err?.name === 'AbortError') {
+      throw new Error('Remote DWN request timed out after 12 seconds');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 
   const text = await response.text();
   let json;
