@@ -223,7 +223,7 @@ router.post('/register', authThrottle(10, 60_000), asyncRoute(async (req, res) =
       }
     };
 
-    writeJson(global.usersFile, currentUsers);
+    await persistUsersAuthoritatively(currentUsers);
 
     console.log('[auth] local DWN user provisioned:', email, spaceId);
   } catch (localProvisionError) {
