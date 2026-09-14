@@ -468,7 +468,12 @@ async function writeToRealUserDwnNode(record, user, info) {
   ensureEngineRoot();
   try {
     return await realDwnEngine.writeRecord(
-      { spaceId: info.spaceId, rawSeedHex: user.raw_seed, knownDidUri: user.did },
+      {
+        spaceId: info.spaceId,
+        rawSeedHex: user.raw_seed,
+        knownDidUri: user.did,
+        portableDid: user.portableDid
+      },
       record
     );
   } catch (err) {

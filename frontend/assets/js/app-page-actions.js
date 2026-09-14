@@ -196,6 +196,11 @@
         saved.avatarMime,
         saved.avatarFileName
       );
+
+      // CRITICAL:
+      // The blob: preview is temporary. After the Real DWN write succeeds,
+      // immediately replace that temporary URL with the persisted DWN avatar.
+      await syncLiveProfileIdentity();
     } catch (error) {
       console.error("[MILAN] DP upload failed:", error);
     } finally {
