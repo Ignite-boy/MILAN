@@ -70,7 +70,7 @@ function nodeStoreRoot(spaceId) {
   return path.join(persistRoot(), safeName(spaceId));
 }
 
-async function resolveUserDid({ dids }, { spaceId, knownDidUri, createIfMissing = false }) {
+async function resolveUserDid({ dids }, { spaceId, rawSeedHex, knownDidUri, createIfMissing = false }) {
   const { DidKey } = dids;
   const portableFile = path.join(nodeStoreRoot(spaceId), 'portable-did.json');
 

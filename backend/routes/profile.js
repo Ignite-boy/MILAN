@@ -24,17 +24,28 @@ const supabaseDb = createClient(
 );
 
 async function resolveAccount(req, users) {
-  // Fast path: the authenticated email already maps to the local profile.
-  // This avoids an unnecessary Supabase round-trip on every DP upload.
+  // Always prefer the local account record first because it contains
+  // the user's persistent DWN mapping and raw seed required for reads/writes.
   const email = String(req.userEmail || '').trim().toLowerCase();
-  const localUser = email ? users[email] : null;
+  const userId = String(req.userId || '').trim();
 
-  if (localUser && (!req.userId || !localUser.id || localUser.id === req.userId)) {
+  let localUser = email ? users[email] : null;
+
+  if (!localUser && userId) {
+    const localEntry = Object.values(users).find(
+      user => String(user?.id || '').trim() === userId
+    );
+    if (localEntry) {
+      localUser = localEntry;
+    }
+  }
+
+  if (localUser && (!userId || !localUser.id || String(localUser.id) === userId)) {
     return {
-      email,
+      email: String(localUser.email || email).trim().toLowerCase(),
       user: {
         ...localUser,
-        id: localUser.id || req.userId,
+        id: localUser.id || userId,
         email: localUser.email || email,
         did: localUser.did
       }

@@ -240,7 +240,8 @@ function cloudReceiverRoot() {
 
 function userSpaceId(userId = '', did = '', email = '', preassigned = '') {
   if (preassigned && /^milan-/.test(String(preassigned))) return String(preassigned);
-  return `milan-${safeName(userId || shortHash(did || email)).slice(0, 40)}-${shortHash(`${userId}|${did}|${email}`).slice(0, 8)}`;
+  const seed = `${userId}|${email}`;
+  return `milan-${safeName(userId || shortHash(seed)).slice(0, 40)}-${shortHash(seed).slice(0, 8)}`;
 }
 
 function storageRootFor(spaceId) {
@@ -482,6 +483,22 @@ async function pushRecordToCloudDwn(record, user) {
   const now = new Date().toISOString();
   // Real per-user DWN node write (actual DWN protocol, signed RecordsWrite).
   const realNode = await writeToRealUserDwnNode(record, user, info);
+
+  // REAL REMOTE DWN is authoritative. Never report a successful cloud
+  // persistence result when the signed DWN write itself failed.
+  if (realNode && realNode.ok === false) {
+    return {
+      pushed: false,
+      realNode,
+      endpoint: remote || info.endpoint,
+      mode: 'real-remote-dwn-node',
+      isolation: info.isolation,
+      spaceId: info.spaceId,
+      error: realNode.error || realNode.reason || 'Real DWN write failed.',
+      pushedAt: now
+    };
+  }
+
   if (!remote || isEmbeddedSelfEndpoint(remote)) {
     return {
       pushed: true,

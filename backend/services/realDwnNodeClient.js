@@ -22,13 +22,10 @@ function internalEndpointFromRenderService() {
   return `http://${host}${port ? `:${port}` : ''}`;
 }
 function defaultPublicDwnEndpoint() {
-  // V49: one-command mode. Use the same Render service as an embedded production DWN endpoint.
-  // This removes the need to create a second Render service manually.
+  // Production authority: use the persistent remote Real DWN service.
   const custom = String(process.env.DEFAULT_REAL_DWN_NODE_ENDPOINT || '').trim();
   if (custom) return custom;
-  if (process.env.REAL_DWN_EMBEDDED === 'false') return '';
-  const port = String(process.env.PORT || process.env.REAL_DWN_EMBEDDED_PORT || '10000').trim();
-  return `http://127.0.0.1:${port}`;
+  return 'https://mini-dwn.onrender.com';
 }
 function endpoint() {
   const cfg = loadConfig();
@@ -69,7 +66,9 @@ function headers(extra = {}) {
 async function rawRequest(pathPart, options = {}) {
   const base = endpoint();
   if (!base) throw new Error('REAL_DWN_NODE_ENDPOINT missing. Milan V49 embedded production DWN endpoint missing.');
-  const res = await fetch(`${base}${pathPart}`, { ...options, headers: headers(options.headers || {}) });
+  const fetchOptions = { ...options, headers: headers(options.headers || {}) };
+  if (!fetchOptions.signal) fetchOptions.signal = AbortSignal.timeout(7000);
+  const res = await fetch(`${base}${pathPart}`, fetchOptions);
   const text = await res.text().catch(() => '');
   let data = {};
   try { data = text ? JSON.parse(text) : {}; } catch (_) { data = { raw: text }; }
@@ -203,7 +202,13 @@ async function pushDatabaseSnapshot(name, data) {
   ];
   const direct = await tryRawJson(routes, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
   if (direct.ok) return direct.data;
-  // Backward compatibility for old DWN node deployments that only support RecordsWrite.
+
+  if (remoteOnly()) {
+    const msg = (direct.results || []).map(r => `${r.pathPart}:${r.status || r.error}`).join(' | ');
+    throw new Error(`Production DWN database sync failed in remote-only mode. No native database route accepted ${name}. ${msg}`);
+  }
+
+  // Backward compatibility for explicitly non-remote-only deployments.
   const recordId = snapshotRecordId(name);
   const fallbackRecord = {
     app: 'MILAN',
@@ -245,16 +250,18 @@ async function pullDatabaseSnapshot(name) {
     `/api/dwn/database/snapshot/${safeName}`,
     `/api/cloud-dwn/database/read/${safeName}`
   ];
-  const direct = await tryRawJson(routes, { method: 'GET' });
-  if (direct.ok) {
-    const response = direct.data || {};
-    return Object.prototype.hasOwnProperty.call(response, 'data') ? response.data : response;
-  }
-  // Missing database on first run is normal: return empty object, never break register/login.
-  const onlyMissing = (direct.results || []).every(r => !r.status || r.status === 404);
-  if (onlyMissing) return {};
-  return {};
+
+  const response = await tryJson(
+    routes,
+    { method: 'GET' },
+    { allowMissing: true, missingValue: {} }
+  );
+
+  return response && Object.prototype.hasOwnProperty.call(response, 'data')
+    ? response.data
+    : response;
 }
+
 module.exports = {
   loadConfig, endpoint, apiKey, remoteOnly, configured, ping, postJson, putJson, getJson,
   putFile, mediaUrl, provisionUser, pushDatabaseSnapshot, pullDatabaseSnapshot,
