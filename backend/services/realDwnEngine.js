@@ -70,9 +70,19 @@ function nodeStoreRoot(spaceId) {
   return path.join(persistRoot(), safeName(spaceId));
 }
 
-async function resolveUserDid({ dids }, { spaceId, rawSeedHex, knownDidUri, createIfMissing = false }) {
+async function resolveUserDid({ dids }, { spaceId, rawSeedHex, knownDidUri, portableDid, createIfMissing = false }) {
   const { DidKey } = dids;
   const portableFile = path.join(nodeStoreRoot(spaceId), 'portable-did.json');
+
+  // Prefer the persistent portable DID carried in the user record.
+  if (portableDid && typeof portableDid === 'object') {
+    const didApi = await DidKey.import({ portableDid });
+    if (knownDidUri && didApi.uri !== knownDidUri) {
+      throw new Error(`Persistent DWN DID mismatch: expected ${knownDidUri}, found ${didApi.uri}`);
+    }
+    persistPortable(portableFile, portableDid);
+    return await asSignable(didApi);
+  }
 
   if (fs.existsSync(portableFile)) {
     const portable = JSON.parse(fs.readFileSync(portableFile, 'utf8'));
@@ -130,6 +140,7 @@ async function createUserIdentity({ spaceId }) {
     return {
       did: didApi.uri,
       spaceId,
+      portableDid: portable,
       real: true
     };
   }
@@ -141,6 +152,7 @@ async function createUserIdentity({ spaceId }) {
   return {
     did: didApi.uri,
     spaceId,
+    portableDid: portable,
     real: true
   };
 }
@@ -163,7 +175,7 @@ async function asSignable(didApi) {
   return { didApi, uri: didApi.uri, signer: dwnSigner };
 }
 
-async function openNode({ spaceId, rawSeedHex, knownDidUri }) {
+async function openNode({ spaceId, rawSeedHex, knownDidUri, portableDid }) {
   if (!enabled()) return { ok: false, reason: 'engine-disabled' };
   if (!spaceId) return { ok: false, reason: 'missing-space-id' };
   if (_nodes.has(spaceId)) return { ok: true, node: _nodes.get(spaceId) };
@@ -196,7 +208,7 @@ async function openNode({ spaceId, rawSeedHex, knownDidUri }) {
       const dwn = await Dwn.create({ messageStore, dataStore, eventLog, resumableTaskStore });
       const { uri, signer, didApi } = await resolveUserDid(
         { dids },
-        { spaceId, rawSeedHex, knownDidUri, createIfMissing: !knownDidUri }
+        { spaceId, rawSeedHex, knownDidUri, portableDid, createIfMissing: !knownDidUri }
       );
 
       const node = {
@@ -320,8 +332,8 @@ function base64UrlToBytes(value) {
   return Buffer.from(b64, 'base64');
 }
 
-async function writeRecord({ spaceId, rawSeedHex, knownDidUri }, record = {}) {
-  const opened = await openNode({ spaceId, rawSeedHex, knownDidUri });
+async function writeRecord({ spaceId, rawSeedHex, knownDidUri, portableDid }, record = {}) {
+  const opened = await openNode({ spaceId, rawSeedHex, knownDidUri, portableDid });
 
   if (!opened.ok) {
     return {
@@ -414,8 +426,8 @@ async function writeRecord({ spaceId, rawSeedHex, knownDidUri }, record = {}) {
   }
 }
 
-async function readRecord({ spaceId, rawSeedHex, knownDidUri }, recordId) {
-  const opened = await openNode({ spaceId, rawSeedHex, knownDidUri });
+async function readRecord({ spaceId, rawSeedHex, knownDidUri, portableDid }, recordId) {
+  const opened = await openNode({ spaceId, rawSeedHex, knownDidUri, portableDid });
 
   if (!opened.ok) {
     return {

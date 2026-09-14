@@ -236,7 +236,8 @@ async function writeProfilePicture(did, file, user) {
     {
       spaceId: user.dwn.spaceId,
       rawSeedHex: user.raw_seed,
-      knownDidUri: did
+      knownDidUri: did,
+      portableDid: user.portableDid
     },
     {
       id: recordId,
@@ -294,7 +295,8 @@ async function readProfilePicture(user) {
     {
       spaceId,
       rawSeedHex,
-      knownDidUri: did
+      knownDidUri: did,
+      portableDid: user.portableDid
     },
     recordId
   );

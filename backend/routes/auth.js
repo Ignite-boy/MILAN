@@ -154,7 +154,7 @@ router.post('/register', authThrottle(10, 60_000), asyncRoute(async (req, res) =
   // Real DWN identity + password hash + one authoritative Supabase INSERT.
   const passwordHashPromise = bcrypt.hash(password, 10);
   const identity = await mintRealUserIdentity({ userId: id, email });
-  const { did, spaceId } = identity;
+  const { did, spaceId, portableDid } = identity;
   const passwordHash = await passwordHashPromise;
 
   const { error: insertError } = await supabaseDb
@@ -193,6 +193,7 @@ router.post('/register', authThrottle(10, 60_000), asyncRoute(async (req, res) =
       email,
       name: displayName,
       did,
+      portableDid,
       dwn: {
         ...((currentUsers[email] || {}).dwn || {}),
         assignedAt: new Date().toISOString(),
