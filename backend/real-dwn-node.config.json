@@ -1,5 +1,5 @@
 {
-  "REAL_DWN_NODE_ENDPOINT": "https://mini-dwn.onrender.com",
+  "REAL_DWN_NODE_ENDPOINT": "https://dwn.onrender.com",
   "REAL_DWN_NODE_API_KEY": "",
   "REAL_DWN_REMOTE_ONLY": "true",
   "MILAN_REQUIRE_REAL_DWN": "true",

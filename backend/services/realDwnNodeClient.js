@@ -25,7 +25,7 @@ function defaultPublicDwnEndpoint() {
   // Production authority: use the persistent remote Real DWN service.
   const custom = String(process.env.DEFAULT_REAL_DWN_NODE_ENDPOINT || '').trim();
   if (custom) return custom;
-  return 'https://mini-dwn.onrender.com';
+  return 'https://dwn.onrender.com';
 }
 function endpoint() {
   const cfg = loadConfig();

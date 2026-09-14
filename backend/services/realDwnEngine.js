@@ -244,7 +244,7 @@ function toBytes(value) {
 async function remoteDwnRequest({ message, target, encodedData }) {
   const endpoint = String(
     process.env.REAL_DWN_NODE_ENDPOINT ||
-    'https://mini-dwn.onrender.com'
+    'https://dwn.onrender.com'
   ).replace(/\/+$/, '');
 
   const headers = {

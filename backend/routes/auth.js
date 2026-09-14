@@ -198,8 +198,8 @@ router.post('/register', authThrottle(10, 60_000), asyncRoute(async (req, res) =
         ...((currentUsers[email] || {}).dwn || {}),
         assignedAt: new Date().toISOString(),
         spaceId,
-        endpoint: `${process.env.REAL_DWN_NODE_ENDPOINT || 'https://mini-dwn.onrender.com'}/api/isolated-dwn/${spaceId}`,
-        dwnEndpoint: `${process.env.REAL_DWN_NODE_ENDPOINT || 'https://mini-dwn.onrender.com'}/api/isolated-dwn/${spaceId}`,
+        endpoint: `${process.env.REAL_DWN_NODE_ENDPOINT || 'https://dwn.onrender.com'}/api/isolated-dwn/${spaceId}`,
+        dwnEndpoint: `${process.env.REAL_DWN_NODE_ENDPOINT || 'https://dwn.onrender.com'}/api/isolated-dwn/${spaceId}`,
         mode: 'production-remote-dwn',
         isolation: 'single-user',
         realDwnConfigured: true,
@@ -207,11 +207,11 @@ router.post('/register', authThrottle(10, 60_000), asyncRoute(async (req, res) =
         realDwnProtocol: true,
         remoteOnly: true
       },
-      dwnEndpoint: `${process.env.REAL_DWN_NODE_ENDPOINT || 'https://mini-dwn.onrender.com'}/api/isolated-dwn/${spaceId}`,
+      dwnEndpoint: `${process.env.REAL_DWN_NODE_ENDPOINT || 'https://dwn.onrender.com'}/api/isolated-dwn/${spaceId}`,
       settings: {
         ...((currentUsers[email] || {}).settings || {}),
         dwnSpaceId: spaceId,
-        dwnEndpoint: `${process.env.REAL_DWN_NODE_ENDPOINT || 'https://mini-dwn.onrender.com'}/api/isolated-dwn/${spaceId}`,
+        dwnEndpoint: `${process.env.REAL_DWN_NODE_ENDPOINT || 'https://dwn.onrender.com'}/api/isolated-dwn/${spaceId}`,
         dwnIsolation: 'single-user',
         dwnMode: 'production-remote-dwn'
       },
