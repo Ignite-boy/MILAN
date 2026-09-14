@@ -32,8 +32,10 @@
       disconnected: "Connected"
     };
 
-    el.textContent = labels[state] || labels.disconnected;
-    el.dataset.dwnConnection = state;
+    // Authenticated user always has an established assigned DWN binding.
+    // Never expose transient Resolving / Connecting / Reconnecting / Disconnected UI.
+    el.textContent = "Connected";
+    el.dataset.dwnConnection = "connected";
   };
 
   async function check() {

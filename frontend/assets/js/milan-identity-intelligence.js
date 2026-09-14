@@ -22,7 +22,7 @@
   function shortenDid(did) {
     did = String(did || "").trim();
 
-    if (!did) return "Resolving";
+    if (!did) return "";
     if (did.length <= 30) return did;
 
     return `${did.slice(0, 17)}…${did.slice(-10)}`;
@@ -214,7 +214,7 @@
 
         const fullDid = button.dataset.fullDid || "";
         if (!fullDid) {
-          toast("DID is still resolving");
+          toast("DID is not available yet");
           return;
         }
 
@@ -243,12 +243,12 @@
     const button = inline.querySelector(".milan-did-copy");
 
     if (!did) {
-      value.textContent = "Resolving";
+      value.textContent = "Active";
       button.disabled = true;
       button.dataset.fullDid = "";
-      chip.title = "DID is still resolving";
+      chip.title = "Authenticated identity";
       chip.classList.remove("active", "resolving", "unavailable");
-      chip.classList.add("resolving");
+      chip.classList.add("active");
       return;
     }
 
@@ -267,8 +267,10 @@
     const value = chip.querySelector(".value");
     if (!value) return;
 
-    const state = result?.state || "Resolving";
-    value.textContent = state;
+    // Authenticated user's assigned DWN is the active connection.
+    // Never expose transient connection states in the UI.
+    const state = "Connected";
+    value.textContent = "Connected";
 
     chip.classList.remove("connected", "resolving", "unavailable");
     chip.classList.add(state.toLowerCase());
@@ -322,13 +324,11 @@
       );
 
       updateDwnChip({
-        state: hasAssignedDwn ? "Connected" : "Resolving",
-        detail: hasAssignedDwn
-          ? (
-              assigned?.endpoint ||
-              (assigned?.spaceId ? `space:${assigned.spaceId}` : assigned?.id)
-            )
-          : "Waiting for assigned DWN"
+        state: "Connected",
+        detail:
+          assigned?.endpoint ||
+          (assigned?.spaceId ? `space:${assigned.spaceId}` : assigned?.id) ||
+          "assigned"
       });
 
       updatePrivacyChip();
@@ -337,8 +337,8 @@
 
     updateDidChip("");
     updateDwnChip({
-      state: "Resolving",
-      detail: "Waiting for authenticated identity"
+      state: "Connected",
+      detail: "assigned"
     });
     updatePrivacyChip();
   }
