@@ -179,7 +179,9 @@ async function hydrateFilesFromRealDwn(files = []) {
     for (const file of unique) {
       const name = path.basename(file);
       if (!remoteSyncAllowed(file)) continue;
+      console.log(`[HYDRATE] begin ${name}`);
       const pulled = await pullDatabaseSnapshot(name);
+      console.log(`[HYDRATE] done ${name}`);
       const normalized = normalizePulledSnapshot(pulled);
       if (normalized.ok && normalized.data !== undefined) {
         const isEmptyObject = normalized.data && typeof normalized.data === 'object' && !Array.isArray(normalized.data) && Object.keys(normalized.data).length === 0;

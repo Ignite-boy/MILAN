@@ -294,7 +294,7 @@ function v49StreamNodeMedia(req, res) {
 router.get('/node/record/:spaceId/:recordId', requireCloudKey, (req, res) => {
   const spaceId = safeName(req.params.spaceId);
   const recordId = safeName(req.params.recordId);
-  const file = path.join(cloudReceiverRoot(), spaceId, 'records', `${recordId}.json`);
+  const file = path.join(v35SpaceRoot(spaceId), 'records', `${recordId}.json`);
   if (!fs.existsSync(file)) return res.status(404).json({ error: 'Record not found' });
   res.json(JSON.parse(fs.readFileSync(file, 'utf8')));
 });
