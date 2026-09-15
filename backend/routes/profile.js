@@ -438,8 +438,12 @@ router.put('/', auth, uploadDp.single('avatar'), async (req, res) => {
       found.user
     );
 
+    const avatarDataUrl =
+      `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+
     found.user.profile = {
       ...(found.user.profile || {}),
+      avatar: avatarDataUrl,
       avatarRecordId: saved.dwnRecordId,
       avatarMime: saved.mime,
       avatarFileName: saved.fileName,
