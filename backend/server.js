@@ -777,12 +777,6 @@ if (!process.env.VERCEL) {
   listenWithFallback(PORT);
 }
 
-// RENDER STARTUP FIX:
-// Bind the HTTP port before slow DWN hydration/initialization.
-if (!process.env.VERCEL) {
-  listenWithFallback(PORT);
-}
-
 (async () => {
   const filesToHydrate = [
     global.usersFile, global.recordsFile, global.protocolsFile, global.activityFile,
