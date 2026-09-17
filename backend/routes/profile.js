@@ -446,28 +446,49 @@ router.put('/', auth, uploadDp.single('avatar'), async (req, res) => {
   }
 
   try {
-    if (!req.file) {
-      return res.status(400).json({
-        error: 'Profile picture file is required.'
-      });
+    // The main app uploads a multipart file, while the profile-edit modal
+    // submits a data URL in JSON.  Persist both paths identically; otherwise
+    // the modal can show a temporary preview that disappears after reload.
+    let avatarFile = req.file || null;
+    const submittedAvatar = String(req.body?.avatar || '').trim();
+
+    if (!avatarFile && submittedAvatar) {
+      const parsedAvatar = dataUrlToDwn(submittedAvatar);
+      if (!parsedAvatar || !/^image\//i.test(parsedAvatar.mime)) {
+        return res.status(400).json({ error: 'Profile picture must be a valid image.' });
+      }
+
+      avatarFile = {
+        buffer: parsedAvatar.bytes,
+        mimetype: parsedAvatar.mime,
+        originalname: 'profile-picture.' + (parsedAvatar.mime.split('/')[1] || 'jpg')
+      };
     }
 
-    const saved = await writeProfilePicture(
-      found.user.did,
-      req.file,
-      found.user
-    );
+    const profile = {
+      ...(found.user.profile || {}),
+      ...(req.body?.display_name != null ? { display_name: String(req.body.display_name).trim() } : {}),
+      ...(req.body?.username != null ? { username: String(req.body.username).trim().replace(/^@+/, '').toLowerCase() } : {}),
+      ...(req.body?.bio != null ? { bio: String(req.body.bio).trim() } : {}),
+      ...(req.body?.website != null ? { website: String(req.body.website).trim() } : {})
+    };
 
-    const avatarDataUrl =
-      `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    if (avatarFile) {
+      const saved = await writeProfilePicture(
+        found.user.did,
+        avatarFile,
+        found.user
+      );
+
+      profile.avatar = `data:${avatarFile.mimetype};base64,${avatarFile.buffer.toString('base64')}`;
+      profile.avatarRecordId = saved.dwnRecordId;
+      profile.avatarMime = saved.mime;
+      profile.avatarFileName = saved.fileName;
+      profile.avatarSync = 'synced';
+    }
 
     found.user.profile = {
-      ...(found.user.profile || {}),
-      avatar: avatarDataUrl,
-      avatarRecordId: saved.dwnRecordId,
-      avatarMime: saved.mime,
-      avatarFileName: saved.fileName,
-      avatarSync: 'synced',
+      ...profile,
       updated_at: new Date().toISOString()
     };
 
@@ -477,10 +498,11 @@ router.put('/', auth, uploadDp.single('avatar'), async (req, res) => {
     addActivity(req.userId, 'profile.updated');
 
     return res.status(200).json({
-      avatarRecordId: saved.dwnRecordId,
-      avatarMime: saved.mime,
-      avatarFileName: saved.fileName,
-      avatarSync: 'synced'
+      ...found.user.profile,
+      avatarRecordId: found.user.profile.avatarRecordId || '',
+      avatarMime: found.user.profile.avatarMime || '',
+      avatarFileName: found.user.profile.avatarFileName || '',
+      avatarSync: found.user.profile.avatarSync || 'missing'
     });
   } catch (error) {
     console.error('[profile] original-file DP save failed:', error.message);
