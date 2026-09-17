@@ -6,9 +6,10 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const uuidv4 = () => crypto.randomUUID();
 const { generateDIDAndRawSeed, mintRealUserIdentity } = require('../utils/did');
+const { realDwnEngine } = require('../services/realDwnEngine');
 const totp = require('../utils/totp');
 const { readJson, writeJson, writeJsonAndSync, addActivity, normalizePulledSnapshot, cleanUsersDb, repairUsersFile } = require('../utils/store');
-const { assignDwnEndpoint, ensureUserDwn, getDwnInfo, provisionRemoteUserDwn, pullDatabaseSnapshot } = require('../services/cloudDwnRegistry');
+const { assignDwnEndpoint, ensureUserDwn, getDwnInfo, provisionRemoteUserDwn, pullDatabaseSnapshot, ensureEngineRoot } = require('../services/cloudDwnRegistry');
 const auth = require('../middleware/auth');
 const { sendWelcomeEmail, sendVerificationEmail, sendPasswordResetEmail, sendLoginAlertEmail } = require('../services/mailService');
 const { createClient } = require('@supabase/supabase-js');
@@ -152,9 +153,24 @@ router.post('/register', authThrottle(10, 60_000), asyncRoute(async (req, res) =
   const displayName = name || email.split('@')[0];
 
   // Real DWN identity + password hash + one authoritative Supabase INSERT.
+  // Lock the canonical DWN storage root before creating the user's identity/node.
+  ensureEngineRoot();
   const passwordHashPromise = bcrypt.hash(password, 10);
   const identity = await mintRealUserIdentity({ userId: id, email });
   const { did, spaceId, portableDid } = identity;
+
+  // Registration-time guarantee: create/open exactly one dedicated DWN node
+  // for this user immediately and bind it to the persisted identity.
+  const openedDwn = await realDwnEngine.openNode({
+    spaceId,
+    knownDidUri: did,
+    portableDid
+  });
+
+  if (!openedDwn?.ok) {
+    throw new Error(`Dedicated DWN provisioning failed: ${openedDwn?.reason || 'node-open-failed'}`);
+  }
+
   const passwordHash = await passwordHashPromise;
 
   const { error: insertError } = await supabaseDb

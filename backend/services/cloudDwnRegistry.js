@@ -454,7 +454,7 @@ let _engineRootSet = false;
 function ensureEngineRoot() {
   if (_engineRootSet) return;
   try {
-    realDwnEngine.setPersistRoot(path.join(dwnRoot(), 'real-dwn-engine'));
+    realDwnEngine.setPersistRoot(path.resolve(__dirname, '..', 'real-dwn-engine'));
     _engineRootSet = true;
   } catch (_) { /* engine will use its own default */ }
 }
@@ -721,5 +721,6 @@ module.exports = {
   remoteOnlyRequired,
   isEmbeddedSelfEndpoint,
   realDwnEngine,
+  ensureEngineRoot,
   realUserDwnNodeStatus
 };
