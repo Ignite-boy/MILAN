@@ -1,4 +1,4 @@
-const { realDwnEngine } = require('../services/realDwnEngine');
+const realDwnEngine = require('../services/realDwnEngine');
 const realDwn = require('../services/realDwnNodeClient');
 const express = require('express');
 const multer = require('multer');
