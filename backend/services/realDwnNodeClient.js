@@ -29,7 +29,7 @@ function defaultPublicDwnEndpoint() {
 }
 function endpoint() {
   const cfg = loadConfig();
-  return sanitizeEndpoint(
+  const raw = sanitizeEndpoint(
     process.env.REAL_DWN_NODE_ENDPOINT ||
     process.env.REAL_DWN_CLOUD_ENDPOINT ||
     process.env.MILAN_REAL_DWN_ENDPOINT ||
@@ -39,6 +39,10 @@ function endpoint() {
     defaultPublicDwnEndpoint() ||
     ''
   );
+
+  // Route helpers below already prepend /api/dwn, so the configured
+  // endpoint must always be the service root.
+  return raw.replace(/\/api\/dwn\/?$/i, '');
 }
 function apiKey() {
   const cfg = loadConfig();
@@ -164,6 +168,45 @@ async function putFile(pathPart, filePath, contentType = 'application/octet-stre
   if (!res.ok) throw new Error(data.error || `Production DWN node media upload failed: ${res.status}`);
   return data;
 }
+
+async function putBuffer(pathPart, buffer, contentType = 'application/octet-stream', extraHeaders = {}) {
+  const base = endpoint();
+  if (!base) throw new Error('REAL_DWN_NODE_ENDPOINT missing. Milan V49 embedded production DWN endpoint missing.');
+  const payload = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
+  const res = await fetch(`${base}${pathPart}`, {
+    method: 'PUT',
+    headers: headers({
+      ...extraHeaders,
+      'Content-Type': contentType,
+      'Content-Length': String(payload.length)
+    }),
+    body: payload
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Production DWN node media upload failed: ${res.status}`);
+  return data;
+}
+
+async function getBuffer(pathPart) {
+  const base = endpoint();
+  if (!base) throw new Error('REAL_DWN_NODE_ENDPOINT missing. Milan V49 embedded production DWN endpoint missing.');
+  const res = await fetch(`${base}${pathPart}`, {
+    method: 'GET',
+    headers: headers()
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    let data = {};
+    try { data = text ? JSON.parse(text) : {}; } catch (_) {}
+    const err = new Error(data.error || `Production DWN node media read failed: ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  return {
+    buffer: Buffer.from(await res.arrayBuffer()),
+    contentType: res.headers.get('content-type') || 'application/octet-stream'
+  };
+}
 function mediaUrl(spaceId, recordId) {
   const base = endpoint();
   if (!base || !spaceId || !recordId) return '';
@@ -264,6 +307,6 @@ async function pullDatabaseSnapshot(name) {
 
 module.exports = {
   loadConfig, endpoint, apiKey, remoteOnly, configured, ping, postJson, putJson, getJson,
-  putFile, mediaUrl, provisionUser, pushDatabaseSnapshot, pullDatabaseSnapshot,
+  putFile, putBuffer, getBuffer, mediaUrl, provisionUser, pushDatabaseSnapshot, pullDatabaseSnapshot,
   internalEndpointFromRenderService
 };

@@ -1,4 +1,5 @@
 const { realDwnEngine } = require('../services/realDwnEngine');
+const realDwn = require('../services/realDwnNodeClient');
 const express = require('express');
 const multer = require('multer');
 const { createClient } = require('@supabase/supabase-js');
@@ -231,41 +232,49 @@ async function writeProfilePicture(did, file, user) {
   }
 
   const recordId = profileRecordId(did);
+  const spaceId = String(user.dwn.spaceId).trim();
 
-  const result = await realDwnEngine.writeRecord(
+  const mediaPath =
+    `/api/dwn/media/write/${encodeURIComponent(spaceId)}/${encodeURIComponent(recordId)}`;
+
+  const media = await realDwn.putBuffer(
+    mediaPath,
+    file.buffer,
+    file.mimetype,
     {
-      spaceId: user.dwn.spaceId,
-      rawSeedHex: user.raw_seed,
-      knownDidUri: did,
-      portableDid: user.portableDid
-    },
-    {
-      id: recordId,
-      title: 'MILAN Profile Picture',
-      schema: 'profile-picture',
-      access: 'private',
-      dataFormat: file.mimetype,
-      binaryData: file.buffer,
-      fileName: file.originalname
+      'X-Milan-File-Name': encodeURIComponent(file.originalname || `${recordId}.jpg`)
     }
   );
 
-  if (!result?.ok) {
-    throw new Error(
-      result?.error ||
-      result?.reason ||
-      result?.detail ||
-      'Real DWN profile-picture write failed.'
-    );
-  }
+  const record = {
+    id: recordId,
+    title: 'MILAN Profile Picture',
+    schema: 'profile-picture',
+    accessMode: 'private',
+    dataFormat: file.mimetype,
+    fileName: file.originalname || `${recordId}.jpg`,
+    mediaPath,
+    mediaBytes: file.buffer.length,
+    dateCreated: new Date().toISOString(),
+    dateModified: new Date().toISOString()
+  };
+
+  const metadata = await realDwn.postJson('/api/dwn/records/write', {
+    spaceId,
+    ownerDid: did,
+    userId: user.id,
+    record
+  });
 
   return {
     recordId,
-    dwnRecordId: result.dwnRecordId || recordId,
-    spaceId: user.dwn.spaceId,
+    dwnRecordId: recordId,
+    spaceId,
     mime: file.mimetype,
-    fileName: file.originalname,
-    persistedInDwn: true
+    fileName: file.originalname || `${recordId}.jpg`,
+    persistedInDwn: true,
+    media,
+    metadata
   };
 }
 
@@ -284,46 +293,27 @@ function queueProfilePictureSync(did, dataUrl, recordId) {
 async function readProfilePicture(user) {
   const did = String(user?.did || '').trim();
   const spaceId = String(user?.dwn?.spaceId || '').trim();
-  const rawSeedHex = user?.raw_seed;
 
   if (!did) throw new Error('User DID is missing.');
   if (!spaceId) throw new Error('User DWN space is missing.');
 
   const recordId = profileRecordId(did);
+  const mediaPath =
+    `/api/dwn/media/read/${encodeURIComponent(spaceId)}/${encodeURIComponent(recordId)}`;
 
-  const result = await realDwnEngine.readRecord(
-    {
-      spaceId,
-      rawSeedHex,
-      knownDidUri: did,
-      portableDid: user.portableDid
-    },
-    recordId
-  );
+  try {
+    const result = await realDwn.getBuffer(mediaPath);
 
-  if (!result?.ok || !result.data?.length) {
-    if (result?.status === 404 || result?.reason === 'record-not-found') {
-      return null;
-    }
-
-    throw new Error(
-      result?.error ||
-      result?.detail ||
-      result?.reason ||
-      'Real DWN profile-picture read failed.'
-    );
+    return {
+      recordId,
+      avatar: `data:${result.contentType || user?.profile?.avatarMime || 'image/jpeg'};base64,${result.buffer.toString('base64')}`,
+      mime: result.contentType || user?.profile?.avatarMime || 'image/jpeg',
+      source: 'production-dwn-media'
+    };
+  } catch (error) {
+    if (error?.status === 404) return null;
+    throw error;
   }
-
-  const mime =
-    result?.descriptor?.dataFormat ||
-    result?.descriptor?.dataFormat ||
-    user?.profile?.avatarMime ||
-    'image/jpeg';
-
-  return {
-    recordId,
-    avatar: `data:${mime};base64,${Buffer.from(result.data).toString('base64')}`
-  };
 }
 
 async function readProfilePictureFromUserDwn(user, recordId) {
