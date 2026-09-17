@@ -5,6 +5,7 @@ const multer = require('multer');
 const { createClient } = require('@supabase/supabase-js');
 const auth = require('../middleware/auth');
 const { readJson, writeJson, writeJsonAndSync, findUserById, addActivity } = require('../utils/store');
+const { ensureUserDwn } = require('../services/cloudDwnRegistry');
 const MINI_DWN_ENDPOINT = (
   process.env.MINI_DWN_ENDPOINT ||
   `${process.env.MILAN_LIVE_DWN_BASE || 'https://milan-app-pzhf.onrender.com'}/api/dwn`
@@ -98,6 +99,11 @@ async function resolveAccount(req, users) {
 
 function profileRecordId(did) {
   return `profile-picture:${did}`;
+}
+
+function profileAvatarSnapshotName(email) {
+  const safe = String(email || 'user').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return `profile-avatar-${safe || 'user'}.json`;
 }
 
 function dataUrlToDwn(dataUrl) {
@@ -227,54 +233,47 @@ async function writeProfilePicture(did, file, user) {
     throw new Error('Profile picture file is missing.');
   }
 
-  if (!user?.dwn?.spaceId || !did) {
-    throw new Error('User DWN space is unavailable.');
-  }
+  const spaceId = String(user?.dwn?.spaceId || user?.settings?.dwnSpaceId || '').trim();
+  if (!did) throw new Error('User DID is missing.');
+  if (!spaceId) throw new Error('User DWN space is unavailable.');
 
   const recordId = profileRecordId(did);
-  const spaceId = String(user.dwn.spaceId).trim();
 
-  const mediaPath =
-    `/api/dwn/media/write/${encodeURIComponent(spaceId)}/${encodeURIComponent(recordId)}`;
-
-  const media = await realDwn.putBuffer(
-    mediaPath,
-    file.buffer,
-    file.mimetype,
+  const result = await realDwnEngine.writeRecord(
     {
-      'X-Milan-File-Name': encodeURIComponent(file.originalname || `${recordId}.jpg`)
+      spaceId,
+      rawSeedHex: user?.raw_seed || '',
+      knownDidUri: did,
+      portableDid: user?.portableDid
+    },
+    {
+      id: recordId,
+      title: 'MILAN Profile Picture',
+      schema: 'profile-picture',
+      accessMode: 'private',
+      dataFormat: file.mimetype,
+      binaryData: file.buffer
     }
   );
 
-  const record = {
-    id: recordId,
-    title: 'MILAN Profile Picture',
-    schema: 'profile-picture',
-    accessMode: 'private',
-    dataFormat: file.mimetype,
-    fileName: file.originalname || `${recordId}.jpg`,
-    mediaPath,
-    mediaBytes: file.buffer.length,
-    dateCreated: new Date().toISOString(),
-    dateModified: new Date().toISOString()
-  };
-
-  const metadata = await realDwn.postJson('/api/dwn/records/write', {
-    spaceId,
-    ownerDid: did,
-    userId: user.id,
-    record
-  });
+  if (!result?.ok) {
+    throw new Error(
+      result?.detail ||
+      result?.error ||
+      result?.reason ||
+      'Real DWN profile picture write failed.'
+    );
+  }
 
   return {
     recordId,
-    dwnRecordId: recordId,
+    dwnRecordId: result.dwnRecordId || recordId,
     spaceId,
     mime: file.mimetype,
     fileName: file.originalname || `${recordId}.jpg`,
     persistedInDwn: true,
-    media,
-    metadata
+    source: result.source || 'real-remote-dwn',
+    status: result.status
   };
 }
 
@@ -292,28 +291,47 @@ function queueProfilePictureSync(did, dataUrl, recordId) {
 
 async function readProfilePicture(user) {
   const did = String(user?.did || '').trim();
-  const spaceId = String(user?.dwn?.spaceId || '').trim();
+  const spaceId = String(user?.dwn?.spaceId || user?.settings?.dwnSpaceId || '').trim();
 
   if (!did) throw new Error('User DID is missing.');
   if (!spaceId) throw new Error('User DWN space is missing.');
 
   const recordId = profileRecordId(did);
-  const mediaPath =
-    `/api/dwn/media/read/${encodeURIComponent(spaceId)}/${encodeURIComponent(recordId)}`;
 
-  try {
-    const result = await realDwn.getBuffer(mediaPath);
+  const result = await realDwnEngine.readRecord(
+    {
+      spaceId,
+      rawSeedHex: user?.raw_seed || '',
+      knownDidUri: did,
+      portableDid: user?.portableDid
+    },
+    recordId
+  );
 
-    return {
-      recordId,
-      avatar: `data:${result.contentType || user?.profile?.avatarMime || 'image/jpeg'};base64,${result.buffer.toString('base64')}`,
-      mime: result.contentType || user?.profile?.avatarMime || 'image/jpeg',
-      source: 'production-dwn-media'
-    };
-  } catch (error) {
-    if (error?.status === 404) return null;
-    throw error;
+  if (!result?.ok) {
+    if (result?.status === 404 || result?.reason === 'record-not-found') {
+      return null;
+    }
+
+    throw new Error(
+      result?.detail ||
+      result?.error ||
+      result?.reason ||
+      'Real DWN profile picture read failed.'
+    );
   }
+
+  const mime =
+    result?.descriptor?.dataFormat ||
+    user?.profile?.avatarMime ||
+    'image/jpeg';
+
+  return {
+    recordId,
+    avatar: `data:${mime};base64,${Buffer.from(result.data).toString('base64')}`,
+    mime,
+    source: result.source || 'real-remote-dwn'
+  };
 }
 
 async function readProfilePictureFromUserDwn(user, recordId) {
@@ -360,6 +378,12 @@ router.get('/', auth, async (req, res) => {
 
   if (!found) {
     return res.status(404).json({ error: 'User not found' });
+  }
+
+  ensureUserDwn(found.user, found.email);
+  users[found.email] = found.user;
+  try { await writeJsonAndSync(global.usersFile, users); } catch (error) {
+    console.warn('[profile] DWN mapping persistence warning:', error.message);
   }
 
   let avatar = '';
@@ -415,6 +439,12 @@ router.put('/', auth, uploadDp.single('avatar'), async (req, res) => {
     return res.status(404).json({ error: 'User not found' });
   }
 
+  ensureUserDwn(found.user, found.email);
+  users[found.email] = found.user;
+  try { await writeJsonAndSync(global.usersFile, users); } catch (error) {
+    console.warn('[profile] DWN mapping persistence warning:', error.message);
+  }
+
   try {
     if (!req.file) {
       return res.status(400).json({
@@ -442,7 +472,7 @@ router.put('/', auth, uploadDp.single('avatar'), async (req, res) => {
     };
 
     users[found.email] = found.user;
-    writeJson(global.usersFile, users);
+    await writeJsonAndSync(global.usersFile, users);
 
     addActivity(req.userId, 'profile.updated');
 
