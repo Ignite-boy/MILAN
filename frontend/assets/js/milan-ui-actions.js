@@ -930,6 +930,9 @@
                     }
 
                     if (saved.avatar) {
+                        try {
+                            localStorage.setItem("milanAvatar", String(saved.avatar));
+                        } catch (_) {}
                         [
                             "myAvatar",
                             "composerAvatar"
