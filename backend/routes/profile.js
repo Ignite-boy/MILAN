@@ -493,7 +493,14 @@ router.put('/', auth, uploadDp.single('avatar'), async (req, res) => {
     };
 
     users[found.email] = found.user;
-    await writeJsonAndSync(global.usersFile, users);
+    try {
+      await writeJsonAndSync(global.usersFile, users);
+    } catch (error) {
+      // The profile-picture DWN record is already persisted authoritatively.
+      // Do not turn a successful avatar write into a 502 because the
+      // auxiliary users.json snapshot sync is temporarily unavailable.
+      console.warn('[profile] users snapshot sync warning:', error.message);
+    }
 
     addActivity(req.userId, 'profile.updated');
 
