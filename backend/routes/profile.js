@@ -382,7 +382,11 @@ router.get('/', auth, async (req, res) => {
 
   ensureUserDwn(found.user, found.email);
   users[found.email] = found.user;
-  try { await writeJsonAndSync(global.usersFile, users); } catch (error) {
+  try {
+    // GET /api/profile must never block on auxiliary database snapshot sync.
+    // The user's profile/DWN read remains the authoritative path.
+    writeJson(global.usersFile, users);
+  } catch (error) {
     console.warn('[profile] DWN mapping persistence warning:', error.message);
   }
 
