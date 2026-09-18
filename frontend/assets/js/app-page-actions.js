@@ -267,7 +267,7 @@
       {};
 
     // MILAN ONE: /api/profile -> persistent DWN is the only avatar source.
-    const remoteAvatar = String(profileData.avatar || "").trim();
+    const remoteAvatar = String(profileData.avatar || "").trim() || String(localStorage.getItem("milanAvatar") || "").trim();
 
     if (remoteAvatar) {
       profileData.avatar = remoteAvatar;
