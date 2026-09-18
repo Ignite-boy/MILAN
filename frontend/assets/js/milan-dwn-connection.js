@@ -113,7 +113,7 @@
     timer = setTimeout(async () => {
       await check();
       schedule();
-    }, 5000);
+    }, 60000);
   }
 
   function start() {
