@@ -390,40 +390,39 @@ router.get('/', auth, async (req, res) => {
     console.warn('[profile] DWN mapping persistence warning:', error.message);
   }
 
-  let avatar = '';
+  // FAST PATH: the persisted local profile record is already updated by
+  // the successful DP upload. Do not block page refresh on a remote DWN read.
+  let avatar = String(found.user.profile?.avatar || '').trim();
 
-  // PRIMARY SOURCE: persistent DWN record for this user.
-  try {
-    const dwnPicture = await readProfilePictureFromUserDwn(
-      found.user,
-      profileRecordId(found.user.did)
-    );
-
-    if (dwnPicture?.avatar) {
-      avatar = dwnPicture.avatar;
-
-      found.user.profile = {
-        ...(found.user.profile || {}),
-        avatar,
-        avatarRecordId: dwnPicture.recordId,
-        avatarSync: 'synced',
-        updated_at: new Date().toISOString()
-      };
-
-      users[found.email] = found.user;
-
-      try {
-        writeJson(global.usersFile, users);
-      } catch (_) {}
-    }
-  } catch (error) {
-    console.warn('[profile] DWN avatar read failed:', error.message);
-  }
-
-  // FALLBACK: retain the last known avatar so UI never blanks during
-  // a temporary DWN/network failure.
+  // Remote DWN read is only needed when the local profile has no avatar.
+  // This keeps refresh fast and resilient when the remote DWN is unavailable.
   if (!avatar) {
-    avatar = String(found.user.profile?.avatar || '').trim();
+    try {
+      const dwnPicture = await readProfilePictureFromUserDwn(
+        found.user,
+        profileRecordId(found.user.did)
+      );
+
+      if (dwnPicture?.avatar) {
+        avatar = dwnPicture.avatar;
+
+        found.user.profile = {
+          ...(found.user.profile || {}),
+          avatar,
+          avatarRecordId: dwnPicture.recordId,
+          avatarSync: 'synced',
+          updated_at: new Date().toISOString()
+        };
+
+        users[found.email] = found.user;
+
+        try {
+          writeJson(global.usersFile, users);
+        } catch (_) {}
+      }
+    } catch (error) {
+      console.warn('[profile] DWN avatar read failed:', error.message);
+    }
   }
 
   return res.json({
