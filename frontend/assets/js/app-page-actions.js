@@ -163,10 +163,12 @@
       }
 
       // IMPORTANT:
-      // Send the ORIGINAL uploaded file.
-      // No canvas conversion. No JPEG re-encoding.
+      // Send the compressed profile image so it stays below the backend
+      // multipart upload limit and can be persisted reliably.
+      const optimized = await compressProfileImage(file);
+      const optimizedBlob = await (await fetch(optimized.dataUrl)).blob();
       const form = new FormData();
-      form.append("avatar", file, file.name);
+      form.append("avatar", optimizedBlob, "profile-picture.jpg");
 
       const response = await fetch("/api/profile", {
         method: "PUT",
