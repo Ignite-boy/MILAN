@@ -192,8 +192,16 @@
         throw new Error("Real DWN profile-picture record was not confirmed.");
       }
 
-      const savedAvatar = String(saved.avatar || "").trim();
-      if (savedAvatar) localStorage.setItem("milanAvatar", savedAvatar);
+      const savedAvatar = String(saved.avatar || optimized.dataUrl || "").trim();
+      if (savedAvatar) {
+        localStorage.setItem("milanAvatar", savedAvatar);
+        if (window.me) {
+          window.me.profile = {
+            ...(window.me.profile || {}),
+            avatar: savedAvatar
+          };
+        }
+      }
 
       console.log(
         "[MILAN] DP saved to Real DWN:",
