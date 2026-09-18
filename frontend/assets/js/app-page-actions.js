@@ -190,6 +190,9 @@
         throw new Error("Real DWN profile-picture record was not confirmed.");
       }
 
+      const savedAvatar = String(saved.avatar || "").trim();
+      if (savedAvatar) localStorage.setItem("milanAvatar", savedAvatar);
+
       console.log(
         "[MILAN] DP saved to Real DWN:",
         saved.avatarRecordId,
