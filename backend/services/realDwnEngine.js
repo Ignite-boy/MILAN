@@ -70,9 +70,42 @@ function nodeStoreRoot(spaceId) {
   return path.join(persistRoot(), safeName(spaceId));
 }
 
+function configuredPortableDid(spaceId, knownDidUri) {
+  const raw = String(process.env.MILAN_REAL_DWN_PORTABLE_DIDS || '').trim();
+  if (!raw) return null;
+
+  try {
+    const registry = JSON.parse(raw);
+    const candidate = registry && typeof registry === 'object' ? registry[spaceId] : null;
+    if (!candidate || typeof candidate !== 'object') return null;
+
+    if (knownDidUri) {
+      const candidateDid = String(candidate.uri || '').trim();
+      if (candidateDid && candidateDid !== knownDidUri) return null;
+    }
+
+    return candidate;
+  } catch (error) {
+    console.error('[real-dwn] invalid MILAN_REAL_DWN_PORTABLE_DIDS:', error.message);
+    return null;
+  }
+}
+
 async function resolveUserDid({ dids }, { spaceId, rawSeedHex, knownDidUri, portableDid, createIfMissing = false }) {
   const { DidKey } = dids;
   const portableFile = path.join(nodeStoreRoot(spaceId), 'portable-did.json');
+
+  // Production-safe recovery for legacy users whose identity is stored as a
+  // Render environment secret rather than on ephemeral application storage.
+  const configuredPortable = configuredPortableDid(spaceId, knownDidUri);
+  if (configuredPortable) {
+    const didApi = await DidKey.import({ portableDid: configuredPortable });
+    if (knownDidUri && didApi.uri !== knownDidUri) {
+      throw new Error(`Configured DWN DID mismatch: expected ${knownDidUri}, found ${didApi.uri}`);
+    }
+    persistPortable(portableFile, configuredPortable);
+    return await asSignable(didApi);
+  }
 
   // Prefer the persistent portable DID carried in the user record.
   if (portableDid && typeof portableDid === 'object') {
