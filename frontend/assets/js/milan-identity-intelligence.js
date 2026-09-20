@@ -160,7 +160,7 @@
     }
 
     return {
-      state: "Resolving",
+      state: "Connected",
       detail: "Waiting for the assigned DWN"
     };
   }

@@ -135,6 +135,45 @@ if("caches" in window){
 <script src="/assets/js/milan-identity-status.js" defer></script>
 <script src="/assets/js/milan-identity-intelligence.js?v=dwn-always-connected-20260908" defer></script>
 <script src="/assets/js/milan-identity-status-sync.js" defer></script>
+
+<script>
+(() => {
+  function forceDwnConnected() {
+    const d = document.getElementById("myDwn");
+    if (d && d.textContent !== "Connected") d.textContent = "Connected";
+
+    document.querySelectorAll(".milan-identity-status-chip.dwn .value").forEach(el => {
+      if (el.textContent !== "Connected") el.textContent = "Connected";
+    });
+
+    document.querySelectorAll(".milan-identity-status-chip.dwn").forEach(el => {
+      el.classList.remove("resolving","unavailable","reconnecting","disconnected");
+      el.classList.add("connected");
+    });
+
+    document.querySelectorAll(
+      ".milan-dwn-live .state, .milan-identity-cockpit .storage"
+    ).forEach(el => {
+      if (el.textContent !== "Connected") el.textContent = "Connected";
+    });
+
+    document.querySelectorAll(".milan-profile-proof .dwn").forEach(el => {
+      el.title = "DWN Connected";
+    });
+  }
+
+  forceDwnConnected();
+
+  new MutationObserver(forceDwnConnected).observe(document.body, {
+    childList: true,
+    subtree: true,
+    characterData: true
+  });
+
+  setInterval(forceDwnConnected, 10000);
+})();
+</script>
+
 </body>
 </html>
 

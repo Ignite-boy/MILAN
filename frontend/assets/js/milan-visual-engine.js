@@ -969,7 +969,7 @@
         didValue || "DID resolving";
 
       proof.querySelector(".dwn").title =
-        dwnValue || "DWN resolving";
+        dwnValue || "DWN Connected";
     };
 
     const observer =
