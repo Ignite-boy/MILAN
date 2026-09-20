@@ -18,12 +18,14 @@
     var topbar = document.querySelector(".topbar");
     var sidebar = document.querySelector(".sidebar");
     var nav = sidebar && sidebar.querySelector(".nav");
-    if (!topbar || !sidebar || !nav) return;
+    var profileBlock = sidebar && sidebar.querySelector(".profile");
+    if (!topbar || !sidebar || !nav || !profileBlock) return;
 
     var mq = window.matchMedia("(max-width:768px)");
     var originalParent = nav.parentNode;
     var originalNext = nav.nextSibling;
     var mobileMoved = false;
+    var profileMoved = false;
 
     var style = document.createElement("style");
     style.id = "milan-mobile-nav-v81-style";
@@ -45,7 +47,10 @@
         #milan-drawer-v81 .m8-title{font-size:20px!important;font-weight:800!important;color:#fff!important}
         #milan-drawer-v81 .m8-sub{display:block!important;margin-top:2px!important;font-size:11px!important;color:#7f8fad!important}
         #milan-drawer-v81 .m8-close{width:40px!important;height:40px!important;padding:0!important;border:1px solid #263652!important;border-radius:12px!important;background:#121d33!important;color:#fff!important;font-size:24px!important;cursor:pointer!important}
-        #milan-drawer-v81 .m8-profile{padding:11px 13px!important;margin-bottom:14px!important;border-radius:14px!important;background:#101b31!important;color:#cdd7ea!important;font-size:13px!important}
+        #milan-drawer-v81 .m8-mobile-profile{display:block!important;width:auto!important;margin:0 0 14px!important;padding:12px 13px!important;box-sizing:border-box!important;border-radius:14px!important;background:#101b31!important;color:#cdd7ea!important;text-align:center!important}
+        #milan-drawer-v81 .m8-mobile-profile .milan-avatar-upload{display:inline-block!important}
+        #milan-drawer-v81 .m8-mobile-profile #myAvatar{margin:0 auto!important}
+        #milan-drawer-v81 .m8-mobile-profile .profile-stats{display:flex!important;justify-content:space-around!important;margin-top:12px!important;padding-top:12px!important}
         #milan-drawer-v81 .m8-section{margin:0 0 8px!important;color:#7383a3!important;font:800 11px/1 system-ui,sans-serif!important;letter-spacing:.08em!important;text-transform:uppercase!important}
         #milan-drawer-v81 .m8-nav{display:flex!important;flex-direction:column!important;gap:5px!important}
         #milan-drawer-v81 .m8-nav button{width:100%!important;min-height:46px!important;margin:0!important;padding:11px 14px!important;border:1px solid transparent!important;border-radius:12px!important;background:#111c31!important;color:#dce5f5!important;text-align:left!important;font:600 14px/1.25 system-ui,sans-serif!important;cursor:pointer!important}
@@ -85,10 +90,9 @@
     head.appendChild(close);
     drawer.appendChild(head);
 
-    var profile = document.createElement("div");
-    profile.className = "m8-profile";
-    profile.textContent = "👤 Your Milan space";
-    drawer.appendChild(profile);
+    var profileMount = document.createElement("div");
+    profileMount.className = "m8-profile-mount";
+    drawer.appendChild(profileMount);
 
     var section = document.createElement("div");
     section.className = "m8-section";
@@ -102,6 +106,11 @@
 
     function moveToDrawer() {
       if (mobileMoved) return;
+      if (!profileMoved) {
+        profileBlock.classList.add("m8-mobile-profile");
+        profileMount.appendChild(profileBlock);
+        profileMoved = true;
+      }
       while (nav.firstChild) mobileNav.appendChild(nav.firstChild);
       nav.remove();
       mobileMoved = true;
@@ -112,6 +121,11 @@
       if (!mobileMoved) return;
       originalParent.insertBefore(nav, originalNext);
       while (mobileNav.firstChild) nav.appendChild(mobileNav.firstChild);
+      if (profileMoved) {
+        profileBlock.classList.remove("m8-mobile-profile");
+        sidebar.insertBefore(profileBlock, sidebar.firstChild);
+        profileMoved = false;
+      }
       mobileMoved = false;
       sidebar.style.display = "";
       closeMenu();
