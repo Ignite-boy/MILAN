@@ -175,93 +175,79 @@ if("caches" in window){
 </script>
 
 
+
 <script>
 (() => {
-  async function syncPersistentAvatar() {
+  let syncing = false;
+
+  async function syncPersistentIdentity() {
+    if (syncing) return;
+
     const token =
       localStorage.getItem("milan_token") ||
       localStorage.getItem("milanToken") ||
       "";
+
     if (!token) return;
 
-    try {
-      const r = await fetch("/api/profile", {
-        method: "GET",
-        cache: "no-store",
-        headers: {
-          Authorization: "Bearer " + token,
-          Accept: "application/json",
-          "Cache-Control": "no-cache"
-        }
-      });
-
-      if (!r.ok) return;
-
-      const profile = await r.json();
-      const avatar = profile?.avatar || "";
-      if (!avatar) return;
-
-      try { localStorage.setItem("milanAvatar", avatar); } catch {}
-
-      const targets = [
-        document.getElementById("myAvatar"),
-        document.getElementById("composerAvatar")
-      ].filter(Boolean);
-
-      targets.forEach(el => {
-        el.innerHTML =
-          '<img src="' + avatar.replace(/"/g, "&quot;") +
-          '" alt="Profile photo">';
-        el.dataset.avatarSynced = "1";
-      });
-
-      document.querySelectorAll(".milan-identity-avatar").forEach(el => {
-        el.innerHTML =
-          '<img src="' + avatar.replace(/"/g, "&quot;") +
-          '" alt="Profile photo">';
-      });
-    } catch {}
-  }
-
-  setTimeout(syncPersistentAvatar, 1800);
-  setInterval(syncPersistentAvatar, 30000);
-  window.__milanSyncPersistentAvatar = syncPersistentAvatar;
-})();
-</script>
-
-
-<script>
-(() => {
-  async function syncIdentityEverywhere() {
-    const token =
-      localStorage.getItem("milan_token") ||
-      localStorage.getItem("milanToken") ||
-      "";
-    if (!token) return;
+    syncing = true;
 
     try {
-      const r = await fetch("/api/profile", {
-        method: "GET",
-        cache: "no-store",
-        headers: {
-          Authorization: "Bearer " + token,
-          Accept: "application/json",
-          "Cache-Control": "no-cache"
-        }
-      });
+      const headers = {
+        Authorization: "Bearer " + token,
+        Accept: "application/json",
+        "Cache-Control": "no-cache"
+      };
 
-      if (!r.ok) return;
+      const [profileResponse, meResponse] = await Promise.all([
+        fetch("/api/profile", {
+          method: "GET",
+          cache: "no-store",
+          headers
+        }),
+        fetch("/api/auth/me", {
+          method: "GET",
+          cache: "no-store",
+          headers
+        })
+      ]);
 
-      const profile = await r.json();
+      if (!profileResponse.ok) return;
+
+      const profile = await profileResponse.json().catch(() => ({}));
+      const me = meResponse.ok
+        ? await meResponse.json().catch(() => ({}))
+        : {};
+
+      const user =
+        me?.user ||
+        me?.data?.user ||
+        me?.data ||
+        me ||
+        {};
+
       const avatar = String(profile?.avatar || "").trim();
-      const did = String(profile?.did || "").trim();
+
+      const did = String(
+        user?.did ||
+        profile?.did ||
+        me?.did ||
+        ""
+      ).trim();
 
       if (avatar) {
         window.__milanPersistentAvatar = avatar;
-        try { localStorage.setItem("milanAvatar", avatar); } catch {}
 
-        document.querySelectorAll("#myAvatar, #composerAvatar, .milan-identity-avatar").forEach(el => {
-          const current = el.querySelector("img")?.getAttribute("src") || "";
+        try {
+          localStorage.setItem("milanAvatar", avatar);
+        } catch {}
+
+        document.querySelectorAll(
+          "#myAvatar, #composerAvatar, .milan-identity-avatar"
+        ).forEach(el => {
+          const current =
+            el.querySelector("img")?.getAttribute("src") || "";
+
           if (current !== avatar) {
             const img = document.createElement("img");
             img.src = avatar;
@@ -274,50 +260,41 @@ if("caches" in window){
         });
       }
 
-      const actualDid =
-        did ||
-        document.getElementById("myDid")?.textContent.trim() ||
-        "";
-
-      document.querySelectorAll(
-        ".milan-identity-cockpit .did-value, .milan-did-chip .value"
-      ).forEach(el => {
-        if (/resolving did/i.test(el.textContent) || !el.textContent.trim()) {
-          el.textContent = actualDid || "Active";
+      if (did) {
+        const didEl = document.getElementById("myDid");
+        if (didEl && didEl.textContent.trim() !== did) {
+          didEl.textContent = did;
         }
-      });
 
-      document.querySelectorAll(".milan-profile-proof .dwn").forEach(el => {
-        el.title = "DWN Connected";
-      });
+        document.querySelectorAll(
+          ".milan-identity-cockpit .did-value, .milan-did-chip .value"
+        ).forEach(el => {
+          if (!el.textContent.trim() || /resolving/i.test(el.textContent)) {
+            el.textContent = did;
+          }
+        });
+      }
 
       document.querySelectorAll(
-        ".milan-identity-cockpit .storage, .milan-identity-status-chip.dwn .value"
+        ".milan-identity-status-chip.dwn .value,
+         .milan-identity-cockpit .storage"
       ).forEach(el => {
         el.textContent = "Connected";
       });
-    } catch {}
+    } catch (error) {
+      console.warn(
+        "[MILAN] persistent identity sync failed:",
+        error?.message || error
+      );
+    } finally {
+      syncing = false;
+    }
   }
 
-  syncIdentityEverywhere();
+  window.__milanSyncPersistentIdentity = syncPersistentIdentity;
 
-  const observer = new MutationObserver(() => {
-    if (!window.__milanIdentitySyncRunning) {
-      window.__milanIdentitySyncRunning = true;
-      requestAnimationFrame(() => {
-        window.__milanIdentitySyncRunning = false;
-        syncIdentityEverywhere();
-      });
-    }
-  });
-
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true,
-    characterData: true
-  });
-
-  setInterval(syncIdentityEverywhere, 10000);
+  setTimeout(syncPersistentIdentity, 1200);
+  setInterval(syncPersistentIdentity, 15000);
 })();
 </script>
 
