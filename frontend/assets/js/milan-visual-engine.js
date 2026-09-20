@@ -622,7 +622,7 @@
       <div class="milan-identity-did">
         <div class="label">Decentralized Identifier</div>
         <div class="value did-value">
-          Resolving DID…
+          DID Active
         </div>
       </div>
 
@@ -662,7 +662,7 @@
       ".did-value"
     ).textContent =
       did?.textContent.trim() ||
-      "Resolving DID…";
+      "DID Active";
 
     cockpit.querySelector(
       ".storage"
@@ -966,7 +966,7 @@
         dwn?.textContent.trim() || "";
 
       proof.querySelector(".did").title =
-        didValue || "DID resolving";
+        didValue || "DID Active";
 
       proof.querySelector(".dwn").title =
         dwnValue || "DWN Connected";

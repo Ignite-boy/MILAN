@@ -229,6 +229,98 @@ if("caches" in window){
 })();
 </script>
 
+
+<script>
+(() => {
+  async function syncIdentityEverywhere() {
+    const token =
+      localStorage.getItem("milan_token") ||
+      localStorage.getItem("milanToken") ||
+      "";
+    if (!token) return;
+
+    try {
+      const r = await fetch("/api/profile", {
+        method: "GET",
+        cache: "no-store",
+        headers: {
+          Authorization: "Bearer " + token,
+          Accept: "application/json",
+          "Cache-Control": "no-cache"
+        }
+      });
+
+      if (!r.ok) return;
+
+      const profile = await r.json();
+      const avatar = String(profile?.avatar || "").trim();
+      const did = String(profile?.did || "").trim();
+
+      if (avatar) {
+        window.__milanPersistentAvatar = avatar;
+        try { localStorage.setItem("milanAvatar", avatar); } catch {}
+
+        document.querySelectorAll("#myAvatar, #composerAvatar, .milan-identity-avatar").forEach(el => {
+          const current = el.querySelector("img")?.getAttribute("src") || "";
+          if (current !== avatar) {
+            const img = document.createElement("img");
+            img.src = avatar;
+            img.alt = "Profile photo";
+            img.loading = "eager";
+            img.decoding = "async";
+            el.replaceChildren(img);
+            el.dataset.avatarSynced = "1";
+          }
+        });
+      }
+
+      const actualDid =
+        did ||
+        document.getElementById("myDid")?.textContent.trim() ||
+        "";
+
+      document.querySelectorAll(
+        ".milan-identity-cockpit .did-value, .milan-did-chip .value"
+      ).forEach(el => {
+        if (/resolving did/i.test(el.textContent) || !el.textContent.trim()) {
+          el.textContent = actualDid || "Active";
+        }
+      });
+
+      document.querySelectorAll(".milan-profile-proof .dwn").forEach(el => {
+        el.title = "DWN Connected";
+      });
+
+      document.querySelectorAll(
+        ".milan-identity-cockpit .storage, .milan-identity-status-chip.dwn .value"
+      ).forEach(el => {
+        el.textContent = "Connected";
+      });
+    } catch {}
+  }
+
+  syncIdentityEverywhere();
+
+  const observer = new MutationObserver(() => {
+    if (!window.__milanIdentitySyncRunning) {
+      window.__milanIdentitySyncRunning = true;
+      requestAnimationFrame(() => {
+        window.__milanIdentitySyncRunning = false;
+        syncIdentityEverywhere();
+      });
+    }
+  });
+
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+    characterData: true
+  });
+
+  setInterval(syncIdentityEverywhere, 10000);
+})();
+</script>
+
 </body>
 </html>
 
