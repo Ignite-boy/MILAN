@@ -86,4 +86,22 @@
     <loc>https://milanlife.in/web5-ecosystem</loc>
     <lastmod>2026-09-10</lastmod>
   </url>
+  <url>
+    <loc>https://milanlife.in/who-is-the-founder-of-milan</loc>
+    <lastmod>2026-09-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://milanlife.in/disclaimer</loc>
+    <lastmod>2026-09-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://milanlife.in/cookie-policy</loc>
+    <lastmod>2026-09-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
 </urlset>

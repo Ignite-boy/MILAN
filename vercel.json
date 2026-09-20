@@ -82,6 +82,26 @@
       "destination": "/chat/index.html"
     },
     {
+      "source": "/privacy",
+      "destination": "/privacy.html"
+    },
+    {
+      "source": "/terms",
+      "destination": "/terms.html"
+    },
+    {
+      "source": "/who-is-the-founder-of-milan",
+      "destination": "/who-is-the-founder-of-milan.html"
+    },
+    {
+      "source": "/disclaimer",
+      "destination": "/disclaimer.html"
+    },
+    {
+      "source": "/cookie-policy",
+      "destination": "/cookie-policy.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/$1"
     }
