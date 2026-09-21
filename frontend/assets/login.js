@@ -214,7 +214,7 @@ function bind() {
         if (localStorage.getItem("milanID3SetupPending") === "1") {
           localStorage.removeItem("milanID3SetupPending");
 
-          const status = await authenticatedJson("/api/did/passkey/status");
+          const status = await authenticatedJson("/did/passkey/status");
           if (status?.registered) {
             window.location.replace("/app.html?login=" + Date.now());
           } else {
@@ -287,7 +287,7 @@ async function registerID3() {
 
         const options =
             await authenticatedJson(
-                "/api/did/passkey/register/options"
+                "/did/passkey/register/options"
             );
 
         const registrationResponse =
@@ -297,7 +297,7 @@ async function registerID3() {
 
         const verification =
             await authenticatedJson(
-                "/api/did/passkey/register/verify",
+                "/did/passkey/register/verify",
                 {
                     method: "POST",
                     headers: {
@@ -395,7 +395,7 @@ async function registerID3() {
           return;
         }
 
-        const status = await authenticatedJson("/api/did/passkey/status");
+        const status = await authenticatedJson("/did/passkey/status");
 
         if (status?.registered) {
           await loginWithID3();
