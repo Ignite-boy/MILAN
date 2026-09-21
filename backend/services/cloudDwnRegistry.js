@@ -1,14 +1,12 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const realDwn = require('./realDwnNodeClient');
-const realDwnEngine = require('./realDwnEngine');
+const { supabase } = require('../utils/dwnStorage');
 
-// MILAN V49 PRODUCTION DWN RULE:
-// 1 user = 1 DID = 1 isolated production DWN space.
-// Render milan-app stores only app files and temporary cache.
-// Authoritative user profile/database snapshots/records/media are pushed to REAL_DWN_NODE_ENDPOINT.
-// If REAL_DWN_NODE_ENDPOINT is not set, V49 blocks user data writes.
+// MILAN SUPABASE STORAGE RULE:
+// 1 user = 1 DID = 1 isolated Supabase space.
+// Supabase is authoritative for user snapshots, records, and media.
+// Local files are compatibility/cache storage only.
 
 function sanitizeEndpoint(url = '') {
   const value = String(url || '').trim().replace(/\/+$/, '');
@@ -30,31 +28,27 @@ function shortHash(seed) {
   return crypto.createHash('sha256').update(String(seed || '')).digest('hex').slice(0, 16);
 }
 
-function isRenderRuntime() {
-  return !!(process.env.RENDER || process.env.RENDER_SERVICE_ID || process.env.RENDER_EXTERNAL_URL);
-}
-
 function publicBase() {
   return sanitizeEndpoint(
     process.env.APP_PUBLIC_URL ||
     process.env.PUBLIC_BASE_URL ||
-    process.env.RENDER_EXTERNAL_URL ||
+    process.env.SEO_CANONICAL_URL ||
     ''
   ) || '';
 }
 
 function cloudRemoteBase() {
-  return realDwn.endpoint() || sanitizeEndpoint(
-    process.env.REAL_DWN_CLOUD_ENDPOINT ||
-    process.env.MILAN_CLOUD_DWN_ENDPOINT ||
-    process.env.DWN_CLOUD_ENDPOINT ||
-    process.env.DWN_CLOUD_ENDPOINTS ||
-    ''
-  );
+  // Supabase is the authoritative cloud backend.
+  // No external/Render DWN endpoint is used.
+  return '';
 }
 
 function cloudApiKey() {
-  return realDwn.apiKey() || String(process.env.REAL_DWN_CLOUD_API_KEY || process.env.MILAN_CLOUD_DWN_API_KEY || process.env.DWN_CLOUD_API_KEY || '').trim();
+  return String(
+    process.env.MILAN_CLOUD_DWN_API_KEY ||
+    process.env.DWN_CLOUD_API_KEY ||
+    ''
+  ).trim();
 }
 
 
@@ -107,23 +101,7 @@ function directPullDatabaseSnapshot(name) {
 }
 
 function remoteOnlyRequired() {
-  return realDwn.remoteOnly();
-}
-
-function renderCloudDiskRoot() {
-  return path.resolve(
-    process.env.RENDER_DISK_MOUNT_PATH ||
-    process.env.RENDER_PERSISTENT_DWN_ROOT ||
-    '/opt/render/project/src/dwn-data/milan-app-cache'
-  );
-}
-
-function renderProjectWritableRoot() {
-  // This path is writable on Render even when no persistent disk is attached.
-  // It prevents the app from crashing with EACCES. For permanent storage,
-  // attach a Render Disk and keep MILAN_CLOUD_DWN_ROOT/RENDER_DISK_MOUNT_PATH on that mount.
-  const base = process.env.RENDER_PROJECT_DIR || process.env.PWD || path.join(__dirname, '..');
-  return path.resolve(base, 'milan-cloud-dwn-runtime');
+  return false;
 }
 
 function localDevelopmentRoot() {
@@ -141,35 +119,12 @@ function unique(values) {
   return out;
 }
 
-function isVercelRuntime() {
-  return !!(process.env.VERCEL || process.env.VERCEL_ENV);
-}
-
 function candidateRoots() {
-  if (isVercelRuntime()) {
-    return unique([
-      process.env.MILAN_CLOUD_DWN_ROOT,
-      process.env.MILAN_DATA_ROOT,
-      path.join('/tmp', 'milan-dwn')
-    ]);
-  }
-  if (!isRenderRuntime()) {
-    return unique([
-      process.env.MILAN_CLOUD_DWN_ROOT,
-      process.env.MILAN_DATA_ROOT,
-      process.env.RENDER_DISK_MOUNT_PATH,
-      process.env.RENDER_PERSISTENT_DWN_ROOT,
-      localDevelopmentRoot()
-    ]);
-  }
   return unique([
     process.env.MILAN_CLOUD_DWN_ROOT,
     process.env.MILAN_DATA_ROOT,
-    process.env.RENDER_DISK_MOUNT_PATH,
-    process.env.RENDER_PERSISTENT_DWN_ROOT,
-    '/opt/render/project/src/dwn-data/milan-app-cache',
-    '/var/data/milan-dwn',
-    renderProjectWritableRoot(),
+    process.env.MILAN_LOCAL_DWN_ROOT,
+    localDevelopmentRoot(),
     path.join('/tmp', 'milan-dwn')
   ]);
 }
@@ -188,38 +143,27 @@ function testWritable(root) {
 let selectedRootCache = null;
 function selectedLocalDwnRoot() {
   if (selectedRootCache) return selectedRootCache;
+
   const attempts = [];
   for (const candidate of candidateRoots()) {
     const result = testWritable(candidate);
     attempts.push({ root: candidate, ...result });
+
     if (result.ok) {
-      const render = isRenderRuntime();
-      const normalized = candidate.replace(/\\/g, '/');
-      const configuredRoot = String(process.env.MILAN_CLOUD_DWN_ROOT || process.env.MILAN_DATA_ROOT || '').trim();
-      const configuredDisk = String(process.env.RENDER_DISK_MOUNT_PATH || process.env.RENDER_PERSISTENT_DWN_ROOT || '').trim();
-      const persistentByConfig = !!configuredRoot || !!configuredDisk;
-      const looksLikeRenderDisk = render && (
-        normalized.startsWith('/var/data') ||
-        normalized.startsWith('/mnt/') ||
-        normalized.startsWith('/opt/render/project/.data') ||
-    normalized.includes('/opt/render/project/src/dwn-data')
-      );
       selectedRootCache = {
         root: candidate,
         attempts,
         fallbackUsed: attempts.length > 1,
         selectedBy: attempts.length === 1 ? 'configured-root' : 'first-writable-root',
-        permanentExpected: !render || persistentByConfig || looksLikeRenderDisk,
-        warning: render && !(persistentByConfig || looksLikeRenderDisk)
-          ? 'Using Render writable runtime fallback. App will run, but attach a Render persistent disk or configure REAL_DWN_CLOUD_ENDPOINT for durable storage.'
-          : ''
+        permanentExpected: true,
+        warning: ''
       };
       return selectedRootCache;
     }
   }
-  // Last-resort error with every attempted path, so Render logs are actionable.
+
   const detail = attempts.map(a => `${a.root} => ${a.code || 'ERROR'} ${a.message || ''}`).join(' | ');
-  throw new Error(`No writable Milan Cloud DWN root found. Attempts: ${detail}`);
+  throw new Error(`No writable Milan local cache root found. Attempts: ${detail}`);
 }
 
 function dwnRoot() {
@@ -256,54 +200,34 @@ function endpointForSpace(spaceId) {
 }
 
 function configuredEndpoints() {
-  const endpoints = [
-    process.env.REAL_DWN_CLOUD_ENDPOINT,
-    process.env.MILAN_CLOUD_DWN_ENDPOINT,
-    process.env.DWN_CLOUD_ENDPOINT,
-    ...(String(process.env.DWN_CLOUD_ENDPOINTS || '').split(','))
-  ].map(sanitizeEndpoint).filter(Boolean);
-  return [...new Set(endpoints)];
+  // MILAN is Supabase-authoritative; no external DWN endpoint is configured.
+  return [];
 }
 
 function persistenceInfo() {
   const selected = selectedLocalDwnRoot();
   const root = selected.root;
-  const remote = cloudRemoteBase();
-  const render = isRenderRuntime();
-  const normalized = root.replace(/\\/g, '/');
-  const usingRenderDiskPath = render && (
-    normalized.startsWith('/var/data') ||
-    normalized.startsWith('/mnt/') ||
-    normalized.startsWith('/opt/render/project/.data') ||
-    normalized.includes('/opt/render/project/src/dwn-data')
-  );
-  const usingRuntimeFallback = remote ? false : (render && !usingRenderDiskPath);
-  const required = String(process.env.MILAN_REQUIRE_CLOUD_DWN || process.env.MILAN_REQUIRE_REAL_DWN || 'true').toLowerCase() !== 'false';
-  const mode = remote ? 'production-remote-dwn' : (render ? (usingRenderDiskPath ? 'render-persistent-cloud-dwn' : 'render-writable-cache-only') : 'local-development-dwn');
-  const permanent = !!remote || selected.permanentExpected || !render;
+  const supabaseUrl = String(process.env.SUPABASE_URL || '').trim();
+
   return {
-    mode,
-    remoteOnly: remoteOnlyRequired(),
+    mode: 'supabase',
+    remoteOnly: false,
     root,
     databaseRoot: databaseRoot(),
     isolatedRoot: isolatedRoot(),
-    remoteEndpoint: remote,
-    apiKeyConfigured: !!cloudApiKey(),
-    renderRuntime: render,
-    usingRenderDiskPath,
-    usingRuntimeFallback,
-    fallbackUsed: remote ? false : selected.fallbackUsed,
+    remoteEndpoint: supabaseUrl,
+    apiKeyConfigured: !!process.env.SUPABASE_SERVICE_KEY,
+    usingRuntimeFallback: false,
+    fallbackUsed: selected.fallbackUsed,
     appStoresUserData: false,
-    remoteWriteEnabled: !!remote,
-    realDwnProtocol: !!remote,
-    sdkReady: !!remote,
-    selectedBy: remote ? 'production-real-dwn-node-endpoint' : selected.selectedBy,
+    remoteWriteEnabled: !!supabaseUrl,
+    realDwnProtocol: false,
+    sdkReady: true,
+    selectedBy: 'supabase-authoritative-storage',
     candidateAttempts: selected.attempts,
-    permanentExpected: permanent,
-    requiresCloudDwn: required,
-    warning: remote
-      ? ''
-      : 'V49 embedded production DWN is active on the same Render service.'
+    permanentExpected: true,
+    requiresCloudDwn: false,
+    warning: ''
   };
 }
 
@@ -318,8 +242,8 @@ function provisionIsolatedDwn({ userId = '', did = '', email = '', spaceId: prea
   const manifest = {
     app: 'MILAN',
     version: '49.0.0',
-    realDwnProtocol: !!p.remoteEndpoint,
-    sdkReady: !!p.remoteEndpoint,
+    realDwnProtocol: false,
+    sdkReady: true,
     appStoresUserData: false,
     model: 'production-dwn-node-one-user-one-did-one-isolated-space',
     isolation: 'single-user',
@@ -350,8 +274,8 @@ function provisionIsolatedDwn({ userId = '', did = '', email = '', spaceId: prea
   return {
     endpoint: endpointForSpace(spaceId),
     mode: p.mode,
-    realDwnConfigured: p.permanentExpected,
-    realCloudConfigured: p.permanentExpected,
+    realDwnConfigured: false,
+    realCloudConfigured: true,
     assignedAt: existing.assignedAt || existing.createdAt || new Date().toISOString(),
     didServiceId: '#dwn',
     isolation: 'single-user',
@@ -378,7 +302,7 @@ function ensureUserDwn(user, email = '') {
     endpoint: assigned.endpoint,
     mode: assigned.mode,
     realDwnConfigured: assigned.realDwnConfigured,
-    realCloudConfigured: assigned.realDwnConfigured,
+    realCloudConfigured: assigned.realCloudConfigured,
     assignedAt: user.dwn?.assignedAt || user.created_at || assigned.assignedAt,
     realDwnDid: user.dwn?.realDwnDid,
     remoteProvision: user.dwn?.remoteProvision,
@@ -392,7 +316,7 @@ function ensureUserDwn(user, email = '') {
   user.settings = user.settings || {};
   user.settings.dwnMode = assigned.mode;
   user.settings.dwnEndpoint = assigned.endpoint;
-  user.settings.realCloudDwnConfigured = assigned.realDwnConfigured;
+  user.settings.realCloudDwnConfigured = assigned.realCloudConfigured;
   user.settings.dwnIsolation = assigned.isolation;
   user.settings.dwnSpaceId = assigned.spaceId;
   user.settings.cloudDwnRoot = assigned.cloud.root;
@@ -406,8 +330,8 @@ function getDwnInfo(user) {
   return {
     endpoint: user?.dwnEndpoint || dwn.endpoint || '',
     mode: dwn.mode || user?.settings?.dwnMode || p.mode,
-    realDwnConfigured: dwn.realDwnConfigured ?? dwn.realCloudConfigured ?? user?.settings?.realCloudDwnConfigured ?? p.permanentExpected,
-    realCloudConfigured: dwn.realDwnConfigured ?? dwn.realCloudConfigured ?? user?.settings?.realCloudDwnConfigured ?? p.permanentExpected,
+    realDwnConfigured: dwn.realCloudConfigured ?? user?.settings?.realCloudDwnConfigured ?? true,
+    realCloudConfigured: dwn.realCloudConfigured ?? user?.settings?.realCloudDwnConfigured ?? true,
     assignedAt: dwn.assignedAt || null,
     didServiceId: dwn.didServiceId || '#dwn',
     isolation: dwn.isolation || user?.settings?.dwnIsolation || 'single-user',
@@ -438,178 +362,204 @@ function makeDidDwnService(user) {
   };
 }
 
-async function postJson(url, payload) {
-  const key = cloudApiKey();
-  const headers = { 'Content-Type': 'application/json' };
-  if (key) headers.Authorization = `Bearer ${key}`;
-  const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `Cloud DWN push failed: ${res.status}`);
-  return data;
-}
+async function ensureSupabaseTenant(did) {
+  const tenantDid = String(did || '').trim();
+  if (!tenantDid) throw new Error('Missing tenant DID');
 
-// Point the real DWN engine's LevelDB stores at the same persistent cloud root
-// the rest of MILAN uses (Render disk / local dwn dir), under an "engine" subdir.
-let _engineRootSet = false;
-function ensureEngineRoot() {
-  if (_engineRootSet) return;
-  try {
-    realDwnEngine.setPersistRoot(path.resolve(__dirname, '..', 'real-dwn-engine'));
-    _engineRootSet = true;
-  } catch (_) { /* engine will use its own default */ }
-}
+  const { error } = await supabase
+    .from('dwn_tenants')
+    .upsert({ did: tenantDid }, { onConflict: 'did' });
 
-// Real DWN-protocol write into THIS user's own isolated DWN node.
-// Best-effort: never throws into the caller; returns a structured result that
-// is attached to the record's cloudDwn.realNode field as cryptographic proof.
-async function writeToRealUserDwnNode(record, user, info) {
-  if (!realDwnEngine.enabled()) return { ok: false, reason: 'engine-disabled' };
-  if (!user || !info || !info.spaceId) return { ok: false, reason: 'no-space-id' };
-  ensureEngineRoot();
-  try {
-    return await realDwnEngine.writeRecord(
-      {
-        spaceId: info.spaceId,
-        rawSeedHex: user.raw_seed,
-        knownDidUri: user.did,
-        portableDid: user.portableDid
-      },
-      record
-    );
-  } catch (err) {
-    return { ok: false, reason: 'engine-write-threw', error: err.message };
-  }
+  if (error) throw error;
+  return tenantDid;
 }
 
 async function pushRecordToCloudDwn(record, user) {
   const info = getDwnInfo(user);
-  const p = persistenceInfo();
-  const remote = cloudRemoteBase();
   const now = new Date().toISOString();
-  // Real per-user DWN node write (actual DWN protocol, signed RecordsWrite).
-  const realNode = await writeToRealUserDwnNode(record, user, info);
+  const ownerDid = String(user?.did || record?.owner || '').trim();
+  const recordId = String(record?.id || '').trim();
 
-  // REAL REMOTE DWN is authoritative. Never report a successful cloud
-  // persistence result when the signed DWN write itself failed.
-  if (realNode && realNode.ok === false) {
+  if (!recordId) {
     return {
       pushed: false,
-      realNode,
-      endpoint: remote || info.endpoint,
-      mode: 'real-remote-dwn-node',
-      isolation: info.isolation,
-      spaceId: info.spaceId,
-      error: realNode.error || realNode.reason || 'Real DWN write failed.',
+      backend: 'supabase',
+      error: 'Record id is required',
       pushedAt: now
     };
   }
 
-  if (!remote || isEmbeddedSelfEndpoint(remote)) {
+  if (!ownerDid) {
     return {
-      pushed: true,
-      realNode,
-      endpoint: remote || info.endpoint,
-      mode: isEmbeddedSelfEndpoint(remote) ? 'embedded-production-dwn-direct' : info.mode,
-      isolation: info.isolation,
-      spaceId: info.spaceId,
-      cloudRoot: info.cloud?.root || dwnRoot(),
-      reason: isEmbeddedSelfEndpoint(remote) ? 'embedded-self-dwn-direct-no-http-loop' : 'persisted-in-authoritative-cloud-dwn-root',
-      permanentExpected: info.cloud?.permanentExpected,
-      mediaUrl: `${remote || ''}/api/dwn/media/read/${encodeURIComponent(info.spaceId)}/${encodeURIComponent(record.id)}`.replace(/^\/api/, '/api'),
+      pushed: false,
+      backend: 'supabase',
+      error: 'Owner DID is required',
       pushedAt: now
     };
   }
+
   try {
-    const response = await realDwn.postJson('/api/dwn/records/write', {
-      app: 'MILAN',
-      version: '49.0.0',
-      realDwnProtocol: !!p.remoteEndpoint,
-      sdkReady: !!p.remoteEndpoint,
-      appStoresUserData: false,
-      ownerDid: user?.did || record.owner,
-      userId: user?.id || '',
-      spaceId: info.spaceId,
-      record,
-      pushedAt: now
-    });
+    await ensureSupabaseTenant(ownerDid);
+
+    const payload = Buffer.from(
+      typeof record.data === 'string'
+        ? record.data
+        : JSON.stringify(record.data ?? {}),
+      'utf8'
+    );
+
+    const dataCid = `sha256:${crypto.createHash('sha256').update(payload).digest('hex')}`;
+
+    const metadata = {
+      title: record.title || '',
+      tags: Array.isArray(record.tags) ? record.tags : [],
+      accessMode: record.accessMode || 'private',
+      sharedWithDids: Array.isArray(record.sharedWithDids) ? record.sharedWithDids : [],
+      favorite: !!record.favorite,
+      dwnRecordId: record.dwnRecordId || '',
+      spaceId: info.spaceId || '',
+      interface: 'Records',
+      method: 'Write'
+    };
+
+    const { error: recordError } = await supabase
+      .from('dwn_records')
+      .upsert(
+        {
+          record_id: recordId,
+          target_did: ownerDid,
+          owner_did: ownerDid,
+          schema: String(record.schema || ''),
+          data_format: String(record.dataFormat || 'application/json'),
+          protocol: String(record.protocol || ''),
+          protocol_path: String(record.protocolPath || ''),
+          recipient: String(record.recipient || ownerDid),
+          published: !!record.published,
+          date_created: record.dateCreated || now,
+          date_modified: record.dateModified || now,
+          deleted: !!record.deleted,
+          metadata: JSON.stringify(metadata),
+          data_cid: dataCid,
+          data_size: payload.length
+        },
+        { onConflict: 'record_id' }
+      );
+
+    if (recordError) throw recordError;
+
+    const bytea = '\\x' + payload.toString('hex');
+
+    const { error: dataError } = await supabase
+      .from('dwn_record_data')
+      .upsert(
+        {
+          record_id: recordId,
+          data: bytea
+        },
+        { onConflict: 'record_id' }
+      );
+
+    if (dataError) throw dataError;
+
     return {
       pushed: true,
-      realNode,
-      endpoint: remote,
-      mode: 'real-remote-dwn-node',
-      isolation: info.isolation,
-      spaceId: info.spaceId,
-      response,
-      mediaUrl: `${remote}/api/dwn/media/read/${encodeURIComponent(info.spaceId)}/${encodeURIComponent(record.id)}`,
+      backend: 'supabase',
+      endpoint: process.env.SUPABASE_URL || '',
+      mode: 'supabase',
+      isolation: info.isolation || 'single-user',
+      spaceId: info.spaceId || '',
+      recordId,
+      dataCid,
+      dataSize: payload.length,
       pushedAt: now
     };
   } catch (err) {
+    console.error('[Supabase DWN record sync failed]', recordId, err.message);
     return {
       pushed: false,
-      endpoint: remote,
-      mode: 'real-remote-dwn-node',
-      isolation: info.isolation,
-      spaceId: info.spaceId,
+      backend: 'supabase',
+      endpoint: process.env.SUPABASE_URL || '',
+      mode: 'supabase',
+      isolation: info.isolation || 'single-user',
+      spaceId: info.spaceId || '',
       error: err.message,
       pushedAt: now
     };
   }
 }
 
-
-async function putStream(url, filePath, headers = {}) {
-  const stat = fs.statSync(filePath);
-  const res = await fetch(url, {
-    method: 'PUT',
-    headers: { ...headers, 'Content-Length': String(stat.size) },
-    body: fs.createReadStream(filePath),
-    duplex: 'half'
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `Cloud DWN media push failed: ${res.status}`);
-  return data;
-}
-
 async function pushMediaToCloudDwn(record, user, absoluteFilePath) {
   const info = getDwnInfo(user);
-  const remote = cloudRemoteBase();
   const now = new Date().toISOString();
-  if (!remote || isEmbeddedSelfEndpoint(remote) || !absoluteFilePath || !fs.existsSync(absoluteFilePath)) {
+
+  if (!absoluteFilePath || !fs.existsSync(absoluteFilePath)) {
     return {
-      pushed: !remote || isEmbeddedSelfEndpoint(remote),
-      endpoint: remote || info.endpoint,
-      mode: isEmbeddedSelfEndpoint(remote) ? 'embedded-production-dwn-direct' : (remote ? 'real-remote-dwn-node' : info.mode),
-      spaceId: info.spaceId,
-      skipped: isEmbeddedSelfEndpoint(remote) ? 'embedded-self-dwn-media-already-in-isolated-space' : (!remote ? 'no-remote-cloud-dwn-endpoint-configured' : 'media-file-missing'),
-      mediaUrl: `${remote || ''}/api/dwn/media/read/${encodeURIComponent(info.spaceId)}/${encodeURIComponent(record.id)}`.replace(/^\/api/, '/api'),
+      pushed: false,
+      backend: 'supabase',
+      spaceId: info.spaceId || '',
+      skipped: 'media-file-missing',
       pushedAt: now
     };
   }
+
+  const bucket = String(
+    process.env.SUPABASE_MEDIA_BUCKET || 'milan-dwn-storage'
+  ).trim();
+
   try {
-    const key = cloudApiKey();
-    const headers = {
-      'Content-Type': record.dataFormat || 'application/octet-stream',
-      'X-Milan-Record-Id': record.id,
-      'X-Milan-Owner-Did': user?.did || record.owner || '',
-      'X-Milan-File-Name': encodeURIComponent(record.data?.media?.fileName || `${record.id}`)
-    };
-    if (key) headers.Authorization = `Bearer ${key}`;
-    const response = await putStream(`${remote}/api/dwn/media/write/${encodeURIComponent(info.spaceId)}/${encodeURIComponent(record.id)}`, absoluteFilePath, headers);
+    const originalName = String(
+      record?.data?.media?.fileName ||
+      record?.data?.fileName ||
+      path.basename(absoluteFilePath) ||
+      record?.id ||
+      'milan-media'
+    );
+
+    const safeFileName = path.basename(originalName)
+      .replace(/[^a-zA-Z0-9._-]/g, '_')
+      .slice(0, 180) || 'milan-media';
+
+    const objectPath = [
+      safeName(info.spaceId || user?.did || 'unknown'),
+      safeName(record.id),
+      safeFileName
+    ].join('/');
+
+    const fileBuffer = fs.readFileSync(absoluteFilePath);
+
+    const { error } = await supabase.storage
+      .from(bucket)
+      .upload(objectPath, fileBuffer, {
+        upsert: true,
+        contentType: record.dataFormat || 'application/octet-stream',
+        cacheControl: '3600'
+      });
+
+    if (error) throw error;
+
+    const { data: publicData } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(objectPath);
+
     return {
       pushed: true,
-      endpoint: remote,
-      mode: 'real-remote-dwn-node',
-      spaceId: info.spaceId,
-      response,
-      mediaUrl: `${remote}/api/dwn/media/read/${encodeURIComponent(info.spaceId)}/${encodeURIComponent(record.id)}`,
+      backend: 'supabase',
+      bucket,
+      objectPath,
+      endpoint: process.env.SUPABASE_URL || '',
+      mode: 'supabase',
+      spaceId: info.spaceId || '',
+      mediaUrl: publicData?.publicUrl || '',
+      dataSize: fileBuffer.length,
       pushedAt: now
     };
   } catch (err) {
+    console.error('[Supabase media sync failed]', record?.id, err.message);
     return {
       pushed: false,
-      endpoint: remote,
-      mode: 'real-remote-dwn-node',
-      spaceId: info.spaceId,
+      backend: 'supabase',
+      bucket,
+      spaceId: info.spaceId || '',
       error: err.message,
       pushedAt: now
     };
@@ -617,41 +567,65 @@ async function pushMediaToCloudDwn(record, user, absoluteFilePath) {
 }
 
 async function provisionRemoteUserDwn(user = {}) {
-  const p = persistenceInfo();
-  if (!p.remoteEndpoint || !user || !user.did) return { ok: false, skipped: 'remote-dwn-not-configured' };
+  const did = String(user?.did || '').trim();
+  if (!did) return { ok: false, backend: 'supabase', error: 'User DID is required' };
+
   try {
-    const response = await realDwn.provisionUser(user);
-    return { ok: true, endpoint: p.remoteEndpoint, response, provisionedAt: new Date().toISOString() };
+    await ensureSupabaseTenant(did);
+    return {
+      ok: true,
+      backend: 'supabase',
+      did,
+      provisionedAt: new Date().toISOString()
+    };
   } catch (err) {
-    return { ok: false, endpoint: p.remoteEndpoint, error: err.message, provisionedAt: new Date().toISOString() };
+    return {
+      ok: false,
+      backend: 'supabase',
+      did,
+      error: err.message,
+      provisionedAt: new Date().toISOString()
+    };
   }
 }
 
 async function syncDatabaseSnapshot(name, data) {
   try {
-    const p = persistenceInfo();
-    if (!p.remoteEndpoint) {
+    const snapshotName = String(name || '').trim();
+    if (!snapshotName) {
       return {
         ok: false,
-        skipped: 'remote-dwn-not-configured',
-        error: 'REAL_DWN_NODE_ENDPOINT is not configured'
+        backend: 'supabase',
+        error: 'Snapshot name is required',
+        syncedAt: new Date().toISOString()
       };
     }
 
-    const response = await realDwn.pushDatabaseSnapshot(name, data);
+    const { error } = await supabase
+      .from('dwn_database_snapshots')
+      .upsert(
+        {
+          name: snapshotName,
+          data: data && typeof data === 'object' ? data : {},
+          pushed_at: new Date().toISOString()
+        },
+        { onConflict: 'name' }
+      );
+
+    if (error) throw error;
 
     return {
       ok: true,
-      backend: 'real-remote-dwn-node',
-      endpoint: p.remoteEndpoint,
-      response,
+      backend: 'supabase',
+      endpoint: process.env.SUPABASE_URL || '',
+      response: { name: snapshotName },
       syncedAt: new Date().toISOString()
     };
   } catch (err) {
-    console.error('[Production DWN DB sync failed]', name, err.message);
+    console.error('[Supabase DB snapshot sync failed]', name, err.message);
     return {
       ok: false,
-      backend: 'real-remote-dwn-node',
+      backend: 'supabase',
       error: err.message,
       syncedAt: new Date().toISOString()
     };
@@ -660,31 +634,39 @@ async function syncDatabaseSnapshot(name, data) {
 
 async function pullDatabaseSnapshot(name) {
   try {
-    const p = persistenceInfo();
-    if (!p.remoteEndpoint) {
+    const snapshotName = String(name || '').trim();
+    if (!snapshotName) {
       return {
         ok: false,
-        skipped: 'remote-dwn-not-configured',
-        error: 'REAL_DWN_NODE_ENDPOINT is not configured',
+        backend: 'supabase',
+        error: 'Snapshot name is required',
         data: {}
       };
     }
 
-    const data = await realDwn.pullDatabaseSnapshot(name);
+    const { data: row, error } = await supabase
+      .from('dwn_database_snapshots')
+      .select('data,pushed_at')
+      .eq('name', snapshotName)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    const snapshotData = row?.data || {};
 
     return {
       ok: true,
-      backend: 'real-remote-dwn-node',
-      endpoint: p.remoteEndpoint,
-      data: data || {},
-      missing: !data || Object.keys(data).length === 0,
-      pulledAt: new Date().toISOString()
+      backend: 'supabase',
+      endpoint: process.env.SUPABASE_URL || '',
+      data: snapshotData,
+      missing: !row,
+      pulledAt: row?.pushed_at || new Date().toISOString()
     };
   } catch (err) {
-    console.error('[Production DWN DB pull failed]', name, err.message);
+    console.error('[Supabase DB snapshot pull failed]', name, err.message);
     return {
       ok: false,
-      backend: 'real-remote-dwn-node',
+      backend: 'supabase',
       error: err.message,
       data: {}
     };
@@ -694,8 +676,39 @@ async function pullDatabaseSnapshot(name) {
 async function realUserDwnNodeStatus(user) {
   const info = getDwnInfo(user);
   if (!info.spaceId) return { ok: false, reason: 'no-space-id' };
-  ensureEngineRoot();
-  return realDwnEngine.nodeStatus({ spaceId: info.spaceId, rawSeedHex: user?.raw_seed, knownDidUri: user?.did });
+
+  try {
+    const { data: tenant, error } = await supabase
+      .from('dwn_tenants')
+      .select('did,created_at')
+      .eq('did', user?.did || '')
+      .maybeSingle();
+
+    if (error) throw error;
+
+    return {
+      ok: true,
+      backend: 'supabase',
+      mode: 'supabase',
+      nodeReady: true,
+      tenantConfigured: !!tenant,
+      did: user?.did || '',
+      spaceId: info.spaceId,
+      endpoint: info.endpoint || process.env.SUPABASE_URL || '',
+      createdAt: tenant?.created_at || null,
+      checkedAt: new Date().toISOString()
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      backend: 'supabase',
+      mode: 'supabase',
+      did: user?.did || '',
+      spaceId: info.spaceId,
+      reason: err.message,
+      checkedAt: new Date().toISOString()
+    };
+  }
 }
 
 module.exports = {
@@ -720,7 +733,5 @@ module.exports = {
   cloudApiKey,
   remoteOnlyRequired,
   isEmbeddedSelfEndpoint,
-  realDwnEngine,
-  ensureEngineRoot,
   realUserDwnNodeStatus
 };

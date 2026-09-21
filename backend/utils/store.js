@@ -126,17 +126,38 @@ function readJson(file, fallback = {}) {
   }
 }
 function remoteSyncAllowed(file) { return DB_FILES_TO_SYNC.has(path.basename(file)); }
+const databaseSnapshotSyncQueues = new Map();
 function pushDatabaseSnapshotAsync(file, data) {
   if (!remoteSyncAllowed(file)) return;
   if (global.__milanHydratingFromDwn) return;
-  try {
-    const { syncDatabaseSnapshot } = require('../services/cloudDwnRegistry');
-    const name = path.basename(file);
-    // Fire-and-forget so existing sync code stays fast. App cache is not authoritative; remote DWN snapshot is.
-    syncDatabaseSnapshot(name, data).then(result => {
-      if (result && result.ok === false && !result.skipped) console.warn('Production DWN DB sync failed:', name, result.error || result);
-    }).catch(err => console.warn('Production DWN DB sync failed:', name, err.message));
-  } catch (err) { console.warn('Production DWN DB sync unavailable:', err.message); }
+
+  const name = path.basename(file);
+  const previous = databaseSnapshotSyncQueues.get(name) || Promise.resolve();
+
+  const current = previous
+    .catch(() => {})
+    .then(async () => {
+      try {
+        const { syncDatabaseSnapshot } = require('../services/cloudDwnRegistry');
+        const result = await syncDatabaseSnapshot(name, data);
+
+        if (result && result.ok === false && !result.skipped) {
+          console.warn(
+            'Production DWN DB sync failed:',
+            name,
+            result.error || result
+          );
+        }
+      } catch (err) {
+        console.warn(
+          'Production DWN DB sync unavailable:',
+          name,
+          err.message
+        );
+      }
+    });
+
+  databaseSnapshotSyncQueues.set(name, current);
 }
 function writeJson(file, data) {
   const cleanData = cleanByFileName(file, data);
@@ -164,7 +185,63 @@ function normalizePulledSnapshot(pulled) {
   data = unwrapDwnSnapshotValue(data);
   return { ok: true, data };
 }
-async function hydrateFilesFromRealDwn(files = []) {
+function mergeRecordIndexSnapshots(localData, remoteData) {
+  const local =
+    localData &&
+    typeof localData === 'object' &&
+    !Array.isArray(localData)
+      ? localData
+      : {};
+
+  const remote =
+    remoteData &&
+    typeof remoteData === 'object' &&
+    !Array.isArray(remoteData)
+      ? remoteData
+      : {};
+
+  const merged = { ...remote };
+
+  for (const [userId, localList] of Object.entries(local)) {
+    if (!Array.isArray(localList)) continue;
+
+    const remoteList = Array.isArray(merged[userId])
+      ? merged[userId]
+      : [];
+
+    const byId = new Map();
+
+    for (const record of [...remoteList, ...localList]) {
+      if (!record || typeof record !== 'object' || !record.id) continue;
+
+      const previous = byId.get(record.id);
+
+      if (!previous) {
+        byId.set(record.id, record);
+        continue;
+      }
+
+      const currentTime =
+        Date.parse(record.dateModified || record.dateCreated || '') || 0;
+
+      const previousTime =
+        Date.parse(previous.dateModified || previous.dateCreated || '') || 0;
+
+      if (currentTime >= previousTime) {
+        byId.set(record.id, record);
+      }
+    }
+
+    merged[userId] = [...byId.values()].sort((a, b) => {
+      const at = Date.parse(a.dateModified || a.dateCreated || '') || 0;
+      const bt = Date.parse(b.dateModified || b.dateCreated || '') || 0;
+      return bt - at;
+    });
+  }
+
+  return merged;
+}
+async function hydrateFilesFromSupabase(files = []) {
   const unique = [...new Set(files.filter(Boolean))];
   const results = [];
   try {
@@ -187,11 +264,38 @@ async function hydrateFilesFromRealDwn(files = []) {
           continue;
         }
         ensureFile(file, Array.isArray(normalized.data) ? [] : {});
-        const current = fs.existsSync(file) ? fs.readFileSync(file, 'utf8').trim() : '';
-        const currentEmpty = !current || current === '{}' || current === '[]';
-        // Always hydrate core user/database files from DWN on Render startup; remote is authoritative.
-        atomicWriteJson(file, normalized.data);
-        results.push({ name, hydrated: true, wasEmpty: currentEmpty, source: 'production-dwn-node' });
+        const current = fs.existsSync(file)
+          ? fs.readFileSync(file, 'utf8').trim()
+          : '';
+
+        const currentEmpty =
+          !current || current === '{}' || current === '[]';
+
+        let hydratedData = normalized.data;
+
+        if (name === 'APP_RECORD_INDEX.json' && !currentEmpty) {
+          let localData = {};
+          try {
+            localData = JSON.parse(current);
+          } catch (_) {}
+
+          hydratedData = mergeRecordIndexSnapshots(
+            localData,
+            normalized.data
+          );
+        }
+
+        atomicWriteJson(file, hydratedData);
+
+        results.push({
+          name,
+          hydrated: true,
+          wasEmpty: currentEmpty,
+          source:
+            name === 'APP_RECORD_INDEX.json'
+              ? 'production-dwn-node-merged'
+              : 'production-dwn-node'
+        });
       } else {
         results.push({ name, hydrated: false, reason: normalized.error || 'not-found' });
       }
@@ -203,4 +307,4 @@ async function hydrateFilesFromRealDwn(files = []) {
 function findUserById(users, userId) { for (const [email, user] of Object.entries(users || {})) if (user.id === userId) return { email, user }; return null; }
 function findUserByDid(users, did) { for (const [email, user] of Object.entries(users || {})) if (user.did === did) return { email, user }; return null; }
 function addActivity(userId, action, details = {}) { const file = global.activityFile; const all = readJson(file, {}); if (!Array.isArray(all[userId])) all[userId] = []; all[userId].unshift({ id: `${Date.now()}-${Math.random().toString(16).slice(2)}`, action, details, at: new Date().toISOString() }); all[userId] = all[userId].slice(0, 150); writeJson(file, all); }
-module.exports = { ensureFile, readJson, writeJson, writeJsonAndSync, atomicWriteJson, normalizePulledSnapshot, unwrapDwnSnapshotValue, cleanUsersDb, repairUsersFile, findUserById, findUserByDid, addActivity, hydrateFilesFromRealDwn };
+module.exports = { ensureFile, readJson, writeJson, writeJsonAndSync, atomicWriteJson, normalizePulledSnapshot, unwrapDwnSnapshotValue, cleanUsersDb, repairUsersFile, findUserById, findUserByDid, addActivity, hydrateFilesFromSupabase };
