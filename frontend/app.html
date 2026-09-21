@@ -17,16 +17,34 @@
 </script>
 
 <script id="milan-cache-clean">
-(async()=>{try{
-if("serviceWorker" in navigator){
-  const regs=await navigator.serviceWorker.getRegistrations();
-  for(const r of regs) await r.unregister();
-}
-if("caches" in window){
-  const keys=await caches.keys();
-  for(const k of keys) await caches.delete(k);
-}
-}catch(e){console.warn("[MILAN] cache cleanup skipped",e);}})();
+(() => {
+  const run = async () => {
+    try {
+      if ("serviceWorker" in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for (const r of regs) await r.unregister();
+      }
+      if ("caches" in window) {
+        const keys = await caches.keys();
+        for (const k of keys) await caches.delete(k);
+      }
+    } catch (e) {
+      console.warn("[MILAN] deferred cache cleanup skipped:", e);
+    }
+  };
+  const schedule = () => {
+    if ("requestIdleCallback" in window) {
+      requestIdleCallback(run, { timeout: 10000 });
+    } else {
+      setTimeout(run, 10000);
+    }
+  };
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => setTimeout(schedule, 3000), { once: true });
+  } else {
+    setTimeout(schedule, 3000);
+  }
+})();
 </script>
 
 
@@ -52,254 +70,6 @@ if("caches" in window){
 @media(max-width:380px){.quickStats{gap:4px!important}.quickStat{padding:11px 2px!important}.quickStat .k{font-size:7px!important;letter-spacing:.02em!important}.quickStat .v{font-size:17px!important}}
 </style>  <link rel="stylesheet" href="/assets/css/milan-frontend-refresh-20260907.css">
 <meta name="robots" content="noindex,follow,max-image-preview:large">
-</head>
-<body>
-<div class="app">
-<header class="topbar">
-  <div class="brand">
-    <div class="brand-logo" role="link" tabindex="0" title="Home"><img class="brand-logo-img" src="/assets/milan-logo-circle.png" alt="Milan Home"></div>
-    <div class="brand-text"><div class="brand-text-inner"><div><strong>Milan</strong><span>Your Space. Your People.</span></div></div></div>
-  </div>
-  <div class="search"><input id="globalSearch" type="search" placeholder="Search people, posts, tags..."></div>
-  <div class="top-actions">
-    <button id="logoutBtn" type="button" class="icon-btn" title="Logout">↪</button>
-    <button class="icon-btn" title="Chat">💬</button>
-    <button class="icon-btn" title="Music">🎵</button>
-    <button class="icon-btn" title="Theme">◐</button>
-    <button class="icon-btn" title="Notifications">🔔</button>
-  </div>
-</header>
-<main class="layout">
-<aside class="sidebar card">
-  <div class="profile">
-    <label class="milan-avatar-upload" for="editProfilePhoto">
-      <div class="avatar" id="myAvatar">M</div><span class="milan-avatar-upload-icon">📷</span>
-      <input id="editProfilePhoto" type="file" accept="image/*" hidden>
-      <img id="editProfilePhotoPreview" alt="Profile photo">
-    </label>
-    <h2 id="myName"></h2><p id="myEmail"></p>
-    <span id="myDid" class="milan-data-bridge" aria-hidden="true"></span>
-    <span id="myDwn" class="milan-data-bridge" aria-hidden="true"></span>
-    <span id="privacyScore" class="milan-data-bridge" aria-hidden="true"></span>
-    <span id="privacyBar" class="milan-data-bridge" aria-hidden="true"></span>
-    <div class="profile-stats"><div class="profile-stat"><b id="peopleCount">0</b><span>People</span></div><div class="profile-stat"><b id="postCount">0</b><span>Posts</span></div><div class="profile-stat"><b id="notifCount">0</b><span>Alerts</span></div></div>
-  </div>
-  <nav class="nav">
-    <button class="active">🏠 Home Feed</button><button>👤 My Posts</button><button>🌍 Public Feed</button><button>🔖 Saved</button>
-    <button>💬 Messages</button><button>🎵 Music</button><button>🔔 Notifications</button>
-    <button id="editProfileBtn" type="button">⚙ Edit Profile</button><button>🛡 Privacy</button><button class="accent">🤖 MILAN AI</button>
-  </nav>
-</aside>
-<section>
-  <div class="composer card">
-    <div class="composer-row"><div class="mini-avatar" id="composerAvatar">M</div><textarea id="postText" placeholder="What's happening in your space?"></textarea></div>
-    <div class="composer-bottom"><div class="composer-tools"><button class="tool">🖼</button><button class="tool">📎</button><button class="tool">😊</button><button class="tool">🔒</button></div><button class="publish" id="publishBtn">Publish</button></div>
-  </div>
-
-  <section id="milanHomeFeed" class="milan-home-feed" aria-live="polite">
-    <div class="milan-feed-header">
-      <div>
-        <strong>Home Feed</strong>
-        <span>Your latest posts</span>
-      </div>
-      <button id="milanFeedRefresh" type="button">↻ Refresh</button>
-    </div>
-    <div id="milanFeedList"></div>
-  </section>
-</section>
-<aside class="rightbar">
-  <div class="right-card card" id="peopleConnectCard">
-    <h3>People to connect</h3>
-    <div id="peopleConnectList" class="empty">No suggestions yet.</div>
-  </div>
-  <div class="right-card card" id="recentActivityCard">
-    <h3>Recent activity</h3>
-    <div id="recentActivityList" class="empty">No recent activity yet.</div>
-  </div></div></div>
-</aside>
-</main>
-</div>
-
-
-
-
-<script src="/milan-creative-mode.js" defer></script>
-<script src="/assets/js/milan-creative-bridge.js" defer></script>
-<script src="/milan-mobile.js" defer></script>
-<script src="/milan-polish.js" defer></script>
-<script src="/assets/js/milan-ui-actions.js?v=dp-final-20260907" defer></script>
-<script src="/assets/js/app-page-actions.js?v=dp-live-fix-20260918-1" defer></script>
-<script src="/assets/js/milan-dwn-connection.js?v=dwn-connection-20260908-always-connected-v2" defer></script>
-<script src="/assets/js/milan-web5-motion.js" defer></script>
-<script src="/assets/js/milan-did-ring.js" defer></script>
-<script src="/assets/js/milan-identity-status.js" defer></script>
-<script src="/assets/js/milan-identity-intelligence.js?v=dwn-always-connected-20260908" defer></script>
-<script src="/assets/js/milan-identity-status-sync.js" defer></script>
-
-<script>
-(() => {
-  function forceDwnConnected() {
-    const d = document.getElementById("myDwn");
-    if (d && d.textContent !== "Connected") d.textContent = "Connected";
-
-    document.querySelectorAll(".milan-identity-status-chip.dwn .value").forEach(el => {
-      if (el.textContent !== "Connected") el.textContent = "Connected";
-    });
-
-    document.querySelectorAll(".milan-identity-status-chip.dwn").forEach(el => {
-      el.classList.remove("resolving","unavailable","reconnecting","disconnected");
-      el.classList.add("connected");
-    });
-
-    document.querySelectorAll(
-      ".milan-dwn-live .state, .milan-identity-cockpit .storage"
-    ).forEach(el => {
-      if (el.textContent !== "Connected") el.textContent = "Connected";
-    });
-
-    document.querySelectorAll(".milan-profile-proof .dwn").forEach(el => {
-      el.title = "DWN Connected";
-    });
-  }
-
-  forceDwnConnected();
-
-  new MutationObserver(forceDwnConnected).observe(document.body, {
-    childList: true,
-    subtree: true,
-    characterData: true
-  });
-
-  setInterval(forceDwnConnected, 10000);
-})();
-</script>
-
-
-
-<script>
-(() => {
-  let syncing = false;
-
-  async function syncPersistentIdentity() {
-    if (syncing) return;
-
-    const token =
-      localStorage.getItem("milan_token") ||
-      localStorage.getItem("milanToken") ||
-      "";
-
-    if (!token) return;
-
-    syncing = true;
-
-    try {
-      const headers = {
-        Authorization: "Bearer " + token,
-        Accept: "application/json",
-        "Cache-Control": "no-cache"
-      };
-
-      const [profileResponse, meResponse] = await Promise.all([
-        fetch("/api/profile", {
-          method: "GET",
-          cache: "no-store",
-          headers
-        }),
-        fetch("/api/auth/me", {
-          method: "GET",
-          cache: "no-store",
-          headers
-        })
-      ]);
-
-      if (!profileResponse.ok) return;
-
-      const profile = await profileResponse.json().catch(() => ({}));
-      const me = meResponse.ok
-        ? await meResponse.json().catch(() => ({}))
-        : {};
-
-      const user =
-        me?.user ||
-        me?.data?.user ||
-        me?.data ||
-        me ||
-        {};
-
-      const avatar = String(profile?.avatar || "").trim();
-
-      const did = String(
-        user?.did ||
-        profile?.did ||
-        me?.did ||
-        ""
-      ).trim();
-
-      if (avatar) {
-        window.__milanPersistentAvatar = avatar;
-
-        try {
-          localStorage.setItem("milanAvatar", avatar);
-        } catch {}
-
-        document.querySelectorAll(
-          "#myAvatar, #composerAvatar, .milan-identity-avatar"
-        ).forEach(el => {
-          const current =
-            el.querySelector("img")?.getAttribute("src") || "";
-
-          if (current !== avatar) {
-            const img = document.createElement("img");
-            img.src = avatar;
-            img.alt = "Profile photo";
-            img.loading = "eager";
-            img.decoding = "async";
-            el.replaceChildren(img);
-            el.dataset.avatarSynced = "1";
-          }
-        });
-      }
-
-      if (did) {
-        const didEl = document.getElementById("myDid");
-        if (didEl && didEl.textContent.trim() !== did) {
-          didEl.textContent = did;
-        }
-
-        document.querySelectorAll(
-          ".milan-identity-cockpit .did-value, .milan-did-chip .value"
-        ).forEach(el => {
-          if (!el.textContent.trim() || /resolving/i.test(el.textContent)) {
-            el.textContent = did;
-          }
-        });
-      }
-
-      document.querySelectorAll(
-        ".milan-identity-status-chip.dwn .value,
-         .milan-identity-cockpit .storage"
-      ).forEach(el => {
-        el.textContent = "Connected";
-      });
-    } catch (error) {
-      console.warn(
-        "[MILAN] persistent identity sync failed:",
-        error?.message || error
-      );
-    } finally {
-      syncing = false;
-    }
-  }
-
-  window.__milanSyncPersistentIdentity = syncPersistentIdentity;
-
-  setTimeout(syncPersistentIdentity, 1200);
-  setInterval(syncPersistentIdentity, 15000);
-})();
-</script>
-
-</body>
-</html>
 
 <style>
 /* MILAN HOME UI V2 */
@@ -531,47 +301,6 @@ body{
   }
 }
 </style>
-
-<script>
-document.addEventListener("DOMContentLoaded",()=>{
-  const center=document.querySelector(".centerRail") || document.querySelector("main.layout > section") || document.querySelector(".main");
-  if(!center || document.getElementById("milanHomeIntro")) return;
-
-  const wrap=document.createElement("div");
-  wrap.id="milanHomeIntro";
-  wrap.innerHTML=`
-    <div class="heroIntro">
-      <div>
-        <h1>Welcome back to MILAN</h1>
-        <p>Your people, your data, your space.</p>
-      </div>
-    </div>
-    <div class="quickStats">
-      <div class="quickStat"><div class="k">People</div><div class="v" id="uiPeopleCount">0</div></div>
-      <div class="quickStat"><div class="k">Visible posts</div><div class="v" id="uiPostCount">0</div></div>
-      <div class="quickStat"><div class="k">Privacy</div><div class="v" id="uiPrivacyScore">—</div></div>
-    </div>
-  `;
-
-  center.prepend(wrap);
-
-  const sync=()=>{
-    const p=document.getElementById("peopleCount");
-    const posts=document.getElementById("postCount");
-    const privacy=document.getElementById("privacyScore");
-    const a=document.getElementById("uiPeopleCount");
-    const b=document.getElementById("uiPostCount");
-    const c=document.getElementById("uiPrivacyScore");
-    if(a && p) a.textContent=p.textContent;
-    if(b && posts) b.textContent=posts.textContent;
-    if(c && privacy) c.textContent=privacy.textContent || "—";
-  };
-
-  sync();
-  setInterval(sync,1500);
-});
-</script>
-
 <style>
 /* MILAN CONTROL CENTER */
 #milanControlFab{
@@ -1140,6 +869,298 @@ body{
 }
 
 </style>
+</head>
+<body>
+<div class="app">
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-logo" role="link" tabindex="0" title="Home"><img class="brand-logo-img" src="/assets/milan-logo-circle.png" alt="Milan Home"></div>
+    <div class="brand-text"><div class="brand-text-inner"><div><strong>Milan</strong><span>Your Space. Your People.</span></div></div></div>
+  </div>
+  <div class="search"><input id="globalSearch" type="search" placeholder="Search people, posts, tags..."></div>
+  <div class="top-actions">
+    <button id="logoutBtn" type="button" class="icon-btn" title="Logout">↪</button>
+    <button class="icon-btn" title="Chat">💬</button>
+    <button class="icon-btn" title="Music">🎵</button>
+    <button class="icon-btn" title="Theme">◐</button>
+    <button class="icon-btn" title="Notifications">🔔</button>
+  </div>
+</header>
+<main class="layout">
+<aside class="sidebar card">
+  <div class="profile">
+    <label class="milan-avatar-upload" for="editProfilePhoto">
+      <div class="avatar" id="myAvatar">M</div><span class="milan-avatar-upload-icon">📷</span>
+      <input id="editProfilePhoto" type="file" accept="image/*" hidden>
+      <img id="editProfilePhotoPreview" alt="Profile photo">
+    </label>
+    <h2 id="myName"></h2><p id="myEmail"></p>
+    <span id="myDid" class="milan-data-bridge" aria-hidden="true"></span>
+    <span id="myDwn" class="milan-data-bridge" aria-hidden="true"></span>
+    <span id="privacyScore" class="milan-data-bridge" aria-hidden="true"></span>
+    <span id="privacyBar" class="milan-data-bridge" aria-hidden="true"></span>
+    <div class="profile-stats"><div class="profile-stat"><b id="peopleCount">0</b><span>People</span></div><div class="profile-stat"><b id="postCount">0</b><span>Posts</span></div><div class="profile-stat"><b id="notifCount">0</b><span>Alerts</span></div></div>
+  </div>
+  <nav class="nav">
+    <button class="active">🏠 Home Feed</button><button>👤 My Posts</button><button>🌍 Public Feed</button><button>🔖 Saved</button>
+    <button>💬 Messages</button><button>🎵 Music</button><button>🔔 Notifications</button>
+    <button id="editProfileBtn" type="button">⚙ Edit Profile</button><button>🛡 Privacy</button><button class="accent">🤖 MILAN AI</button>
+  </nav>
+</aside>
+<section>
+  <div class="composer card">
+    <div class="composer-row"><div class="mini-avatar" id="composerAvatar">M</div><textarea id="postText" placeholder="What's happening in your space?"></textarea></div>
+    <div class="composer-bottom"><div class="composer-tools"><button class="tool">🖼</button><button class="tool">📎</button><button class="tool">😊</button><button class="tool">🔒</button></div><button class="publish" id="publishBtn">Publish</button></div>
+  </div>
+
+  <section id="milanHomeFeed" class="milan-home-feed" aria-live="polite">
+    <div class="milan-feed-header">
+      <div>
+        <strong>Home Feed</strong>
+        <span>Your latest posts</span>
+      </div>
+      <button id="milanFeedRefresh" type="button">↻ Refresh</button>
+    </div>
+    <div id="milanFeedList"></div>
+  </section>
+</section>
+<aside class="rightbar">
+  <div class="right-card card" id="peopleConnectCard">
+    <h3>People to connect</h3>
+    <div id="peopleConnectList" class="empty">No suggestions yet.</div>
+  </div>
+  <div class="right-card card" id="recentActivityCard">
+    <h3>Recent activity</h3>
+    <div id="recentActivityList" class="empty">No recent activity yet.</div>
+  </div></div></div>
+</aside>
+</main>
+</div>
+
+
+
+
+<script src="/milan-creative-mode.js" defer></script>
+<script src="/assets/js/milan-creative-bridge.js" defer></script>
+<script src="/milan-mobile.js" defer></script>
+<script src="/milan-polish.js" defer></script>
+<script src="/assets/js/milan-ui-actions.js?v=dp-final-20260907" defer></script>
+<script src="/assets/js/app-page-actions.js?v=dp-live-fix-20260918-1" defer></script>
+<script src="/assets/js/milan-dwn-connection.js?v=dwn-connection-20260908-always-connected-v2" defer></script>
+<script src="/assets/js/milan-web5-motion.js" defer></script>
+<script src="/assets/js/milan-did-ring.js" defer></script>
+<script src="/assets/js/milan-identity-status.js" defer></script>
+<script src="/assets/js/milan-identity-intelligence.js?v=dwn-always-connected-20260908" defer></script>
+<script src="/assets/js/milan-identity-status-sync.js" defer></script>
+
+<script>
+(() => {
+  function forceDwnConnected() {
+    const d = document.getElementById("myDwn");
+    if (d && d.textContent !== "Connected") d.textContent = "Connected";
+
+    document.querySelectorAll(".milan-identity-status-chip.dwn .value").forEach(el => {
+      if (el.textContent !== "Connected") el.textContent = "Connected";
+    });
+
+    document.querySelectorAll(".milan-identity-status-chip.dwn").forEach(el => {
+      el.classList.remove("resolving","unavailable","reconnecting","disconnected");
+      el.classList.add("connected");
+    });
+
+    document.querySelectorAll(
+      ".milan-dwn-live .state, .milan-identity-cockpit .storage"
+    ).forEach(el => {
+      if (el.textContent !== "Connected") el.textContent = "Connected";
+    });
+
+    document.querySelectorAll(".milan-profile-proof .dwn").forEach(el => {
+      el.title = "DWN Connected";
+    });
+  }
+
+  forceDwnConnected();
+
+  new MutationObserver(forceDwnConnected).observe(document.body, {
+    childList: true,
+    subtree: true,
+    characterData: true
+  });
+
+  setInterval(forceDwnConnected, 10000);
+})();
+</script>
+
+
+
+<script>
+(() => {
+  let syncing = false;
+
+  async function syncPersistentIdentity() {
+    if (syncing) return;
+
+    const token =
+      localStorage.getItem("milan_token") ||
+      localStorage.getItem("milanToken") ||
+      "";
+
+    if (!token) return;
+
+    syncing = true;
+
+    try {
+      const headers = {
+        Authorization: "Bearer " + token,
+        Accept: "application/json",
+        "Cache-Control": "no-cache"
+      };
+
+      const [profileResponse, meResponse] = await Promise.all([
+        fetch("/api/profile", {
+          method: "GET",
+          cache: "no-store",
+          headers
+        }),
+        fetch("/api/auth/me", {
+          method: "GET",
+          cache: "no-store",
+          headers
+        })
+      ]);
+
+      if (!profileResponse.ok) return;
+
+      const profile = await profileResponse.json().catch(() => ({}));
+      const me = meResponse.ok
+        ? await meResponse.json().catch(() => ({}))
+        : {};
+
+      const user =
+        me?.user ||
+        me?.data?.user ||
+        me?.data ||
+        me ||
+        {};
+
+      const avatar = String(profile?.avatar || "").trim();
+
+      const did = String(
+        user?.did ||
+        profile?.did ||
+        me?.did ||
+        ""
+      ).trim();
+
+      if (avatar) {
+        window.__milanPersistentAvatar = avatar;
+
+        try {
+          localStorage.setItem("milanAvatar", avatar);
+        } catch {}
+
+        document.querySelectorAll(
+          "#myAvatar, #composerAvatar, .milan-identity-avatar"
+        ).forEach(el => {
+          const current =
+            el.querySelector("img")?.getAttribute("src") || "";
+
+          if (current !== avatar) {
+            const img = document.createElement("img");
+            img.src = avatar;
+            img.alt = "Profile photo";
+            img.loading = "eager";
+            img.decoding = "async";
+            el.replaceChildren(img);
+            el.dataset.avatarSynced = "1";
+          }
+        });
+      }
+
+      if (did) {
+        const didEl = document.getElementById("myDid");
+        if (didEl && didEl.textContent.trim() !== did) {
+          didEl.textContent = did;
+        }
+
+        document.querySelectorAll(
+          ".milan-identity-cockpit .did-value, .milan-did-chip .value"
+        ).forEach(el => {
+          if (!el.textContent.trim() || /resolving/i.test(el.textContent)) {
+            el.textContent = did;
+          }
+        });
+      }
+
+      document.querySelectorAll(
+        ".milan-identity-status-chip.dwn .value,
+         .milan-identity-cockpit .storage"
+      ).forEach(el => {
+        el.textContent = "Connected";
+      });
+    } catch (error) {
+      console.warn(
+        "[MILAN] persistent identity sync failed:",
+        error?.message || error
+      );
+    } finally {
+      syncing = false;
+    }
+  }
+
+  window.__milanSyncPersistentIdentity = syncPersistentIdentity;
+
+  setTimeout(syncPersistentIdentity, 1200);
+  setInterval(syncPersistentIdentity, 15000);
+})();
+</script>
+
+</body>
+</html>
+
+
+
+<script>
+document.addEventListener("DOMContentLoaded",()=>{
+  const center=document.querySelector(".centerRail") || document.querySelector("main.layout > section") || document.querySelector(".main");
+  if(!center || document.getElementById("milanHomeIntro")) return;
+
+  const wrap=document.createElement("div");
+  wrap.id="milanHomeIntro";
+  wrap.innerHTML=`
+    <div class="heroIntro">
+      <div>
+        <h1>Welcome back to MILAN</h1>
+        <p>Your people, your data, your space.</p>
+      </div>
+    </div>
+    <div class="quickStats">
+      <div class="quickStat"><div class="k">People</div><div class="v" id="uiPeopleCount">0</div></div>
+      <div class="quickStat"><div class="k">Visible posts</div><div class="v" id="uiPostCount">0</div></div>
+      <div class="quickStat"><div class="k">Privacy</div><div class="v" id="uiPrivacyScore">—</div></div>
+    </div>
+  `;
+
+  center.prepend(wrap);
+
+  const sync=()=>{
+    const p=document.getElementById("peopleCount");
+    const posts=document.getElementById("postCount");
+    const privacy=document.getElementById("privacyScore");
+    const a=document.getElementById("uiPeopleCount");
+    const b=document.getElementById("uiPostCount");
+    const c=document.getElementById("uiPrivacyScore");
+    if(a && p) a.textContent=p.textContent;
+    if(b && posts) b.textContent=posts.textContent;
+    if(c && privacy) c.textContent=privacy.textContent || "—";
+  };
+
+  sync();
+  setInterval(sync,1500);
+});
+</script>
+
+
 
 <script>
 (function(){
