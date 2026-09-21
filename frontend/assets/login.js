@@ -89,6 +89,27 @@ async function loginWithID3() {
     setToken(result.token);
     window.location.replace("/app.html?login=" + Date.now());
   } catch (error) {
+    if (error?.status === 409) {
+      localStorage.setItem("milanID3SetupPending", "1");
+      setActiveTab("login");
+
+      const remembered = localStorage.getItem("milanLastAuthEmail") || localStorage.getItem("rememberedEmail") || "";
+      const loginEmail = document.getElementById("loginEmail");
+      if (loginEmail && remembered) loginEmail.value = remembered;
+
+      const loginPass = document.getElementById("loginPass");
+      if (loginPass) {
+        loginPass.value = "";
+        loginPass.focus();
+      }
+
+      showMessage(
+        "Sign in with your password once to enable ID3 on this device.",
+        false
+      );
+      return;
+    }
+
     showMessage(error?.message || String(error) || "ID3 login failed.", true);
   }
 }
@@ -138,6 +159,7 @@ function bind() {
       registerBtn.textContent = "Creating account...";
       try {
         await registerUser(name, email, password);
+        localStorage.setItem("milanLastAuthEmail", email);
 
         // Fast registration: account is saved in Supabase, then
         // immediately switch the user to the Login tab.
@@ -172,8 +194,22 @@ function bind() {
       loginBtn.textContent = "Logging in...";
       try {
         const data = await loginUser(email, password);
+        localStorage.setItem("milanLastAuthEmail", email);
         if (!data.token) throw new Error("No token received.");
         setToken(data.token);
+
+        if (localStorage.getItem("milanID3SetupPending") === "1") {
+          localStorage.removeItem("milanID3SetupPending");
+
+          const status = await authenticatedJson("/api/did/passkey/status");
+          if (status?.registered) {
+            window.location.replace("/app.html?login=" + Date.now());
+          } else {
+            await registerID3();
+          }
+          return;
+        }
+
         window.location.replace("/app.html?login=" + Date.now());
       } catch (error) {
         clearToken();
