@@ -2,22 +2,6 @@
   "outputDirectory": "frontend",
   "rewrites": [
     {
-      "source": "/api/auth/:action",
-      "destination": "https://milan-api-4n3n.onrender.com/api/auth/:action"
-    },
-    {
-      "source": "/api/profile",
-      "destination": "https://milan-api-4n3n.onrender.com/api/profile"
-    },
-    {
-      "source": "/api/cloud-dwn/:path*",
-      "destination": "https://milan-api-4n3n.onrender.com/api/cloud-dwn/:path*"
-    },
-    {
-      "source": "/api/dwn/:path*",
-      "destination": "https://milan-api-4n3n.onrender.com/api/dwn/:path*"
-    },
-    {
       "source": "/api/music/suggest",
       "destination": "/api/music/suggest"
     },
@@ -28,6 +12,10 @@
     {
       "source": "/api/music/:path*",
       "destination": "/api/music/:path*"
+    },
+    {
+      "source": "/api/auth/login",
+      "destination": "/api/auth/login.js"
     },
     {
       "source": "/api/:path*",
