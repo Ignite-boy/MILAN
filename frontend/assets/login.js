@@ -191,9 +191,22 @@ async function registerID3() {
         );
 
     if (!getToken()) {
+        const loginTab = document.querySelector('[data-auth="login"]');
+        if (loginTab) loginTab.click();
+
+        const regEmail = document.getElementById("regEmail")?.value?.trim().toLowerCase() || "";
+        const loginEmail = document.getElementById("loginEmail");
+        if (loginEmail && regEmail) loginEmail.value = regEmail;
+
+        const loginPass = document.getElementById("loginPass");
+        if (loginPass) {
+            loginPass.value = "";
+            loginPass.focus();
+        }
+
         showMessage(
-            "Sign in once with your password to enable ID3 on this device.",
-            true
+            "Sign in with your password first, then enable ID3 on this device.",
+            false
         );
         return;
     }
