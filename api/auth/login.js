@@ -2,12 +2,6 @@
 
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
-const { createClient } = require('@supabase/supabase-js');
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-);
 
 function base64Url(value) {
   return Buffer.from(value).toString('base64url');
@@ -52,19 +46,35 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'Email and password required' });
     }
 
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('id,email,password_hash,name,did')
-      .eq('email', email)
-      .maybeSingle();
+    const supabaseUrl = String(process.env.SUPABASE_URL || '').replace(/\/$/, '');
+    const serviceKey = String(process.env.SUPABASE_SERVICE_KEY || '');
 
-    if (error) {
+    if (!supabaseUrl || !serviceKey) {
+      return res.status(500).json({ error: 'Account database unavailable' });
+    }
+
+    const query = new URL('/rest/v1/users', supabaseUrl);
+    query.searchParams.set('select', 'id,email,password_hash,name,did');
+    query.searchParams.set('email', `eq.${email}`);
+    query.searchParams.set('limit', '1');
+
+    const dbResponse = await fetch(query, {
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+        Accept: 'application/json'
+      }
+    });
+
+    const rows = await dbResponse.json().catch(() => []);
+
+    if (!dbResponse.ok) {
       return res.status(500).json({
-        error: 'Account database unavailable',
-        details: error.message,
-        code: error.code
+        error: 'Account database unavailable'
       });
     }
+
+    const user = Array.isArray(rows) ? rows[0] : null;
 
     if (!user || !user.password_hash) {
       return res.status(401).json({ error: 'Invalid credentials' });
