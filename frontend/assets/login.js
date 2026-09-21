@@ -52,6 +52,19 @@ async function api(path, options = {}) {
   return data;
 }
 
+async function authenticatedJson(path, options = {}) {
+  const token = getToken();
+  if (!token) throw new Error("Password login required.");
+
+  return api(path, {
+    ...options,
+    headers: {
+      ...(options.headers || {}),
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
 async function registerUser(name, email, password) {
   return api("/auth/register", {
     method: "POST",
