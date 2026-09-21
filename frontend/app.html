@@ -869,6 +869,356 @@ body{
 }
 
 </style>
+
+<!-- MILAN-ROUND2-SOCIAL-UI -->
+<style id="milan-round2-social-ui">
+/* =========================================================
+   MILAN ROUND 2 — premium social UI + stable rendering
+   ========================================================= */
+
+:root{
+  --m2-page: #f5f7fb;
+  --m2-surface: rgba(255,255,255,.94);
+  --m2-surface-solid: #ffffff;
+  --m2-text: #18212f;
+  --m2-muted: #6f7b8d;
+  --m2-border: rgba(21,32,51,.09);
+  --m2-shadow: 0 10px 35px rgba(22,34,55,.07);
+  --m2-shadow-hover: 0 16px 45px rgba(22,34,55,.11);
+  --m2-radius: 20px;
+  --m2-radius-sm: 14px;
+  --m2-max: 1440px;
+}
+
+html{
+  scroll-behavior:smooth;
+  text-rendering:optimizeLegibility;
+  -webkit-text-size-adjust:100%;
+}
+
+body{
+  background:
+    radial-gradient(circle at 50% -10%,rgba(102,126,234,.08),transparent 34%),
+    var(--m2-page);
+  color:var(--m2-text);
+  -webkit-font-smoothing:antialiased;
+}
+
+*,
+*::before,
+*::after{
+  box-sizing:border-box;
+}
+
+img,
+video{
+  max-width:100%;
+}
+
+button,
+input,
+textarea,
+select{
+  font:inherit;
+}
+
+/* ---------- Stable app shell ---------- */
+
+#appView{
+  min-height:100vh;
+  contain:layout style;
+}
+
+#feed{
+  min-height:320px;
+  contain:content;
+}
+
+#feed > *{
+  overflow-anchor:auto;
+}
+
+.post,
+.card,
+.feed-card,
+[class*="post-card"],
+[class*="feed-card"]{
+  contain:content;
+  content-visibility:auto;
+  contain-intrinsic-size:280px;
+}
+
+/* ---------- Top navigation ---------- */
+
+.topbar,
+.top-bar,
+.navbar{
+  position:sticky;
+  top:0;
+  z-index:1000;
+  backdrop-filter:saturate(150%) blur(16px);
+  -webkit-backdrop-filter:saturate(150%) blur(16px);
+  border-bottom:1px solid var(--m2-border);
+  background:rgba(255,255,255,.82);
+}
+
+.topbar > *,
+.top-bar > *,
+.navbar > *{
+  min-width:0;
+}
+
+.brand{
+  font-weight:850;
+  letter-spacing:-.03em;
+}
+
+.icon-btn,
+button{
+  -webkit-tap-highlight-color:transparent;
+}
+
+.icon-btn{
+  border-radius:14px;
+  transition:transform .16s ease,background .16s ease,box-shadow .16s ease;
+}
+
+.icon-btn:hover{
+  transform:translateY(-1px);
+  box-shadow:0 6px 18px rgba(22,34,55,.08);
+}
+
+/* ---------- Main content ---------- */
+
+main,
+.main,
+.app-main,
+.content{
+  width:min(100%,var(--m2-max));
+  margin-inline:auto;
+}
+
+#appView{
+  padding-bottom:40px;
+}
+
+#feed{
+  width:min(100%,760px);
+  margin-inline:auto;
+}
+
+.post,
+.card,
+.feed-card,
+[class*="post-card"]{
+  background:var(--m2-surface);
+  border:1px solid var(--m2-border);
+  border-radius:var(--m2-radius);
+  box-shadow:var(--m2-shadow);
+  margin-block:14px;
+  overflow:hidden;
+  transition:box-shadow .18s ease,transform .18s ease,border-color .18s ease;
+}
+
+.post:hover,
+.card:hover,
+.feed-card:hover,
+[class*="post-card"]:hover{
+  box-shadow:var(--m2-shadow-hover);
+}
+
+.post img,
+.post video,
+.card img,
+.card video,
+.feed-card img,
+.feed-card video{
+  display:block;
+}
+
+.avatar,
+.avatar img,
+.milan-avatar{
+  flex:0 0 auto;
+}
+
+.avatar img,
+.milan-avatar img{
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+
+/* ---------- Inputs / composer ---------- */
+
+input,
+textarea,
+select{
+  border-radius:14px;
+  border:1px solid var(--m2-border);
+  background:var(--m2-surface-solid);
+  min-height:44px;
+  outline:none;
+  transition:border-color .16s ease,box-shadow .16s ease,background .16s ease;
+}
+
+textarea{
+  min-height:96px;
+  resize:vertical;
+}
+
+input:focus,
+textarea:focus,
+select:focus{
+  border-color:rgba(92,107,192,.4);
+  box-shadow:0 0 0 4px rgba(92,107,192,.10);
+}
+
+/* ---------- Media ---------- */
+
+.media,
+.post .media,
+.fileCard{
+  background:#eef1f6;
+}
+
+.post video,
+.post .media img,
+.post .media video{
+  width:100%;
+  object-fit:cover;
+  content-visibility:auto;
+}
+
+video{
+  background:#111827;
+}
+
+/* Prevent tiny late-loading avatars/media from causing jumps */
+.avatar img,
+.milan-avatar img{
+  aspect-ratio:1;
+  object-fit:cover;
+}
+
+/* ---------- Buttons ---------- */
+
+button{
+  border-radius:13px;
+  transition:transform .14s ease,box-shadow .14s ease,opacity .14s ease;
+}
+
+button:active{
+  transform:translateY(1px) scale(.985);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible{
+  outline:3px solid rgba(92,107,192,.22);
+  outline-offset:2px;
+}
+
+/* ---------- Empty/loading states ---------- */
+
+.empty{
+  min-height:120px;
+  display:grid;
+  place-items:center;
+  text-align:center;
+  color:var(--m2-muted);
+}
+
+.empty,
+.loading,
+.skeleton{
+  overflow-anchor:none;
+}
+
+/* ---------- Native smoothness ---------- */
+
+@media (prefers-reduced-motion: reduce){
+  html{
+    scroll-behavior:auto;
+  }
+
+  *,
+  *::before,
+  *::after{
+    animation-duration:.01ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.01ms !important;
+  }
+}
+
+@media (max-width: 1100px){
+  :root{
+    --m2-radius:18px;
+  }
+}
+
+@media (max-width: 760px){
+  body{
+    background:#f3f5f9;
+  }
+
+  #appView{
+    padding-bottom:76px;
+  }
+
+  #feed{
+    width:100%;
+  }
+
+  .post,
+  .card,
+  .feed-card,
+  [class*="post-card"]{
+    border-radius:16px;
+    margin-block:10px;
+    box-shadow:0 6px 22px rgba(22,34,55,.055);
+  }
+
+  .topbar,
+  .top-bar,
+  .navbar{
+    backdrop-filter:saturate(145%) blur(13px);
+    -webkit-backdrop-filter:saturate(145%) blur(13px);
+  }
+
+  input,
+  textarea,
+  select,
+  button{
+    min-height:46px;
+  }
+}
+
+@media (min-width: 1200px){
+  #appView{
+    max-width:var(--m2-max);
+    margin-inline:auto;
+  }
+}
+
+/* Keep large decorative layers from becoming first-paint blockers */
+[class*="particle"],
+[class*="visual-bg"],
+[class*="background-effect"]{
+  pointer-events:none;
+}
+
+/* Avoid accidental horizontal scrolling on phones */
+html,
+body{
+  max-width:100%;
+  overflow-x:hidden;
+}
+</style>
+
 </head>
 <body>
 <div class="app">
