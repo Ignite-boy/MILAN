@@ -1219,6 +1219,236 @@ body{
 }
 </style>
 
+
+<style id="milan-desktop-feed-scroll-fix">
+/* =========================================================
+   MILAN — DESKTOP SOCIAL APP SCROLL MODEL
+   Header fixed | Left/Right rails fixed | Center feed scrolls
+   Mobile/tablet remain normal document scroll.
+   ========================================================= */
+
+@media (min-width:1001px) and (hover:hover){
+
+  :root{
+    --milan-desktop-header:72px;
+  }
+
+  html,
+  body{
+    height:100%;
+    max-height:100%;
+  }
+
+  body.milan-app-visible{
+    overflow:hidden !important;
+  }
+
+  body.milan-app-visible .app{
+    height:100dvh !important;
+    max-height:100dvh !important;
+    min-height:0 !important;
+    overflow:hidden !important;
+  }
+
+  body.milan-app-visible #appView{
+    height:calc(100dvh - var(--milan-desktop-header)) !important;
+    min-height:0 !important;
+    max-height:calc(100dvh - var(--milan-desktop-header)) !important;
+    overflow:hidden !important;
+    padding-bottom:0 !important;
+  }
+
+  /* Header never participates in document scrolling */
+  body.milan-app-visible .topbar{
+    position:fixed !important;
+    top:0 !important;
+    left:0 !important;
+    right:0 !important;
+    width:100% !important;
+    height:var(--milan-desktop-header) !important;
+    z-index:3000 !important;
+  }
+
+  /* Fixed 3-column application frame */
+  body.milan-app-visible .layout{
+    position:fixed !important;
+    top:var(--milan-desktop-header) !important;
+    left:0 !important;
+    right:0 !important;
+    bottom:0 !important;
+
+    width:100% !important;
+    max-width:none !important;
+    height:auto !important;
+    min-height:0 !important;
+
+    margin:0 !important;
+    padding:16px 18px 18px !important;
+
+    display:grid !important;
+    grid-template-columns:
+      minmax(240px,280px)
+      minmax(0,1fr)
+      minmax(260px,310px) !important;
+
+    gap:18px !important;
+    align-items:stretch !important;
+
+    overflow:hidden !important;
+  }
+
+  /*
+   * Rails stay visually fixed because their parent frame is fixed.
+   * Their own content may scroll independently when necessary.
+   */
+  body.milan-app-visible .leftRail,
+  body.milan-app-visible .rightRail{
+    min-width:0 !important;
+    min-height:0 !important;
+    height:100% !important;
+    max-height:100% !important;
+
+    overflow-x:hidden !important;
+    overflow-y:auto !important;
+
+    overscroll-behavior:contain !important;
+    scrollbar-gutter:stable !important;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  /*
+   * CENTER COLUMN = only main social stream scroll surface.
+   */
+  body.milan-app-visible .centerRail{
+    min-width:0 !important;
+    min-height:0 !important;
+    height:100% !important;
+    max-height:100% !important;
+
+    overflow-x:hidden !important;
+    overflow-y:auto !important;
+
+    overscroll-behavior:contain !important;
+    scrollbar-gutter:stable !important;
+    -webkit-overflow-scrolling:touch;
+
+    padding-right:4px !important;
+    padding-bottom:24px !important;
+  }
+
+  /* Feed itself should NOT create a second nested scrollbar */
+  body.milan-app-visible .centerRail #feed,
+  body.milan-app-visible .centerRail .feed{
+    width:100% !important;
+    min-height:0 !important;
+    overflow:visible !important;
+  }
+
+  /* Center content width */
+  body.milan-app-visible .centerRail > *{
+    min-width:0;
+  }
+
+  /*
+   * Filter/tab rows remain visible while center feed moves.
+   * The JS below adds the class to the actual filter row.
+   */
+  body.milan-app-visible .milan-sticky-filter-bar,
+  body.milan-app-visible #milan-feed-tabs,
+  body.milan-app-visible .milan-feed-tabs,
+  body.milan-app-visible .milan-filter-chips{
+    position:sticky !important;
+    top:0 !important;
+    z-index:120 !important;
+
+    background:rgba(245,247,251,.94) !important;
+    backdrop-filter:saturate(150%) blur(14px);
+    -webkit-backdrop-filter:saturate(150%) blur(14px);
+
+    padding-top:4px !important;
+    padding-bottom:7px !important;
+  }
+
+  /* Keep feed cards from becoming horizontal overflow sources */
+  body.milan-app-visible .post,
+  body.milan-app-visible .card,
+  body.milan-app-visible .feed-card{
+    max-width:100% !important;
+  }
+}
+
+@media (max-width:1000px){
+  html,
+  body{
+    height:auto;
+    max-height:none;
+  }
+
+  body.milan-app-visible,
+  body.milan-app-visible .app,
+  body.milan-app-visible #appView{
+    overflow-x:hidden !important;
+    overflow-y:auto !important;
+    height:auto !important;
+    max-height:none !important;
+  }
+
+  body.milan-app-visible .topbar,
+  body.milan-app-visible .layout,
+  body.milan-app-visible .leftRail,
+  body.milan-app-visible .rightRail,
+  body.milan-app-visible .centerRail{
+    position:relative !important;
+    height:auto !important;
+    max-height:none !important;
+  }
+
+  body.milan-app-visible .centerRail{
+    overflow:visible !important;
+  }
+}
+</style>
+
+<script>
+(function(){
+  "use strict";
+  const markFilterRow = () => {
+    const a = document.getElementById("filterAccess");
+    const b = document.getElementById("filterType");
+    if(!a && !b) return;
+
+    const preferred = [
+      ".filters",
+      ".filter-bar",
+      ".feed-toolbar",
+      ".feedToolbar",
+      ".toolbar",
+      ".toolbar-row"
+    ];
+
+    let row = null;
+
+    for(const sel of preferred){
+      const base = (a || b).closest(sel);
+      if(base && (!b || base.contains(b))){
+        row = base;
+        break;
+      }
+    }
+
+    if(!row) row = a?.parentElement || b?.parentElement;
+    if(row) row.classList.add("milan-sticky-filter-bar");
+  };
+
+  if(document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded",markFilterRow,{once:true});
+  }else{
+    markFilterRow();
+  }
+})();
+</script>
+<!-- MILAN-DESKTOP-FEED-SCROLL-FIX -->
+
 </head>
 <body>
 <div class="app">
