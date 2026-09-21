@@ -140,10 +140,6 @@ function pushDatabaseSnapshotAsync(file, data) {
 }
 function writeJson(file, data) {
   const cleanData = cleanByFileName(file, data);
-  if (process.env.VERCEL) {
-    pushDatabaseSnapshotAsync(file, cleanData);
-    return;
-  }
   ensureFile(file, Array.isArray(data) ? [] : {});
   atomicWriteJson(file, cleanData);
   pushDatabaseSnapshotAsync(file, cleanData);
