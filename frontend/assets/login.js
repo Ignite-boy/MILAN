@@ -1,10 +1,7 @@
 /* MILAN login/register — production auth client */
 "use strict";
 
-// The public site is on Vercel, while the authoritative auth API is on
-// milan-api. Calling it directly prevents stale Vercel rewrites from sending
-// auth traffic to an older backend deployment.
-const API_BASE = "https://milan-api-4n3n.onrender.com/api";
+const API_BASE = "/api";
 
 function getToken() {
   try { return String(localStorage.getItem("milan_token") || "").trim(); }
@@ -142,15 +139,10 @@ function bind() {
       try {
         await registerUser(name, email, password);
 
-        // Registration is complete. Sign the user in immediately so
-        // "Sign with ID3" can create their first passkey without asking
-        // for the password again.
-        const loginData = await loginUser(email, password);
-        if (!loginData.token) {
-          throw new Error("Account created, but automatic sign-in failed.");
-        }
-
-        setToken(loginData.token);
+        // Fast registration: account is saved in Supabase, then
+        // immediately switch the user to the Login tab.
+        const loginTab = document.querySelector('[data-auth="login"]');
+        if (loginTab) loginTab.click();
 
         const loginEmail = document.getElementById("loginEmail");
         if (loginEmail) loginEmail.value = email;
@@ -158,10 +150,7 @@ function bind() {
         const loginPass = document.getElementById("loginPass");
         if (loginPass) loginPass.value = "";
 
-        showMessage(
-          "✅ Account created. Your ID3 passkey is ready to be set up.",
-          false
-        );
+        showMessage("✅ Account created. Please login.", false);
       } catch (error) {
         showMessage(error?.message || String(error) || "Registration failed.", true);
       } finally {

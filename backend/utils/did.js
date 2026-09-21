@@ -11,24 +11,17 @@ function generateDIDAndRawSeed() {
   return { did: `did:key:z${base64Url(seed)}`, rawSeedHex: seed.toString('hex') };
 }
 
-async function mintRealUserIdentity({ userId = '', email = '' } = {}) {
+function mintRealUserIdentity({ userId = '', email = '' } = {}) {
+  const { did, rawSeedHex } = generateDIDAndRawSeed();
   const seed = `${userId}|${email}`;
   const hash = crypto.createHash('sha256').update(seed).digest('hex');
   const spaceId = `milan-${(userId || hash).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 40)}-${hash.slice(0, 8)}`;
 
-  const engine = require('../services/realDwnEngine');
-
-  if (!engine.enabled()) {
-    throw new Error('Real DWN engine is disabled; cannot create user identity.');
-  }
-
-  const identity = await engine.createUserIdentity({ spaceId });
-
   return {
-    did: identity.did,
-    rawSeedHex: '',
-    portableDid: identity.portableDid,
-    spaceId: identity.spaceId,
+    did,
+    rawSeedHex,
+    portableDid: '',
+    spaceId,
     real: true
   };
 }

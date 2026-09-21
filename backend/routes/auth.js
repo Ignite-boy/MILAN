@@ -6,10 +6,9 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const uuidv4 = () => crypto.randomUUID();
 const { generateDIDAndRawSeed, mintRealUserIdentity } = require('../utils/did');
-const { realDwnEngine } = require('../services/realDwnEngine');
 const totp = require('../utils/totp');
 const { readJson, writeJson, writeJsonAndSync, addActivity, normalizePulledSnapshot, cleanUsersDb, repairUsersFile } = require('../utils/store');
-const { assignDwnEndpoint, ensureUserDwn, getDwnInfo, provisionRemoteUserDwn, pullDatabaseSnapshot, ensureEngineRoot } = require('../services/cloudDwnRegistry');
+const { assignDwnEndpoint, ensureUserDwn, getDwnInfo, provisionRemoteUserDwn, pullDatabaseSnapshot } = require('../services/cloudDwnRegistry');
 const auth = require('../middleware/auth');
 const { sendWelcomeEmail, sendVerificationEmail, sendPasswordResetEmail, sendLoginAlertEmail } = require('../services/mailService');
 const { createClient } = require('@supabase/supabase-js');
@@ -152,24 +151,10 @@ router.post('/register', authThrottle(10, 60_000), asyncRoute(async (req, res) =
   const id = uuidv4();
   const displayName = name || email.split('@')[0];
 
-  // Real DWN identity + password hash + one authoritative Supabase INSERT.
-  // Lock the canonical DWN storage root before creating the user's identity/node.
-  ensureEngineRoot();
+  // Create the user's cryptographic identity and persist the account in Supabase.
   const passwordHashPromise = bcrypt.hash(password, 10);
   const identity = await mintRealUserIdentity({ userId: id, email });
   const { did, spaceId, portableDid } = identity;
-
-  // Registration-time guarantee: create/open exactly one dedicated DWN node
-  // for this user immediately and bind it to the persisted identity.
-  const openedDwn = await realDwnEngine.openNode({
-    spaceId,
-    knownDidUri: did,
-    portableDid
-  });
-
-  if (!openedDwn?.ok) {
-    throw new Error(`Dedicated DWN provisioning failed: ${openedDwn?.reason || 'node-open-failed'}`);
-  }
 
   const passwordHash = await passwordHashPromise;
 
@@ -198,58 +183,8 @@ router.post('/register', authThrottle(10, 60_000), asyncRoute(async (req, res) =
 
   console.log('[auth] account created in Supabase:', email, id);
 
-  // CRITICAL: keep the local user index in sync with the real DWN identity.
-  // Supabase is authoritative for login, while users.json carries the
-  // per-user isolated DWN space metadata required by profile persistence.
-  try {
-    const currentUsers = readJson(global.usersFile, {});
-    currentUsers[email] = {
-      ...(currentUsers[email] || {}),
-      id,
-      email,
-      name: displayName,
-      did,
-      portableDid,
-      dwn: {
-        ...((currentUsers[email] || {}).dwn || {}),
-        assignedAt: new Date().toISOString(),
-        spaceId,
-        endpoint: `${process.env.REAL_DWN_NODE_ENDPOINT || 'https://dwn.onrender.com'}/api/isolated-dwn/${spaceId}`,
-        dwnEndpoint: `${process.env.REAL_DWN_NODE_ENDPOINT || 'https://dwn.onrender.com'}/api/isolated-dwn/${spaceId}`,
-        mode: 'production-remote-dwn',
-        isolation: 'single-user',
-        realDwnConfigured: true,
-        realCloudConfigured: true,
-        realDwnProtocol: true,
-        remoteOnly: true
-      },
-      dwnEndpoint: `${process.env.REAL_DWN_NODE_ENDPOINT || 'https://dwn.onrender.com'}/api/isolated-dwn/${spaceId}`,
-      settings: {
-        ...((currentUsers[email] || {}).settings || {}),
-        dwnSpaceId: spaceId,
-        dwnEndpoint: `${process.env.REAL_DWN_NODE_ENDPOINT || 'https://dwn.onrender.com'}/api/isolated-dwn/${spaceId}`,
-        dwnIsolation: 'single-user',
-        dwnMode: 'production-remote-dwn'
-      },
-      profile: {
-        ...((currentUsers[email] || {}).profile || {}),
-        avatar: '',
-        avatarRecordId: `profile-picture:${did}`,
-        avatarSync: 'missing'
-      }
-    };
-
-    await persistUsersAuthoritatively(currentUsers);
-
-    console.log('[auth] local DWN user provisioned:', email, spaceId);
-  } catch (localProvisionError) {
-    console.error('[auth] local DWN user provision failed:', localProvisionError.message);
-    return res.status(500).json({
-      error: 'DWN user provisioning failed',
-      details: localProvisionError.message
-    });
-  }
-
+  // Fast registration: Supabase is the authoritative user store.
+  // Do not block registration on legacy DWN/users.json provisioning.
   return res.status(201).json({
     message: 'Registered successfully',
     id,
