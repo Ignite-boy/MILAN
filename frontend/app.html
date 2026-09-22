@@ -1724,7 +1724,27 @@ body{
 </style>
 <!-- MILAN-INDEPENDENT-3-COLUMN-SCROLL -->
 
-</head>
+<style id="milan-left-menu-scroll-fix">
+@media (min-width:1001px){
+  .layout > .sidebar{
+    position:sticky !important;
+    top:88px !important;
+    height:calc(100dvh - 104px) !important;
+    max-height:calc(100dvh - 104px) !important;
+    overflow-x:hidden !important;
+    overflow-y:auto !important;
+    overscroll-behavior:contain !important;
+    scrollbar-gutter:stable !important;
+  }
+  .layout > .sidebar::-webkit-scrollbar{width:7px}
+  .layout > .sidebar::-webkit-scrollbar-track{background:transparent}
+  .layout > .sidebar::-webkit-scrollbar-thumb{
+    background:rgba(148,163,184,.35);
+    border-radius:999px;
+  }
+}
+</style>
+<style id="milan-left-menu-final">@media (min-width:1001px){.layout>.leftRail{position:sticky!important;top:88px!important;height:calc(100dvh - 104px)!important;max-height:calc(100dvh - 104px)!important;min-height:0!important;display:flex!important;flex-direction:column!important;overflow:hidden!important}.layout>.leftRail .profile{flex:0 0 auto!important}.layout>.leftRail .nav{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;scrollbar-gutter:stable!important}.layout>.leftRail .nav::-webkit-scrollbar{width:7px}.layout>.leftRail .nav::-webkit-scrollbar-thumb{background:rgba(148,163,184,.35);border-radius:999px}}</style>\n</head>
 <body>
 <div class="app">
 <header class="topbar">
@@ -1742,7 +1762,7 @@ body{
   </div>
 </header>
 <main class="layout">
-<aside class="sidebar card">
+<aside class="leftRail sidebar card">
   <div class="profile">
     <label class="milan-avatar-upload" for="editProfilePhoto">
       <div class="avatar" id="myAvatar">M</div><span class="milan-avatar-upload-icon">📷</span>
