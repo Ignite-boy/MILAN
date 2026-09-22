@@ -1,6 +1,6 @@
 const express = require('express');
 const auth = require('../middleware/auth');
-const { readJson, findUserById, findUserByDid } = require('../utils/store');
+const { getAuthoritativeUserByDid } = require('../services/authoritativeUser');
 const dwnStore = require('../services/dwnService');
 const { ensureUserDwn, getDwnInfo, storageRootFor, realUserDwnNodeStatus } = require('../services/cloudDwnRegistry');
 const fs = require('fs');
@@ -9,7 +9,21 @@ const path = require('path');
 const router = express.Router();
 
 function current(req) {
-  return findUserById(readJson(global.usersFile, {}), req.userId);
+  const account = req.account;
+  if (!account) return null;
+
+  return {
+    email: account.email,
+    user: {
+      ...account,
+      dwn: {
+        spaceId: account.spaceId
+      },
+      settings: {
+        dwnSpaceId: account.spaceId
+      }
+    }
+  };
 }
 
 router.get('/my-server', auth, async (req, res) => {
@@ -43,13 +57,45 @@ router.get('/:spaceId/status', auth, (req, res) => {
   res.json({ ok: true, isolation: dwn.isolation, spaceId: dwn.spaceId, endpoint: dwn.endpoint, ownerDid: found.user.did });
 });
 
-router.get('/resolve-owner/:did', auth, (req, res) => {
-  const did = decodeURIComponent(req.params.did || '');
-  const found = findUserByDid(readJson(global.usersFile, {}), did);
-  if (!found) return res.status(404).json({ exists: false, error: 'DID not found locally' });
-  ensureUserDwn(found.user, found.email);
-  const info = getDwnInfo(found.user);
-  res.json({ exists: true, did, display_name: found.user.profile?.display_name || '', dwn: { endpoint: info.endpoint, mode: info.mode, isolation: info.isolation, spaceId: info.spaceId } });
+router.get('/resolve-owner/:did', auth, async (req, res) => {
+  const did = decodeURIComponent(req.params.did || '').trim();
+
+  try {
+    const account = await getAuthoritativeUserByDid(did);
+    if (!account) {
+      return res.status(404).json({ exists: false, error: 'DID not found' });
+    }
+
+    const found = {
+      email: account.email,
+      user: {
+        ...account,
+        dwn: { spaceId: account.spaceId },
+        settings: { dwnSpaceId: account.spaceId }
+      }
+    };
+
+    ensureUserDwn(found.user, found.email);
+    const info = getDwnInfo(found.user);
+
+    res.json({
+      exists: true,
+      did: account.did,
+      display_name: account.name || '',
+      dwn: {
+        endpoint: info.endpoint,
+        mode: info.mode,
+        isolation: info.isolation,
+        spaceId: account.spaceId
+      }
+    });
+  } catch (err) {
+    res.status(503).json({
+      exists: false,
+      error: err.message,
+      code: 'authoritative_mapping_unavailable'
+    });
+  }
 });
 
 module.exports = router;

@@ -165,7 +165,10 @@ router.post('/register', authThrottle(10, 60_000), asyncRoute(async (req, res) =
       email,
       password_hash: passwordHash,
       name: displayName,
-      did
+      did,
+      space_id: spaceId,
+      portable_did: portableDid || null,
+      dwn_quota_bytes: 1073741824
     });
 
   if (insertError) {
@@ -199,19 +202,32 @@ router.post('/register', authThrottle(10, 60_000), asyncRoute(async (req, res) =
 router.post('/login', authThrottle(15, 60_000), asyncRoute(async (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase(); const password = String(req.body.password || '');
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
-  const { data: user, error: lookupError } = await supabaseDb.from('users').select('id,email,password_hash,name,did').eq('email', email).maybeSingle();
+  const { data: user, error: lookupError } = await supabaseDb.from('users').select('id,email,password_hash,name,did,space_id,portable_did,dwn_quota_bytes').eq('email', email).maybeSingle();
   if (lookupError) return res.status(500).json({ error: 'Account database unavailable', details: lookupError.message, code: lookupError.code });
   if (!user) return res.status(401).json({ error: 'Invalid credentials' });
   if (!user.password_hash) return res.status(401).json({ error: 'Invalid credentials' });
   if (!(await bcrypt.compare(password, user.password_hash))) return res.status(401).json({ error: 'Invalid credentials' });
   const token = jwt.sign({ userId: user.id, email: user.email }, secret(), { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
-  return res.json({ token, id: user.id, email: user.email, name: user.name, did: user.did, profile: {}, settings: {}, emailVerified: true, twoFactorEnabled: false });
+  return res.json({
+    token,
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    did: user.did,
+    spaceId: user.space_id,
+    portableDid: user.portable_did || '',
+    dwnQuotaBytes: Number(user.dwn_quota_bytes || 1073741824),
+    profile: {},
+    settings: {},
+    emailVerified: true,
+    twoFactorEnabled: false
+  });
 }));
 
 router.get('/me', auth, asyncRoute(async (req, res) => {
   const { data: dbUser, error } = await supabaseDb
     .from('users')
-    .select('id,email,name,did')
+    .select('id,email,name,did,space_id,portable_did,dwn_quota_bytes')
     .eq('id', req.userId)
     .maybeSingle();
 
@@ -233,6 +249,9 @@ router.get('/me', auth, asyncRoute(async (req, res) => {
     email: dbUser.email,
     name: dbUser.name,
     did: dbUser.did,
+    spaceId: dbUser.space_id,
+    portableDid: dbUser.portable_did || '',
+    dwnQuotaBytes: Number(dbUser.dwn_quota_bytes || 1073741824),
     profile: {},
     settings: {},
     emailVerified: true,
