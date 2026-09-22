@@ -1105,6 +1105,19 @@
        FEED CARD
        ========================================================= */
 
+    if (!$('milan-delete-record-css')) {
+        const style = document.createElement('style');
+        style.id = 'milan-delete-record-css';
+        style.textContent = `            .milan-delete-record{
+                color:#fca5a5 !important;
+                border-color:rgba(248,113,113,.20) !important;
+                background:rgba(248,113,113,.07) !important;
+            }
+`;
+        document.head.appendChild(style);
+    }
+
+
     function feedCard(record) {
         const id = escapeHtml(getRecordId(record));
         const text = escapeHtml(getRecordText(record))
@@ -1172,6 +1185,12 @@
                             data-feed-action="save">
                         🔖 Save
                     </button>
+
+                    <button type="button"
+                            data-feed-action="delete"
+                            class="milan-delete-record">
+                        🗑 Delete
+                    </button>
                 </div>
             </article>
         `;
@@ -1187,6 +1206,92 @@
                         button.onclick = () => {
                             const action =
                                 button.dataset.feedAction;
+
+                            if (action === "delete") {
+                                const recordId =
+                                    card.dataset.recordId || "";
+
+                                if (!recordId) return;
+
+                                if (!confirm(
+                                    "Delete this record permanently from DWN?"
+                                )) {
+                                    return;
+                                }
+
+                                const auth = getToken();
+                                if (!auth) return;
+
+                                button.disabled = true;
+                                button.textContent = "Deleting…";
+
+                                try {
+                                    const response = await fetch(
+                                        "/api/records/" +
+                                        encodeURIComponent(recordId),
+                                        {
+                                            method: "DELETE",
+                                            headers: {
+                                                "Authorization":
+                                                    "Bearer " + auth,
+                                                "Accept":
+                                                    "application/json"
+                                            },
+                                            cache: "no-store"
+                                        }
+                                    );
+
+                                    const payload =
+                                        await response.json().catch(
+                                            () => ({})
+                                        );
+
+                                    if (!response.ok) {
+                                        throw new Error(
+                                            payload.error ||
+                                            "Permanent DWN deletion failed."
+                                        );
+                                    }
+
+                                    state.pendingPosts.delete(recordId);
+
+                                    if (state.feedRecords) {
+                                        state.feedRecords.delete(recordId);
+                                    }
+
+                                    card.remove();
+
+                                    const list =
+                                        $("milanFeedList");
+
+                                    if (
+                                        list &&
+                                        !list.querySelector(
+                                            ".milan-feed-card"
+                                        )
+                                    ) {
+                                        list.innerHTML = `
+                                            <div class="milan-feed-empty">
+                                                No posts yet. Write your first quote above.
+                                            </div>
+                                        `;
+                                    }
+
+                                    showPublishStatus(
+                                        "Record permanently deleted from DWN."
+                                    );
+                                } catch (error) {
+                                    button.disabled = false;
+                                    button.textContent = "🗑 Delete";
+                                    showPublishStatus(
+                                        error.message ||
+                                        "Delete failed.",
+                                        true
+                                    );
+                                }
+
+                                return;
+                            }
 
                             if (action === "like") {
                                 button.classList.toggle("active");

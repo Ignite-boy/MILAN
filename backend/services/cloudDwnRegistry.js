@@ -3,6 +3,8 @@ const fs = require('fs');
 const path = require('path');
 const { supabase } = require('../utils/dwnStorage');
 
+const deletedRecordIds = new Set();
+
 // MILAN SUPABASE STORAGE RULE:
 // 1 user = 1 DID = 1 isolated Supabase space.
 // Supabase is authoritative for user snapshots, records, and media.
@@ -374,11 +376,53 @@ async function ensureSupabaseTenant(did) {
   return tenantDid;
 }
 
+async function deleteRecordFromCloudDwn(recordId, ownerDid = '') {
+  const id = String(recordId || '').trim();
+  if (!id) throw new Error('Record id is required for permanent DWN deletion.');
+
+  deletedRecordIds.add(id);
+
+  try {
+    const { error: dataError } = await supabase
+      .from('dwn_record_data')
+      .delete()
+      .eq('record_id', id);
+
+    if (dataError) throw dataError;
+
+    let query = supabase
+      .from('dwn_records')
+      .delete()
+      .eq('record_id', id);
+
+    if (ownerDid) query = query.eq('owner_did', String(ownerDid));
+
+    const { error: recordError } = await query;
+
+    if (recordError) throw recordError;
+
+    return {
+      deleted: true,
+      permanent: true,
+      backend: 'supabase',
+      recordId: id,
+      deletedAt: new Date().toISOString()
+    };
+  } catch (err) {
+    deletedRecordIds.delete(id);
+    throw err;
+  }
+}
+
 async function pushRecordToCloudDwn(record, user) {
   const info = getDwnInfo(user);
   const now = new Date().toISOString();
   const ownerDid = String(user?.did || record?.owner || '').trim();
   const recordId = String(record?.id || '').trim();
+
+  if (deletedRecordIds.has(recordId)) {
+    return { pushed: false, backend: 'supabase', recordId, skipped: 'permanently-deleted' };
+  }
 
   if (!recordId) {
     return {
@@ -721,6 +765,7 @@ module.exports = {
   getDwnInfo,
   makeDidDwnService,
   pushRecordToCloudDwn,
+  deleteRecordFromCloudDwn,
   pushMediaToCloudDwn,
   provisionIsolatedDwn,
   dwnRoot,

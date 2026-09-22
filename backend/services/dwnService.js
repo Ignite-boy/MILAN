@@ -4,8 +4,7 @@ const crypto = require('crypto');
 const uuidv4 = () => crypto.randomUUID();
 const { readJson, writeJson, findUserByDid } = require('../utils/store');
 const { BROWSER_SAFE_MEDIA, detectMimeFromFile, extForMime, categoryForMime, normalizeUploadedMedia } = require('../utils/mediaCompat');
-const { getDwnInfo, pushRecordToCloudDwn, pushMediaToCloudDwn, storageRootFor, dwnRoot, databaseRoot, isolatedRoot, persistenceInfo, cloudRemoteBase, isEmbeddedSelfEndpoint } = require('./cloudDwnRegistry');
-const realDwn = require('./realDwnNodeClient');
+const { getDwnInfo, pushRecordToCloudDwn, deleteRecordFromCloudDwn, pushMediaToCloudDwn, storageRootFor, dwnRoot, databaseRoot, isolatedRoot, persistenceInfo, cloudRemoteBase, isEmbeddedSelfEndpoint } = require('./cloudDwnRegistry');
 
 const ACCESS = ['private', 'public', 'shared_did'];
 const MAX_TEXT_BYTES = Number(process.env.MAX_RECORD_TEXT_BYTES || 10 * 1024 * 1024);
@@ -21,15 +20,7 @@ const AUDIT_DIR = path.join(DWN_DIR, 'audit');
 const MEDIA_DIR = path.join(DWN_DIR, 'media'); // legacy media cache only
 const ISOLATED_USERS_DIR = isolatedRoot();
 
-function realDwnReadyOrThrow() {
-  const p = persistenceInfo();
-  if (p.remoteOnly && !p.remoteEndpoint) {
-    const err = new Error('REAL_DWN_NODE_ENDPOINT missing. V49 is real-DWN-node-only: Render stores app files/cache only and will not accept user data until a real DWN node endpoint is configured.');
-    err.status = 503;
-    throw err;
-  }
-}
-function isRemoteOnlyMode() { return realDwn.remoteOnly() === true || persistenceInfo().remoteOnly === true; }
+function isRemoteOnlyMode() { return false; }
 
 let dwnInstance = null;
 const mediaProcessingQueue = new Set();
@@ -82,7 +73,7 @@ function readIndex() {
 
 function writeIndex(data) {
   // APP_RECORD_INDEX is part of authoritative DWN database snapshots.
-  // This lets Render app rebuild the feed after sleep/restart.
+  // This lets the app rebuild the feed after restart.
   writeJson(INDEX_FILE, data);
 }
 
@@ -304,7 +295,7 @@ function toClient(record, did, options = {}) {
     canManageAccess: baseRecord.owner === did,
     storage: 'DWN',
     storageProof: {
-      engine: 'real-dwn-node-remote-only',
+      engine: 'supabase',
       sdkReady: dwnInitStatus.sdkReady,
       dwnEndpoint: baseRecord.dwnEndpoint || dwnInfoForDid(baseRecord.owner).endpoint,
       dwnMode: baseRecord.dwnMode || dwnInfoForDid(baseRecord.owner).mode,
@@ -442,7 +433,6 @@ async function initDwn() {
   repairIndexFromRecordFiles();
 
   // V49 production DWN: users are assigned a remote production DWN node space.
-  // Local app dwn-data remains only temporary cache/staging; authoritative data/media is pushed to REAL_DWN_NODE_ENDPOINT.
   dwnInstance = {
     type: 'production-dwn-node-remote-only-cache',
     directory: DWN_DIR,
@@ -478,12 +468,11 @@ function getStatus() {
       maxTextBytes: MAX_TEXT_BYTES
     },
     cloud: persistenceInfo(),
-    note: 'MILAN V49 production DWN mode. Render app stores files/cache only; authoritative records/media/database snapshots go to REAL_DWN_NODE_ENDPOINT.'
+    note: 'MILAN Supabase mode. Supabase is authoritative for user snapshots, records, and media; local files are compatibility/cache storage.'
   };
 }
 
 async function createRecord(userId, ownerDid, body = {}) {
-  realDwnReadyOrThrow();
   validatePayload(body);
   const data = body.data;
   if (data === undefined || data === null || String(typeof data === 'object' ? JSON.stringify(data) : data).trim() === '') {
@@ -700,7 +689,6 @@ function scheduleMediaBackgroundProcessing(userId, ownerDid, recordId, reason = 
 
 
 async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) {
-  realDwnReadyOrThrow();
   if (!tempPath || !fs.existsSync(tempPath)) {
     const err = new Error('Uploaded file was not received.');
     err.status = 400;
@@ -873,7 +861,7 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
   const embeddedMediaMode = !!(mediaSync && (mediaSync.skipped === 'embedded-self-dwn-media-already-in-isolated-space' || mediaSync.mode === 'embedded-production-dwn-direct'));
   if (isRemoteOnlyMode() && mediaSync.pushed && !embeddedMediaMode) {
     record.mediaRemoteOnly = true;
-    record.mediaRemoteUrl = mediaSync.mediaUrl || realDwn.mediaUrl(record.dwnSpaceId, record.id);
+    record.mediaRemoteUrl = mediaSync.mediaUrl || '';
     record.data.media.remoteOnly = true;
     record.data.media.mediaUrl = `/api/records/${encodeURIComponent(record.id)}/media`;
     record.data.media.downloadUrl = `/api/records/${encodeURIComponent(record.id)}/media?download=1`;
@@ -883,7 +871,6 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
     record.mediaReadyAt = new Date().toISOString();
     await markCloudSync(record, ownerDid);
   } else if (embeddedMediaMode) {
-    // V49: embedded one-command Render app should stream the normalized local MP4 directly.
     // Marking it remote-only makes the browser hit an internal/self DWN URL path and was the
     // main reason uploaded WhatsApp MP4 files could show 0:00 / not playable after upload.
     delete record.mediaRemoteOnly;
@@ -1236,11 +1223,24 @@ async function unshareRecord(userId, did, id, targetDid) {
 
 async function deleteRecord(userId, id) {
   const { all, list } = ownerRecordsRaw(userId);
+  const record = list.find(x => x.id === id);
+  if (!record) return false;
+
+  // Permanent deletion: remove the authoritative Supabase/DWN rows first.
+  // Local cache is removed only after cloud deletion succeeds.
+  await deleteRecordFromCloudDwn(record.id, record.owner);
+
   const next = list.filter(x => x.id !== id);
-  if (next.length === list.length) return false;
   all[userId] = next;
   writeIndex(all);
   removeRecordFile(userId, id);
+
+  audit('dwn.record.permanently.deleted', {
+    userId,
+    recordId: record.id,
+    ownerDid: record.owner
+  });
+
   return true;
 }
 
@@ -1298,14 +1298,14 @@ async function getMediaStream(id, did) {
   }
   const data = found.record.data || {};
   const media = data.media || data || {};
-  if (found.record.mediaRemoteOnly || found.record.mediaRemoteUrl) {
+  if (found.record.mediaRemoteOnly || found.record.mediaRemoteUrl || found.record.cloudDwn?.mediaSync?.mediaUrl) {
     const fallbackPath = found.record.mediaStoragePath || found.record.mediaCachePath || '';
     const fallbackFullPath = fallbackPath ? absoluteBackendPath(fallbackPath) : null;
     const fallbackReady = !!(fallbackFullPath && fs.existsSync(fallbackFullPath));
     const mimeForCategory = media.mimeType || found.record.dataFormat || 'application/octet-stream';
     const fileForCategory = media.fileName || found.record.title || (fallbackFullPath ? path.basename(fallbackFullPath) : '');
     const previewCategory = media.previewCategory || found.record.mediaCompatibility?.previewCategory || categoryForMime(mimeForCategory, fileForCategory);
-    const remoteUrl = found.record.mediaRemoteUrl || realDwn.mediaUrl(found.record.dwnSpaceId, found.record.id);
+    const remoteUrl = found.record.mediaRemoteUrl || found.record.cloudDwn?.mediaSync?.mediaUrl || '';
     // V58: for video playback, prefer the local browser-safe cache when it exists.
     // Remote DWN media can be slower or return imperfect range headers; the local normalized
     // MP4 is what makes uploaded videos start smoothly on mobile.
