@@ -294,6 +294,7 @@ app.use('/api/cloud-dwn', cloudDwnRouter);
 app.use('/api/dwn', cloudDwnRouter);
 app.use('/api/isolated-dwn', require('./routes/isolatedDwn'));
 app.use('/api/storage', require('./routes/storage'));
+app.use('/api/payment', require('./routes/payment'));
 app.use('/api/profile', require('./routes/profile'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/music', require('./routes/music'));

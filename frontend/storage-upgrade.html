@@ -927,40 +927,62 @@ footer a:hover{color:#fff}
       return;
     }
 
-    const value = String(utr.value || "").trim();
-
-    if (value.length < 6) {
-      status.textContent = "Please enter a valid UTR / transaction reference.";
-      return;
-    }
-
     submit.disabled = true;
-    submit.textContent = "Submitting...";
+    submit.textContent = "Creating order...";
 
     try {
-      const response = await fetch("/api/storage/upgrade-request", {
+      const orderResponse = await fetch("/api/payment/create-order", {
         method:"POST",
         headers:{
           "Accept":"application/json",
           "Content-Type":"application/json",
           "Authorization":"Bearer " + authToken
         },
-        body:JSON.stringify({plan:selected,utr:value}),
+        body:JSON.stringify({plan:selected}),
         cache:"no-store"
       });
 
-      const data = await response.json().catch(() => ({}));
+      const orderData = await orderResponse.json().catch(() => ({}));
 
-      if (!response.ok) {
-        throw new Error(data.error || "Request failed");
+      if (!orderResponse.ok) {
+        throw new Error(orderData.error || "Order creation failed");
       }
 
-      status.textContent = "✅ Upgrade request submitted. Storage will change after verification.";
-      submit.textContent = "Request Submitted ✓";
+      const reference = prompt(
+        "After payment, enter payment reference:",
+        ""
+      );
+
+      if (!reference) {
+        throw new Error("Payment reference required");
+      }
+
+      const verifyResponse = await fetch("/api/payment/verify", {
+        method:"POST",
+        headers:{
+          "Accept":"application/json",
+          "Content-Type":"application/json",
+          "Authorization":"Bearer " + authToken
+        },
+        body:JSON.stringify({
+          orderId: orderData.orderId,
+          paymentReference: reference
+        })
+      });
+
+      const verifyData = await verifyResponse.json().catch(() => ({}));
+
+      if (!verifyResponse.ok) {
+        throw new Error(verifyData.error || "Verification failed");
+      }
+
+      status.textContent = "✅ Payment verified. Storage upgraded.";
+      submit.textContent = "Payment Complete ✓";
+
     } catch (error) {
-      status.textContent = error.message || "Payment request failed.";
+      status.textContent = error.message || "Payment failed.";
       submit.disabled = false;
-      submit.textContent = "Submit Upgrade Request";
+      submit.textContent = "Pay & Upgrade";
     }
   });
 
