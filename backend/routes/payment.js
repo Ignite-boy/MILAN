@@ -37,6 +37,12 @@ router.post('/create-order', auth, async (req, res) => {
       return res.status(400).json({ error: 'Invalid plan' });
     }
 
+    const customAmount = Number(req.body?.amount || plan.amountInr);
+
+    if (!Number.isFinite(customAmount) || customAmount < 1) {
+      return res.status(400).json({ error: 'Invalid payment amount' });
+    }
+
     const orderId = createOrderId();
 
     const { error } = await supabase
@@ -45,7 +51,7 @@ router.post('/create-order', auth, async (req, res) => {
         user_id: req.account.id,
         order_id: orderId,
         plan: planKey,
-        amount_inr: plan.amountInr,
+        amount_inr: customAmount,
         status: 'pending'
       });
 
@@ -56,7 +62,7 @@ router.post('/create-order', auth, async (req, res) => {
       orderId,
       plan: planKey,
       name: plan.name,
-      amountInr: plan.amountInr,
+      amountInr: customAmount,
       status: 'pending'
     });
 

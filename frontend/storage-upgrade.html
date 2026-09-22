@@ -938,7 +938,10 @@ footer a:hover{color:#fff}
           "Content-Type":"application/json",
           "Authorization":"Bearer " + authToken
         },
-        body:JSON.stringify({plan:selected}),
+        body:JSON.stringify({
+          plan:selected,
+          amount:Number(prompt("Enter payment amount", plans[selected].amount)) || plans[selected].amount
+        }),
         cache:"no-store"
       });
 
