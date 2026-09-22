@@ -46,8 +46,6 @@ h1{margin:8px 0;font-size:clamp(28px,5vw,44px);line-height:1.05}
 .plan-top{display:flex;justify-content:space-between;gap:10px}
 .plan-name{font-size:16px;font-weight:850}.price{font-size:18px;font-weight:900;color:var(--gold2)}
 .plan-note{margin-top:5px;color:var(--muted);font-size:12px}
-.qr-box{display:flex;justify-content:center;padding:15px;border-radius:18px;background:#fff}
-.qr{width:min(100%,290px);display:block;border-radius:8px}
 .pay-row{display:flex;justify-content:space-between;align-items:center;margin:14px 0 8px}
 .pay-title{color:var(--muted);font-size:13px}.amount{font-size:30px;font-weight:950}
 .upi{padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#0a1527;word-break:break-all;font-size:13px}
@@ -67,7 +65,12 @@ input:focus{border-color:#f59e0baa}
 .status{min-height:22px;margin-top:10px;color:#cbd5e1;font-size:12px;line-height:1.5}
 .note{margin-top:14px;color:var(--muted);font-size:11px;line-height:1.6}
 @media(max-width:780px){
-  .grid{grid-template-columns:1fr}.wrap{padding:18px 12px 38px}.hero,.card{padding:16px}
+  .grid{grid-template-columns:1fr}
+  .wrap{padding:18px 12px 38px}
+  .hero,.card{padding:16px}
+}
+@media(max-width:520px){
+  .steps{grid-template-columns:1fr}
 }
 </style>
 </head>
@@ -104,8 +107,19 @@ input:focus{border-color:#f59e0baa}
 
     <section class="card">
       <h2>Pay with UPI</h2>
-      <div class="qr-box">
-        <img class="qr" src="/assets/milan-upi-qr.jpeg" alt="MILAN UPI QR">
+      <div class="payment-visual">
+        <div>
+          <div class="upi-mark">₹</div>
+          <strong>UPI Payment</strong>
+          <span>Fast & secure payment directly to MILAN</span>
+          <div class="secure-pill">● Manual verification enabled</div>
+        </div>
+      </div>
+
+      <div class="steps">
+        <div class="step"><b>1. Choose</b><span>Select your storage plan.</span></div>
+        <div class="step"><b>2. Pay</b><span>Open your UPI app and pay.</span></div>
+        <div class="step"><b>3. Verify</b><span>Enter your UTR below.</span></div>
       </div>
 
       <div class="pay-row">
