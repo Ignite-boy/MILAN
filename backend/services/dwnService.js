@@ -6,6 +6,13 @@ const { readJson, writeJson, findUserByDid } = require('../utils/store');
 const { BROWSER_SAFE_MEDIA, detectMimeFromFile, extForMime, categoryForMime, normalizeUploadedMedia } = require('../utils/mediaCompat');
 const { getDwnInfo, pushRecordToCloudDwn, deleteRecordFromCloudDwn, pushMediaToCloudDwn, storageRootFor, dwnRoot, databaseRoot, isolatedRoot, persistenceInfo, cloudRemoteBase, isEmbeddedSelfEndpoint } = require('./cloudDwnRegistry');
 
+const { createClient } = require('@supabase/supabase-js');
+
+const supabaseAuthoritative = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY
+);
+
 const ACCESS = ['private', 'public', 'shared_did'];
 const MAX_TEXT_BYTES = Number(process.env.MAX_RECORD_TEXT_BYTES || 10 * 1024 * 1024);
 const MAX_MEDIA_BYTES = Number(process.env.MAX_MEDIA_BYTES || 5000 * 1024 * 1024);
@@ -526,7 +533,7 @@ async function createRecord(userId, ownerDid, body = {}) {
   all[userId] = list;
   writeIndex(all);
 
-  markCloudSync(record, ownerDid)
+  await markCloudSync(record, ownerDid)
     .then(() => {
       record.cloudDwn = record.cloudDwn || {};
       record.cloudDwn.sync = {
@@ -1129,8 +1136,166 @@ async function importRecords(userId, ownerDid, records = []) {
   return imported;
 }
 
+function decodeAuthoritativeDwnData(value) {
+  try {
+    if (value == null) return null;
+
+    if (Buffer.isBuffer(value)) {
+      const text = value.toString('utf8');
+      try { return JSON.parse(text); } catch (_) { return text; }
+    }
+
+    if (typeof value === 'string' && value.startsWith('\\x')) {
+      const raw = Buffer.from(value.slice(2), 'hex');
+      const text = raw.toString('utf8');
+      try { return JSON.parse(text); } catch (_) { return text; }
+    }
+
+    if (typeof value === 'string') {
+      try { return JSON.parse(value); } catch (_) { return value; }
+    }
+
+    if (value instanceof Uint8Array) {
+      const text = Buffer.from(value).toString('utf8');
+      try { return JSON.parse(text); } catch (_) { return text; }
+    }
+
+    return value;
+  } catch (_) {
+    return null;
+  }
+}
+
+function parseDwnMetadata(value) {
+  try {
+    if (!value) return {};
+    if (typeof value === 'object') return value;
+    return JSON.parse(String(value));
+  } catch (_) {
+    return {};
+  }
+}
+
 async function listVisibleRecords(did, query = {}) {
-  return filterSort(allRecordsRaw().filter(r => canRead(r, did)).map(r => toClient(r, did)), query);
+  const ownerDid = String(did || '').trim();
+  if (!ownerDid) return [];
+
+  const pageSize = 1000;
+  const rows = [];
+
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabaseAuthoritative
+      .from('dwn_records')
+      .select([
+        'record_id',
+        'target_did',
+        'owner_did',
+        'schema',
+        'data_format',
+        'protocol',
+        'protocol_path',
+        'recipient',
+        'published',
+        'date_created',
+        'date_modified',
+        'deleted',
+        'metadata',
+        'data_cid',
+        'data_size'
+      ].join(','))
+      .eq('deleted', false)
+      .order('date_modified', { ascending: false })
+      .range(offset, offset + pageSize - 1);
+
+    if (error) throw error;
+
+    const batch = Array.isArray(data) ? data : [];
+    rows.push(...batch);
+
+    if (batch.length < pageSize) break;
+  }
+
+  if (!rows.length) return [];
+
+  const dataMap = new Map();
+
+  for (let offset = 0; offset < rows.length; offset += 500) {
+    const ids = rows
+      .slice(offset, offset + 500)
+      .map(row => String(row.record_id || '').trim())
+      .filter(Boolean);
+
+    if (!ids.length) continue;
+
+    const { data, error } = await supabaseAuthoritative
+      .from('dwn_record_data')
+      .select('record_id,data')
+      .in('record_id', ids);
+
+    if (error) throw error;
+
+    for (const row of (data || [])) {
+      dataMap.set(
+        String(row.record_id || ''),
+        decodeAuthoritativeDwnData(row.data)
+      );
+    }
+  }
+
+  const cloudRecords = rows
+    .map(row => {
+      const metadata = parseDwnMetadata(row.metadata);
+      const recordData = dataMap.get(String(row.record_id || ''));
+
+      const accessMode =
+        metadata.accessMode ||
+        (row.published ? 'public' : 'private');
+
+      const sharedWithDids = Array.isArray(metadata.sharedWithDids)
+        ? metadata.sharedWithDids
+        : [];
+
+      return {
+        id: row.record_id,
+        dwnRecordId: metadata.dwnRecordId || row.record_id,
+        owner: row.owner_did || row.target_did || '',
+        recipient: row.recipient || row.owner_did || row.target_did || '',
+        schema: row.schema || 'web5-vault-record',
+        title: metadata.title || 'Untitled record',
+        dataFormat: row.data_format || 'application/json',
+        protocol: row.protocol || '',
+        protocolPath: row.protocol_path || '',
+        data: recordData ?? {},
+        tags: Array.isArray(metadata.tags) ? metadata.tags : [],
+        favorite: !!metadata.favorite,
+        dateCreated: row.date_created || new Date().toISOString(),
+        dateModified: row.date_modified || row.date_created || new Date().toISOString(),
+        published: !!row.published,
+        accessMode,
+        sharedWithDids,
+        dwnEndpoint: process.env.SUPABASE_URL || '',
+        dwnMode: 'supabase',
+        dwnIsolation: 'single-user',
+        dwnSpaceId: metadata.spaceId || '',
+        realCloudConfigured: true,
+        storageEngine: 'Supabase authoritative DWN',
+        cloudDwn: {
+          sync: {
+            ok: true,
+            status: 'synced'
+          }
+        },
+        storageProof: {
+          backend: 'supabase',
+          dataCid: row.data_cid || '',
+          dataSize: Number(row.data_size || 0)
+        }
+      };
+    })
+    .filter(record => canRead(record, ownerDid))
+    .map(record => toClient(record, ownerDid));
+
+  return filterSort(cloudRecords, query);
 }
 
 async function listPublicRecords(did, query = {}) {
