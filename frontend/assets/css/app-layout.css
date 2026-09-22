@@ -132,3 +132,33 @@ body { background: #0a0e1a; color: #e8edf5; font-family: Inter, system-ui, -appl
     opacity:1 !important;
   }
 }
+
+/* MILAN mobile feed actions — single row */
+@media (max-width:768px){
+  .milan-feed-actions{
+    display:grid !important;
+    grid-template-columns:repeat(5,minmax(0,1fr)) !important;
+    gap:4px !important;
+    width:100% !important;
+    align-items:stretch !important;
+  }
+
+  .milan-feed-actions button{
+    width:100% !important;
+    min-width:0 !important;
+    margin:0 !important;
+    padding:8px 2px !important;
+    font-size:10px !important;
+    line-height:1.1 !important;
+    white-space:nowrap !important;
+    overflow:hidden !important;
+    text-overflow:clip !important;
+    box-sizing:border-box !important;
+  }
+
+  .milan-feed-actions button[data-feed-action="delete"]{
+    grid-column:auto !important;
+    width:100% !important;
+    margin-top:0 !important;
+  }
+}
