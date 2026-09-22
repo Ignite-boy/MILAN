@@ -11,7 +11,6 @@ const supabaseDb = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
 );
-const realDwn = require('../services/realDwnNodeClient');
 const { Readable } = require('stream');
 const crypto = require('crypto');
 const { detectMimeFromFile } = require('../utils/mediaCompat');
@@ -148,7 +147,7 @@ function streamRangeOrWholeFile(req, res, fullPath, media, sourceLabel = '') {
 }
 
 // Facebook-style reliable upload layer: split large videos into small resumable chunks.
-// This avoids one huge mobile request timing out while the app is deployed behind Render/proxies.
+// This avoids one huge mobile request timing out while the app is deployed behind proxies.
 const RESUMABLE_ROOT = path.join(os.tmpdir(), 'milan-resumable-media-uploads');
 const DEFAULT_CHUNK_BYTES = Number(process.env.MILAN_UPLOAD_CHUNK_BYTES || 6 * 1024 * 1024);
 const MAX_CHUNK_BYTES = Number(process.env.MILAN_UPLOAD_MAX_CHUNK_BYTES || 12 * 1024 * 1024);
@@ -510,8 +509,6 @@ async function streamMedia(req, res) {
 
     if (media.remoteOnly) {
       const headers = {};
-      const key = realDwn.apiKey();
-      if (key) headers.Authorization = `Bearer ${key}`;
       if (req.headers.range) headers.Range = req.headers.range;
       try {
         // V80 hard fix: do NOT keep a 15s AbortSignal attached to the response body.
@@ -539,7 +536,7 @@ async function streamMedia(req, res) {
           res.setHeader('Cache-Control', isVideoMime(safeType) ? 'private, max-age=86400, no-transform' : (upstream.headers.get('cache-control') || 'private, max-age=3600'));
           res.setHeader('Content-Disposition', contentDisposition(req, media.fileName || 'milan-media'));
           res.setHeader('X-Accel-Buffering', 'no');
-          res.setHeader('X-Milan-Media-Source', 'production-dwn-node');
+          res.setHeader('X-Milan-Media-Source', 'supabase-storage');
           if (req.method === 'HEAD') return res.end();
           const bodyStream = Readable.fromWeb(upstream.body);
           bodyStream.on('error', err => { try { if (!res.headersSent) res.status(502); res.destroy(err); } catch (_) {} });

@@ -1,22 +1,17 @@
-const realDwnEngine = require('../services/realDwnEngine');
-const realDwn = require('../services/realDwnNodeClient');
 const express = require('express');
 const multer = require('multer');
+const sharp = require('sharp');
+const { uploadToDWN, downloadFromDWN } = require('../utils/dwnStorage');
 const { createClient } = require('@supabase/supabase-js');
 const auth = require('../middleware/auth');
 const { readJson, writeJson, writeJsonAndSync, findUserById, addActivity } = require('../utils/store');
-const { ensureUserDwn } = require('../services/cloudDwnRegistry');
-const MINI_DWN_ENDPOINT = (
-  process.env.MINI_DWN_ENDPOINT ||
-  `${process.env.MILAN_LIVE_DWN_BASE || 'https://milan-app-pzhf.onrender.com'}/api/dwn`
-).replace(/\/$/, '');
-
+const { ensureUserDwn, pushRecordToCloudDwn } = require('../services/cloudDwnRegistry');
 const router = express.Router();
 const uploadDp = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 900000 },
   fileFilter: (req, file, cb) => {
-    cb(null, /^image\\//i.test(file.mimetype));
+    cb(null, /^image\//i.test(file.mimetype));
   }
 });
 
@@ -26,7 +21,25 @@ const supabaseDb = createClient(
 );
 
 async function resolveAccount(req, users) {
-  // Always prefer the local account record first because it contains
+  if (req.account?.id && req.account?.did && req.account?.spaceId) {
+    return {
+      email: req.account.email,
+      user: {
+        ...req.account,
+        dwn: {
+          ...(req.account.dwn || {}),
+          spaceId: req.account.spaceId
+        },
+        settings: {
+          ...(req.account.settings || {}),
+          dwnSpaceId: req.account.spaceId
+        }
+      }
+    };
+  }
+
+  // Backward-compatible fallback for non-authoritative/internal callers.
+  // Authenticated production requests should always arrive with req.account.
   // the user's persistent DWN mapping and raw seed required for reads/writes.
   const email = String(req.userEmail || '').trim().toLowerCase();
   const userId = String(req.userId || '').trim();
@@ -61,10 +74,17 @@ async function resolveAccount(req, users) {
     .maybeSingle();
 
   if (!byId.error && byId.data) {
+    const localEntry = users[byId.data.email];
+    const sameAccountLocal =
+      localEntry &&
+      String(localEntry.id || '') === String(byId.data.id || '')
+        ? localEntry
+        : {};
+
     return {
       email: byId.data.email,
       user: {
-        ...(users[byId.data.email] || {}),
+        ...sameAccountLocal,
         id: byId.data.id,
         email: byId.data.email,
         name: byId.data.name,
@@ -81,10 +101,17 @@ async function resolveAccount(req, users) {
       .maybeSingle();
 
     if (!byEmail.error && byEmail.data) {
+      const localEntry = users[byEmail.data.email];
+      const sameAccountLocal =
+        localEntry &&
+        String(localEntry.id || '') === String(byEmail.data.id || '')
+          ? localEntry
+          : {};
+
       return {
         email: byEmail.data.email,
         user: {
-          ...(users[byEmail.data.email] || {}),
+          ...sameAccountLocal,
           id: byEmail.data.id,
           email: byEmail.data.email,
           name: byEmail.data.name,
@@ -127,217 +154,131 @@ function dataUrlToDwn(dataUrl) {
   return { mime, bytes, encodedData };
 }
 
-async function miniDwnProcess(target, message, encodedData) {
-  const maxAttempts = 4;
-  let lastError = null;
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
-
-    try {
-      const response = await fetch(`${MINI_DWN_ENDPOINT}/json-rpc`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer milan-v49-embedded-production-dwn-key'
-        },
-        signal: controller.signal,
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          id: `${Date.now()}-${attempt}`,
-          method: 'dwn.processMessage',
-          params: {
-            target,
-            message,
-            ...(encodedData ? { encodedData } : {})
-          }
-        })
-      });
-
-      const contentType = String(
-        response.headers.get('content-type') || ''
-      ).toLowerCase();
-
-      const raw = await response.text();
-
-      let body;
-      try {
-        body = JSON.parse(raw);
-      } catch {
-        const preview = raw.replace(/\s+/g, ' ').slice(0, 220);
-        throw new Error(
-          `Mini-DWN returned non-JSON (${response.status}, ${contentType || 'no content-type'}): ${preview}`
-        );
-      }
-
-      const reply = body?.result?.reply;
-      const status = reply?.status?.code;
-
-      if ([408, 425, 429, 500, 502, 503, 504, 530].includes(response.status)) {
-        if (attempt < maxAttempts) {
-          const retryAfterHeader = response.headers.get('retry-after');
-          const retryAfterSeconds = Number(retryAfterHeader);
-
-          const waitMs =
-            Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
-              ? Math.min(retryAfterSeconds * 1000, 10000)
-              : Math.min(500 * (2 ** (attempt - 1)), 4000);
-
-          await new Promise(resolve => setTimeout(resolve, waitMs));
-          continue;
-        }
-
-        throw new Error(
-          `Mini-DWN HTTP ${response.status} after ${maxAttempts} attempts`
-        );
-      }
-
-      if (!response.ok) {
-        throw new Error(`Mini-DWN HTTP ${response.status}`);
-      }
-
-      if (status >= 400) {
-        throw new Error(
-          reply?.status?.detail || `Mini-DWN status ${status}`
-        );
-      }
-
-      return reply || {};
-    } catch (err) {
-      lastError = err;
-
-      const messageText = String(err?.message || err);
-
-      const transient =
-        /Mini-DWN HTTP (408|425|429|500|502|503|504|530)/.test(messageText) ||
-        /timed out|aborted|ECONNRESET|ECONNREFUSED|ENOTFOUND|fetch failed/i.test(messageText);
-
-      if (!transient || attempt >= maxAttempts) {
-        throw err;
-      }
-
-      const waitMs = Math.min(500 * (2 ** (attempt - 1)), 4000);
-      await new Promise(resolve => setTimeout(resolve, waitMs));
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
-
-  throw lastError || new Error('Mini-DWN request failed');
-}
-
 async function writeProfilePicture(did, file, user) {
   if (!file?.buffer?.length) {
     throw new Error('Profile picture file is missing.');
   }
 
-  const spaceId = String(user?.dwn?.spaceId || user?.settings?.dwnSpaceId || '').trim();
+  const spaceId = String(
+    user?.dwn?.spaceId ||
+    user?.settings?.dwnSpaceId ||
+    ''
+  ).trim();
+
   if (!did) throw new Error('User DID is missing.');
   if (!spaceId) throw new Error('User DWN space is unavailable.');
 
   const recordId = profileRecordId(did);
 
-  const result = await realDwnEngine.writeRecord(
-    {
-      spaceId,
-      rawSeedHex: user?.raw_seed || '',
-      knownDidUri: did,
-      portableDid: user?.portableDid
-    },
+  const result = await pushRecordToCloudDwn(
     {
       id: recordId,
       title: 'MILAN Profile Picture',
       schema: 'profile-picture',
       accessMode: 'private',
-      dataFormat: file.mimetype,
-      binaryData: file.buffer
-    }
+      dataFormat: file.mimetype || 'image/jpeg',
+      binaryData: file.buffer,
+      data: {
+        type: 'profile-picture',
+        fileName: file.originalname || `${recordId}.jpg`,
+        mimeType: file.mimetype || 'image/jpeg'
+      }
+    },
+    user
   );
 
-  if (!result?.ok) {
+  if (!result?.pushed) {
     throw new Error(
-      result?.detail ||
       result?.error ||
-      result?.reason ||
-      'Real DWN profile picture write failed.'
+      'Supabase DWN profile picture write failed.'
     );
   }
 
   return {
     recordId,
-    dwnRecordId: result.dwnRecordId || recordId,
+    dwnRecordId: result.recordId || recordId,
     spaceId,
-    mime: file.mimetype,
+    mime: file.mimetype || 'image/jpeg',
     fileName: file.originalname || `${recordId}.jpg`,
     persistedInDwn: true,
-    source: result.source || 'real-remote-dwn',
-    status: result.status
+    source: 'supabase-dwn',
+    status: 200,
+    dataSize: result.dataSize || file.buffer.length
   };
 }
 
-function queueProfilePictureSync(did, dataUrl, recordId) {
-  // Deliberately do not await this. The API response can return as soon as
-  // the local profile is safely persisted; Mini-DWN sync continues in-process.
-  void writeProfilePicture(did, dataUrl)
-    .then(() => {
-      console.log('[profile] background DP sync complete:', recordId);
-    })
-    .catch(error => {
-      console.warn('[profile] background DP sync pending/failed:', error.message);
-    });
+function dwnByteaToBuffer(value) {
+  if (Buffer.isBuffer(value)) return value;
+
+  if (value && value.type === 'Buffer' && Array.isArray(value.data)) {
+    return Buffer.from(value.data);
+  }
+
+  if (typeof value === 'string') {
+    const text = value.trim();
+
+    if (/^\\x[0-9a-f]*$/i.test(text)) {
+      return Buffer.from(text.slice(2), 'hex');
+    }
+
+    try {
+      return Buffer.from(text, 'base64');
+    } catch (_) {
+      return Buffer.from(text, 'utf8');
+    }
+  }
+
+  return null;
 }
 
 async function readProfilePicture(user) {
   const did = String(user?.did || '').trim();
-  const spaceId = String(user?.dwn?.spaceId || user?.settings?.dwnSpaceId || '').trim();
+  const spaceId = String(
+    user?.dwn?.spaceId ||
+    user?.settings?.dwnSpaceId ||
+    ''
+  ).trim();
 
   if (!did) throw new Error('User DID is missing.');
   if (!spaceId) throw new Error('User DWN space is missing.');
 
   const recordId = profileRecordId(did);
 
-  const result = await realDwnEngine.readRecord(
-    {
-      spaceId,
-      rawSeedHex: user?.raw_seed || '',
-      knownDidUri: did,
-      portableDid: user?.portableDid
-    },
-    recordId
-  );
+  const { data: record, error: recordError } = await supabaseDb
+    .from('dwn_records')
+    .select('record_id,owner_did,data_format,data_size,deleted,metadata')
+    .eq('record_id', recordId)
+    .eq('owner_did', did)
+    .maybeSingle();
 
-  if (!result?.ok) {
-    if (result?.status === 404 || result?.reason === 'record-not-found') {
-      return null;
-    }
+  if (recordError) throw recordError;
+  if (!record || record.deleted) return null;
 
-    throw new Error(
-      result?.detail ||
-      result?.error ||
-      result?.reason ||
-      'Real DWN profile picture read failed.'
-    );
-  }
+  const { data: row, error: dataError } = await supabaseDb
+    .from('dwn_record_data')
+    .select('data')
+    .eq('record_id', recordId)
+    .maybeSingle();
 
-  const mime =
-    result?.descriptor?.dataFormat ||
-    user?.profile?.avatarMime ||
-    'image/jpeg';
+  if (dataError) throw dataError;
+  if (!row?.data) return null;
+
+  const bytes = dwnByteaToBuffer(row.data);
+  if (!bytes?.length) return null;
+
+  const mime = record.data_format || 'image/jpeg';
 
   return {
     recordId,
-    avatar: `data:${mime};base64,${Buffer.from(result.data).toString('base64')}`,
+    avatar: `data:${mime};base64,${bytes.toString('base64')}`,
     mime,
-    source: result.source || 'real-remote-dwn'
+    source: 'supabase-dwn',
+    spaceId,
+    dataSize: record.data_size || bytes.length
   };
 }
 
 async function readProfilePictureFromUserDwn(user, recordId) {
-  const did = String(user?.did || '').trim();
-  if (!did) throw new Error('User DID is missing.');
-
   const result = await readProfilePicture(user);
 
   if (!result) return null;

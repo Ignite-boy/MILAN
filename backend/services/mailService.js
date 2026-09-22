@@ -11,7 +11,7 @@
  *   • Generic test email (admin "send test" button)
  *
  * Provider strategy (first configured one wins):
- *   1. RESEND_API_KEY            -> Resend HTTPS API (recommended on Render/cloud, no SMTP port needed)
+ *   1. RESEND_API_KEY            -> Resend HTTPS API (recommended in cloud deployments, no SMTP port needed)
  *   2. SENDGRID_API_KEY          -> SendGrid HTTPS API
  *   3. SMTP_HOST + SMTP_USER...  -> Generic SMTP via nodemailer (use this with your registered mailbox)
  *   4. none                      -> logs the mail and returns { ok:false, skipped:true }

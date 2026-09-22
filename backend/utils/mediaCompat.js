@@ -161,7 +161,7 @@ function videoIsBrowserSafe(probe = {}) {
   // V56 hard fix: do NOT reject normal WhatsApp/phone MP4s only because ffprobe
   // reports old SD color metadata like bt470bg/smpte170m. That was forcing an
   // unnecessary full transcode for perfectly normal H.264/AAC/yuv420p MP4 files,
-  // and on Render/mobile it could leave posts in "preview is preparing".
+  // and on mobile it could leave posts in "preview is preparing".
   // If codecs/pixel format are browser-safe, stream-copy/remux with +faststart and
   // h264_metadata will rewrite color tags to bt709 in under a second.
   if (safeVideo && safeAudio && safePix) {

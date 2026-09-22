@@ -41,7 +41,7 @@ function publicBase() {
 
 function cloudRemoteBase() {
   // Supabase is the authoritative cloud backend.
-  // No external/Render DWN endpoint is used.
+  // No external DWN endpoint is used.
   return '';
 }
 
@@ -445,12 +445,14 @@ async function pushRecordToCloudDwn(record, user) {
   try {
     await ensureSupabaseTenant(ownerDid);
 
-    const payload = Buffer.from(
-      typeof record.data === 'string'
-        ? record.data
-        : JSON.stringify(record.data ?? {}),
-      'utf8'
-    );
+    const payload = record.binaryData
+      ? Buffer.from(record.binaryData)
+      : Buffer.from(
+          typeof record.data === 'string'
+            ? record.data
+            : JSON.stringify(record.data ?? {}),
+          'utf8'
+        );
 
     const dataCid = `sha256:${crypto.createHash('sha256').update(payload).digest('hex')}`;
 
