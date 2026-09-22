@@ -12,8 +12,16 @@ const supabase = createClient(
 const router = express.Router();
 
 const PLANS = {
-  '500mb': { name: '500 MB', amountInr: 500, quotaBytes: 524288000 },
-  '1gb': { name: '1 GB', amountInr: 1000, quotaBytes: 1073741824 }
+  '500mb': {
+    name: '500 MB',
+    amountInr: Number(process.env.PLAN_500_AMOUNT || 500),
+    quotaBytes: 524288000
+  },
+  '1gb': {
+    name: '1 GB',
+    amountInr: Number(process.env.PLAN_1GB_AMOUNT || 1000),
+    quotaBytes: 1073741824
+  }
 };
 
 function createOrderId() {
