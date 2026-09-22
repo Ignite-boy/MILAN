@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+<meta http-equiv="Pragma" content="no-cache">
 <title>MILAN Storage Plans — 100 MB Free, 500 MB & 1 GB</title>
 <meta name="description" content="Choose your MILAN storage plan. Get 100 MB free, upgrade to 500 MB for ₹500 or 1 GB for ₹1,000 with direct UPI payment and manual UTR verification.">
 <meta name="robots" content="index,follow,max-image-preview:large">
@@ -881,7 +883,7 @@ footer a:hover{color:#fff}
   const utr = document.getElementById("utr");
   const submit = document.getElementById("submit");
   const status = document.getElementById("status");
-  const token = localStorage.getItem("milanToken") || "";
+  const token = "";
 
   window.selectPlan = function(plan) {
     if (!plans[plan]) return;
@@ -919,7 +921,8 @@ footer a:hover{color:#fff}
   });
 
   submit.addEventListener("click", async () => {
-    if (!token) {
+    const authToken = localStorage.getItem("milanToken") || "";
+    if (!authToken) {
       status.textContent = "Please login first, then submit the upgrade request.";
       return;
     }
@@ -940,7 +943,7 @@ footer a:hover{color:#fff}
         headers:{
           "Accept":"application/json",
           "Content-Type":"application/json",
-          "Authorization":"Bearer " + token
+          "Authorization":"Bearer " + authToken
         },
         body:JSON.stringify({plan:selected,utr:value}),
         cache:"no-store"
