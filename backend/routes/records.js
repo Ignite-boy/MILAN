@@ -17,31 +17,28 @@ const { detectMimeFromFile } = require('../utils/mediaCompat');
 
 const router = express.Router();
 
-function localCurrent(req) {
-  return findUserById(readJson(global.usersFile, {}), req.userId);
-}
-
 async function current(req) {
-  const local = localCurrent(req);
-  if (local?.user?.did) return local;
-
-  const { data, error } = await supabaseDb
-    .from('users')
-    .select('id,email,name,did')
-    .eq('id', req.userId)
-    .maybeSingle();
-
-  if (error || !data) return null;
+  const account = req.account;
+  if (!account?.id || !account?.did || !account?.spaceId) return null;
 
   return {
-    email: data.email,
+    email: account.email,
     user: {
-      id: data.id,
-      email: data.email,
-      name: data.name,
-      did: data.did,
+      ...account,
+      id: account.id,
+      email: account.email,
+      name: account.name,
+      did: account.did,
+      dwn: {
+        ...(account.dwn || {}),
+        spaceId: account.spaceId
+      },
+      settings: {
+        ...(account.settings || {}),
+        dwnSpaceId: account.spaceId
+      },
       profile: {
-        display_name: data.name || ''
+        display_name: account.name || ''
       }
     }
   };

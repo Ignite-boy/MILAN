@@ -62,7 +62,7 @@ body { background: #0a0e1a; color: #e8edf5; font-family: Inter, system-ui, -appl
 .milan-feed-loading,.milan-feed-empty{background:#111827;border:1px solid #1e293b;border-radius:16px;padding:26px;text-align:center;color:#94a3b8}
 .milan-feed-card{background:#111827;border:1px solid #1e293b;border-radius:16px;padding:16px;margin-bottom:14px}
 .milan-feed-card-head{display:flex;align-items:center;gap:10px}
-.milan-feed-avatar{width:42px;height:42px;border-radius:50%;background:#2a3a5a;display:grid;place-items:center;overflow:hidden;background-size:cover;background-position:center}
+.milan-feed-avatar{width:42px;height:42px;border-radius:50%;background:#2a3a5a;display:grid;place-items:center;overflow:hidden;background-size:cover;background-position:center}.milan-feed-avatar img{width:100%;height:100%;object-fit:cover;display:block}
 .milan-feed-meta strong{display:block;font-size:14px}
 .milan-feed-meta span{display:block;font-size:11px;color:#94a3b8}
 .milan-feed-body{padding:14px 0}
@@ -100,4 +100,35 @@ body { background: #0a0e1a; color: #e8edf5; font-family: Inter, system-ui, -appl
   #milan-drawer .md-item,#milan-drawer .md-logout{width:100%;display:block;box-sizing:border-box;margin:0;padding:13px 14px;border:1px solid transparent;border-radius:12px;background:#111a2d;color:#dbe4f2;text-align:left;text-decoration:none;font:inherit;cursor:pointer}
   #milan-drawer .md-item:active,#milan-drawer .md-item:hover{background:#17243c;border-color:#263857}
   #milan-drawer .md-logout{margin-top:18px;background:#25151a;color:#fda4af;border-color:#4a2029}
+}
+
+@media (max-width:768px){
+  .milan-feed-actions button[data-feed-action="delete"]{
+    flex:0 0 100%;
+    width:100%;
+    box-sizing:border-box;
+    margin-top:2px;
+  }
+}
+
+/* MILAN MOBILE DELETE VISIBILITY FIX */
+@media (max-width:768px){
+  .milan-feed-actions{
+    display:grid !important;
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    gap:8px !important;
+    width:100% !important;
+  }
+  .milan-feed-actions button{
+    width:100% !important;
+    min-width:0 !important;
+    box-sizing:border-box !important;
+  }
+  .milan-feed-actions button[data-feed-action="delete"]{
+    grid-column:1 / -1 !important;
+    display:block !important;
+    width:100% !important;
+    visibility:visible !important;
+    opacity:1 !important;
+  }
 }

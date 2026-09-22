@@ -14,7 +14,9 @@
     const state = {
         pendingPosts: new Map(),
         feedRecords: new Map(),
-        feedLoading: false
+        feedLoading: false,
+        profileAvatar: "",
+        profileName: ""
     };
 
     const $ = (id) => document.getElementById(id);
@@ -87,6 +89,43 @@
         if (Array.isArray(payload?.feed)) return payload.feed;
         if (Array.isArray(payload?.data)) return payload.data;
         return [];
+    }
+
+    async function loadAuthoritativeIdentity() {
+        const auth = getToken();
+        if (!auth) return;
+
+        try {
+            const response = await fetch("/api/profile", {
+                method: "GET",
+                headers: {
+                    "Authorization": "Bearer " + auth,
+                    "Accept": "application/json"
+                },
+                cache: "no-store"
+            });
+
+            const profile = await response.json().catch(() => ({}));
+            if (!response.ok) return;
+
+            state.profileAvatar =
+                String(profile?.avatar || "").trim();
+
+            state.profileName =
+                String(
+                    profile?.display_name ||
+                    profile?.username ||
+                    ""
+                ).trim();
+
+            if (state.feedRecords.size) {
+                renderFeed(
+                    Array.from(state.feedRecords.values())
+                );
+            }
+        } catch (_) {
+            // Feed remains usable even if profile identity refresh fails.
+        }
     }
 
     function showPublishStatus(message, isError = false) {
@@ -1138,11 +1177,22 @@
                 });
 
         const name =
+            state.profileName ||
             document
                 .getElementById("myName")
                 ?.textContent
                 ?.trim() ||
             "Milan User";
+
+        const avatar = String(
+            window.__milanPersistentAvatar ||
+            localStorage.getItem("milanAvatar") ||
+            ""
+        ).trim();
+
+        const avatarMarkup = avatar
+            ? `<img src="${escapeHtml(avatar)}" alt="Profile photo">`
+            : "M";
 
         return `
             <article
@@ -1150,7 +1200,7 @@
                 data-record-id="${id}"
             >
                 <div class="milan-feed-card-head">
-                    <div class="milan-feed-avatar">M</div>
+                    <div class="milan-feed-avatar">${avatarMarkup}</div>
 
                     <div class="milan-feed-meta">
                         <strong class="milan-feed-name">
@@ -1772,8 +1822,10 @@
         initFollowButtons();
 
         /*
-         * ONLY ONE initial feed load.
+         * Feed and authoritative profile identity load in parallel.
+         * Identity is server-side, not device-local.
          */
+        void loadAuthoritativeIdentity();
         loadFeed();
     }
 

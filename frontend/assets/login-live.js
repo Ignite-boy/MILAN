@@ -1,7 +1,7 @@
 /* MILAN login/register — production auth client */
 "use strict";
 
-const API_BASE = "https://milan-api-4n3n.onrender.com/api";
+const API_BASE = "/api";
 
 function getToken() {
   try { return String(localStorage.getItem("milan_token") || "").trim(); }
