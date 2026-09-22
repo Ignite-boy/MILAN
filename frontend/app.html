@@ -2439,6 +2439,251 @@ body{
 }
 </style>
 
+
+<style id="milan-final-contrast-fix">
+/* FINAL MILAN CONTRAST + DARK UI REPAIR */
+html,body{
+  background:#040711 !important;
+  color:#f7f9ff !important;
+}
+
+body{
+  color-scheme:dark !important;
+}
+
+.app,
+#appView,
+.layout{
+  background:transparent !important;
+}
+
+.topbar{
+  background:rgba(5,10,23,.94) !important;
+  color:#f7f9ff !important;
+}
+
+.brand-text strong,
+.brand-text span,
+.topbar *,
+.profile h2,
+.profile p,
+.nav button,
+.milan-feed-header strong,
+.milan-feed-header span,
+.right-card h3,
+.right-card,
+.heroIntro,
+.heroIntro *,
+.quickStat,
+.quickStat *,
+.composer,
+.composer *,
+.milan-home-feed,
+.milan-home-feed *,
+.milan-feed-card,
+.milan-feed-card *,
+.post,
+.post *,
+button{
+  color:#f7f9ff !important;
+}
+
+.brand-text span,
+.profile p,
+.milan-feed-header span,
+.right-card .empty,
+.quickStat .k,
+.milan-feed-meta span,
+.milan-feed-body p{
+  color:#9aa8c3 !important;
+}
+
+.heroIntro,
+.quickStat,
+.composer,
+.milan-home-feed,
+.milan-feed-card,
+.post,
+.profile,
+.nav,
+.right-card{
+  background:
+    linear-gradient(145deg,rgba(15,26,54,.94),rgba(7,14,31,.96)) !important;
+  border:1px solid rgba(148,163,184,.14) !important;
+  box-shadow:0 18px 55px rgba(0,0,0,.22) !important;
+}
+
+.heroIntro h1{
+  color:#ffffff !important;
+  -webkit-text-fill-color:#ffffff !important;
+  background:none !important;
+  -webkit-background-clip:initial !important;
+  background-clip:initial !important;
+  text-shadow:0 2px 18px rgba(255,255,255,.08) !important;
+}
+
+.heroIntro p{
+  color:#b7c3d9 !important;
+}
+
+.quickStat .v{
+  color:#ffffff !important;
+  -webkit-text-fill-color:#ffffff !important;
+}
+
+.composer textarea,
+#postText{
+  background:#091326 !important;
+  color:#ffffff !important;
+  border:1px solid rgba(148,163,184,.20) !important;
+}
+
+.composer textarea::placeholder,
+#postText::placeholder,
+.search input::placeholder{
+  color:#7f8da8 !important;
+  opacity:1 !important;
+}
+
+.search input{
+  background:#0c172b !important;
+  color:#ffffff !important;
+  border:1px solid rgba(148,163,184,.18) !important;
+}
+
+.icon-btn,
+.tool,
+#milanFeedRefresh,
+.milan-feed-actions button{
+  background:rgba(255,255,255,.07) !important;
+  color:#ffffff !important;
+  border:1px solid rgba(255,255,255,.10) !important;
+}
+
+.publish{
+  color:#071020 !important;
+  background:linear-gradient(135deg,#f59e0b,#fbbf24,#d946ef) !important;
+}
+
+.nav button:hover,
+.nav button.active{
+  background:linear-gradient(90deg,rgba(245,158,11,.18),rgba(217,70,239,.12)) !important;
+  color:#ffffff !important;
+}
+
+.nav button.accent{
+  background:linear-gradient(135deg,rgba(245,158,11,.16),rgba(217,70,239,.16)) !important;
+  color:#ffffff !important;
+}
+
+.milan-feed-header{
+  background:rgba(7,14,31,.96) !important;
+  color:#ffffff !important;
+}
+
+.milan-feed-card h3,
+.milan-feed-body h3,
+.milan-feed-meta strong{
+  color:#ffffff !important;
+}
+
+.right-card h3{
+  color:#ffffff !important;
+}
+
+.right-card .empty{
+  background:rgba(7,14,31,.55) !important;
+}
+
+@media (min-width:1001px){
+  html,body{
+    overflow:hidden !important;
+  }
+
+  .leftRail,
+  .centerRail,
+  .rightRail{
+    height:100% !important;
+    min-height:0 !important;
+    max-height:100% !important;
+    overflow-x:hidden !important;
+    overflow-y:auto !important;
+    overscroll-behavior:contain !important;
+    scrollbar-gutter:stable !important;
+  }
+}
+
+/* LIGHT THEME */
+:root[data-milan-theme="light"]{
+  color-scheme:light !important;
+}
+
+:root[data-milan-theme="light"] body{
+  background:#f0f2f5 !important;
+  color:#1c1e21 !important;
+}
+
+:root[data-milan-theme="light"] .topbar{
+  background:#ffffff !important;
+  color:#1c1e21 !important;
+}
+
+:root[data-milan-theme="light"] .brand-text strong,
+:root[data-milan-theme="light"] .profile h2,
+:root[data-milan-theme="light"] .milan-feed-header strong,
+:root[data-milan-theme="light"] .right-card h3,
+:root[data-milan-theme="light"] .heroIntro h1,
+:root[data-milan-theme="light"] .quickStat .v,
+:root[data-milan-theme="light"] .milan-feed-card h3,
+:root[data-milan-theme="light"] .milan-feed-body h3,
+:root[data-milan-theme="light"] .milan-feed-meta strong{
+  color:#1c1e21 !important;
+  -webkit-text-fill-color:#1c1e21 !important;
+}
+
+:root[data-milan-theme="light"] .brand-text span,
+:root[data-milan-theme="light"] .profile p,
+:root[data-milan-theme="light"] .heroIntro p,
+:root[data-milan-theme="light"] .quickStat .k,
+:root[data-milan-theme="light"] .milan-feed-header span,
+:root[data-milan-theme="light"] .milan-feed-body p,
+:root[data-milan-theme="light"] .right-card .empty{
+  color:#65676b !important;
+}
+
+:root[data-milan-theme="light"] .heroIntro,
+:root[data-milan-theme="light"] .quickStat,
+:root[data-milan-theme="light"] .composer,
+:root[data-milan-theme="light"] .milan-home-feed,
+:root[data-milan-theme="light"] .milan-feed-card,
+:root[data-milan-theme="light"] .post,
+:root[data-milan-theme="light"] .profile,
+:root[data-milan-theme="light"] .nav,
+:root[data-milan-theme="light"] .right-card{
+  background:#ffffff !important;
+  color:#1c1e21 !important;
+  border-color:#e4e6eb !important;
+  box-shadow:0 1px 3px rgba(0,0,0,.08) !important;
+}
+
+:root[data-milan-theme="light"] #postText,
+:root[data-milan-theme="light"] .composer textarea,
+:root[data-milan-theme="light"] .search input{
+  background:#f0f2f5 !important;
+  color:#1c1e21 !important;
+}
+
+:root[data-milan-theme="light"] .nav button{
+  color:#1c1e21 !important;
+}
+
+:root[data-milan-theme="light"] .nav button:hover,
+:root[data-milan-theme="light"] .nav button.active{
+  background:#e7f3ff !important;
+  color:#1877f2 !important;
+}
+</style>
+
 </head>
 <body>
 <div class="app">
