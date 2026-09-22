@@ -346,3 +346,18 @@ a.milan-storage-upgrade .milan-storage-plan{cursor:pointer}
   }
   .milan-storage-top-button{width:100%}
 }
+
+.milan-storage-footer-link{
+  flex:0 0 auto;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:36px;
+  padding:8px 13px;
+  border-radius:10px;
+  background:linear-gradient(135deg,#f59e0b,#fbbf24,#d946ef);
+  color:#111827 !important;
+  font-size:10px;
+  font-weight:900;
+  text-decoration:none !important;
+}
