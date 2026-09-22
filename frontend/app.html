@@ -1744,7 +1744,311 @@ body{
   }
 }
 </style>
-<style id="milan-left-menu-final">@media (min-width:1001px){.layout>.leftRail{position:sticky!important;top:88px!important;height:calc(100dvh - 104px)!important;max-height:calc(100dvh - 104px)!important;min-height:0!important;display:flex!important;flex-direction:column!important;overflow:hidden!important}.layout>.leftRail .profile{flex:0 0 auto!important}.layout>.leftRail .nav{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;scrollbar-gutter:stable!important}.layout>.leftRail .nav::-webkit-scrollbar{width:7px}.layout>.leftRail .nav::-webkit-scrollbar-thumb{background:rgba(148,163,184,.35);border-radius:999px}}</style>\n</head>
+<style id="milan-left-menu-final">@media (min-width:1001px){.layout>.leftRail{position:sticky!important;top:88px!important;height:calc(100dvh - 104px)!important;max-height:calc(100dvh - 104px)!important;min-height:0!important;display:flex!important;flex-direction:column!important;overflow:hidden!important}.layout>.leftRail .profile{flex:0 0 auto!important}.layout>.leftRail .nav{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;scrollbar-gutter:stable!important}.layout>.leftRail .nav::-webkit-scrollbar{width:7px}.layout>.leftRail .nav::-webkit-scrollbar-thumb{background:rgba(148,163,184,.35);border-radius:999px}}</style>\n
+<style id="milan-facebook-style-final">
+@media (min-width:1001px){
+  :root{
+    --fb-bg:#f0f2f5;
+    --fb-card:#ffffff;
+    --fb-text:#1c1e21;
+    --fb-muted:#65676b;
+    --fb-border:#e4e6eb;
+    --fb-blue:#1877f2;
+  }
+
+  html,body{
+    height:100% !important;
+    margin:0 !important;
+    overflow:hidden !important;
+    background:var(--fb-bg) !important;
+    color:var(--fb-text) !important;
+  }
+
+  .app{
+    height:100dvh !important;
+    min-height:0 !important;
+    overflow:hidden !important;
+    background:var(--fb-bg) !important;
+  }
+
+  .topbar{
+    position:fixed !important;
+    top:0 !important;
+    left:0 !important;
+    right:0 !important;
+    width:100% !important;
+    height:64px !important;
+    min-height:64px !important;
+    margin:0 !important;
+    padding:8px 18px !important;
+    background:#fff !important;
+    border-bottom:1px solid var(--fb-border) !important;
+    box-shadow:0 1px 3px rgba(0,0,0,.08) !important;
+    z-index:5000 !important;
+  }
+
+  .brand-logo-img{
+    width:40px !important;
+    height:40px !important;
+    border-radius:50% !important;
+  }
+
+  .brand-text strong{
+    color:var(--fb-text) !important;
+    font-size:18px !important;
+  }
+
+  .brand-text span{
+    color:var(--fb-muted) !important;
+  }
+
+  .search{
+    max-width:520px !important;
+  }
+
+  .search input{
+    height:42px !important;
+    border:0 !important;
+    border-radius:22px !important;
+    background:#f0f2f5 !important;
+    color:var(--fb-text) !important;
+  }
+
+  .icon-btn{
+    width:40px !important;
+    height:40px !important;
+    border-radius:50% !important;
+    background:#e4e6eb !important;
+    color:#1c1e21 !important;
+    border:0 !important;
+  }
+
+  .layout{
+    position:fixed !important;
+    top:64px !important;
+    left:0 !important;
+    right:0 !important;
+    bottom:0 !important;
+    width:100% !important;
+    max-width:none !important;
+    height:calc(100dvh - 64px) !important;
+    min-height:0 !important;
+    margin:0 !important;
+    padding:16px 18px !important;
+    display:grid !important;
+    grid-template-columns:280px minmax(520px,1fr) 300px !important;
+    gap:20px !important;
+    align-items:stretch !important;
+    overflow:hidden !important;
+    background:var(--fb-bg) !important;
+  }
+
+  .leftRail,
+  .centerRail,
+  .rightRail{
+    min-width:0 !important;
+    min-height:0 !important;
+    height:100% !important;
+    max-height:100% !important;
+    overflow-x:hidden !important;
+    overflow-y:auto !important;
+    overscroll-behavior:contain !important;
+    scrollbar-gutter:stable !important;
+  }
+
+  .leftRail{
+    padding-right:6px !important;
+    background:transparent !important;
+  }
+
+  .centerRail{
+    padding:0 4px 24px !important;
+  }
+
+  .rightRail{
+    padding-left:2px !important;
+  }
+
+  .sidebar{
+    position:static !important;
+    height:auto !important;
+    max-height:none !important;
+    background:transparent !important;
+    border:0 !important;
+    box-shadow:none !important;
+    border-radius:0 !important;
+    overflow:visible !important;
+  }
+
+  .profile{
+    background:var(--fb-card) !important;
+    border:1px solid var(--fb-border) !important;
+    border-radius:12px !important;
+    padding:18px !important;
+    margin-bottom:12px !important;
+  }
+
+  .profile h2{
+    color:var(--fb-text) !important;
+  }
+
+  .profile p{
+    color:var(--fb-muted) !important;
+  }
+
+  .profile-stat{
+    color:var(--fb-text) !important;
+    border-color:var(--fb-border) !important;
+    background:#f7f8fa !important;
+    border-radius:10px !important;
+  }
+
+  .nav{
+    display:flex !important;
+    flex-direction:column !important;
+    gap:3px !important;
+    background:var(--fb-card) !important;
+    border:1px solid var(--fb-border) !important;
+    border-radius:12px !important;
+    padding:8px !important;
+  }
+
+  .nav button{
+    min-height:46px !important;
+    margin:0 !important;
+    border:0 !important;
+    border-radius:9px !important;
+    color:var(--fb-text) !important;
+    background:transparent !important;
+    text-align:left !important;
+    font-size:15px !important;
+    font-weight:600 !important;
+  }
+
+  .nav button:hover,
+  .nav button.active{
+    background:#e7f3ff !important;
+    color:var(--fb-blue) !important;
+  }
+
+  .nav button.accent{
+    background:#eef0f2 !important;
+    color:var(--fb-text) !important;
+  }
+
+  .composer,
+  .milan-home-feed,
+  .right-card,
+  .heroIntro,
+  .quickStat{
+    background:var(--fb-card) !important;
+    border:1px solid var(--fb-border) !important;
+    box-shadow:0 1px 2px rgba(0,0,0,.08) !important;
+    border-radius:12px !important;
+    backdrop-filter:none !important;
+  }
+
+  .composer{
+    padding:14px !important;
+  }
+
+  #postText{
+    background:#f0f2f5 !important;
+    border:0 !important;
+    color:var(--fb-text) !important;
+    border-radius:18px !important;
+  }
+
+  .tool{
+    background:#f0f2f5 !important;
+    border:0 !important;
+  }
+
+  .publish{
+    background:var(--fb-blue) !important;
+    color:#fff !important;
+    border:0 !important;
+  }
+
+  .milan-home-feed{
+    margin-top:12px !important;
+    overflow:visible !important;
+  }
+
+  .milan-feed-header{
+    position:sticky !important;
+    top:0 !important;
+    z-index:50 !important;
+    background:#fff !important;
+    padding:14px 16px !important;
+    margin:0 !important;
+    border-bottom:1px solid var(--fb-border) !important;
+  }
+
+  .milan-feed-header strong{
+    color:var(--fb-text) !important;
+  }
+
+  .milan-feed-header span{
+    color:var(--fb-muted) !important;
+  }
+
+  .milan-feed-card,
+  .post{
+    background:#fff !important;
+    border:1px solid var(--fb-border) !important;
+    border-radius:12px !important;
+    box-shadow:0 1px 2px rgba(0,0,0,.08) !important;
+  }
+
+  .rightbar{
+    position:static !important;
+    display:flex !important;
+    flex-direction:column !important;
+    gap:12px !important;
+  }
+
+  .right-card{
+    margin:0 !important;
+    overflow:hidden !important;
+  }
+
+  .right-card h3{
+    color:var(--fb-text) !important;
+    padding:15px 16px !important;
+    margin:0 !important;
+    border-bottom:1px solid var(--fb-border) !important;
+  }
+
+  .right-card .empty{
+    color:var(--fb-muted) !important;
+    background:#fff !important;
+  }
+
+  .leftRail::-webkit-scrollbar,
+  .centerRail::-webkit-scrollbar,
+  .rightRail::-webkit-scrollbar{
+    width:7px;
+  }
+
+  .leftRail::-webkit-scrollbar-thumb,
+  .centerRail::-webkit-scrollbar-thumb,
+  .rightRail::-webkit-scrollbar-thumb{
+    background:#bcc0c4;
+    border-radius:20px;
+  }
+}
+
+@media (max-width:1000px){
+  html,body{
+    overflow-x:hidden !important;
+    overflow-y:auto !important;
+    height:auto !important;
+  }
+}
+</style>
+
+</head>
 <body>
 <div class="app">
 <header class="topbar">
@@ -1782,7 +2086,7 @@ body{
     <button id="editProfileBtn" type="button">⚙ Edit Profile</button><button>🛡 Privacy</button><button class="accent">🤖 MILAN AI</button>
   </nav>
 </aside>
-<section>
+<section class="centerRail">
   <div class="composer card">
     <div class="composer-row"><div class="mini-avatar" id="composerAvatar">M</div><textarea id="postText" placeholder="What's happening in your space?"></textarea></div>
     <div class="composer-bottom"><div class="composer-tools"><button class="tool">🖼</button><button class="tool">📎</button><button class="tool">😊</button><button class="tool">🔒</button></div><button class="publish" id="publishBtn">Publish</button></div>
@@ -1799,7 +2103,7 @@ body{
     <div id="milanFeedList"></div>
   </section>
 </section>
-<aside class="rightbar">
+<aside class="rightRail rightbar">
   <div class="right-card card" id="peopleConnectCard">
     <h3>People to connect</h3>
     <div id="peopleConnectList" class="empty">No suggestions yet.</div>
@@ -1807,7 +2111,7 @@ body{
   <div class="right-card card" id="recentActivityCard">
     <h3>Recent activity</h3>
     <div id="recentActivityList" class="empty">No recent activity yet.</div>
-  </div></div></div>
+  </div>
 </aside>
 </main>
 </div>
