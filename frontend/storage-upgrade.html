@@ -755,7 +755,7 @@ footer a:hover{color:#fff}
             <span class="payment-label">PAYMENT</span>
             <strong>MILAN UPI</strong>
           </div>
-          <div class="pay-amount" id="payAmount">₹500</div>
+          <input id="customAmount" type="number" value="500" min="1" style="font-size:28px;width:160px;text-align:center;padding:8px;border-radius:10px;">
         </div>
 
         <div class="payment-subline">Complete the selected storage upgrade directly through UPI.</div>
@@ -879,7 +879,6 @@ footer a:hover{color:#fff}
   const upiButton = document.getElementById("upiButton");
   const upiIdText = document.getElementById("upiIdText");
   const copyUpi = document.getElementById("copyUpi");
-  const payAmount = document.getElementById("payAmount");
   const utr = document.getElementById("utr");
   const submit = document.getElementById("submit");
   const status = document.getElementById("status");
@@ -899,7 +898,6 @@ footer a:hover{color:#fff}
     summaryPlan.textContent = plan.label;
     summaryQuota.textContent = plan.quota;
     summaryAmount.textContent = "₹" + plan.amount.toLocaleString("en-IN");
-    if (payAmount) payAmount.textContent = "₹" + plan.amount.toLocaleString("en-IN");
 
     upiButton.href =
       "upi://pay?pa=np7218468@okhdfcbank" +
@@ -940,7 +938,7 @@ footer a:hover{color:#fff}
         },
         body:JSON.stringify({
           plan:selected,
-          amount:Number(prompt("Enter payment amount", plans[selected].amount)) || plans[selected].amount
+          amount:Number(document.getElementById("customAmount")?.value || plans[selected].amount)
         }),
         cache:"no-store"
       });
