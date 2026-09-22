@@ -170,7 +170,73 @@
     </div>
 
     <div id="authMsg" class="auth-msg"></div>
-    <div class="divider">OR</div>
+
+    <div class="milan-storage-upgrade" id="milanStorageUpgrade">
+      <div class="milan-storage-upgrade-head">
+        <div>
+          <strong>☁️ Upgrade Storage</strong>
+          <span>More space for your MILAN data</span>
+        </div>
+        <span class="milan-storage-current">100 MB FREE</span>
+      </div>
+
+      <div class="milan-storage-plans">
+        <button type="button" class="milan-storage-plan" data-storage-plan="500mb">
+          <strong>500 MB</strong>
+          <span>₹500</span>
+        </button>
+
+        <button type="button" class="milan-storage-plan" data-storage-plan="1gb">
+          <strong>1 GB</strong>
+          <span>₹1,000</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="milan-payment-modal hidden" id="milanPaymentModal">
+      <div class="milan-payment-backdrop" data-storage-close></div>
+      <div class="milan-payment-card" role="dialog" aria-modal="true">
+        <button type="button" class="milan-payment-close" data-storage-close>×</button>
+
+        <div class="milan-payment-brand">MILAN STORAGE</div>
+        <h3 id="milanPaymentTitle">Upgrade Storage</h3>
+        <p id="milanPaymentAmount"></p>
+
+        <div class="milan-payment-qr-wrap">
+          <img
+            src="/assets/milan-upi-qr.jpeg"
+            alt="MILAN UPI payment QR"
+            class="milan-payment-qr"
+          >
+        </div>
+
+        <div class="milan-payment-instruction">
+          <strong>Scan & Pay using UPI</strong>
+          <span>After payment, keep your UTR / transaction reference ready.</span>
+        </div>
+
+        <div class="milan-payment-fields">
+          <label>
+            UTR / Transaction Reference
+            <input
+              type="text"
+              id="milanPaymentUtr"
+              maxlength="80"
+              placeholder="Enter UTR after payment"
+              autocomplete="off"
+            >
+          </label>
+
+          <button type="button" id="milanPaymentSubmit" class="milan-payment-submit">
+            Submit Payment Request
+          </button>
+        </div>
+
+        <div id="milanPaymentStatus" class="milan-payment-status"></div>
+      </div>
+    </div>
+
+<div class="divider">OR</div>
     <button class="did-button" id="didLoginBtn"><span class="did-badge">did</span> Sign with ID3</button>
     <div class="register-link">Don't have an account? <a id="switchToRegister" href="#">Register</a></div>
   </div>

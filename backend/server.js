@@ -5,10 +5,9 @@ const compression = require('compression');
 const path = require('path');
 const fs = require('fs');
 const { saveUsersHybrid } = require('./services/userStoreHybrid');
-const { ensureFile, hydrateFilesFromRealDwn, repairUsersFile } = require('./utils/store');
+const { ensureFile, hydrateFilesFromSupabase, repairUsersFile } = require('./utils/store');
 const dwnStore = require('./services/dwnService');
 const { dwnRoot, databaseRoot, persistenceInfo } = require('./services/cloudDwnRegistry');
-require('./services/avatar-hydration-guard');
 const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || process.env.APP_PUBLIC_URL || process.env.SEO_CANONICAL_URL || 'https://milanlife.in';
 
 const app = express();
@@ -88,8 +87,8 @@ app.use(compression({
 app.use(express.json({ limit: process.env.JSON_LIMIT || '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: process.env.URLENCODED_LIMIT || '10mb' }));
 
-// V26 storage rule: all Milan runtime data is saved under the REAL CLOUD DWN root.
-// On Render, this points to a configured writable cloud DWN root. If /var/data is not writable, V26 falls back safely so the app does not crash. Attach a Render Disk for permanent cloud DWN storage, or configure REAL_DWN_CLOUD_ENDPOINT.
+// MILAN storage rule: Supabase is authoritative for persistent user data, records, and media.
+// The local filesystem is used only as a compatibility/cache layer.
 const DWN_ROOT = dwnRoot();
 const DATA_DIR = databaseRoot();
 const LEGACY_DATA_DIR = path.join(__dirname, 'data');
@@ -248,19 +247,6 @@ app.get('/api/seo/robots-check', (_req, res) => res.json({
   time: new Date().toISOString()
 }));
 
-app.get('/api/render/status', (_req, res) => res.json({
-  ok: true,
-  hosting: 'Render Free compatible',
-  laptopRequired: false,
-  dockerRequired: false,
-  didDhtGatewayRequired: false,
-  storageMode: 'PRODUCTION DWN NODE remote-only storage. Render stores app files/cache only; user database/records/media go to REAL_DWN_NODE_ENDPOINT.',
-  storage: { dwnRoot: DWN_ROOT, databaseDir: DATA_DIR, cloud: persistenceInfo() },
-  uploadLimitBytes: Number(process.env.MAX_MEDIA_BYTES || 104857600),
-  time: new Date().toISOString()
-}));
-
-
 app.get('/api/phase1/status', (_req, res) => {
   const status = dwnStore.getStatus();
   res.json({
@@ -307,6 +293,7 @@ const cloudDwnRouter = require('./routes/cloudDwn');
 app.use('/api/cloud-dwn', cloudDwnRouter);
 app.use('/api/dwn', cloudDwnRouter);
 app.use('/api/isolated-dwn', require('./routes/isolatedDwn'));
+app.use('/api/storage', require('./routes/storage'));
 app.use('/api/profile', require('./routes/profile'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/music', require('./routes/music'));
@@ -770,9 +757,9 @@ function listenWithFallback(port, attempts = 0) {
   });
 }
 
-// IMPORTANT FOR RENDER:
-// Bind the HTTP port BEFORE any potentially slow DWN hydration/initialization.
-// Render health checks must be able to reach /health immediately after startup.
+// IMPORTANT FOR PRODUCTION:
+// Bind the HTTP port before any potentially slow Supabase hydration/initialization.
+// Health checks must be able to reach /health immediately after startup.
 if (!process.env.VERCEL) {
   listenWithFallback(PORT);
 }
@@ -786,7 +773,7 @@ if (!process.env.VERCEL) {
     global.feedbackFile, global.securityReportsFile
   ];
   console.log('[STARTUP] hydrate begin');
-  const hydrate = await hydrateFilesFromRealDwn(filesToHydrate);
+  const hydrate = await hydrateFilesFromSupabase(filesToHydrate);
   console.log('[STARTUP] hydrate done');
   const usersRepair = repairUsersFile(global.usersFile);
   console.log('Production DWN database hydrate:', hydrate);
@@ -795,27 +782,7 @@ if (!process.env.VERCEL) {
   const status = await dwnStore.initDwn();
   console.log('[STARTUP] initDwn done');
   console.log('DWN storage status:', status);
-  try {
-    const { realDwnEngine } = require('./services/cloudDwnRegistry');
-    console.log('[STARTUP] engineStatus begin');
-    const engineStatus = await Promise.race([
-      realDwnEngine.engineStatus(),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('engineStatus startup timeout')), 5000)
-      )
-    ]);
-    console.log('[STARTUP] engineStatus done');
-    console.log('Real per-user DWN engine:', engineStatus);
-    // Gracefully close all open user DWN nodes (flush LevelDB) on shutdown.
-    const shutdown = async (sig) => {
-      try { console.log(`\n${sig} received — closing real DWN nodes...`); await realDwnEngine.closeAll(); } catch (_) {}
-      process.exit(0);
-    };
-    process.on('SIGTERM', () => shutdown('SIGTERM'));
-    process.on('SIGINT', () => shutdown('SIGINT'));
-  } catch (err) {
-    console.warn('Real DWN engine init skipped:', err.message);
-  }
+  console.log('[STARTUP] Supabase-authoritative DWN storage ready');
 })(); module.exports = app; 
 
 
