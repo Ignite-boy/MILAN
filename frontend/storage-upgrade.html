@@ -562,6 +562,21 @@ footer a:hover{color:#fff}
   .card{padding:20px}
   .final{padding:30px 19px}
 }
+.amount-input{
+font-size:28px;
+font-weight:800;
+width:180px;
+padding:12px 16px;
+border-radius:16px;
+border:1px solid rgba(255,255,255,.18);
+background:rgba(255,255,255,.08);
+color:white;
+outline:none;
+text-align:center;
+}
+.amount-input:focus{
+border-color:#8b5cf6;
+}
 </style>
 </head>
 
@@ -755,7 +770,7 @@ footer a:hover{color:#fff}
             <span class="payment-label">PAYMENT</span>
             <strong>MILAN UPI</strong>
           </div>
-          <input id="customAmount" type="number" value="500" min="1" style="font-size:28px;width:160px;text-align:center;padding:8px;border-radius:10px;">
+          <input id="customAmount" class="amount-input" type="number" value="500" min="1" placeholder="Enter amount">
         </div>
 
         <div class="payment-subline">Complete the selected storage upgrade directly through UPI.</div>
@@ -897,15 +912,21 @@ footer a:hover{color:#fff}
 
     summaryPlan.textContent = plan.label;
     summaryQuota.textContent = plan.quota;
-    summaryAmount.textContent = "₹" + plan.amount.toLocaleString("en-IN");
+    const amount = Number(document.getElementById("customAmount")?.value || plan.amount);
+
+    summaryAmount.textContent = "₹" + amount.toLocaleString("en-IN");
 
     upiButton.href =
       "upi://pay?pa=np7218468@okhdfcbank" +
       "&pn=Nitesh%20Pandey" +
-      "&am=" + plan.amount +
+      "&am=" + amount +
       "&cu=INR" +
       "&tn=MILAN%20Storage%20Upgrade";
   }
+
+  document.getElementById("customAmount")?.addEventListener("input", () => {
+    render();
+  });
 
   copyUpi?.addEventListener("click", async () => {
     const value = "np7218468@okhdfcbank";
