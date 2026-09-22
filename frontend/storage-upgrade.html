@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MILAN • Upgrade Storage</title>
+<style>
+:root{
+  --bg:#07111f;--card:#0d1b31;--card2:#101f39;
+  --line:rgba(148,163,184,.18);--text:#f8fafc;--muted:#94a3b8;
+  --gold:#f59e0b;--gold2:#fbbf24;--pink:#d946ef;--green:#22c55e;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;min-height:100vh;color:var(--text);
+  font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  background:
+    radial-gradient(circle at 15% 0%,rgba(245,158,11,.18),transparent 32%),
+    radial-gradient(circle at 90% 15%,rgba(217,70,239,.14),transparent 28%),
+    linear-gradient(180deg,#07111f,#091426);
+}
+.wrap{width:min(100%,980px);margin:auto;padding:28px 18px 50px}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+.brand{font-size:20px;font-weight:900;letter-spacing:.05em}
+.back{padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:#ffffff08;color:#cbd5e1}
+.hero,.card{
+  border:1px solid var(--line);border-radius:22px;
+  background:linear-gradient(145deg,rgba(16,31,57,.96),rgba(9,19,35,.96));
+  box-shadow:0 20px 60px #00000035;
+}
+.hero{padding:24px}
+.kicker{font-size:12px;font-weight:800;color:var(--gold2);text-transform:uppercase;letter-spacing:.12em}
+h1{margin:8px 0;font-size:clamp(28px,5vw,44px);line-height:1.05}
+.sub{margin:0;color:var(--muted);font-size:14px;line-height:1.6}
+.grid{display:grid;grid-template-columns:1.05fr .95fr;gap:18px;margin-top:18px}
+.card{padding:20px}
+.card h2{margin:0 0 14px;font-size:18px}
+.free{padding:12px 14px;border-radius:14px;background:#22c55e14;border:1px solid #22c55e30;color:#c7f9d5;margin-bottom:14px}
+.free span{font-size:12px;color:#a7f3c0}
+.plans{display:grid;gap:12px}
+.plan{
+  width:100%;border:1px solid var(--line);border-radius:16px;
+  background:var(--card2);color:var(--text);padding:16px;text-align:left;cursor:pointer;
+}
+.plan:hover,.plan.active{border-color:#f59e0baa;box-shadow:0 0 0 2px #f59e0b1f}
+.plan-top{display:flex;justify-content:space-between;gap:10px}
+.plan-name{font-size:16px;font-weight:850}.price{font-size:18px;font-weight:900;color:var(--gold2)}
+.plan-note{margin-top:5px;color:var(--muted);font-size:12px}
+.qr-box{display:flex;justify-content:center;padding:15px;border-radius:18px;background:#fff}
+.qr{width:min(100%,290px);display:block;border-radius:8px}
+.pay-row{display:flex;justify-content:space-between;align-items:center;margin:14px 0 8px}
+.pay-title{color:var(--muted);font-size:13px}.amount{font-size:30px;font-weight:950}
+.upi{padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#0a1527;word-break:break-all;font-size:13px}
+.upi-btn{
+  display:flex;justify-content:center;margin-top:10px;padding:13px 16px;border-radius:12px;
+  background:linear-gradient(135deg,var(--gold),var(--gold2),var(--pink));
+  color:#111827;font-weight:900
+}
+label{display:grid;gap:7px;margin-top:16px;font-size:12px;font-weight:800;color:#cbd5e1}
+input{width:100%;padding:13px 14px;border:1px solid var(--line);border-radius:12px;background:#091426;color:#fff;outline:none}
+input:focus{border-color:#f59e0baa}
+.submit{
+  width:100%;border:0;margin-top:12px;padding:14px 16px;border-radius:13px;
+  font-weight:900;cursor:pointer;background:linear-gradient(135deg,var(--gold),var(--gold2),var(--pink));color:#111827
+}
+.submit:disabled{opacity:.55;cursor:not-allowed}
+.status{min-height:22px;margin-top:10px;color:#cbd5e1;font-size:12px;line-height:1.5}
+.note{margin-top:14px;color:var(--muted);font-size:11px;line-height:1.6}
+@media(max-width:780px){
+  .grid{grid-template-columns:1fr}.wrap{padding:18px 12px 38px}.hero,.card{padding:16px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand">MILAN</div>
+    <a class="back" href="/index.html">← Back</a>
+  </div>
+
+  <section class="hero">
+    <div class="kicker">Storage Upgrade</div>
+    <h1>More space for your MILAN data.</h1>
+    <p class="sub">Choose a plan, pay through UPI, and submit your transaction reference for verification.</p>
+  </section>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Choose your storage</h2>
+      <div class="free"><strong>100 MB FREE</strong><br><span>Included with every MILAN account</span></div>
+
+      <div class="plans">
+        <button class="plan active" data-plan="500mb" type="button">
+          <div class="plan-top"><span class="plan-name">500 MB Upgrade</span><span class="price">₹500</span></div>
+          <div class="plan-note">Expand your MILAN storage to 500 MB.</div>
+        </button>
+
+        <button class="plan" data-plan="1gb" type="button">
+          <div class="plan-top"><span class="plan-name">1 GB Upgrade</span><span class="price">₹1,000</span></div>
+          <div class="plan-note">Expand your MILAN storage to 1 GB.</div>
+        </button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Pay with UPI</h2>
+      <div class="qr-box">
+        <img class="qr" src="/assets/milan-upi-qr.jpeg" alt="MILAN UPI QR">
+      </div>
+
+      <div class="pay-row">
+        <div class="pay-title">Selected plan</div>
+        <div class="amount" id="amount">₹500</div>
+      </div>
+
+      <div class="upi">np7218468@okhdfcbank</div>
+
+      <a class="upi-btn" id="upiButton" href="#">Pay in UPI App →</a>
+
+      <label>
+        UTR / Transaction Reference
+        <input id="utr" maxlength="80" autocomplete="off" placeholder="Enter UTR after payment">
+      </label>
+
+      <button class="submit" id="submit" type="button">Submit Upgrade Request</button>
+      <div class="status" id="status"></div>
+
+      <div class="note">Manual verification is used for this testing payment flow. Storage is upgraded after the transaction is reviewed.</div>
+    </section>
+  </div>
+</div>
+
+<script>
+(() => {
+  const token = localStorage.getItem("milanToken") || "";
+  const amountEl = document.getElementById("amount");
+  const utrEl = document.getElementById("utr");
+  const statusEl = document.getElementById("status");
+  const submitEl = document.getElementById("submit");
+  const upiButton = document.getElementById("upiButton");
+
+  const plans = {
+    "500mb": {amount:500,label:"500 MB"},
+    "1gb": {amount:1000,label:"1 GB"}
+  };
+
+  let selected = new URLSearchParams(location.search).get("plan");
+  if (!plans[selected]) selected = "500mb";
+
+  function render(){
+    const plan = plans[selected];
+    document.querySelectorAll("[data-plan]").forEach(btn =>
+      btn.classList.toggle("active", btn.dataset.plan === selected)
+    );
+    amountEl.textContent = "₹" + plan.amount.toLocaleString("en-IN");
+    upiButton.href =
+      "upi://pay?pa=np7218468@okhdfcbank" +
+      "&pn=Nitesh%20Pandey" +
+      "&am=" + plan.amount +
+      "&cu=INR" +
+      "&tn=MILAN%20Storage%20Upgrade";
+  }
+
+  document.querySelectorAll("[data-plan]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      selected = btn.dataset.plan;
+      history.replaceState({}, "", "/storage-upgrade.html?plan=" + encodeURIComponent(selected));
+      statusEl.textContent = "";
+      render();
+    });
+  });
+
+  submitEl.addEventListener("click", async () => {
+    if (!token) {
+      statusEl.textContent = "Please login first, then submit your upgrade request.";
+      return;
+    }
+
+    const utr = String(utrEl.value || "").trim();
+    if (utr.length < 6) {
+      statusEl.textContent = "Please enter a valid UTR / transaction reference.";
+      return;
+    }
+
+    submitEl.disabled = true;
+    submitEl.textContent = "Submitting...";
+
+    try {
+      const r = await fetch("/api/storage/upgrade-request", {
+        method:"POST",
+        headers:{
+          "Accept":"application/json",
+          "Content-Type":"application/json",
+          "Authorization":"Bearer " + token
+        },
+        body:JSON.stringify({plan:selected,utr}),
+        cache:"no-store"
+      });
+
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || "Request failed");
+
+      statusEl.textContent = "✅ Request submitted. Your upgrade will apply after verification.";
+      submitEl.textContent = "Request Submitted ✓";
+    } catch(err) {
+      statusEl.textContent = err.message || "Payment request failed.";
+      submitEl.disabled = false;
+      submitEl.textContent = "Submit Upgrade Request";
+    }
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

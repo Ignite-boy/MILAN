@@ -271,3 +271,16 @@ body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:9999;o
   .milan-storage-plans{grid-template-columns:1fr 1fr}
   .milan-payment-card{padding:20px}
 }
+
+/* MILAN storage upgrade card: whole card is clickable */
+a.milan-storage-upgrade{
+  display:block;
+  text-decoration:none !important;
+  color:inherit !important;
+  cursor:pointer;
+  position:relative;
+  z-index:5;
+}
+a.milan-storage-upgrade:hover{transform:translateY(-1px)}
+a.milan-storage-upgrade:active{transform:translateY(0)}
+a.milan-storage-upgrade .milan-storage-plan{cursor:pointer}
