@@ -1203,7 +1203,7 @@
                 card
                     .querySelectorAll("[data-feed-action]")
                     .forEach((button) => {
-                        button.onclick = () => {
+                        button.onclick = async () => {
                             const action =
                                 button.dataset.feedAction;
 
