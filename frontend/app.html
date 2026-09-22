@@ -2048,6 +2048,397 @@ body{
 }
 </style>
 
+
+<style id="milan-about-theme-app-final">
+:root{
+  --m-bg:#040711;
+  --m-bg2:#071126;
+  --m-panel:rgba(13,22,46,.82);
+  --m-panel2:rgba(8,16,35,.88);
+  --m-line:rgba(148,163,184,.14);
+  --m-text:#f7f9ff;
+  --m-muted:#9aa8c3;
+  --m-gold:#f59e0b;
+  --m-gold2:#fbbf24;
+  --m-pink:#d946ef;
+  --m-blue:#5879ff;
+  --m-green:#34d399;
+}
+
+html,body{
+  background:
+    radial-gradient(900px 520px at 85% 8%,rgba(217,70,239,.11),transparent 62%),
+    radial-gradient(900px 560px at 8% 18%,rgba(88,121,255,.10),transparent 64%),
+    linear-gradient(180deg,var(--m-bg),var(--m-bg2) 48%,var(--m-bg)) !important;
+  color:var(--m-text) !important;
+}
+
+body{
+  font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif !important;
+}
+
+.topbar{
+  background:rgba(5,9,20,.86) !important;
+  border-bottom:1px solid var(--m-line) !important;
+  box-shadow:0 12px 45px rgba(0,0,0,.20) !important;
+  backdrop-filter:blur(20px) !important;
+  -webkit-backdrop-filter:blur(20px) !important;
+}
+
+.brand-text strong,
+.milan-feed-header strong,
+.profile h2,
+.right-card h3{
+  color:var(--m-text) !important;
+}
+
+.brand-text span,
+.profile p,
+.milan-feed-header span,
+.right-card .empty{
+  color:var(--m-muted) !important;
+}
+
+.search input{
+  background:rgba(255,255,255,.045) !important;
+  border:1px solid var(--m-line) !important;
+  color:#fff !important;
+}
+
+.icon-btn{
+  background:rgba(255,255,255,.055) !important;
+  border:1px solid var(--m-line) !important;
+  color:#fff !important;
+}
+
+.layout{
+  background:transparent !important;
+}
+
+.leftRail,
+.centerRail,
+.rightRail{
+  min-width:0 !important;
+  min-height:0 !important;
+}
+
+.sidebar,
+.profile,
+.nav,
+.composer,
+.milan-home-feed,
+.right-card,
+.heroIntro,
+.quickStat,
+.milan-feed-card,
+.post{
+  background:
+    linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.012)) !important;
+  border:1px solid var(--m-line) !important;
+  box-shadow:0 18px 60px rgba(0,0,0,.18) !important;
+  backdrop-filter:blur(16px) !important;
+  -webkit-backdrop-filter:blur(16px) !important;
+}
+
+.sidebar{
+  border-radius:24px !important;
+}
+
+.profile{
+  border-radius:20px !important;
+}
+
+.profile-stat{
+  background:rgba(255,255,255,.035) !important;
+  border:1px solid var(--m-line) !important;
+  color:var(--m-text) !important;
+}
+
+.nav{
+  border-radius:20px !important;
+}
+
+.nav button{
+  color:#aab6ce !important;
+  background:transparent !important;
+  border:1px solid transparent !important;
+}
+
+.nav button:hover,
+.nav button.active{
+  color:#fff !important;
+  background:linear-gradient(90deg,rgba(245,158,11,.11),rgba(217,70,239,.08)) !important;
+  border-color:rgba(245,158,11,.16) !important;
+}
+
+.nav button.accent{
+  color:#fff !important;
+  background:linear-gradient(135deg,rgba(245,158,11,.15),rgba(217,70,239,.15)) !important;
+  border-color:rgba(217,70,239,.18) !important;
+}
+
+.heroIntro{
+  position:relative !important;
+  overflow:hidden !important;
+}
+
+.heroIntro::before{
+  content:"" !important;
+  position:absolute !important;
+  inset:0 !important;
+  pointer-events:none !important;
+  opacity:.28 !important;
+  background-image:
+    linear-gradient(rgba(148,163,184,.045) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(148,163,184,.045) 1px,transparent 1px) !important;
+  background-size:38px 38px !important;
+}
+
+.heroIntro h1{
+  position:relative !important;
+  background:linear-gradient(135deg,#fff 18%,var(--gold2) 56%,#e879f9 92%) !important;
+  -webkit-background-clip:text !important;
+  background-clip:text !important;
+  color:transparent !important;
+}
+
+.quickStat .k{
+  color:#8998b6 !important;
+}
+
+.quickStat .v{
+  color:#fff !important;
+}
+
+.composer textarea,
+#postText{
+  background:rgba(4,8,19,.64) !important;
+  border:1px solid var(--m-line) !important;
+  color:#fff !important;
+}
+
+.tool{
+  background:rgba(255,255,255,.045) !important;
+  border:1px solid var(--m-line) !important;
+  color:#fff !important;
+}
+
+.publish{
+  color:#071020 !important;
+  background:linear-gradient(135deg,var(--m-gold),var(--m-gold2),var(--m-pink)) !important;
+  box-shadow:0 16px 40px rgba(245,158,11,.14) !important;
+}
+
+.milan-feed-header{
+  background:rgba(6,10,22,.78) !important;
+  border-bottom:1px solid var(--m-line) !important;
+}
+
+.milan-feed-card,
+.post{
+  color:var(--m-text) !important;
+}
+
+.milan-feed-body p{
+  color:#c2cce0 !important;
+}
+
+.milan-feed-actions{
+  border-top:1px solid var(--m-line) !important;
+}
+
+.milan-feed-actions button,
+#milanFeedRefresh{
+  background:rgba(255,255,255,.045) !important;
+  border:1px solid var(--m-line) !important;
+  color:#c6d0e2 !important;
+}
+
+.rightbar{
+  gap:14px !important;
+}
+
+.right-card h3{
+  border-bottom:1px solid var(--m-line) !important;
+}
+
+@media (min-width:1001px){
+  html,body{
+    height:100% !important;
+    min-height:100% !important;
+    overflow:hidden !important;
+  }
+
+  .app{
+    height:100dvh !important;
+    min-height:0 !important;
+    overflow:hidden !important;
+  }
+
+  .topbar{
+    position:fixed !important;
+    top:0 !important;
+    left:0 !important;
+    right:0 !important;
+    width:100% !important;
+    height:72px !important;
+    min-height:72px !important;
+    z-index:5000 !important;
+  }
+
+  .layout{
+    position:fixed !important;
+    top:72px !important;
+    left:0 !important;
+    right:0 !important;
+    bottom:0 !important;
+    width:100% !important;
+    max-width:none !important;
+    height:calc(100dvh - 72px) !important;
+    min-height:0 !important;
+    max-height:calc(100dvh - 72px) !important;
+    margin:0 !important;
+    padding:16px 18px 18px !important;
+    display:grid !important;
+    grid-template-columns:minmax(220px,280px) minmax(0,1fr) minmax(240px,310px) !important;
+    gap:18px !important;
+    align-items:stretch !important;
+    overflow:hidden !important;
+  }
+
+  .leftRail,
+  .centerRail,
+  .rightRail{
+    height:100% !important;
+    max-height:100% !important;
+    min-height:0 !important;
+    overflow-x:hidden !important;
+    overflow-y:auto !important;
+    overscroll-behavior:contain !important;
+    overscroll-behavior-y:contain !important;
+    scrollbar-gutter:stable !important;
+  }
+
+  .leftRail{padding-right:4px !important}
+  .centerRail{padding:0 5px 24px 0 !important}
+  .rightRail{padding-left:4px !important}
+
+  .leftRail::-webkit-scrollbar,
+  .centerRail::-webkit-scrollbar,
+  .rightRail::-webkit-scrollbar{
+    width:7px !important;
+  }
+
+  .leftRail::-webkit-scrollbar-thumb,
+  .centerRail::-webkit-scrollbar-thumb,
+  .rightRail::-webkit-scrollbar-thumb{
+    background:rgba(148,163,184,.30) !important;
+    border-radius:999px !important;
+  }
+
+  .leftRail::-webkit-scrollbar-track,
+  .centerRail::-webkit-scrollbar-track,
+  .rightRail::-webkit-scrollbar-track{
+    background:transparent !important;
+  }
+
+  .sidebar{
+    position:static !important;
+    height:auto !important;
+    max-height:none !important;
+    overflow:visible !important;
+    background:transparent !important;
+    border:0 !important;
+    box-shadow:none !important;
+    backdrop-filter:none !important;
+  }
+
+  .milan-home-feed{
+    overflow:visible !important;
+  }
+}
+
+@media (max-width:1000px){
+  html,body{
+    height:auto !important;
+    overflow-x:hidden !important;
+    overflow-y:auto !important;
+  }
+
+  .app{
+    height:auto !important;
+    min-height:100vh !important;
+    overflow:visible !important;
+  }
+
+  .layout{
+    position:relative !important;
+    inset:auto !important;
+    height:auto !important;
+    max-height:none !important;
+    overflow:visible !important;
+  }
+
+  .leftRail,
+  .centerRail,
+  .rightRail{
+    height:auto !important;
+    max-height:none !important;
+    overflow:visible !important;
+  }
+}
+
+/* Working theme switch */
+:root[data-milan-theme="light"]{
+  --m-bg:#f4f6fa;
+  --m-bg2:#eef1f7;
+  --m-panel:rgba(255,255,255,.94);
+  --m-panel2:#fff;
+  --m-line:rgba(21,32,51,.10);
+  --m-text:#18212f;
+  --m-muted:#6f7b8d;
+}
+
+:root[data-milan-theme="light"] body{
+  background:
+    radial-gradient(900px 500px at 50% -10%,rgba(88,121,255,.08),transparent 60%),
+    linear-gradient(180deg,#f7f9fc,#eef1f6) !important;
+  color:#18212f !important;
+}
+
+:root[data-milan-theme="light"] .topbar{
+  background:rgba(255,255,255,.90) !important;
+}
+
+:root[data-milan-theme="light"] .sidebar,
+:root[data-milan-theme="light"] .profile,
+:root[data-milan-theme="light"] .nav,
+:root[data-milan-theme="light"] .composer,
+:root[data-milan-theme="light"] .milan-home-feed,
+:root[data-milan-theme="light"] .right-card,
+:root[data-milan-theme="light"] .heroIntro,
+:root[data-milan-theme="light"] .quickStat,
+:root[data-milan-theme="light"] .milan-feed-card,
+:root[data-milan-theme="light"] .post{
+  background:rgba(255,255,255,.94) !important;
+  color:#18212f !important;
+  box-shadow:0 10px 35px rgba(22,34,55,.08) !important;
+}
+
+:root[data-milan-theme="light"] .profile h2,
+:root[data-milan-theme="light"] .right-card h3,
+:root[data-milan-theme="light"] .milan-feed-header strong{
+  color:#18212f !important;
+}
+
+:root[data-milan-theme="light"] #postText,
+:root[data-milan-theme="light"] .composer textarea,
+:root[data-milan-theme="light"] .search input{
+  background:#f0f2f5 !important;
+  color:#18212f !important;
+}
+</style>
+
 </head>
 <body>
 <div class="app">
@@ -2291,6 +2682,35 @@ body{
 
   setTimeout(syncPersistentIdentity, 1200);
   setInterval(syncPersistentIdentity, 15000);
+})();
+</script>
+
+
+<script id="milan-theme-switch-final">
+(() => {
+  const root = document.documentElement;
+  const key = "milanTheme";
+  const saved = localStorage.getItem(key) || "dark";
+  root.dataset.milanTheme = saved;
+
+  function bindTheme(){
+    const btn = document.querySelector('.icon-btn[title="Theme"]');
+    if(!btn || btn.dataset.milanThemeBound === "1") return;
+    btn.dataset.milanThemeBound = "1";
+    btn.addEventListener("click", () => {
+      const next = root.dataset.milanTheme === "dark" ? "light" : "dark";
+      root.dataset.milanTheme = next;
+      localStorage.setItem(key, next);
+      btn.title = next === "dark" ? "Theme: Dark" : "Theme: Light";
+    });
+  }
+
+  if(document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", bindTheme, {once:true});
+  }else{
+    bindTheme();
+  }
+  setTimeout(bindTheme, 500);
 })();
 </script>
 
