@@ -723,7 +723,20 @@ app.use(express.static(path.join(__dirname, '../frontend'), {
     }
   }
 }));
-app.get('/app', (_req, res) => res.sendFile(path.join(__dirname, '../frontend/app.html')));
+app.get('/app', (_req, res) => {
+  res.type('html').send(`<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>MILAN</title></head>
+<body>
+<script>
+(function(){
+  const token = localStorage.getItem('milanToken') || localStorage.getItem('milan_token');
+  window.location.replace(token ? '/app.html' : '/index.html');
+})();
+</script>
+</body>
+</html>`);
+});
 // Unknown URL → real 404 (correct status for Google; no soft-404 / duplicate-content issues)
 app.get('*', (_req, res) => {
   res.status(404).sendFile(path.join(__dirname, '../frontend/404.html'), e => {
