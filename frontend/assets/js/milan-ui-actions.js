@@ -13,6 +13,7 @@
 
     const state = {
         pendingPosts: new Map(),
+        feedRecords: new Map(),
         feedLoading: false
     };
 
@@ -1242,15 +1243,17 @@
        unless the server actually returns that same record ID.
        ========================================================= */
 
-    function mergeRecords(serverRecords) {
+    function mergeRecords(serverRecords = []) {
         const byId = new Map();
+
+        for (const record of state.feedRecords.values()) {
+            const id = getRecordId(record);
+            if (id) byId.set(id, record);
+        }
 
         for (const record of serverRecords || []) {
             const id = getRecordId(record);
-
-            if (id) {
-                byId.set(id, record);
-            }
+            if (id) byId.set(id, record);
         }
 
         for (const [id, record] of state.pendingPosts) {
@@ -1261,8 +1264,8 @@
             }
         }
 
-        return Array.from(byId.values())
-            .filter((record) =>
+        const merged = Array.from(byId.values())
+            .filter(record =>
                 getRecordText(record) ||
                 getRecordTitle(record)
             )
@@ -1271,12 +1274,26 @@
                     new Date(getRecordDate(b)) -
                     new Date(getRecordDate(a))
             );
+
+        state.feedRecords = new Map(
+            merged
+                .map(record => [getRecordId(record), record])
+                .filter(([id]) => id)
+        );
+
+        return merged;
     }
 
     function renderFeed(records) {
         const list = $("milanFeedList");
 
         if (!list) return;
+
+        state.feedRecords = new Map(
+            (records || [])
+                .map(record => [getRecordId(record), record])
+                .filter(([id]) => id)
+        );
 
         if (!records.length) {
             list.innerHTML = `
@@ -1500,12 +1517,15 @@
              */
             const currentRecords =
                 Array.from(
-                    state.pendingPosts.values()
+                    state.feedRecords.values()
                 );
 
-            renderFeed(
-                mergeRecords(currentRecords)
-            );
+            const mergedNow = mergeRecords([
+                ...currentRecords,
+                saved
+            ]);
+
+            renderFeed(mergedNow);
 
             button.textContent =
                 "Saved ✓";
