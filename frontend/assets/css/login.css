@@ -284,3 +284,65 @@ a.milan-storage-upgrade{
 a.milan-storage-upgrade:hover{transform:translateY(-1px)}
 a.milan-storage-upgrade:active{transform:translateY(0)}
 a.milan-storage-upgrade .milan-storage-plan{cursor:pointer}
+
+/* MILAN storage upgrade — primary login CTA */
+.milan-storage-top-cta{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  width:100%;
+  margin:14px 0 12px;
+  padding:14px 15px;
+  border:1px solid rgba(245,158,11,.26);
+  border-radius:15px;
+  background:
+    linear-gradient(135deg,rgba(245,158,11,.11),rgba(217,70,239,.09)),
+    rgba(7,17,31,.38);
+  box-shadow:0 10px 28px rgba(0,0,0,.12);
+}
+.milan-storage-top-copy{
+  min-width:0;
+  display:grid;
+  gap:3px;
+}
+.milan-storage-top-kicker{
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.13em;
+  color:#fbbf24;
+}
+.milan-storage-top-copy strong{
+  color:#f8fafc;
+  font-size:14px;
+  line-height:1.2;
+}
+.milan-storage-top-copy small{
+  color:#94a3b8;
+  font-size:10px;
+  line-height:1.4;
+}
+.milan-storage-top-button{
+  flex:0 0 auto;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  min-height:40px;
+  padding:10px 14px;
+  border-radius:11px;
+  color:#111827 !important;
+  background:linear-gradient(135deg,#f59e0b,#fbbf24,#d946ef);
+  font-size:11px;
+  font-weight:900;
+  text-decoration:none !important;
+  box-shadow:0 7px 20px rgba(245,158,11,.16);
+}
+.milan-storage-top-button span{font-size:14px}
+@media(max-width:620px){
+  .milan-storage-top-cta{
+    flex-direction:column;
+    align-items:stretch;
+  }
+  .milan-storage-top-button{width:100%}
+}
