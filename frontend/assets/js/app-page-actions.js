@@ -338,6 +338,10 @@
         }
       };
     }
+
+    if (typeof renderFeed === "function") {
+      renderFeed();
+    }
   }
 
   function installLogout() {

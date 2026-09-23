@@ -251,6 +251,8 @@ function postHtml(r){
     p.avatar=
       me?.profile?.avatar ||
       p.avatar ||
+      window.__milanPersistentAvatar ||
+      localStorage.getItem("milanAvatar") ||
       "";
 
     p.did=
