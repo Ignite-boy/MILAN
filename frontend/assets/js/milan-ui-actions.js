@@ -96,17 +96,31 @@
         if (!auth) return;
 
         try {
-            const response = await fetch("/api/profile", {
-                method: "GET",
-                headers: {
-                    "Authorization": "Bearer " + auth,
-                    "Accept": "application/json"
-                },
-                cache: "no-store"
-            });
+            const headers = {
+                "Authorization": "Bearer " + auth,
+                "Accept": "application/json"
+            };
 
-            const profile = await response.json().catch(() => ({}));
-            if (!response.ok) return;
+            const [profileResponse, meResponse] = await Promise.all([
+                fetch("/api/profile", {
+                    method: "GET",
+                    headers,
+                    cache: "no-store"
+                }),
+                fetch("/api/auth/me", {
+                    method: "GET",
+                    headers,
+                    cache: "no-store"
+                })
+            ]);
+
+            const profile = profileResponse.ok
+                ? await profileResponse.json().catch(() => ({}))
+                : {};
+
+            const identity = meResponse.ok
+                ? await meResponse.json().catch(() => ({}))
+                : {};
 
             state.profileAvatar =
                 String(profile?.avatar || "").trim();
@@ -114,9 +128,18 @@
             state.profileName =
                 String(
                     profile?.display_name ||
+                    profile?.name ||
+                    identity?.name ||
                     profile?.username ||
+                    identity?.profile?.display_name ||
+                    identity?.email?.split("@")[0] ||
                     ""
                 ).trim();
+
+            if (state.profileAvatar) {
+                window.__milanPersistentAvatar = state.profileAvatar;
+                localStorage.setItem("milanAvatar", state.profileAvatar);
+            }
 
             if (state.feedRecords.size) {
                 renderFeed(
