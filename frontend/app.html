@@ -2684,6 +2684,19 @@ button{
 }
 </style>
 
+<script>
+(function(){
+  try {
+    const token =
+      localStorage.getItem("milan_token") ||
+      localStorage.getItem("milanToken") ||
+      "";
+    if (!token) window.location.replace("/index.html");
+  } catch (_) {
+    window.location.replace("/index.html");
+  }
+})();
+</script>
 </head>
 <body>
 <div class="app">

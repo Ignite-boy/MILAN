@@ -63,7 +63,43 @@
     swRegister();
     installPrompt();
     escClosesModals();
+    authenticatedAppLinks();
   });
+
+  /* ---------------- Authenticated Open App ---------------- */
+  function authenticatedAppLinks() {
+    document.addEventListener("click", function (event) {
+      const link = event.target.closest && event.target.closest("a");
+      if (!link) return;
+
+      const raw = link.getAttribute("href") || "";
+      let url;
+      try {
+        url = new URL(raw, location.href);
+      } catch (_) {
+        return;
+      }
+
+      if (url.origin !== location.origin || !/^\/app\/?$/.test(url.pathname)) {
+        return;
+      }
+
+      let token = "";
+      try {
+        token =
+          localStorage.getItem("milan_token") ||
+          localStorage.getItem("milanToken") ||
+          "";
+      } catch (_) {}
+
+      event.preventDefault();
+      window.location.assign(
+        token
+          ? "/app.html?entry=" + Date.now()
+          : "/index.html"
+      );
+    });
+  }
 
   /* ---------------- Dead-link guard ----------------
      Stops a[href="#"] from jumping to top. If the link has no real handler,

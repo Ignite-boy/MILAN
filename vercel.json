@@ -95,13 +95,7 @@
     }
   ],
   "trailingSlash": false,
-  "redirects": [
-    {
-      "source": "/app.html",
-      "destination": "/app",
-      "permanent": true
-    }
-  ],
+  "redirects": [],
   "headers": [
     {
       "source": "/assets/(.*)",
