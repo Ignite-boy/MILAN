@@ -892,6 +892,11 @@ border-color:#8b5cf6;
   const summaryQuota = document.getElementById("summaryQuota");
   const summaryAmount = document.getElementById("summaryAmount");
   const upiButton = document.getElementById("upiButton");
+  const upiOptions = document.createElement("div");
+  upiOptions.id = "upiOptions";
+  upiOptions.hidden = true;
+  upiOptions.style.cssText = "display:grid;gap:8px;margin-top:12px;padding:12px;border:1px solid rgba(255,255,255,.12);border-radius:14px;background:rgba(255,255,255,.04)";
+  upiButton.insertAdjacentElement("afterend", upiOptions);
   const upiIdText = document.getElementById("upiIdText");
   const copyUpi = document.getElementById("copyUpi");
   const utr = document.getElementById("utr");
@@ -967,8 +972,8 @@ border-color:#8b5cf6;
     }, 500);
   }
 
-  function buildUpiUrl(order) {
-    const params = new URLSearchParams({
+  function buildUpiParams(order) {
+    return new URLSearchParams({
       pa: "np7218468@okhdfcbank",
       pn: "Nitesh Pandey",
       tr: order.orderId,
@@ -976,12 +981,57 @@ border-color:#8b5cf6;
       am: String(order.amountInr),
       cu: "INR"
     });
+  }
 
-    const scheme = /iPhone|iPad|iPod/.test(navigator.userAgent)
-      ? "gpay://upi/pay?"
-      : "tez://upi/pay?";
+  function buildUpiUrl(order) {
+    return "upi://pay?" + buildUpiParams(order).toString();
+  }
 
-    return scheme + params.toString();
+  function buildAppUpiUrl(order, app) {
+    const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    const schemes = ios
+      ? {
+          gpay: "gpay://upi/pay?",
+          phonepe: "phonepe://pay?",
+          paytm: "paytmmp://pay?",
+          bhim: "bhim://upi/pay?"
+        }
+      : {
+          gpay: "tez://upi/pay?",
+          phonepe: "phonepe://pay?",
+          paytm: "paytmmp://pay?",
+          bhim: "bhim://upi/pay?"
+        };
+
+    return (schemes[app] || "upi://pay?") + buildUpiParams(order).toString();
+  }
+
+  function showUpiOptions() {
+    if (!currentOrder) return;
+
+    upiOptions.innerHTML = `
+      <div style="font-weight:800;font-size:13px;margin-bottom:2px">Choose UPI app</div>
+      <button type="button" data-upi-app="gpay">📱 Google Pay</button>
+      <button type="button" data-upi-app="phonepe">🟣 PhonePe</button>
+      <button type="button" data-upi-app="paytm">🔵 Paytm</button>
+      <button type="button" data-upi-app="bhim">🟢 BHIM</button>
+      <button type="button" data-upi-app="generic">▣ Other UPI Apps</button>
+    `;
+
+    upiOptions.querySelectorAll("button").forEach((btn) => {
+      btn.style.cssText = "width:100%;padding:11px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:transparent;color:inherit;font-weight:800;text-align:left;cursor:pointer";
+      btn.addEventListener("click", () => {
+        const app = btn.dataset.upiApp;
+        const url = app === "generic"
+          ? buildUpiUrl(currentOrder)
+          : buildAppUpiUrl(currentOrder, app);
+
+        upiOptions.hidden = true;
+        window.location.href = url;
+      });
+    });
+
+    upiOptions.hidden = false;
   }
 
   window.selectPlan = function(plan) {
@@ -1003,10 +1053,11 @@ border-color:#8b5cf6;
     summaryAmount.textContent = "₹" + amount.toLocaleString("en-IN");
 
     const canPay = !!currentOrder && !orderPreparing;
-    upiButton.href = canPay ? buildUpiUrl(currentOrder) : "#";
+    upiButton.href = "#";
     upiButton.setAttribute("aria-disabled", canPay ? "false" : "true");
     upiButton.tabIndex = canPay ? 0 : -1;
     upiButton.style.pointerEvents = canPay ? "" : "none";
+    if (!canPay) upiOptions.hidden = true;
   }
 
   document.getElementById("customAmount")?.addEventListener("input", () => {
@@ -1030,16 +1081,16 @@ border-color:#8b5cf6;
   });
 
   upiButton.addEventListener("click", (event) => {
-    const order = currentOrder;
+    event.preventDefault();
 
-    if (!order) {
-      event.preventDefault();
-      status.textContent = "Payment order is still preparing. Please tap again in a moment.";
+    if (!currentOrder) {
+      status.textContent = "Payment order is still preparing. Please wait a moment.";
       schedulePaymentOrder();
       return;
     }
 
-    upiButton.href = buildUpiUrl(order);
+    showUpiOptions();
+    upiOptions.scrollIntoView({behavior:"smooth",block:"nearest"});
   });
 
   submit.addEventListener("click", async () => {
