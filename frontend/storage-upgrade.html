@@ -901,6 +901,7 @@ border-color:#8b5cf6;
   let currentOrderKey = "";
   let orderRequestVersion = 0;
   let orderTimer = null;
+  let orderPreparing = false;
 
   async function createPaymentOrder() {
     const authToken = localStorage.getItem("milanToken") || "";
@@ -940,6 +941,8 @@ border-color:#8b5cf6;
     if (currentOrder && currentOrderKey === orderKey) return;
 
     const version = ++orderRequestVersion;
+    orderPreparing = true;
+    render();
 
     try {
       const order = await createPaymentOrder();
@@ -947,12 +950,13 @@ border-color:#8b5cf6;
       currentOrder = order;
       currentOrderKey = orderKey;
       sessionStorage.setItem("milanPaymentOrderId", order.orderId);
-      render();
     } catch (error) {
       currentOrder = null;
       currentOrderKey = "";
-      render();
       status.textContent = error.message || "Payment setup failed.";
+    } finally {
+      orderPreparing = false;
+      render();
     }
   }
 
@@ -998,9 +1002,11 @@ border-color:#8b5cf6;
 
     summaryAmount.textContent = "₹" + amount.toLocaleString("en-IN");
 
-    upiButton.href = currentOrder
-      ? buildUpiUrl(currentOrder)
-      : "#";
+    const canPay = !!currentOrder && !orderPreparing;
+    upiButton.href = canPay ? buildUpiUrl(currentOrder) : "#";
+    upiButton.setAttribute("aria-disabled", canPay ? "false" : "true");
+    upiButton.tabIndex = canPay ? 0 : -1;
+    upiButton.style.pointerEvents = canPay ? "" : "none";
   }
 
   document.getElementById("customAmount")?.addEventListener("input", () => {
