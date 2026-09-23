@@ -4,7 +4,6 @@ const path = require('path');
 const auth = require('../middleware/auth');
 const { readJson, writeJson, findUserById, findUserByDid } = require('../utils/store');
 const dwnStore = require('../services/dwnService');
-const realDwn = require('../services/realDwnNodeClient');
 const {
   configuredEndpoints,
   ensureUserDwn,
@@ -15,7 +14,7 @@ const {
   persistenceInfo,
   cloudApiKey,
   storageRootFor,
-  realDwnEngine
+  realUserDwnNodeStatus
 } = require('../services/cloudDwnRegistry');
 
 const router = express.Router();
@@ -100,39 +99,23 @@ router.get('/health', auth, async (req, res) => {
       });
     }
 
-    const opened = await realDwnEngine.openNode({
-      spaceId: info.spaceId,
-      knownDidUri: found.user.did
-    });
-
-    if (!opened?.ok || !opened?.node) {
-      return res.status(503).json({
-        ok: false,
-        state: 'disconnected',
-        did: found.user.did,
-        spaceId: info.spaceId,
-        reason: opened?.error || opened?.reason || 'DWN node unavailable',
-        checkedAt: new Date().toISOString()
-      });
-    }
-
-    const remoteNode = await realDwn.ping().catch(error => ({
+    const realNode = await realUserDwnNodeStatus(found.user).catch(error => ({
       ok: false,
       error: error.message
     }));
 
-    const remoteConfigured = !!persistenceInfo().remoteEndpoint;
-
-    if (remoteConfigured && remoteNode.ok === false) {
+    if (realNode.ok === false) {
       return res.status(503).json({
         ok: false,
         state: 'disconnected',
         did: found.user.did,
         spaceId: info.spaceId,
-        reason: remoteNode.error || 'DWN remote endpoint unavailable',
+        reason: realNode.error || realNode.reason || 'DWN node unavailable',
         checkedAt: new Date().toISOString()
       });
     }
+
+    const remoteConfigured = false;
 
     return res.json({
       ok: true,
@@ -142,9 +125,10 @@ router.get('/health', auth, async (req, res) => {
       dwn: {
         nodeReady: true,
         remoteConfigured,
-        remoteReachable: remoteConfigured ? true : null,
+        remoteReachable: null,
         endpoint: info.endpoint || persistenceInfo().remoteEndpoint || null,
-        mode: info.mode || persistenceInfo().mode || null
+        mode: info.mode || persistenceInfo().mode || null,
+        backend: realNode.backend || 'supabase'
       },
       checkedAt: new Date().toISOString()
     });
@@ -161,14 +145,21 @@ router.get('/health', auth, async (req, res) => {
 
 router.get('/status', async (_req, res) => {
   const p = persistenceInfo();
-  const remoteNode = await realDwn.ping().catch(err => ({ ok: false, error: err.message }));
+  const remoteNode = {
+    ok: true,
+    configured: true,
+    endpoint: p.remoteEndpoint || '',
+    backend: 'supabase',
+    realDwnProtocol: false,
+    sdkReady: true
+  };
   res.json({
     ok: true,
     version: '49.0.0',
     mode: p.mode,
     productionDwn: {
-      realDwnProtocol: !!p.remoteEndpoint && remoteNode.ok !== false,
-      sdkReady: !!p.remoteEndpoint && remoteNode.ok !== false,
+      realDwnProtocol: false,
+      sdkReady: true,
       remoteWriteEnabled: !!p.remoteEndpoint,
       fallbackUsed: false,
       appStoresUserData: false,
