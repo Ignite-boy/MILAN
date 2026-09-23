@@ -331,48 +331,62 @@ router.get('/', auth, async (req, res) => {
     console.warn('[profile] DWN mapping persistence warning:', error.message);
   }
 
-  // FAST PATH: the persisted local profile record is already updated by
-  // the successful DP upload. Do not block page refresh on a remote DWN read.
-  let avatar = String(found.user.profile?.avatar || '').trim();
+  // AUTHORITATIVE READBACK:
+  // Always read the authenticated user's persistent Supabase-backed DWN record
+  // first. The local profile is only a fallback/cache and must never win over
+  // the current DWN record.
+  const recordId = profileRecordId(found.user.did);
+  let avatar = '';
 
-  // Remote DWN read is only needed when the local profile has no avatar.
-  // This keeps refresh fast and resilient when the remote DWN is unavailable.
-  if (!avatar) {
-    try {
-      const dwnPicture = await readProfilePictureFromUserDwn(
-        found.user,
-        profileRecordId(found.user.did)
-      );
+  try {
+    const dwnPicture = await readProfilePictureFromUserDwn(
+      found.user,
+      recordId
+    );
 
-      if (dwnPicture?.avatar) {
-        avatar = dwnPicture.avatar;
+    if (dwnPicture?.avatar) {
+      avatar = dwnPicture.avatar;
 
-        found.user.profile = {
-          ...(found.user.profile || {}),
-          avatar,
-          avatarRecordId: dwnPicture.recordId,
-          avatarSync: 'synced',
-          updated_at: new Date().toISOString()
-        };
+      found.user.profile = {
+        ...(found.user.profile || {}),
+        avatar,
+        avatarRecordId: dwnPicture.recordId || recordId,
+        avatarMime: dwnPicture.mime || found.user.profile?.avatarMime || 'image/jpeg',
+        avatarSync: 'synced',
+        updated_at: new Date().toISOString()
+      };
 
-        users[found.email] = found.user;
+      users[found.email] = found.user;
 
-        try {
-          writeJson(global.usersFile, users);
-        } catch (_) {}
-      }
-    } catch (error) {
-      console.warn('[profile] DWN avatar read failed:', error.message);
+      try {
+        writeJson(global.usersFile, users);
+      } catch (_) {}
+
+      return res.json({
+        ...(found.user.profile || {}),
+        avatar,
+        avatarRecordId: dwnPicture.recordId || recordId,
+        avatarMime: dwnPicture.mime || found.user.profile?.avatarMime || 'image/jpeg',
+        avatarSync: 'synced'
+      });
     }
+  } catch (error) {
+    console.warn('[profile] authoritative DWN avatar read failed:', error.message);
   }
+
+  // FALLBACK ONLY:
+  // Keep the last known local avatar when the authoritative DWN read is
+  // temporarily unavailable. This prevents a transient network failure from
+  // blanking an already-saved DP.
+  avatar = String(found.user.profile?.avatar || '').trim();
 
   return res.json({
     ...(found.user.profile || {}),
     avatar,
     avatarRecordId:
       found.user.profile?.avatarRecordId ||
-      profileRecordId(found.user.did),
-    avatarSync: avatar ? 'synced' : 'missing'
+      recordId,
+    avatarSync: avatar ? 'local-fallback' : 'missing'
   });
 });
 router.put('/', auth, uploadDp.single('avatar'), async (req, res) => {
