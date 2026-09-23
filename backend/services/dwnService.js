@@ -1292,7 +1292,7 @@ async function listVisibleRecords(did, query = {}) {
         }
       };
     })
-    .filter(record => canRead(record, ownerDid))
+    .filter(record => record.schema !== 'profile-picture' && canRead(record, ownerDid))
     .map(record => toClient(record, ownerDid));
 
   return filterSort(cloudRecords, query);
@@ -1386,15 +1386,39 @@ async function unshareRecord(userId, did, id, targetDid) {
   return toClient(found.record, did);
 }
 
-async function deleteRecord(userId, id) {
+async function deleteRecord(userId, ownerDid, id) {
   const { all, list } = ownerRecordsRaw(userId);
-  const record = list.find(x => x.id === id);
-  if (!record) return false;
+  let record = list.find(x => x.id === id);
 
-  // Permanent deletion: remove the authoritative Supabase/DWN rows first.
-  // Local cache is removed only after cloud deletion succeeds.
-  await deleteRecordFromCloudDwn(record.id, record.owner);
+  if (record && String(record.owner || '') !== String(ownerDid || '')) {
+    return false;
+  }
 
+  // Production feed records come from authoritative Supabase/DWN.
+  // If the local cache does not have the record, resolve ownership
+  // directly from Supabase before deleting.
+  if (!record) {
+    const { data, error } = await supabaseAuthoritative
+      .from('dwn_records')
+      .select('record_id,owner_did,deleted')
+      .eq('record_id', id)
+      .eq('owner_did', ownerDid)
+      .eq('deleted', false)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return false;
+
+    record = {
+      id: data.record_id,
+      owner: data.owner_did
+    };
+  }
+
+  // Permanent deletion: authoritative Supabase/DWN first.
+  await deleteRecordFromCloudDwn(record.id, ownerDid);
+
+  // Remove local compatibility/cache copy when present.
   const next = list.filter(x => x.id !== id);
   all[userId] = next;
   writeIndex(all);
@@ -1403,7 +1427,7 @@ async function deleteRecord(userId, id) {
   audit('dwn.record.permanently.deleted', {
     userId,
     recordId: record.id,
-    ownerDid: record.owner
+    ownerDid: ownerDid
   });
 
   return true;

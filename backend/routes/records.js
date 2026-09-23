@@ -670,7 +670,7 @@ router.delete('/:id/share/:did', auth, async (req, res) => {
 
 router.delete('/:id', auth, async (req, res) => {
   try {
-    const deleted = await dwnStore.deleteRecord(req.userId, req.params.id);
+    const deleted = await dwnStore.deleteRecord(req.userId, u.user.did, req.params.id);
     if (!deleted) return res.status(404).json({ error: 'Record not found or not owner' });
     addActivity(req.userId, 'record.deleted.from.dwn', { id: req.params.id });
     res.json({ deleted: true, storage: 'DWN' });
