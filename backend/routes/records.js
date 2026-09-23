@@ -670,11 +670,42 @@ router.delete('/:id/share/:did', auth, async (req, res) => {
 
 router.delete('/:id', auth, async (req, res) => {
   try {
-    const deleted = await dwnStore.deleteRecord(req.userId, u.user.did, req.params.id);
-    if (!deleted) return res.status(404).json({ error: 'Record not found or not owner' });
-    addActivity(req.userId, 'record.deleted.from.dwn', { id: req.params.id });
-    res.json({ deleted: true, storage: 'DWN' });
-  } catch (err) { handleError(res, err); }
+    const ownerDid = String(
+      req.account?.did ||
+      req.did ||
+      ''
+    ).trim();
+
+    if (!ownerDid) {
+      return res.status(401).json({
+        error: 'Authoritative user identity unavailable'
+      });
+    }
+
+    const deleted = await dwnStore.deleteRecord(
+      req.userId,
+      ownerDid,
+      req.params.id
+    );
+
+    if (!deleted) {
+      return res.status(404).json({
+        error: 'Record not found or not owned by current user'
+      });
+    }
+
+    addActivity(req.userId, 'record.deleted.from.dwn', {
+      id: req.params.id
+    });
+
+    res.json({
+      deleted: true,
+      storage: 'DWN',
+      recordId: req.params.id
+    });
+  } catch (err) {
+    handleError(res, err);
+  }
 });
 
 module.exports = router;
