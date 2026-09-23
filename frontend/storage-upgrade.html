@@ -897,13 +897,95 @@ border-color:#8b5cf6;
   const utr = document.getElementById("utr");
   const submit = document.getElementById("submit");
   const status = document.getElementById("status");
-  const token = "";
+  let currentOrder = null;
+  let currentOrderKey = "";
+  let orderRequestVersion = 0;
+  let orderTimer = null;
+
+  async function createPaymentOrder() {
+    const authToken = localStorage.getItem("milanToken") || "";
+    if (!authToken) throw new Error("Please login first.");
+
+    const amount = Number(document.getElementById("customAmount")?.value || plans[selected].amount);
+    if (!Number.isFinite(amount) || amount < 1) {
+      throw new Error("Invalid payment amount");
+    }
+
+    const response = await fetch("/api/payment/create-order", {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + authToken
+      },
+      body: JSON.stringify({
+        plan: selected,
+        amount
+      }),
+      cache: "no-store"
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Order creation failed");
+
+    return data;
+  }
+
+  async function preparePaymentOrder() {
+    const authToken = localStorage.getItem("milanToken") || "";
+    if (!authToken) return;
+
+    const amount = Number(document.getElementById("customAmount")?.value || plans[selected].amount);
+    const orderKey = selected + "|" + amount;
+    if (currentOrder && currentOrderKey === orderKey) return;
+
+    const version = ++orderRequestVersion;
+
+    try {
+      const order = await createPaymentOrder();
+      if (version !== orderRequestVersion) return;
+      currentOrder = order;
+      currentOrderKey = orderKey;
+      sessionStorage.setItem("milanPaymentOrderId", order.orderId);
+      render();
+    } catch (error) {
+      currentOrder = null;
+      currentOrderKey = "";
+      render();
+      status.textContent = error.message || "Payment setup failed.";
+    }
+  }
+
+  function schedulePaymentOrder() {
+    clearTimeout(orderTimer);
+    orderTimer = setTimeout(() => {
+      preparePaymentOrder();
+    }, 500);
+  }
+
+  function buildUpiUrl(order) {
+    const params = new URLSearchParams({
+      pa: "np7218468@okhdfcbank",
+      pn: "Nitesh Pandey",
+      tr: order.orderId,
+      tn: "MILAN Storage Upgrade",
+      am: String(order.amountInr),
+      cu: "INR"
+    });
+
+    const scheme = /iPhone|iPad|iPod/.test(navigator.userAgent)
+      ? "gpay://upi/pay?"
+      : "tez://upi/pay?";
+
+    return scheme + params.toString();
+  }
 
   window.selectPlan = function(plan) {
     if (!plans[plan]) return;
     selected = plan;
     history.replaceState({}, "", "/storage-upgrade.html?plan=" + encodeURIComponent(selected));
     render();
+    preparePaymentOrder();
     document.getElementById("payment").scrollIntoView({behavior:"smooth",block:"start"});
   };
 
@@ -916,16 +998,18 @@ border-color:#8b5cf6;
 
     summaryAmount.textContent = "₹" + amount.toLocaleString("en-IN");
 
-    upiButton.href =
-      "tez://upi/pay?pa=np7218468@okhdfcbank" +
-      "&pn=Nitesh%20Pandey" +
-      "&am=" + amount +
-      "&cu=INR" +
-      "&tn=MILAN%20Storage%20Upgrade";
+    upiButton.href = currentOrder
+      ? buildUpiUrl(currentOrder)
+      : "#";
   }
 
   document.getElementById("customAmount")?.addEventListener("input", () => {
+    currentOrder = null;
+    currentOrderKey = "";
+    orderRequestVersion++;
+    sessionStorage.removeItem("milanPaymentOrderId");
     render();
+    schedulePaymentOrder();
   });
 
   copyUpi?.addEventListener("click", async () => {
@@ -939,46 +1023,43 @@ border-color:#8b5cf6;
     }
   });
 
+  upiButton.addEventListener("click", (event) => {
+    const order = currentOrder;
+
+    if (!order) {
+      event.preventDefault();
+      status.textContent = "Payment order is still preparing. Please tap again in a moment.";
+      schedulePaymentOrder();
+      return;
+    }
+
+    upiButton.href = buildUpiUrl(order);
+  });
+
   submit.addEventListener("click", async () => {
     const authToken = localStorage.getItem("milanToken") || "";
     if (!authToken) {
-      status.textContent = "Please login first, then submit the upgrade request.";
+      status.textContent = "Please login first.";
+      return;
+    }
+
+    const orderId = currentOrder?.orderId || sessionStorage.getItem("milanPaymentOrderId") || "";
+    const reference = String(utr?.value || "").trim();
+
+    if (!orderId) {
+      status.textContent = "Start the payment first.";
+      return;
+    }
+
+    if (!reference) {
+      status.textContent = "Enter UTR / transaction reference after payment.";
       return;
     }
 
     submit.disabled = true;
-    submit.textContent = "Creating order...";
+    submit.textContent = "Verifying payment...";
 
     try {
-      const orderResponse = await fetch("/api/payment/create-order", {
-        method:"POST",
-        headers:{
-          "Accept":"application/json",
-          "Content-Type":"application/json",
-          "Authorization":"Bearer " + authToken
-        },
-        body:JSON.stringify({
-          plan:selected,
-          amount:Number(document.getElementById("customAmount")?.value || plans[selected].amount)
-        }),
-        cache:"no-store"
-      });
-
-      const orderData = await orderResponse.json().catch(() => ({}));
-
-      if (!orderResponse.ok) {
-        throw new Error(orderData.error || "Order creation failed");
-      }
-
-      const reference = prompt(
-        "After payment, enter payment reference:",
-        ""
-      );
-
-      if (!reference) {
-        throw new Error("Payment reference required");
-      }
-
       const verifyResponse = await fetch("/api/payment/verify", {
         method:"POST",
         headers:{
@@ -987,7 +1068,7 @@ border-color:#8b5cf6;
           "Authorization":"Bearer " + authToken
         },
         body:JSON.stringify({
-          orderId: orderData.orderId,
+          orderId,
           paymentReference: reference
         })
       });
@@ -1000,6 +1081,8 @@ border-color:#8b5cf6;
 
       status.textContent = "✅ Payment verified. Storage upgraded.";
       submit.textContent = "Payment Complete ✓";
+      sessionStorage.removeItem("milanPaymentOrderId");
+      currentOrder = null;
 
     } catch (error) {
       status.textContent = error.message || "Payment failed.";
@@ -1009,6 +1092,7 @@ border-color:#8b5cf6;
   });
 
   render();
+  preparePaymentOrder();
 })();
 </script>
 </body>
