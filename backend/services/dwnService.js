@@ -1245,7 +1245,16 @@ async function listVisibleRecords(did, query = {}) {
   const cloudRecords = rows
     .map(row => {
       const metadata = parseDwnMetadata(row.metadata);
-      const recordData = dataMap.get(String(row.record_id || ''));
+      let recordData = dataMap.get(String(row.record_id || ''));
+      if ((!recordData || typeof recordData !== 'object') && metadata.media) {
+        recordData = { kind: 'media', caption: String(metadata.caption || ''), media: metadata.media };
+      } else if (metadata.media && recordData && typeof recordData === 'object') {
+        recordData = {
+          ...recordData,
+          kind: recordData.kind || 'media',
+          media: { ...(recordData.media || {}), ...metadata.media }
+        };
+      }
 
       const accessMode =
         metadata.accessMode ||
