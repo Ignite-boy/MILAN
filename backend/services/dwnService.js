@@ -184,10 +184,11 @@ function compactMediaForList(record) {
     const stored = !!(clone.mediaStoragePath || clone.mediaRemoteOnly || clone.mediaRemoteUrl);
     const previewCategory = media.previewCategory || clone.mediaCompatibility?.previewCategory || categoryForMime(mime, name);
     const browserPlayable = typeof media.browserPlayable === 'boolean' ? media.browserPlayable : (typeof clone.mediaCompatibility?.browserPlayable === 'boolean' ? clone.mediaCompatibility.browserPlayable : undefined);
+    const imageDataUrl = /^data:image\\//i.test(String(media.dataUrl || '')) ? media.dataUrl : '';
     clone.mediaUrl = `/api/records/${encodeURIComponent(clone.id)}/media`;
     const processing = !!(media.processing || clone.mediaCompatibility?.processing);
     const processingStatus = media.processingStatus || clone.mediaCompatibility?.processingStatus || (processing ? 'processing' : (previewCategory === 'video' && browserPlayable === false ? 'preview-unavailable' : 'ready'));
-    clone.data = { kind: 'media', caption, media: { fileName: name, mimeType: mime, sizeBytes: size, stored, remoteOnly: !!clone.mediaRemoteOnly, mediaUrl: clone.mediaUrl, downloadUrl: `${clone.mediaUrl}?download=1`, previewCategory, browserPlayable, browserSafe: browserPlayable === true, processing, processingStatus, compatibilityWarning: media.compatibilityWarning || clone.mediaCompatibility?.warning || '' } };
+    clone.data = { kind: 'media', caption, media: { fileName: name, mimeType: mime, sizeBytes: size, stored, remoteOnly: !!clone.mediaRemoteOnly, mediaUrl: clone.mediaUrl, downloadUrl: `${clone.mediaUrl}?download=1`, dataUrl: imageDataUrl || undefined, previewCategory, browserPlayable, browserSafe: browserPlayable === true, processing, processingStatus, compatibilityWarning: media.compatibilityWarning || clone.mediaCompatibility?.warning || '' } };
   }
   return clone;
 }
