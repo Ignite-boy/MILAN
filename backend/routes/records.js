@@ -429,7 +429,7 @@ router.post('/media', auth, async (req, res) => {
   };
 
   try {
-    const u = current(req);
+    const u = await current(req);
     if (!u) return res.status(404).json({ error: 'User not found' });
     if (contentLength && contentLength > limit) {
       return res.status(413).json({ error: `Media exceeds the configured upload limit of ${Math.round(limit / 1024 / 1024)} MB.` });
