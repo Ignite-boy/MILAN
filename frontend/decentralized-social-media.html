@@ -80,6 +80,13 @@ a{color:inherit;text-decoration:none}.shell{width:min(var(--max),calc(100% - 32p
 }
   </script>
 </head>
+<script>
+function milanSmartEnter(event) {
+  event.preventDefault();
+  const token = localStorage.getItem("milanToken");
+  window.location.href = token ? "/app" : "/index.html";
+}
+</script>
 <body>
 <div class="shell">
 <header class="topbar">
@@ -88,7 +95,7 @@ a{color:inherit;text-decoration:none}.shell{width:min(var(--max),calc(100% - 32p
     <span><strong class="brand-name">MILAN</strong><small class="brand-sub">WEB5 ECOSYSTEM</small></span>
   </a>
   <nav class="nav" aria-label="Primary navigation">
-    <a href="/">Home</a><a href="/about">About</a><a href="/app">Enter Milan</a>
+    <a href="/index.html" onclick="milanSmartEnter(event)">Home</a><a href="/about">About</a><a href="/app" onclick="milanSmartEnter(event)">Enter Milan</a>
   </nav>
 </header>
 
@@ -99,7 +106,7 @@ a{color:inherit;text-decoration:none}.shell{width:min(var(--max),calc(100% - 32p
       <div class="eyebrow"><span class="eyebrow-dot"></span>WEB5 · DID · DWN · DIGITAL OWNERSHIP</div>
       <h1>The internet should work <span class="accent">for people.</span></h1>
       <p class="lead">MILAN is building a people-first Web5 ecosystem where identity, data and digital experiences can work together without making the platform the center of your digital life.</p>
-      <div class="hero-actions"><a class="btn btn-primary" href="/app">Enter the MILAN ecosystem →</a><a class="btn btn-secondary" href="#foundation">Explore the foundation</a></div>
+      <div class="hero-actions"><a class="btn btn-primary" href="/app" onclick="milanSmartEnter(event)">Enter the MILAN ecosystem →</a><a class="btn btn-secondary" href="#foundation">Explore the foundation</a></div>
     </div>
     <aside class="hero-card" aria-label="Milan ecosystem overview">
       <div class="signal">ONE FOUNDATION · MANY EXPERIENCES</div>
@@ -173,7 +180,7 @@ a{color:inherit;text-decoration:none}.shell{width:min(var(--max),calc(100% - 32p
   <h2>The ecosystem comes alive through experiences.</h2>
   <p class="intro">The foundation becomes useful when people can actually do things with it. Milan's experiences are designed to grow from the same identity and data philosophy.</p>
   <div class="experiences">
-    <article class="card experience"><div class="tag">SOCIAL</div><h3>Connect without losing the person.</h3><p>Milan Social brings profiles, posts, messaging and discovery together while keeping the wider ecosystem in view.</p><a class="link" href="/app">Enter Milan →</a></article>
+    <article class="card experience"><div class="tag">SOCIAL</div><h3>Connect without losing the person.</h3><p>Milan Social brings profiles, posts, messaging and discovery together while keeping the wider ecosystem in view.</p><a class="link" href="/app" onclick="milanSmartEnter(event)">Enter Milan →</a></article>
     <article class="card experience"><div class="tag">MEDIA</div><h3>Make room for culture and media.</h3><p>Music and future media experiences can become connected parts of Milan rather than isolated destinations.</p><a class="link" href="/music">Explore Milan Music →</a></article>
     <article class="card experience"><div class="tag">KNOWLEDGE</div><h3>Understand the technology.</h3><p>Web5 education helps people understand the ideas behind decentralized identity, data ownership and the Milan approach.</p><a class="link" href="/what-is-web5">Learn about Web5 →</a></article>
   </div>
@@ -196,7 +203,7 @@ a{color:inherit;text-decoration:none}.shell{width:min(var(--max),calc(100% - 32p
     <div class="kicker">06 · Milan vision</div>
     <h2>Your identity. Your data. Your choices.</h2>
     <p>Milan's ambition is to build a digital ecosystem that feels less like a collection of disconnected platforms and more like one coherent environment for people. Social, media, AI and future services can grow from the same foundations of identity, data, privacy and permission.</p>
-    <div class="hero-actions"><a class="btn btn-primary" href="/app">Explore MILAN →</a></div>
+    <div class="hero-actions"><a class="btn btn-primary" href="/app" onclick="milanSmartEnter(event)">Explore MILAN →</a></div>
   </div>
 </section>
 
