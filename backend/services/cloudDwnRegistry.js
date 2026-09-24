@@ -465,7 +465,17 @@ async function pushRecordToCloudDwn(record, user) {
       dwnRecordId: record.dwnRecordId || '',
       spaceId: info.spaceId || '',
       interface: 'Records',
-      method: 'Write'
+      method: 'Write',
+      media: record?.data?.kind === 'media' && record?.data?.media
+        ? {
+            fileName: record.data.media.fileName || '',
+            mimeType: record.data.media.mimeType || record.dataFormat || '',
+            sizeBytes: Number(record.data.media.sizeBytes || 0),
+            previewCategory: record.data.media.previewCategory || '',
+            browserPlayable: typeof record.data.media.browserPlayable === 'boolean' ? record.data.media.browserPlayable : undefined,
+            mediaUrl: record.data.media.mediaUrl || '/api/records/' + encodeURIComponent(recordId) + '/media'
+          }
+        : null
     };
 
     const { error: recordError } = await supabase
