@@ -2738,7 +2738,18 @@ button{
 <section class="centerRail">
   <div class="composer card">
     <div class="composer-row"><div class="mini-avatar" id="composerAvatar">M</div><textarea id="postText" placeholder="What's happening in your space?"></textarea></div>
-    <div class="composer-bottom"><div class="composer-tools"><button class="tool">🖼</button><button class="tool">📎</button><button class="tool">😊</button><button class="tool">🔒</button></div><button class="publish" id="publishBtn">Publish</button></div>
+    <div class="composer-bottom">
+  <div class="composer-tools">
+    <button type="button" class="tool" id="photoUploadBtn" title="Upload photo">🖼</button>
+    <button type="button" class="tool" id="fileUploadBtn" title="Upload file">📎</button>
+    <button type="button" class="tool">😊</button>
+    <button type="button" class="tool">🔒</button>
+    <input id="mediaFile" type="file" hidden
+      accept="image/*,video/*,audio/*,text/*,.txt,.md,.csv,.json,.xml,.html,.pdf,.doc,.docx,.xls,.xlsx,.zip">
+    <span id="selectedFileName" style="display:none;margin-left:8px;color:#9aa7c2;font-size:11px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+  </div>
+  <button class="publish" id="publishBtn">Publish</button>
+</div>
   </div>
 
   <section id="milanHomeFeed" class="milan-home-feed" aria-live="polite">
@@ -2972,6 +2983,41 @@ button{
 })();
 </script>
 
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const input = document.getElementById("mediaFile");
+  const photoBtn = document.getElementById("photoUploadBtn");
+  const fileBtn = document.getElementById("fileUploadBtn");
+  const name = document.getElementById("selectedFileName");
+
+  if (!input || !photoBtn || !fileBtn) return;
+
+  photoBtn.addEventListener("click", function () {
+    input.setAttribute("accept", "image/*");
+    input.click();
+  });
+
+  fileBtn.addEventListener("click", function () {
+    input.setAttribute(
+      "accept",
+      "image/*,video/*,audio/*,text/*,.txt,.md,.csv,.json,.xml,.html,.pdf,.doc,.docx,.xls,.xlsx,.zip"
+    );
+    input.click();
+  });
+
+  input.addEventListener("change", function () {
+    const file = input.files && input.files[0];
+    if (!file) {
+      name.style.display = "none";
+      return;
+    }
+
+    name.textContent = "📎 " + file.name;
+    name.title = file.name;
+    name.style.display = "inline-block";
+  });
+});
+</script>
 </body>
 </html>
 
