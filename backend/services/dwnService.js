@@ -1506,15 +1506,14 @@ async function statsFor(did) {
 
 async function getAuthoritativeCloudMedia(id, did) {
   const recordId = String(id || '').trim();
-  const ownerDid = String(did || '').trim();
-  if (!recordId || !ownerDid) return null;
+  const readerDid = String(did || '').trim();
+  if (!recordId || !readerDid) return null;
 
   try {
     const { data: row, error } = await supabaseAuthoritative
       .from('dwn_records')
-      .select('record_id,owner_did,target_did,deleted,metadata')
+      .select('record_id,owner_did,target_did,recipient,published,deleted,metadata')
       .eq('record_id', recordId)
-      .eq('owner_did', ownerDid)
       .eq('deleted', false)
       .maybeSingle();
 
@@ -1527,14 +1526,43 @@ async function getAuthoritativeCloudMedia(id, did) {
 
     if (!media) return null;
 
+    const recordOwnerDid = String(
+      row.owner_did ||
+      row.target_did ||
+      ''
+    ).trim();
+
+    const recordRecipientDid = String(
+      row.recipient ||
+      recordOwnerDid
+    ).trim();
+
+    const accessMode = String(
+      metadata.accessMode ||
+      (row.published ? 'public' : 'private')
+    ).toLowerCase();
+
+    const sharedWithDids = Array.isArray(metadata.sharedWithDids)
+      ? metadata.sharedWithDids
+      : [];
+
+    if (!canRead({
+      owner: recordOwnerDid,
+      recipient: recordRecipientDid,
+      accessMode,
+      sharedWithDids
+    }, readerDid)) {
+      return null;
+    }
+
     const bucket = String(
       process.env.SUPABASE_MEDIA_BUCKET || 'milan-dwn-storage'
     ).trim();
 
     const spaceId = String(
       metadata.spaceId ||
-      dwnInfoForDid(ownerDid).spaceId ||
-      ownerDid ||
+      dwnInfoForDid(recordOwnerDid).spaceId ||
+      recordOwnerDid ||
       'unknown'
     ).trim();
 
