@@ -1073,56 +1073,20 @@
             document.querySelectorAll(".composer-tools .tool")
         );
 
-        if (tools[0]) {
+        const mediaInput = $("mediaFile");
+
+        if (tools[0] && mediaInput) {
             tools[0].onclick = () => {
-                let input = $("composerImageInput");
-
-                if (!input) {
-                    input = document.createElement("input");
-                    input.type = "file";
-                    input.id = "composerImageInput";
-                    input.accept = "image/*";
-                    input.hidden = true;
-
-                    input.addEventListener("change", () => {
-                        const file = input.files?.[0];
-                        if (!file) return;
-
-                        tools[0].dataset.file = file.name;
-                        tools[0].title = file.name;
-                        tools[0].textContent = "✅";
-                    });
-
-                    document.body.appendChild(input);
-                }
-
-                input.click();
+                mediaInput.accept = "image/*";
+                mediaInput.click();
             };
         }
 
-        if (tools[1]) {
+        if (tools[1] && mediaInput) {
             tools[1].onclick = () => {
-                let input = $("composerFileInput");
-
-                if (!input) {
-                    input = document.createElement("input");
-                    input.type = "file";
-                    input.id = "composerFileInput";
-                    input.hidden = true;
-
-                    input.addEventListener("change", () => {
-                        const file = input.files?.[0];
-                        if (!file) return;
-
-                        tools[1].dataset.file = file.name;
-                        tools[1].title = file.name;
-                        tools[1].textContent = "✅";
-                    });
-
-                    document.body.appendChild(input);
-                }
-
-                input.click();
+                mediaInput.accept =
+                    "image/*,video/*,audio/*,text/*,.txt,.md,.csv,.json,.xml,.html,.pdf,.doc,.docx,.xls,.xlsx,.zip";
+                mediaInput.click();
             };
         }
 
@@ -1166,6 +1130,29 @@
     /* =========================================================
        FEED CARD
        ========================================================= */
+
+
+
+    if (!document.getElementById("milan-feed-media-css")) {
+        const style = document.createElement("style");
+        style.id = "milan-feed-media-css";
+        style.textContent = `
+            .milan-feed-media{
+                margin:12px 0 2px;
+                border-radius:16px;
+                overflow:hidden;
+                background:#0b0f17;
+                border:1px solid rgba(255,255,255,.08);
+            }
+            .milan-feed-media img{
+                display:block;
+                width:100%;
+                max-height:620px;
+                object-fit:cover;
+            }
+        `;
+        document.head.appendChild(style);
+    }
 
     if (!$('milan-delete-record-css')) {
         const style = document.createElement('style');
@@ -1217,6 +1204,41 @@
             ? `<img src="${escapeHtml(avatar)}" alt="Profile photo">`
             : "M";
 
+        const media = record?.data?.media || record?.media || {};
+        const mediaUrl = String(
+            record?.mediaUrl ||
+            media?.mediaUrl ||
+            ""
+        ).trim();
+
+        let mediaMarkup = "";
+
+        if (
+            mediaUrl &&
+            String(media?.mimeType || record?.dataFormat || "")
+                .toLowerCase()
+                .startsWith("image/")
+        ) {
+            const sep = mediaUrl.includes("?") ? "&" : "?";
+            const imageSrc =
+                mediaUrl +
+                sep +
+                "token=" +
+                encodeURIComponent(getToken());
+
+            mediaMarkup = `
+                <div class="milan-feed-media">
+                    <img
+                        src="${escapeHtml(imageSrc)}"
+                        alt="${escapeHtml(media.fileName || "Uploaded image")}"
+                        loading="lazy"
+                        decoding="async"
+                        onerror="this.parentElement.style.display='none'"
+                    >
+                </div>
+            `;
+        }
+
         return `
             <article
                 class="milan-feed-card"
@@ -1235,7 +1257,8 @@
 
                 <div class="milan-feed-body">
                     <h3>${title}</h3>
-                    <p>${text}</p>
+                    ${mediaMarkup}
+                    ${text ? `<p>${text}</p>` : ""}
                 </div>
 
                 <div class="milan-feed-actions">
@@ -1592,15 +1615,16 @@
     async function publish() {
         const button = $("publishBtn");
         const textarea = $("postText");
+        const mediaInput = $("mediaFile");
 
         if (!button || !textarea) return;
 
-        const text =
-            String(textarea.value || "").trim();
+        const text = String(textarea.value || "").trim();
+        const file = mediaInput?.files?.[0] || null;
 
-        if (!text) {
+        if (!text && !file) {
             showPublishStatus(
-                "Write something first.",
+                "Select an image or write something first.",
                 true
             );
             textarea.focus();
@@ -1617,48 +1641,58 @@
             return;
         }
 
-        const originalText =
-            button.textContent;
+        const originalText = button.textContent;
+
+        const b64 = value =>
+            btoa(unescape(encodeURIComponent(String(value || ""))));
 
         try {
             button.disabled = true;
-            button.textContent = "Saving…";
-            showPublishStatus("Saving to DWN…");
+            button.textContent = file ? "Uploading…" : "Saving…";
+            showPublishStatus(file ? "Uploading image to DWN…" : "Saving to DWN…");
 
-            const createdAt =
-                new Date().toISOString();
+            let response;
 
-            const response =
-                await fetch(
-                    "/api/records",
-                    {
-                        method: "POST",
-                        headers: {
-                            "Content-Type":
-                                "application/json",
-                            "Authorization":
-                                "Bearer " + auth,
-                            "Accept":
-                                "application/json"
+            if (file) {
+                response = await fetch("/api/records/media", {
+                    method: "POST",
+                    headers: {
+                        "Authorization": "Bearer " + auth,
+                        "Content-Type": file.type || "application/octet-stream",
+                        "Accept": "application/json",
+                        "X-File-Name": b64(file.name),
+                        "X-Record-Title": b64(file.name),
+                        "X-Record-Caption": b64(text),
+                        "X-Access-Mode": "private",
+                        "X-Record-Tags": b64(JSON.stringify([])),
+                        "X-Shared-With-Dids": b64(JSON.stringify([]))
+                    },
+                    body: file
+                });
+            } else {
+                const createdAt = new Date().toISOString();
+
+                response = await fetch("/api/records", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + auth,
+                        "Accept": "application/json"
+                    },
+                    body: JSON.stringify({
+                        title: "MILAN Quote",
+                        data: {
+                            kind: "quote",
+                            text,
+                            createdAt
                         },
-                        body: JSON.stringify({
-                            title: "MILAN Quote",
-
-                            data: {
-                                kind: "quote",
-                                text,
-                                createdAt
-                            },
-
-                            dataFormat:
-                                "application/json",
-
-                            accessMode: "private",
-                            sharedWithDids: [],
-                            tags: ["quote"]
-                        })
-                    }
-                );
+                        dataFormat: "application/json",
+                        accessMode: "private",
+                        sharedWithDids: [],
+                        tags: ["quote"]
+                    })
+                });
+            }
 
             const saved =
                 await response
@@ -1689,6 +1723,7 @@
             }
 
             textarea.value = "";
+            if (mediaInput) mediaInput.value = "";
 
             /*
              * Immediately render the real saved record.
