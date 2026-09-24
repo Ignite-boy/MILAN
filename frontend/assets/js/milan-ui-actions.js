@@ -176,7 +176,7 @@
 
     async function uploadVideoChunked(file, meta, onProgress) {
         const token = getToken();
-        const chunkBytes = Number(window.MILAN_UPLOAD_CHUNK_BYTES || 6291456);
+        const chunkBytes = Number(window.MILAN_UPLOAD_CHUNK_BYTES || 4194304);
 
         const initResponse = await fetch("/api/records/media/chunk/init", {
             method: "POST",
@@ -2025,7 +2025,27 @@
 
             let saved = null;
 
-            if (file && /^video\//i.test(file.type || "")) {
+            const videoExtensions = new Set([
+                ".mp4", ".m4v", ".mov", ".qt", ".webm", ".ogv",
+                ".mkv", ".avi", ".wmv", ".flv", ".3gp", ".3g2",
+                ".mpeg", ".mpg", ".mts", ".m2ts", ".ts"
+            ]);
+
+            const fileExt =
+                "." +
+                String(file?.name || "")
+                    .split(".")
+                    .pop()
+                    .toLowerCase();
+
+            const isVideoFile =
+                !!file &&
+                (
+                    /^video\//i.test(file.type || "") ||
+                    videoExtensions.has(fileExt)
+                );
+
+            if (isVideoFile) {
                 showVideoUploadProgress(0);
 
                 saved = await uploadVideoChunked(
