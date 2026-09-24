@@ -2762,7 +2762,7 @@ button{
     <button type="button" class="tool">🔒</button>
     <input id="mediaFile" type="file" hidden
       accept="image/*,video/*,audio/*,text/*,.txt,.md,.csv,.json,.xml,.html,.pdf,.doc,.docx,.xls,.xlsx,.zip">
-    <span id="selectedFileName" style="display:none;margin-left:8px;color:#9aa7c2;font-size:11px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+    <span id="selectedFileName" style="display:none;margin-left:8px;color:#9aa7c2;font-size:11px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><span style="color:#22c55e;font-size:18px;font-weight:900;">✓</span></span>
   </div>
   <button class="publish" id="publishBtn">Publish</button>
 </div>
@@ -3011,8 +3011,13 @@ document.addEventListener("DOMContentLoaded", function () {
       name.style.display = "none";
       return;
     }
-    name.textContent = "📎 " + file.name;
-    name.title = file.name;
+    if ((file.type || "").startsWith("image/")) {
+      name.innerHTML = '<span style="color:#22c55e;font-size:18px;font-weight:900;">✓</span>';
+      name.title = "Image ready";
+    } else {
+      name.textContent = "📎 " + file.name;
+      name.title = file.name;
+    }
     name.style.display = "inline-block";
   });
 });
