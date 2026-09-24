@@ -3011,13 +3011,8 @@ document.addEventListener("DOMContentLoaded", function () {
       name.style.display = "none";
       return;
     }
-    if ((file.type || "").startsWith("image/")) {
-      name.innerHTML = '<span style="color:#22c55e;font-size:18px;font-weight:900;">✓</span>';
-      name.title = "Image ready";
-    } else {
-      name.textContent = "📎 " + file.name;
-      name.title = file.name;
-    }
+    name.innerHTML = '<span style="color:#22c55e;font-size:18px;font-weight:900;">✓</span>';
+    name.title = "File ready";
     name.style.display = "inline-block";
   });
 });
