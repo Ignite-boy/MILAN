@@ -2015,6 +2015,14 @@
 
         const originalText = button.textContent;
 
+        const privacyButton =
+            document.querySelectorAll(".composer-tools .tool")[3];
+
+        const privacyMode =
+            privacyButton?.dataset?.privacy === "public"
+                ? "public"
+                : "private";
+
         const b64 = value =>
             btoa(unescape(encodeURIComponent(String(value || ""))));
 
@@ -2053,7 +2061,7 @@
                     {
                         title: file.name,
                         caption: text,
-                        accessMode: "private"
+                        accessMode: privacyMode
                     },
                     percent => {
                         showVideoUploadProgress(percent);
@@ -2072,7 +2080,7 @@
                         "X-File-Name": b64(file.name),
                         "X-Record-Title": b64(file.name),
                         "X-Record-Caption": b64(text),
-                        "X-Access-Mode": "private",
+                        "X-Access-Mode": privacyMode,
                         "X-Record-Tags": b64(JSON.stringify([])),
                         "X-Shared-With-Dids": b64(JSON.stringify([]))
                     },
@@ -2096,7 +2104,7 @@
                             createdAt
                         },
                         dataFormat: "application/json",
-                        accessMode: "private",
+                        accessMode: privacyMode,
                         sharedWithDids: [],
                         tags: ["quote"]
                     })
