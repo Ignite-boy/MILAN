@@ -1085,7 +1085,7 @@
         if (tools[1] && mediaInput) {
             tools[1].onclick = () => {
                 mediaInput.accept =
-                    "image/*,video/*,audio/*,text/*,.txt,.md,.csv,.json,.xml,.html,.pdf,.doc,.docx,.xls,.xlsx,.zip";
+                    "video/*,audio/*,text/*,.txt,.md,.csv,.json,.xml,.html,.pdf,.doc,.docx,.xls,.xlsx,.zip";
                 mediaInput.click();
             };
         }
