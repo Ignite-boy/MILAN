@@ -1211,9 +1211,29 @@
             ""
         ).trim();
 
+        const imageDataUrl = String(
+            media?.dataUrl ||
+            record?.dataUrl ||
+            ""
+        ).trim();
+
         let mediaMarkup = "";
 
         if (
+            imageDataUrl &&
+            /^data:image\\//i.test(imageDataUrl)
+        ) {
+            mediaMarkup = `
+                <div class="milan-feed-media">
+                    <img
+                        src="${escapeHtml(imageDataUrl)}"
+                        alt="${escapeHtml(media.fileName || "Uploaded image")}"
+                        loading="lazy"
+                        decoding="async"
+                    >
+                </div>
+            `;
+        } else if (
             mediaUrl &&
             String(media?.mimeType || record?.dataFormat || "")
                 .toLowerCase()
@@ -1233,7 +1253,6 @@
                         alt="${escapeHtml(media.fileName || "Uploaded image")}"
                         loading="lazy"
                         decoding="async"
-                        onerror="this.parentElement.style.display='none'"
                     >
                 </div>
             `;
