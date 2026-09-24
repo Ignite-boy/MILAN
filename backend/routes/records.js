@@ -482,7 +482,7 @@ router.post('/media', auth, async (req, res) => {
 
 async function streamMedia(req, res) {
   try {
-    const u = current(req);
+    const u = await current(req);
     if (!u) return res.status(404).json({ error: 'User not found' });
     // V83 urgent video rule: when the player asks for the dedicated play.mp4/universal
     // route, make one best-effort browser-safe MP4 pass before streaming. This fixes the
