@@ -173,6 +173,330 @@
         el.style.color = isError ? "#fca5a5" : "#94a3b8";
     }
 
+
+    async function uploadVideoChunked(file, meta, onProgress) {
+        const token = getToken();
+        const chunkBytes = Number(window.MILAN_UPLOAD_CHUNK_BYTES || 6291456);
+
+        const initResponse = await fetch("/api/records/media/chunk/init", {
+            method: "POST",
+            headers: {
+                "Authorization": "Bearer " + token,
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            },
+            body: JSON.stringify({
+                fileName: file.name,
+                mimeType: file.type || "application/octet-stream",
+                sizeBytes: file.size,
+                chunkBytes,
+                title: meta.title || file.name,
+                caption: meta.caption || "",
+                accessMode: meta.accessMode || "private",
+                sharedWithDids: [],
+                tags: []
+            })
+        });
+
+        const init = await initResponse.json().catch(() => ({}));
+
+        if (!initResponse.ok || !init.uploadId) {
+            throw new Error(
+                init.error ||
+                init.detail ||
+                "Video upload could not be started."
+            );
+        }
+
+        const uploadId = init.uploadId;
+        const actualChunkBytes = Number(init.chunkBytes || chunkBytes);
+        const totalChunks = Number(
+            init.totalChunks ||
+            Math.ceil(file.size / actualChunkBytes)
+        );
+
+        let uploadedBase = 0;
+
+        const removeUpload = async () => {
+            try {
+                await fetch(
+                    "/api/records/media/chunk/" +
+                    encodeURIComponent(uploadId),
+                    {
+                        method: "DELETE",
+                        headers: {
+                            "Authorization": "Bearer " + token,
+                            "Accept": "application/json"
+                        }
+                    }
+                );
+            } catch (_) {}
+        };
+
+        try {
+            for (let index = 0; index < totalChunks; index++) {
+                const start = index * actualChunkBytes;
+                const end = Math.min(
+                    file.size,
+                    start + actualChunkBytes
+                );
+                const blob = file.slice(start, end);
+
+                let lastError = null;
+                let uploaded = false;
+
+                for (let attempt = 0; attempt < 4 && !uploaded; attempt++) {
+                    try {
+                        await new Promise((resolve, reject) => {
+                            const xhr = new XMLHttpRequest();
+
+                            xhr.open(
+                                "POST",
+                                "/api/records/media/chunk/" +
+                                encodeURIComponent(uploadId),
+                                true
+                            );
+
+                            xhr.timeout = Number(
+                                window.MILAN_CHUNK_UPLOAD_TIMEOUT_MS ||
+                                240000
+                            );
+
+                            xhr.setRequestHeader(
+                                "Authorization",
+                                "Bearer " + token
+                            );
+                            xhr.setRequestHeader(
+                                "Content-Type",
+                                "application/octet-stream"
+                            );
+                            xhr.setRequestHeader(
+                                "X-Chunk-Index",
+                                String(index)
+                            );
+                            xhr.setRequestHeader(
+                                "X-Total-Chunks",
+                                String(totalChunks)
+                            );
+                            xhr.setRequestHeader(
+                                "X-Chunk-Bytes",
+                                String(blob.size)
+                            );
+
+                            xhr.upload.onprogress = event => {
+                                if (!event.lengthComputable || !onProgress) return;
+
+                                const pct =
+                                    ((uploadedBase + event.loaded) /
+                                        file.size) *
+                                    96;
+
+                                onProgress(
+                                    Math.max(
+                                        1,
+                                        Math.min(96, pct)
+                                    )
+                                );
+                            };
+
+                            xhr.onload = () => {
+                                if (
+                                    xhr.status >= 200 &&
+                                    xhr.status < 300
+                                ) {
+                                    resolve();
+                                    return;
+                                }
+
+                                let data = {};
+                                try {
+                                    data = JSON.parse(
+                                        xhr.responseText || "{}"
+                                    );
+                                } catch (_) {}
+
+                                reject(
+                                    new Error(
+                                        data.error ||
+                                        "Video chunk upload failed: HTTP " +
+                                        xhr.status
+                                    )
+                                );
+                            };
+
+                            xhr.onerror = () =>
+                                reject(
+                                    new Error(
+                                        "Network error while uploading video."
+                                    )
+                                );
+
+                            xhr.ontimeout = () =>
+                                reject(
+                                    new Error(
+                                        "Video chunk upload timed out."
+                                    )
+                                );
+
+                            xhr.onabort = () =>
+                                reject(
+                                    new Error(
+                                        "Video upload cancelled."
+                                    )
+                                );
+
+                            xhr.send(blob);
+                        });
+
+                        uploaded = true;
+                    } catch (error) {
+                        lastError = error;
+
+                        if (attempt < 3) {
+                            await new Promise(resolve =>
+                                setTimeout(
+                                    resolve,
+                                    700 + attempt * 900
+                                )
+                            );
+                        }
+                    }
+                }
+
+                if (!uploaded) {
+                    throw lastError ||
+                        new Error("Video chunk upload failed.");
+                }
+
+                uploadedBase = end;
+
+                if (onProgress) {
+                    onProgress(
+                        Math.max(
+                            1,
+                            Math.min(
+                                96,
+                                (uploadedBase / file.size) * 96
+                            )
+                        )
+                    );
+                }
+            }
+
+            if (onProgress) onProgress(98);
+
+            const completeResponse = await fetch(
+                "/api/records/media/chunk/" +
+                encodeURIComponent(uploadId) +
+                "/complete",
+                {
+                    method: "POST",
+                    headers: {
+                        "Authorization": "Bearer " + token,
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
+                    },
+                    body: JSON.stringify({})
+                }
+            );
+
+            const record = await completeResponse.json().catch(() => ({}));
+
+            if (!completeResponse.ok) {
+                throw new Error(
+                    record.error ||
+                    record.detail ||
+                    "Video upload could not be completed."
+                );
+            }
+
+            if (onProgress) onProgress(100);
+
+            return record;
+        } catch (error) {
+            await removeUpload();
+            throw error;
+        }
+    }
+
+    function showVideoUploadProgress(percent) {
+        let box = $("milanVideoUploadProgress");
+
+        if (percent === null || percent === undefined) {
+            box?.remove();
+            return;
+        }
+
+        if (!box) {
+            box = document.createElement("div");
+            box.id = "milanVideoUploadProgress";
+            box.style.cssText =
+                "display:flex;align-items:center;gap:8px;" +
+                "width:100%;margin-top:8px;";
+
+            box.innerHTML =
+                '<div style="flex:1;height:5px;border-radius:999px;' +
+                'background:rgba(148,163,184,.18);overflow:hidden;">' +
+                '<div id="milanVideoUploadProgressBar" style="height:100%;' +
+                'width:0%;border-radius:999px;background:#22c55e;' +
+                'transition:width .12s linear;"></div></div>' +
+                '<span id="milanVideoUploadProgressPct" ' +
+                'style="min-width:36px;text-align:right;font-size:11px;' +
+                'font-weight:700;color:#94a3b8;">0%</span>';
+
+            document
+                .querySelector(".composer-bottom")
+                ?.appendChild(box);
+        }
+
+        const safePct = Math.max(
+            0,
+            Math.min(100, Number(percent) || 0)
+        );
+
+        const bar = $("milanVideoUploadProgressBar");
+        const pct = $("milanVideoUploadProgressPct");
+
+        if (bar) bar.style.width = safePct + "%";
+        if (pct) pct.textContent = Math.round(safePct) + "%";
+    }
+
+    function playVideoUploadTing() {
+        try {
+            const AudioContext =
+                window.AudioContext ||
+                window.webkitAudioContext;
+
+            if (!AudioContext) return;
+
+            const ctx = new AudioContext();
+            const oscillator = ctx.createOscillator();
+            const gain = ctx.createGain();
+
+            oscillator.type = "sine";
+            oscillator.frequency.value = 880;
+            gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(
+                0.12,
+                ctx.currentTime + 0.01
+            );
+            gain.gain.exponentialRampToValueAtTime(
+                0.0001,
+                ctx.currentTime + 0.16
+            );
+
+            oscillator.connect(gain);
+            gain.connect(ctx.destination);
+
+            oscillator.start();
+            oscillator.stop(ctx.currentTime + 0.16);
+
+            setTimeout(() => {
+                try { ctx.close(); } catch (_) {}
+            }, 300);
+        } catch (_) {}
+    }
+
     /* =========================================================
        PROFILE IDENTITY — anti-flicker
        ========================================================= */
@@ -1256,6 +1580,35 @@
                     >
                 </div>
             `;
+        } else if (
+            mediaUrl &&
+            String(media?.mimeType || record?.dataFormat || "")
+                .toLowerCase()
+                .startsWith("video/")
+        ) {
+            const videoSrc =
+                "/api/records/" +
+                encodeURIComponent(getRecordId(record)) +
+                "/media/play.mp4?token=" +
+                encodeURIComponent(getToken());
+
+            mediaMarkup = `
+                <div class="milan-feed-media milan-feed-video">
+                    <video
+                        controls
+                        preload="metadata"
+                        playsinline
+                        webkit-playsinline
+                        x5-playsinline
+                        style="display:block;width:100%;max-height:620px;background:#000;"
+                    >
+                        <source
+                            src="${escapeHtml(videoSrc)}"
+                            type="video/mp4"
+                        >
+                    </video>
+                </div>
+            `;
         }
 
         return `
@@ -1670,9 +2023,26 @@
             button.textContent = file ? "Uploading…" : "Saving…";
             showPublishStatus(file ? "Uploading image to DWN…" : "Saving to DWN…");
 
-            let response;
+            let saved = null;
 
-            if (file) {
+            if (file && /^video\//i.test(file.type || "")) {
+                showVideoUploadProgress(0);
+
+                saved = await uploadVideoChunked(
+                    file,
+                    {
+                        title: file.name,
+                        caption: text,
+                        accessMode: "private"
+                    },
+                    percent => {
+                        showVideoUploadProgress(percent);
+                    }
+                );
+
+                showVideoUploadProgress(100);
+                playVideoUploadTing();
+            } else if (file) {
                 response = await fetch("/api/records/media", {
                     method: "POST",
                     headers: {
@@ -1713,17 +2083,19 @@
                 });
             }
 
-            const saved =
-                await response
-                    .json()
-                    .catch(() => ({}));
+            if (saved === null) {
+                saved =
+                    await response
+                        .json()
+                        .catch(() => ({}));
 
-            if (!response.ok) {
-                throw new Error(
-                    saved.error ||
-                    saved.detail ||
-                    `DWN write failed: HTTP ${response.status}`
-                );
+                if (!response.ok) {
+                    throw new Error(
+                        saved.error ||
+                        saved.detail ||
+                        `DWN write failed: HTTP ${response.status}`
+                    );
+                }
             }
 
             const savedId =
@@ -1783,6 +2155,7 @@
                 button.disabled = false;
 
                 showPublishStatus("");
+                showVideoUploadProgress(null);
             }, 1400);
 
         } catch (error) {
