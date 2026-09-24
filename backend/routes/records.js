@@ -191,10 +191,10 @@ function normalizeUploadMeta(body = {}) {
   };
 }
 
-router.post('/media/chunk/init', auth, (req, res) => {
+router.post('/media/chunk/init', auth, async (req, res) => {
   try {
     cleanupOldUploadSessions();
-    const u = current(req);
+    const u = await current(req);
     if (!u) return res.status(404).json({ error: 'User not found' });
     const limit = Number(process.env.MAX_MEDIA_BYTES || 5000 * 1024 * 1024);
     const sizeBytes = Number(req.body?.sizeBytes || 0);
