@@ -776,6 +776,20 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
     mimeType = compatibility.mimeType;
   }
 
+  // Images are kept directly in the authoritative DWN snapshot so the feed can
+  // render them even when the app instance is ephemeral (for example on Vercel).
+  // Cap the embedded payload to keep feed responses reasonably small.
+  let embeddedImageDataUrl = "";
+  if (detectedCategory === 'image') {
+    const imageBytes = fs.statSync(mediaFile).size;
+    const maxInlineImageBytes = Number(process.env.MILAN_INLINE_IMAGE_BYTES || 2 * 1024 * 1024);
+    if (imageBytes <= maxInlineImageBytes) {
+      try {
+        embeddedImageDataUrl = `data:${mimeType};base64,${fs.readFileSync(mediaFile).toString('base64')}`;
+      } catch (_) {}
+    }
+  }
+
   const previewCategory = compatibility.previewCategory || detectedCategory || categoryForMime(mimeType, originalName);
   // V49: never mark a video playable only because its container says MP4.
   // Many mobile/iPhone/WhatsApp MP4 files contain HEVC or unsupported audio; those create
@@ -820,7 +834,8 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
         processingUpdatedAt: fastAcceptVideo ? now : undefined,
         uploadMode: meta.uploadMode || (fastAcceptVideo ? 'fast-accept-background-processing' : 'streaming'),
         mediaUrl: `/api/records/${encodeURIComponent(id)}/media`,
-        downloadUrl: `/api/records/${encodeURIComponent(id)}/media?download=1`
+        downloadUrl: `/api/records/${encodeURIComponent(id)}/media?download=1`,
+        dataUrl: embeddedImageDataUrl || undefined
       }
     },
     tags: sanitizeTags(meta.tags),
