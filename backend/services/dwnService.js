@@ -162,10 +162,12 @@ function removeHeavyMediaPayload(record) {
   const data = record?.data;
   if (!data || typeof data !== 'object') return record;
   if (data.media && typeof data.media === 'object') {
-    if (data.media.dataUrl) delete data.media.dataUrl;
+    const mime = String(data.media.mimeType || record?.dataFormat || '').toLowerCase();
+    if (data.media.dataUrl && !mime.startsWith('image/')) delete data.media.dataUrl;
     data.media.stored = !!record.mediaStoragePath;
   }
-  if (data.dataUrl) delete data.dataUrl;
+  const rootMime = String(data.mimeType || record?.dataFormat || '').toLowerCase();
+  if (data.dataUrl && !rootMime.startsWith('image/')) delete data.dataUrl;
   data.stored = !!record.mediaStoragePath;
   return record;
 }
