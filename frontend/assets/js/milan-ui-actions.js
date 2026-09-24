@@ -1221,7 +1221,7 @@
 
         if (
             imageDataUrl &&
-            /^data:image\\//i.test(imageDataUrl)
+            /^data:image\//i.test(imageDataUrl)
         ) {
             mediaMarkup = `
                 <div class="milan-feed-media">
