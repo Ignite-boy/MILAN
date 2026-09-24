@@ -1486,16 +1486,105 @@ async function statsFor(did) {
 }
 
 
+async function getAuthoritativeCloudMedia(id, did) {
+  const recordId = String(id || '').trim();
+  const ownerDid = String(did || '').trim();
+  if (!recordId || !ownerDid) return null;
+
+  try {
+    const { data: row, error } = await supabaseAuthoritative
+      .from('dwn_records')
+      .select('record_id,owner_did,target_did,deleted,metadata')
+      .eq('record_id', recordId)
+      .eq('owner_did', ownerDid)
+      .eq('deleted', false)
+      .maybeSingle();
+
+    if (error || !row) return null;
+
+    const metadata = parseDwnMetadata(row.metadata);
+    const media = metadata.media && typeof metadata.media === 'object'
+      ? metadata.media
+      : null;
+
+    if (!media) return null;
+
+    const bucket = String(
+      process.env.SUPABASE_MEDIA_BUCKET || 'milan-dwn-storage'
+    ).trim();
+
+    const spaceId = String(
+      metadata.spaceId ||
+      dwnInfoForDid(ownerDid).spaceId ||
+      ownerDid ||
+      'unknown'
+    ).trim();
+
+    const fileName = String(media.fileName || 'milan-media')
+      .replace(/[\\/\\r\\n]/g, '_')
+      .replace(/[^a-zA-Z0-9._-]/g, '_')
+      .slice(0, 180) || 'milan-media';
+
+    const objectPath = [
+      safeName(spaceId),
+      safeName(recordId),
+      fileName
+    ].join('/');
+
+    let remoteUrl = '';
+
+    try {
+      const signed = await supabaseAuthoritative.storage
+        .from(bucket)
+        .createSignedUrl(objectPath, 60 * 60);
+
+      remoteUrl = signed?.data?.signedUrl || '';
+    } catch (_) {}
+
+    if (!remoteUrl) {
+      try {
+        const pub = supabaseAuthoritative.storage
+          .from(bucket)
+          .getPublicUrl(objectPath);
+        remoteUrl = pub?.data?.publicUrl || '';
+      } catch (_) {}
+    }
+
+    if (!remoteUrl) return null;
+
+    return {
+      remoteUrl,
+      mimeType: String(media.mimeType || 'application/octet-stream'),
+      fileName: String(media.fileName || 'milan-media'),
+      sizeBytes: Number(media.sizeBytes || 0),
+      remoteOnly: true,
+      fallbackFullPath: null,
+      authoritativeCloud: true,
+      bucket,
+      objectPath
+    };
+  } catch (err) {
+    console.warn('[MILAN] authoritative cloud media lookup failed:', err.message);
+    return null;
+  }
+}
+
 async function getMediaStream(id, did) {
-  const found = findRecordRaw(id);
-  if (!found) return null;
+  let found = findRecordRaw(id);
+
+  if (!found) {
+    return await getAuthoritativeCloudMedia(id, did);
+  }
+
   if (!canRead(found.record, did)) {
     const err = new Error('No access');
     err.status = 403;
     throw err;
   }
+
   const data = found.record.data || {};
   const media = data.media || data || {};
+
   if (found.record.mediaRemoteOnly || found.record.mediaRemoteUrl || found.record.cloudDwn?.mediaSync?.mediaUrl) {
     const fallbackPath = found.record.mediaStoragePath || found.record.mediaCachePath || '';
     const fallbackFullPath = fallbackPath ? absoluteBackendPath(fallbackPath) : null;
@@ -1504,10 +1593,8 @@ async function getMediaStream(id, did) {
     const fileForCategory = media.fileName || found.record.title || (fallbackFullPath ? path.basename(fallbackFullPath) : '');
     const previewCategory = media.previewCategory || found.record.mediaCompatibility?.previewCategory || categoryForMime(mimeForCategory, fileForCategory);
     const remoteUrl = found.record.mediaRemoteUrl || found.record.cloudDwn?.mediaSync?.mediaUrl || '';
-    // V58: for video playback, prefer the local browser-safe cache when it exists.
-    // Remote DWN media can be slower or return imperfect range headers; the local normalized
-    // MP4 is what makes uploaded videos start smoothly on mobile.
     const preferLocalVideo = fallbackReady && previewCategory === 'video' && String(process.env.MILAN_VIDEO_LOCAL_CACHE_FIRST || 'true').toLowerCase() !== 'false';
+
     if ((isEmbeddedSelfEndpoint(remoteUrl) || preferLocalVideo) && fallbackReady) {
       return {
         fullPath: fallbackFullPath,
@@ -1518,6 +1605,7 @@ async function getMediaStream(id, did) {
         localCachePreferred: preferLocalVideo
       };
     }
+
     return {
       remoteUrl,
       mimeType: media.mimeType || found.record.dataFormat || 'application/octet-stream',
@@ -1528,9 +1616,17 @@ async function getMediaStream(id, did) {
       fallbackSizeBytes: fallbackReady ? fs.statSync(fallbackFullPath).size : 0
     };
   }
-  if (!found.record.mediaStoragePath && !found.record.mediaCachePath) return null;
+
+  if (!found.record.mediaStoragePath && !found.record.mediaCachePath) {
+    return await getAuthoritativeCloudMedia(id, did);
+  }
+
   const full = absoluteBackendPath(found.record.mediaStoragePath || found.record.mediaCachePath);
-  if (!full || !fs.existsSync(full)) return null;
+
+  if (!full || !fs.existsSync(full)) {
+    return await getAuthoritativeCloudMedia(id, did);
+  }
+
   return {
     fullPath: full,
     mimeType: media.mimeType || found.record.dataFormat || 'application/octet-stream',
