@@ -186,7 +186,7 @@ function compactMediaForList(record) {
     const stored = !!(clone.mediaStoragePath || clone.mediaRemoteOnly || clone.mediaRemoteUrl);
     const previewCategory = media.previewCategory || clone.mediaCompatibility?.previewCategory || categoryForMime(mime, name);
     const browserPlayable = typeof media.browserPlayable === 'boolean' ? media.browserPlayable : (typeof clone.mediaCompatibility?.browserPlayable === 'boolean' ? clone.mediaCompatibility.browserPlayable : undefined);
-    const imageDataUrl = /^data:image\\//i.test(String(media.dataUrl || '')) ? media.dataUrl : '';
+    const imageDataUrl = /^data:image\//i.test(String(media.dataUrl || '')) ? media.dataUrl : '';
     clone.mediaUrl = `/api/records/${encodeURIComponent(clone.id)}/media`;
     const processing = !!(media.processing || clone.mediaCompatibility?.processing);
     const processingStatus = media.processingStatus || clone.mediaCompatibility?.processingStatus || (processing ? 'processing' : (previewCategory === 'video' && browserPlayable === false ? 'preview-unavailable' : 'ready'));
