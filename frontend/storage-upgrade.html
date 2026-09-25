@@ -1116,7 +1116,14 @@ border-color:#8b5cf6;
       return;
     }
 
-    showUpiQr();
+    const upiUrl = buildUpiUrl(currentOrder);
+    window.location.href = upiUrl;
+
+    setTimeout(() => {
+      if (document.visibilityState === "visible") {
+        showUpiQr();
+      }
+    }, 1200);
   });
 
   submit.addEventListener("click", async () => {
