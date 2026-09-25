@@ -5,6 +5,7 @@
 > A privacy-first social platform built around user-owned identity, DID-based access, and DWN-backed data persistence.
 
 [![Production](https://img.shields.io/badge/production-milanlife.in-111827?style=flat-square)](https://milanlife.in)
+[![Next.js](https://img.shields.io/badge/frontend-Next.js-black?style=flat-square&logo=next.js)](https://nextjs.org/)
 [![DWN](https://img.shields.io/badge/storage-Mini--DWN-4f46e5?style=flat-square)](https://dwn.milanlife.in)
 [![Node.js](https://img.shields.io/badge/backend-Node.js-16a34a?style=flat-square)](https://nodejs.org/)
 [![PostgreSQL](https://img.shields.io/badge/database-PostgreSQL-2563eb?style=flat-square)](https://www.postgresql.org/)
@@ -14,8 +15,12 @@
 MILAN is a modern social platform designed around a simple principle:
 
 > **One User = One DID = One Isolated DWN Space**
->
+
 The application combines a polished social experience with an ownership-oriented data model. Identity is DID-based, user profile data is persisted through the production DWN node, and Mini-DWN uses PostgreSQL for durable record storage.
+
+### Frontend Stack
+
+The MILAN frontend migration to **Next.js 16 + React 19** is now part of the application codebase. The existing MILAN UI, static assets, and core application behavior are being carried forward while Next.js becomes the foundation for the modern web application.
 
 ### Production
 
@@ -28,8 +33,9 @@ The application combines a polished social experience with an ownership-oriented
 
 ```text
 ┌───────────────────────────────┐
-│          MILAN Web App        │
+│        MILAN Next.js App      │
 │   Social UI • Profiles • Feed │
+│        React 19 frontend      │
 └───────────────┬───────────────┘
                 │ HTTPS
                 ▼
@@ -121,6 +127,14 @@ These features are designed as product-layer enhancements on top of the identity
 
 ## Local Development
 
+### Next.js frontend
+
+```bash
+cd next-app
+npm install
+npm run dev
+```
+
 ### Backend
 
 ```bash
@@ -195,9 +209,10 @@ curl -sS -X POST https://dwn.milanlife.in/json-rpc \
 
 ```text
 milan-app/
-├── frontend/          # Web application and static assets
-├── backend/           # Node.js API, auth, profile and social services
-├── mini-dwn/          # Mini-DWN node and PostgreSQL-backed storage
+├── next-app/           # Next.js 16 + React 19 frontend
+├── frontend/           # Existing web application and static assets
+├── backend/            # Node.js API, auth, profile and social services
+├── mini-dwn/           # Mini-DWN node and PostgreSQL-backed storage
 ├── api/                # Deployment/serverless entry points when applicable
 ├── vercel.json         # Production routing/configuration
 └── README.md           # Project documentation
