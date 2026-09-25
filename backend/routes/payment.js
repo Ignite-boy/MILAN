@@ -62,7 +62,7 @@ router.post('/create-order', auth, async (req, res) => {
       pa: 'np7218468@okhdfcbank',
       pn: 'Nitesh Pandey',
       tr: orderId,
-      tn: 'MILAN Storage Upgrade',
+      tn: 'MILAN Stroage Upgrade',
       am: String(customAmount),
       cu: 'INR'
     }).toString();
