@@ -206,6 +206,60 @@ function notificationEmail({ heading = 'MILAN', intro = '', bullets = [], name =
   return { html: shell({ preheader: String(intro).slice(0, 90), heading, bodyHtml, email }), text };
 }
 
+/* ── 5c) Payment success email ─────────────────────────────── */
+function paymentSuccessEmail({ name = '', email = '', plan = '', amount = '', orderId = '', reference = '' } = {}) {
+  const safeName = escapeHtml(name || (email ? email.split('@')[0] : 'there'));
+  const safePlan = escapeHtml(plan);
+  const safeAmount = escapeHtml(String(amount));
+  const safeOrderId = escapeHtml(orderId);
+  const safeReference = escapeHtml(reference);
+
+  const subject = 'Payment Successful — MILAN Storage Upgrade';
+  const text = [
+    `Hi ${name || 'there'},`,
+    '',
+    'Your payment has been verified successfully.',
+    `Storage plan: ${plan}`,
+    `Amount: ₹${amount}`,
+    `Order ID: ${orderId}`,
+    `Payment reference: ${reference}`,
+    '',
+    'Your upgraded MILAN storage is now active.',
+    'You can now use your upgraded DWN storage.',
+    '',
+    '— MILAN',
+    FROM_ADDRESS
+  ].join('\\n');
+
+  const bodyHtml = `
+    <p style="font-size:15px;line-height:1.7;color:#aeb9d4;margin:0 0 14px;">
+      Hi <strong style="color:#e8eefb;">${safeName}</strong>,
+    </p>
+    <p style="font-size:15px;line-height:1.7;color:#aeb9d4;margin:0 0 16px;">
+      Your payment has been <strong style="color:#e8eefb;">verified successfully</strong>.
+    </p>
+    <div style="background:#0d1426;border:1px solid #1e2a44;border-radius:12px;padding:14px 16px;margin:0 0 16px;">
+      <p style="margin:0 0 7px;font-size:13px;color:#aeb9d4;"><span style="color:#7e8db0;">Storage plan:</span> <strong style="color:#e8eefb;">${safePlan}</strong></p>
+      <p style="margin:0 0 7px;font-size:13px;color:#aeb9d4;"><span style="color:#7e8db0;">Amount:</span> <strong style="color:#e8eefb;">₹${safeAmount}</strong></p>
+      <p style="margin:0 0 7px;font-size:13px;color:#aeb9d4;"><span style="color:#7e8db0;">Order ID:</span> ${safeOrderId}</p>
+      <p style="margin:0;font-size:13px;color:#aeb9d4;"><span style="color:#7e8db0;">Payment reference:</span> ${safeReference}</p>
+    </div>
+    <p style="font-size:15px;line-height:1.7;color:#aeb9d4;margin:0;">
+      Your upgraded MILAN storage is now active. You can now use your upgraded DWN storage.
+    </p>`;
+
+  return {
+    subject,
+    text,
+    html: shell({
+      preheader: 'Your MILAN Storage Upgrade payment has been verified successfully.',
+      heading: 'Payment successful',
+      bodyHtml,
+      email
+    })
+  };
+}
+
 /* ── 5) Generic test email (admin) ────────────────────────────── */
 function testEmail({ email = '' } = {}) {
   const subject = 'MILAN mail test — delivery is working ✅';
@@ -336,10 +390,11 @@ const sendVerificationEmail = ({ to, name, verifyUrl, code } = {}) => { const t 
 const sendPasswordResetEmail = ({ to, name, resetUrl, code } = {}) => { const t = passwordResetEmail({ name, email: to, resetUrl, code }); return sendMail({ to, ...t }); };
 const sendLoginAlertEmail = ({ to, name, ip, userAgent, time } = {}) => { const t = loginAlertEmail({ name, email: to, ip, userAgent, time }); return sendMail({ to, ...t }); };
 const sendTestEmail = ({ to } = {}) => { const t = testEmail({ email: to }); return sendMail({ to, ...t }); };
+const sendPaymentSuccessEmail = ({ to, name, plan, amount, orderId, reference } = {}) => { const t = paymentSuccessEmail({ name, email: to, plan, amount, orderId, reference }); return sendMail({ to, ...t }); };
 
 module.exports = {
   sendMail,
-  sendWelcomeEmail, sendVerificationEmail, sendPasswordResetEmail, sendLoginAlertEmail, sendTestEmail,
+  sendWelcomeEmail, sendVerificationEmail, sendPasswordResetEmail, sendLoginAlertEmail, sendTestEmail, sendPaymentSuccessEmail,
   welcomeEmail, verifyEmail, passwordResetEmail, loginAlertEmail, testEmail, notificationEmail,
   mailStatus, activeProvider, FROM_ADDRESS, FROM_EMAIL
 };

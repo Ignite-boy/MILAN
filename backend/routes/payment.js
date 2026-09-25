@@ -4,6 +4,7 @@ const express = require('express');
 const auth = require('../middleware/auth');
 const { createClient } = require('@supabase/supabase-js');
 const QRCode = require('qrcode');
+const { sendPaymentSuccessEmail } = require('../services/mailService');
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -141,6 +142,15 @@ router.post('/verify', auth, async (req, res) => {
       .eq('order_id', orderId);
 
     if (updateError) throw updateError;
+
+    sendPaymentSuccessEmail({
+      to: req.account.email,
+      name: req.account.name || '',
+      plan: plan.name,
+      amount: order.amount_inr,
+      orderId,
+      reference
+    }).catch(err => console.warn('[MILAN mail] payment success email error:', err.message));
 
     res.json({
       success: true,
