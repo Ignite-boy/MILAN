@@ -1,0 +1,396 @@
+/* MILAN V7.2 — Master interaction layer (loaded on every page).
+   Additive only: FAB, free-music banner, footer nav, install button, a11y polish. */
+
+/* Scroll-to-top FAB */
+#milan-fab-top{
+  position:fixed; right:18px; bottom:88px; z-index:9990;
+  width:46px; height:46px; border:0; border-radius:50%; cursor:pointer;
+  display:grid; place-items:center; font-size:20px; color:#fff;
+  background:linear-gradient(135deg,#3b82f6,#6366f1); box-shadow:0 8px 26px rgba(59,130,246,.4);
+  opacity:0; transform:translateY(12px) scale(.9); pointer-events:none;
+  transition:opacity .25s, transform .25s;
+}
+#milan-fab-top.show{ opacity:1; transform:none; pointer-events:auto; }
+#milan-fab-top:active{ transform:scale(.92); }
+
+/* Free-music banner strip */
+#milan-music-banner{
+  position:relative; z-index:50; display:flex; align-items:center; gap:12px;
+  padding:10px 44px 10px 16px; font:600 14px/1.4 system-ui,Segoe UI,Roboto,sans-serif;
+  color:#eaf0ff; background:linear-gradient(90deg,rgba(59,130,246,.20),rgba(139,92,246,.20));
+  border-bottom:1px solid rgba(148,163,196,.18);
+}
+#milan-music-banner a{ color:#a5b4fc; font-weight:800; text-decoration:none; white-space:nowrap; }
+#milan-music-banner a:hover{ color:#c4b5fd; }
+#milan-music-banner .mmb-close{
+  position:absolute; right:10px; top:50%; transform:translateY(-50%);
+  width:30px; height:30px; border:0; border-radius:8px; cursor:pointer;
+  background:transparent; color:#c3cbe0; font-size:18px; line-height:1;
+}
+#milan-music-banner .mmb-close:hover{ background:rgba(255,255,255,.08); color:#fff; }
+
+/* Injected footer nav (crawl depth + consistency) */
+#milan-footer-nav{
+  margin-top:40px; padding:22px 16px; text-align:center;
+  border-top:1px solid rgba(148,163,196,.16);
+  font:14px/1.8 system-ui,Segoe UI,Roboto,sans-serif; color:#95a0bd;
+}
+#milan-footer-nav a{ color:#aab4d4; text-decoration:none; margin:0 8px; white-space:nowrap; }
+#milan-footer-nav a:hover{ color:#fff; text-decoration:underline; }
+#milan-footer-nav .mfn-copy{ display:block; margin-top:10px; font-size:12px; color:#6b7596; }
+
+/* Install (A2HS) button */
+#milan-install-btn{
+  position:fixed; left:18px; bottom:88px; z-index:9990;
+  display:none; align-items:center; gap:8px; cursor:pointer;
+  padding:10px 14px; border:1px solid rgba(148,163,196,.25); border-radius:999px;
+  background:rgba(11,20,55,.86); color:#eaf0ff; font:700 13px system-ui; backdrop-filter:blur(10px);
+  box-shadow:0 8px 26px rgba(0,0,0,.4);
+}
+#milan-install-btn.show{ display:inline-flex; }
+
+/* Back-to-feed pill (music page) */
+.milan-backfeed{
+  display:inline-flex; align-items:center; gap:6px; text-decoration:none;
+  padding:8px 12px; border-radius:10px; font:700 13px system-ui; color:#eaf0ff;
+  border:1px solid rgba(148,163,196,.25); background:rgba(255,255,255,.04);
+}
+.milan-backfeed:hover{ border-color:rgba(148,163,196,.5); }
+
+/* A11y polish — visible focus ring + min tap targets on interactive elements */
+a:focus-visible, button:focus-visible, [role="button"]:focus-visible,
+input:focus-visible, select:focus-visible, textarea:focus-visible{
+  outline:2px solid #6366f1 !important; outline-offset:2px; border-radius:6px;
+}
+@media (prefers-reduced-motion: reduce){
+  #milan-fab-top, #milan-music-banner{ transition:none !important; }
+}
+
+/* ============================================================
+   MILAN V7.2 — Unified floating action dock (right edge).
+   Organizes scattered FABs (Music, Ask MILAN, Theme, Flow, Top)
+   into one tidy, non-overlapping vertical column. Clears the sidebar.
+   ============================================================ */
+
+/* Ask MILAN — primary, bottom-most (easiest reach) */
+.ma-fab { right: 16px !important; bottom: 20px !important; z-index: 99996 !important; }
+
+/* Theme palette */
+.mcm-fab { right: 19px !important; bottom: 86px !important; z-index: 99995 !important; }
+
+/* Flow — normalize the side tab into a dock pill */
+#milan-flow-btn {
+  position: fixed !important; right: 16px !important; bottom: 150px !important;
+  top: auto !important; left: auto !important; transform: none !important;
+  writing-mode: horizontal-tb !important; height: auto !important;
+  border-radius: 999px !important; padding: 9px 14px !important; z-index: 99994 !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,.35) !important;
+}
+
+/* Music — move OUT of the bottom-left (it overlapped the sidebar) into the dock, as a clean circle */
+.mlz-fab {
+  left: auto !important; right: 17px !important; bottom: 210px !important; z-index: 99993 !important;
+  width: 50px !important; height: 50px !important; padding: 0 !important; justify-content: center !important;
+}
+.mlz-fab .lbl { display: none !important; }
+.mlz-fab .ic { font-size: 20px !important; }
+
+/* Scroll-to-top — top of the dock (still only shows after scroll) */
+#milan-fab-top { right: 19px !important; bottom: 274px !important; z-index: 99992 !important; }
+
+/* Declutter: hide the floating "⌘K Command Palette" hint — the top search bar already is the entry */
+.milan-cmd-shortcut { display: none !important; }
+
+/* Consistent depth on every dock item */
+.ma-fab, .mcm-fab, #milan-flow-btn, .mlz-fab, #milan-fab-top {
+  box-shadow: 0 8px 24px rgba(0,0,0,.35) !important;
+}
+
+/* Mobile: keep the dock above the bottom bar, tighter column */
+@media (max-width: 780px) {
+  .ma-fab     { right: 12px !important; bottom: 80px  !important; }
+  .mcm-fab    { right: 14px !important; bottom: 142px !important; }
+  #milan-flow-btn { right: 12px !important; bottom: 204px !important; }
+  .mlz-fab    { right: 13px !important; bottom: 266px !important; left: auto !important; }
+  #milan-fab-top  { right: 14px !important; bottom: 328px !important; }
+}
+
+/* ============================================================
+   MILAN V7.2 — Mobile safety & responsiveness (no horizontal scroll)
+   Conservative: does not touch sticky/positioned layout ancestors.
+   ============================================================ */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+/* Media never forces the page wider than the screen */
+img, svg, video, canvas, iframe { max-width: 100%; }
+
+/* Free-music banner: wrap on narrow screens instead of overflowing */
+@media (max-width: 560px) {
+  #milan-music-banner { flex-wrap: wrap; gap: 6px; padding-right: 40px; font-size: 13px; }
+  #milan-music-banner a { margin-left: 0; }
+}
+
+/* Injected footer nav: comfortable wrapping + tap targets on mobile */
+@media (max-width: 560px) {
+  #milan-footer-nav { font-size: 13px; line-height: 2.2; }
+  #milan-footer-nav a { display: inline-block; padding: 2px 6px; }
+}
+
+/* Toast never exceeds the viewport */
+#milan-toast { max-width: calc(100vw - 24px); }
+
+/* ============================================================
+   MILAN V7.2 — Premium mobile drawer (hamburger + Logout).
+   Hamburger shows only on small screens; drawer is dark glass.
+   ============================================================ */
+#milan-burger {
+  position: fixed; left: 16px; bottom: 18px; z-index: 99990;
+  width: 50px; height: 50px; border: 0; border-radius: 50%; cursor: pointer;
+  display: none; align-items: center; justify-content: center; font-size: 22px; color: #fff;
+  background: linear-gradient(135deg, #3b82f6, #6366f1);
+  box-shadow: 0 10px 28px rgba(59,130,246,.45);
+}
+#milan-burger:active { transform: scale(.94); }
+
+#milan-drawer-ov {
+  position: fixed; inset: 0; z-index: 99998; background: rgba(0,0,0,.55);
+  opacity: 0; pointer-events: none; transition: opacity .25s; backdrop-filter: blur(2px);
+}
+#milan-drawer {
+  position: fixed; top: 0; left: 0; z-index: 99999;
+  width: min(86vw, 320px); height: 100dvh; overflow-y: auto;
+  transform: translateX(-100%); transition: transform .28s cubic-bezier(.22,1,.36,1);
+  background: linear-gradient(180deg, #0c1326, #0a0f1f);
+  border-right: 1px solid rgba(148,163,196,.16);
+  box-shadow: 0 0 60px rgba(0,0,0,.5);
+  padding: 14px 12px calc(20px + env(safe-area-inset-bottom));
+  -webkit-overflow-scrolling: touch;
+}
+body.milan-drawer-open #milan-drawer { transform: none; }
+body.milan-drawer-open #milan-drawer-ov { opacity: 1; pointer-events: auto; }
+body.milan-drawer-open { overflow: hidden; }
+
+#milan-drawer .md-head { display: flex; align-items: center; justify-content: space-between; padding: 4px 6px 10px; }
+#milan-drawer .md-brand { font-weight: 900; letter-spacing: .16em; color: #eef2ff; font-size: 18px; }
+#milan-drawer .md-close { width: 36px; height: 36px; border: 0; border-radius: 10px; background: rgba(255,255,255,.06); color: #c3cbe0; font-size: 22px; cursor: pointer; }
+#milan-drawer .md-user { margin: 2px 6px 8px; padding: 10px 12px; border-radius: 14px; background: rgba(99,102,241,.12); border: 1px solid rgba(99,102,241,.28); color: #dfe5ff; font-weight: 700; font-size: 13px; }
+#milan-drawer .md-sec { margin: 12px 8px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .12em; color: #8b95b3; font-weight: 800; }
+#milan-drawer .md-item {
+  display: block; width: 100%; text-align: left; text-decoration: none;
+  padding: 13px 14px; margin: 4px 0; border: 0; border-radius: 14px; cursor: pointer;
+  background: rgba(255,255,255,.04); color: #e7ecfb; font: 700 15px Inter, system-ui, sans-serif;
+}
+#milan-drawer .md-item:hover, #milan-drawer .md-item:active { background: rgba(99,102,241,.18); color: #fff; }
+#milan-drawer .md-logout {
+  display: block; width: 100%; text-align: center; margin: 16px 0 6px;
+  padding: 13px 14px; border: 1px solid rgba(239,68,68,.45); border-radius: 14px; cursor: pointer;
+  background: rgba(239,68,68,.12); color: #ff8b8b; font: 800 15px Inter, system-ui, sans-serif;
+}
+#milan-drawer .md-logout:active { background: rgba(239,68,68,.22); }
+
+/* Show the hamburger only when the desktop sidebar can't fit */
+@media (max-width: 820px) {
+  #milan-burger { display: flex; }
+}
+
+/* V95 bottom nav active (mobile/PWA /app): lift the hamburger above the nav
+   bar so it never covers the 🏠 Home tab — mirrors the right-side dock. */
+body.milan-v95 #milan-burger {
+  left: 12px;
+  bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+}
+
+/* ============================================================
+   MILAN V7.2 — Global responsive hardening (every page).
+   Goal: zero horizontal overflow + nothing pushed off-screen,
+   WITHOUT redesigning or changing the box model / existing layout.
+   - overflow-x:clip prevents the horizontal scrollbar but (unlike
+     'hidden') does NOT break the sticky top bar.
+   - long unbreakable strings (DIDs, hashes, URLs) wrap instead of
+     pushing the page wider.
+   - media, tables, modals, dropdowns are capped to the viewport.
+   ============================================================ */
+html { overflow-x: clip; }
+body { max-width: 100%; overflow-wrap: break-word; }
+
+/* Long IDs / hashes / code / links wrap instead of overflowing the row */
+code, pre, kbd, samp { white-space: pre-wrap; overflow-wrap: anywhere; }
+.did, .didText, .hash, .mono, .copyDid, [class*="did"], [class*="hash"],
+a[href^="did:"], .post a, .bubble a { overflow-wrap: anywhere; word-break: break-word; }
+
+/* Media & tables never exceed their container (height kept intact for avatars/logos) */
+img, svg, video, canvas, iframe, table, embed, object { max-width: 100%; }
+
+/* Modals / dropdowns / popovers / toasts stay inside the viewport */
+.modal, .mai-panel, .ma-panel, [role="dialog"], .dropdown, .dropdown-menu,
+.popover, .menu-popover, .toast {
+  max-width: calc(100vw - 16px) !important;
+}
+
+/* Composer/feed long content wraps; flex/grid kids may shrink (kills overflow) */
+.composer textarea, .post, .postBody, .feed, .card, .quickCard,
+.rightBox, .layout > * { min-width: 0; }
+
+/* Very small phones (320px) — keep paddings sane so nothing clips at edges */
+@media (max-width: 360px) {
+  .card, .post, .composer, .quickCard, .rightBox, .profileCard { border-radius: 16px; }
+  body { font-size: 14px; }
+}
+
+/* ============================================================
+   MILAN V7.2 — Launch polish (a11y skip link + offline state).
+   ============================================================ */
+.milan-skip {
+  position: fixed; left: 12px; top: -64px; z-index: 100001;
+  background: #6366f1; color: #fff; padding: 10px 16px; border-radius: 10px;
+  font: 800 14px Inter, system-ui, sans-serif; text-decoration: none;
+  box-shadow: 0 10px 28px rgba(99,102,241,.45); transition: top .2s ease;
+}
+.milan-skip:focus { top: 12px; outline: 2px solid #fff; outline-offset: 2px; }
+#milan-offline {
+  position: fixed; left: 0; right: 0; top: 0; z-index: 99997;
+  background: linear-gradient(90deg,#7c2d12,#9a3412); color: #ffedd5;
+  padding: 9px 14px; text-align: center; font: 600 13px Inter, system-ui, sans-serif;
+  box-shadow: 0 4px 14px rgba(0,0,0,.3);
+}
+
+/* ============================================================
+   MILAN V7.2 — FACEBOOK-STYLE FEED-FIRST MOBILE (real /app).
+   Mobile par profile+nav-menu stack hatao → feed sabse upar.
+   Saari nav hamburger drawer (milan-mobile-nav.js) mein already hai.
+   Android APK (body.native-apk) ko chhodo — uska apna layout hai.
+   ============================================================ */
+@media (max-width: 820px) {
+  /* hide the stacked left sidebar (profile pic + "Home Feed / My Posts" list) */
+  body:not(.native-apk) .leftRail,
+  body:not(.native-apk) .leftRail.side { display: none !important; }
+
+  /* feed column first + full width (composer → posts), like Facebook */
+  body:not(.native-apk) .layout { display: block !important; padding: 8px 8px calc(72px + env(safe-area-inset-bottom)) !important; }
+  body:not(.native-apk) .feed { width: 100% !important; margin: 0 !important; }
+  body:not(.native-apk) .composer { width: 100% !important; }
+
+  /* right rail (People / Notifications) neeche stack — secondary */
+  body:not(.native-apk) .rightRail,
+  body:not(.native-apk) .rightRail.side {
+    position: static !important; max-height: none !important;
+    margin-top: 12px !important; width: 100% !important;
+  }
+
+  /* premium spacing for feed cards on mobile */
+  body:not(.native-apk) .post,
+  body:not(.native-apk) .card,
+  body:not(.native-apk) .composer { border-radius: 16px !important; margin-bottom: 12px !important; }
+
+  /* make the hamburger clearly visible (it opens the full nav + Logout) */
+  #milan-burger { box-shadow: 0 12px 30px rgba(59,130,246,.55) !important; }
+}
+
+/* Feed-first ordering inside the center column (.main): composer & feed up,
+   stat/quick cards (.advancedStrip) pushed BELOW the feed. (browser/PWA only) */
+@media (max-width: 820px) {
+  body:not(.native-apk) .main { display: flex !important; flex-direction: column !important; }
+  body:not(.native-apk) .composer { order: 1 !important; }
+  body:not(.native-apk) .sectionTitle { order: 2 !important; }
+  body:not(.native-apk) #feed,
+  body:not(.native-apk) .feed { order: 3 !important; }
+  body:not(.native-apk) .advancedStrip { order: 90 !important; margin-top: 16px !important; }
+}
+
+/* ============================================================
+   MILAN V7.2 — FACEBOOK FEED-FIRST (DESKTOP + TABLET, real /app).
+   .main children verified direct: reorder via flex so feed is first;
+   dashboard/stat cards (.advancedStrip) go BELOW the feed.
+   Sidebars sticky → only the feed scrolls. (Android APK untouched.)
+   ============================================================ */
+body:not(.native-apk) .layout .main { display: flex !important; flex-direction: column !important; }
+body:not(.native-apk) .layout .main > .composer { order: 1 !important; padding: 12px 14px !important; }
+body:not(.native-apk) .layout .main > .sectionTitle { order: 2 !important; }
+body:not(.native-apk) .layout .main > #feed,
+body:not(.native-apk) .layout .main > .feed { order: 3 !important; }
+body:not(.native-apk) .layout .main > .advancedStrip { order: 90 !important; margin-top: 18px !important; }
+
+/* Sticky sidebars on desktop/tablet — visible while only the feed scrolls */
+@media (min-width: 821px) {
+  body:not(.native-apk) .layout .leftRail.side,
+  body:not(.native-apk) .layout .rightRail.side {
+    position: sticky !important; top: 72px !important; align-self: start !important;
+    max-height: calc(100vh - 84px) !important; overflow: auto !important;
+  }
+  body:not(.native-apk) .layout .leftRail.side::-webkit-scrollbar,
+  body:not(.native-apk) .layout .rightRail.side::-webkit-scrollbar { width: 0; }
+}
+
+/* ============================================================
+   MILAN V7.2 — Facebook-style COMPACT composer (real /app).
+   Collapsed by default = slim "What's on your mind?" bar.
+   Expands to full composer (upload, publish, AI chips) on focus/click.
+   So the FEED is what dominates the screen, not a giant create-post form.
+   ============================================================ */
+body:not(.native-apk) .composer > .grid2,
+body:not(.native-apk) .composer > .grid3 { display: none !important; }
+body:not(.native-apk) .composer.composer-expanded > .grid2,
+body:not(.native-apk) .composer.composer-expanded > .grid3 { display: grid !important; }
+body:not(.native-apk) .composer { padding: 10px 12px !important; cursor: text; }
+body:not(.native-apk) .composer:not(.composer-expanded) #postText {
+  min-height: 42px !important; height: 42px !important; resize: none !important;
+}
+body:not(.native-apk) .composer.composer-expanded #postText { min-height: 88px !important; resize: vertical !important; }
+
+/* MILAN — shared subtle white-hover interaction */
+.milan-hover,
+.card,
+.right-card,
+.sidebar,
+.heroIntro,
+.composer,
+.quickStat,
+.person,
+.post,
+.milan-feed-card,
+.mcc-card,
+.music-links a,
+.genre-chips button,
+.mz-chip {
+  transition:
+    background-color .2s ease,
+    border-color .2s ease,
+    box-shadow .2s ease,
+    transform .2s ease !important;
+}
+
+.card:hover,
+.right-card:hover,
+.sidebar:hover,
+.heroIntro:hover,
+.composer:hover,
+.quickStat:hover,
+.person:hover,
+.post:hover,
+.milan-feed-card:hover,
+.mcc-card:hover,
+.music-links a:hover,
+.genre-chips button:hover,
+.mz-chip:hover {
+  border-color: rgba(255,255,255,.12) !important;
+  background-color: rgba(255,255,255,.045) !important;
+  box-shadow:
+    0 10px 28px rgba(0,0,0,.16),
+    inset 0 1px 0 rgba(255,255,255,.08) !important;
+}
+
+@media (hover:hover) and (pointer:fine) {
+  .card:hover,
+  .right-card:hover,
+  .heroIntro:hover,
+  .composer:hover,
+  .person:hover,
+  .post:hover,
+  .milan-feed-card:hover,
+  .mcc-card:hover,
+  .music-links a:hover,
+  .genre-chips button:hover,
+  .mz-chip:hover {
+    transform: translateY(-1px);
+  }
+}

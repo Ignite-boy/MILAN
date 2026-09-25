@@ -1,0 +1,18 @@
+﻿
+Path                                              LineNumber Line                                                      
+----                                              ---------- ----                                                      
+D:\milan-app\frontend\best-social-media-apps.html         85   <p lang="hi">अगर आपको प्राइवेसी चाहिए और अपने डेटा का   
+                                                             मालिक खुद बनना है, तो 2026 में डिसेंट्रलाइज़्ड नेटवर्क    
+                                                             सबसे अच्छे हैं। <strong>MILAN</strong> में हर यूज़र को    
+                                                             अपना Decentralized Web Node मिलता है — न विज्ञापन, न      
+                                                             ट्रैकिंग, न डेटा बेचना। भारत के हर शहर में मुफ़्त चलता    
+                                                             है।</p>                                                   
+D:\milan-app\frontend\social-media-privacy.html           77   <p lang="hi">तुरंत करें: ad personalisation बंद करें,   
+                                                             app permissions घटाएँ, "Login with Google/Facebook" से    
+                                                             बचें। स्थायी हल: ऐसा नेटवर्क चुनें जहाँ डेटा आपके अपने    
+                                                             node में रहे। <strong>MILAN</strong> में न विज्ञापन, न    
+                                                             ट्रैकिंग — आपकी पोस्ट, फ़ोटो और दोस्त सिर्फ़ आपके हैं।    
+                                                             भारत के हर शहर में मुफ़्त।</p>                            
+D:\milan-app\frontend\what-is-web5.html                   77   <h2 lang="hi">What is Web5? (आसान भाषा में)</h2>        
+
+

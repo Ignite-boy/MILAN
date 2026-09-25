@@ -1,0 +1,64 @@
+# MILAN — Decentralized Social Media (DWN + DID)
+# https://milanlife.in
+
+User-agent: Googlebot
+Allow: /
+Disallow: /api/
+Disallow: /admin
+Disallow: /admin-users.html
+
+User-agent: Googlebot-Image
+Allow: /
+Allow: /assets/
+
+User-agent: Bingbot
+Allow: /
+Disallow: /api/
+
+User-agent: Google-Extended
+Allow: /
+Disallow: /api/
+
+User-agent: GPTBot
+Allow: /
+Disallow: /api/
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: Applebot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: DuckDuckBot
+Allow: /
+
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin
+Disallow: /admin-users.html
+Disallow: /launch.html
+
+# Topic / keyword index: https://milanlife.in/keywords
+Host: milanlife.in
+Sitemap: https://milanlife.in/sitemap-index.xml
+Sitemap: https://milanlife.in/sitemap.xml
+Sitemap: https://milanlife.in/sitemap-keywords.xml

@@ -1,0 +1,3038 @@
+/* ============================================================
+   MILAN — VISUAL ENGINE v1
+   Web5 / Spatial / Premium Interface
+   ============================================================ */
+
+:root{
+  --milan-bg:#070b14;
+  --milan-surface:rgba(15,23,42,.72);
+  --milan-surface-strong:rgba(15,23,42,.88);
+  --milan-border:rgba(148,163,184,.13);
+  --milan-border-hi:rgba(148,163,184,.22);
+  --milan-text:#eef2ff;
+  --milan-muted:#93a4bf;
+  --milan-brand:#5b7cfa;
+  --milan-brand-2:#8b5cf6;
+  --milan-glow:rgba(91,124,250,.22);
+  --milan-radius:20px;
+  --milan-shadow:
+    0 18px 60px rgba(0,0,0,.28),
+    0 4px 16px rgba(0,0,0,.14);
+}
+
+/* ============================================================
+   GLOBAL ATMOSPHERE
+   ============================================================ */
+
+body.app-ready{
+  background:
+    radial-gradient(
+      900px 500px at 8% -5%,
+      rgba(91,124,250,.12),
+      transparent 60%
+    ),
+    radial-gradient(
+      700px 500px at 95% 10%,
+      rgba(139,92,246,.11),
+      transparent 62%
+    ),
+    radial-gradient(
+      600px 500px at 55% 100%,
+      rgba(16,185,129,.06),
+      transparent 68%
+    ),
+    var(--milan-bg);
+  color:var(--milan-text);
+  overflow-x:hidden;
+}
+
+/* subtle spatial grid */
+body.app-ready::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:-2;
+  opacity:.18;
+  background-image:
+    linear-gradient(
+      rgba(148,163,184,.035) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      rgba(148,163,184,.035) 1px,
+      transparent 1px
+    );
+  background-size:44px 44px;
+  mask-image:linear-gradient(
+    to bottom,
+    rgba(0,0,0,.85),
+    transparent 88%
+  );
+}
+
+body.app-ready::after{
+  content:"";
+  position:fixed;
+  inset:-20%;
+  pointer-events:none;
+  z-index:-3;
+  background:
+    radial-gradient(
+      circle at 20% 25%,
+      rgba(91,124,250,.06),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 80% 65%,
+      rgba(139,92,246,.055),
+      transparent 28%
+    );
+  animation:milanAmbientDrift 18s ease-in-out infinite alternate;
+}
+
+@keyframes milanAmbientDrift{
+  0%{transform:translate3d(-1%,0,0) scale(1)}
+  100%{transform:translate3d(1%,1%,0) scale(1.03)}
+}
+
+/* ============================================================
+   TOP BAR
+   ============================================================ */
+
+body.app-ready .topbar{
+  background:rgba(7,11,20,.72);
+  border-bottom:1px solid rgba(148,163,184,.10);
+  backdrop-filter:blur(22px) saturate(150%);
+  -webkit-backdrop-filter:blur(22px) saturate(150%);
+  box-shadow:
+    0 10px 40px rgba(0,0,0,.16),
+    inset 0 -1px 0 rgba(255,255,255,.025);
+}
+
+body.app-ready .brand-logo{
+  transition:
+    transform .22s cubic-bezier(.2,.8,.2,1),
+    filter .22s ease;
+}
+
+body.app-ready .brand-logo:hover{
+  transform:translateY(-1px) scale(1.035);
+  filter:drop-shadow(0 0 18px rgba(91,124,250,.28));
+}
+
+body.app-ready .brand-logo-img{
+  filter:
+    drop-shadow(0 0 12px rgba(91,124,250,.12));
+}
+
+body.app-ready .brand-text strong{
+  letter-spacing:-.02em;
+  font-weight:800;
+}
+
+body.app-ready .brand-text span{
+  color:#8091ad;
+  letter-spacing:.01em;
+}
+
+/* ============================================================
+   SEARCH
+   ============================================================ */
+
+body.app-ready .search{
+  position:relative;
+}
+
+body.app-ready .search input{
+  height:44px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255,255,255,.045),
+      rgba(255,255,255,.022)
+    );
+  border:1px solid rgba(148,163,184,.13);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.025),
+    0 8px 24px rgba(0,0,0,.10);
+  transition:
+    border-color .2s ease,
+    box-shadow .2s ease,
+    background .2s ease;
+}
+
+body.app-ready .search input:focus{
+  border-color:rgba(91,124,250,.55);
+  background:rgba(15,23,42,.92);
+  box-shadow:
+    0 0 0 4px rgba(91,124,250,.10),
+    0 12px 32px rgba(0,0,0,.16);
+}
+
+/* ============================================================
+   TOP ACTIONS
+   ============================================================ */
+
+body.app-ready .icon-btn{
+  border:1px solid rgba(148,163,184,.12);
+  background:rgba(255,255,255,.035);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.03);
+  transition:
+    transform .18s ease,
+    background .18s ease,
+    border-color .18s ease,
+    box-shadow .18s ease;
+}
+
+body.app-ready .icon-btn:hover{
+  transform:translateY(-1px);
+  background:rgba(255,255,255,.065);
+  border-color:rgba(91,124,250,.35);
+  box-shadow:
+    0 8px 24px rgba(0,0,0,.16),
+    0 0 18px rgba(91,124,250,.08);
+}
+
+body.app-ready .icon-btn:active{
+  transform:translateY(1px) scale(.97);
+}
+
+/* ============================================================
+   LAYOUT
+   ============================================================ */
+
+body.app-ready .layout{
+  gap:22px;
+  padding-top:24px;
+  padding-bottom:36px;
+}
+
+body.app-ready .sidebar,
+body.app-ready .rightbar{
+  position:sticky;
+  top:86px;
+}
+
+body.app-ready .card{
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255,255,255,.035),
+      rgba(255,255,255,.018)
+    ),
+    rgba(15,23,42,.68);
+  border:1px solid rgba(148,163,184,.105);
+  box-shadow:var(--milan-shadow);
+  backdrop-filter:blur(18px) saturate(135%);
+  -webkit-backdrop-filter:blur(18px) saturate(135%);
+}
+
+/* ============================================================
+   SIDEBAR / IDENTITY
+   ============================================================ */
+
+body.app-ready .sidebar{
+  gap:12px;
+}
+
+body.app-ready .profile{
+  position:relative;
+  overflow:hidden;
+}
+
+body.app-ready .profile::before{
+  content:"";
+  position:absolute;
+  width:180px;
+  height:180px;
+  top:-110px;
+  left:50%;
+  transform:translateX(-50%);
+  background:radial-gradient(
+    circle,
+    rgba(91,124,250,.16),
+    transparent 70%
+  );
+  pointer-events:none;
+}
+
+body.app-ready #myAvatar{
+  position:relative;
+  border:1px solid rgba(255,255,255,.10);
+  box-shadow:
+    0 0 0 6px rgba(91,124,250,.055),
+    0 0 30px rgba(91,124,250,.14);
+}
+
+body.app-ready .profile-stats{
+  border-top-color:rgba(148,163,184,.08);
+}
+
+body.app-ready .profile-stat b{
+  font-weight:800;
+  letter-spacing:-.02em;
+}
+
+body.app-ready .profile-stat span{
+  color:#7487a5;
+  letter-spacing:.06em;
+}
+
+/* ============================================================
+   NAVIGATION
+   ============================================================ */
+
+body.app-ready .nav{
+  padding-top:2px;
+}
+
+body.app-ready .nav button{
+  position:relative;
+  border:1px solid transparent;
+  color:#8fa0ba;
+  transition:
+    transform .18s ease,
+    background .18s ease,
+    color .18s ease,
+    border-color .18s ease;
+}
+
+body.app-ready .nav button:hover{
+  transform:translateX(2px);
+  background:rgba(255,255,255,.035);
+  color:#e8edf8;
+  border-color:rgba(148,163,184,.08);
+}
+
+body.app-ready .nav button.active{
+  background:
+    linear-gradient(
+      90deg,
+      rgba(91,124,250,.17),
+      rgba(91,124,250,.055)
+    );
+  color:#f4f7ff;
+  border-color:rgba(91,124,250,.18);
+  box-shadow:
+    inset 3px 0 0 var(--milan-brand),
+    0 8px 18px rgba(91,124,250,.07);
+}
+
+body.app-ready .nav button.accent{
+  border:1px solid rgba(139,92,246,.28);
+  background:
+    linear-gradient(
+      135deg,
+      rgba(91,124,250,.88),
+      rgba(139,92,246,.9)
+    );
+  box-shadow:
+    0 12px 28px rgba(91,124,250,.20),
+    inset 0 1px 0 rgba(255,255,255,.18);
+}
+
+/* ============================================================
+   COMPOSER
+   ============================================================ */
+
+body.app-ready .composer{
+  position:relative;
+  overflow:hidden;
+  padding:20px;
+}
+
+body.app-ready .composer::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:
+    radial-gradient(
+      400px 140px at 0% 0%,
+      rgba(91,124,250,.09),
+      transparent 68%
+    );
+}
+
+body.app-ready .composer textarea{
+  min-height:76px;
+  background:rgba(2,6,23,.48);
+  border:1px solid rgba(148,163,184,.11);
+  transition:
+    border-color .22s ease,
+    box-shadow .22s ease,
+    background .22s ease;
+}
+
+body.app-ready .composer textarea:focus{
+  background:rgba(2,6,23,.68);
+  border-color:rgba(91,124,250,.42);
+  box-shadow:
+    0 0 0 4px rgba(91,124,250,.075);
+}
+
+body.app-ready .composer .tool{
+  border:1px solid rgba(148,163,184,.10);
+  background:rgba(255,255,255,.03);
+  color:#a9b7cc;
+  transition:
+    transform .16s ease,
+    background .16s ease,
+    color .16s ease;
+}
+
+body.app-ready .composer .tool:hover{
+  transform:translateY(-1px);
+  background:rgba(255,255,255,.06);
+  color:#fff;
+}
+
+body.app-ready .publish{
+  min-width:96px;
+  border:1px solid rgba(255,255,255,.08);
+  background:
+    linear-gradient(
+      135deg,
+      #5878f5,
+      #7b57e8
+    );
+  box-shadow:
+    0 10px 24px rgba(91,124,250,.20),
+    inset 0 1px 0 rgba(255,255,255,.18);
+  transition:
+    transform .18s ease,
+    box-shadow .18s ease;
+}
+
+body.app-ready .publish:hover{
+  transform:translateY(-1px);
+  box-shadow:
+    0 14px 30px rgba(91,124,250,.28),
+    inset 0 1px 0 rgba(255,255,255,.2);
+}
+
+/* ============================================================
+   FEED
+   ============================================================ */
+
+body.app-ready .milan-home-feed{
+  margin-top:20px;
+}
+
+body.app-ready .milan-feed-header{
+  padding:0 4px 2px;
+}
+
+body.app-ready .milan-feed-header strong{
+  font-size:18px;
+  letter-spacing:-.02em;
+  font-weight:800;
+}
+
+body.app-ready .milan-feed-header span{
+  color:#7183a0;
+}
+
+body.app-ready .milan-feed-card,
+body.app-ready .post{
+  position:relative;
+  overflow:hidden;
+  border-radius:20px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255,255,255,.034),
+      rgba(255,255,255,.014)
+    ),
+    rgba(15,23,42,.72);
+  border-color:rgba(148,163,184,.10);
+  box-shadow:
+    0 14px 42px rgba(0,0,0,.18),
+    inset 0 1px 0 rgba(255,255,255,.025);
+  transition:
+    transform .26s cubic-bezier(.2,.8,.2,1),
+    border-color .26s ease,
+    box-shadow .26s ease;
+}
+
+body.app-ready .milan-feed-card::before,
+body.app-ready .post::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  opacity:.7;
+  background:
+    radial-gradient(
+      450px 140px at 15% 0%,
+      rgba(91,124,250,.055),
+      transparent 70%
+    );
+}
+
+body.app-ready .post:hover{
+  transform:translateY(-2px);
+  border-color:rgba(91,124,250,.18);
+  box-shadow:
+    0 22px 56px rgba(0,0,0,.24),
+    0 0 28px rgba(91,124,250,.055),
+    inset 0 1px 0 rgba(255,255,255,.035);
+}
+
+body.app-ready .postHead{
+  position:relative;
+}
+
+body.app-ready .postUser b{
+  font-weight:800;
+  letter-spacing:-.01em;
+}
+
+body.app-ready .mini{
+  color:#7183a0;
+}
+
+body.app-ready .postBody{
+  position:relative;
+  padding-top:16px;
+}
+
+body.app-ready .postTitle{
+  font-size:17px;
+  font-weight:800;
+  letter-spacing:-.02em;
+}
+
+body.app-ready .postText{
+  color:#c8d3e4;
+  line-height:1.7;
+}
+
+body.app-ready .badge{
+  border:1px solid rgba(91,124,250,.16);
+  background:rgba(91,124,250,.075);
+  color:#b8c8ff;
+  border-radius:999px;
+  padding:3px 8px;
+}
+
+/* ============================================================
+   REACTION / ACTION BAR
+   ============================================================ */
+
+body.app-ready .reactionBar{
+  position:relative;
+  gap:7px;
+}
+
+body.app-ready .reactionBar button{
+  border:1px solid rgba(148,163,184,.09);
+  background:rgba(255,255,255,.025);
+  color:#91a1b9;
+  border-radius:999px;
+  transition:
+    transform .16s ease,
+    background .16s ease,
+    border-color .16s ease,
+    color .16s ease;
+}
+
+body.app-ready .reactionBar button:hover{
+  transform:translateY(-1px);
+  background:rgba(255,255,255,.055);
+  color:#edf2ff;
+  border-color:rgba(148,163,184,.16);
+}
+
+body.app-ready .reactionBar button.active{
+  color:#dce5ff;
+  background:rgba(91,124,250,.13);
+  border-color:rgba(91,124,250,.22);
+}
+
+/* ============================================================
+   RIGHT RAIL
+   ============================================================ */
+
+body.app-ready .rightbar{
+  gap:14px;
+}
+
+body.app-ready .right-card{
+  border-radius:18px;
+  padding:17px;
+}
+
+body.app-ready .right-card h3{
+  color:#7e90ad;
+  letter-spacing:.08em;
+  font-size:11px;
+}
+
+body.app-ready .person{
+  padding:9px 8px;
+  border-radius:13px;
+  transition:background .18s ease;
+}
+
+body.app-ready .person:hover{
+  background:rgba(255,255,255,.028);
+}
+
+/* ============================================================
+   LIVE STATES
+   ============================================================ */
+
+.milan-visual-reveal{
+  opacity:0;
+  transform:translateY(12px);
+  transition:
+    opacity .5s cubic-bezier(.2,.8,.2,1),
+    transform .5s cubic-bezier(.2,.8,.2,1);
+}
+
+.milan-visual-reveal.is-visible{
+  opacity:1;
+  transform:none;
+}
+
+.milan-pointer-glow{
+  position:fixed;
+  width:280px;
+  height:280px;
+  border-radius:50%;
+  pointer-events:none;
+  z-index:1;
+  opacity:0;
+  background:
+    radial-gradient(
+      circle,
+      rgba(91,124,250,.075),
+      rgba(91,124,250,0) 68%
+    );
+  transform:translate(-50%,-50%);
+  transition:opacity .25s ease;
+  mix-blend-mode:screen;
+}
+
+/* ============================================================
+   SCROLLBAR
+   ============================================================ */
+
+body.app-ready ::-webkit-scrollbar{
+  width:9px;
+  height:9px;
+}
+
+body.app-ready ::-webkit-scrollbar-track{
+  background:transparent;
+}
+
+body.app-ready ::-webkit-scrollbar-thumb{
+  background:rgba(148,163,184,.18);
+  border-radius:999px;
+  border:2px solid transparent;
+  background-clip:padding-box;
+}
+
+body.app-ready ::-webkit-scrollbar-thumb:hover{
+  background:rgba(148,163,184,.30);
+  border:2px solid transparent;
+  background-clip:padding-box;
+}
+
+/* ============================================================
+   MOBILE
+   ============================================================ */
+
+@media (max-width:768px){
+  body.app-ready .layout{
+    gap:14px;
+    padding-top:14px;
+  }
+
+  body.app-ready .topbar{
+    padding:10px 12px;
+  }
+
+  body.app-ready .card,
+  body.app-ready .milan-feed-card,
+  body.app-ready .post{
+    border-radius:16px;
+  }
+
+  body.app-ready .composer{
+    padding:15px;
+  }
+
+  body.app-ready .post:hover{
+    transform:none;
+  }
+}
+
+/* ============================================================
+   ACCESSIBILITY
+   ============================================================ */
+
+@media (prefers-reduced-motion:reduce){
+  *,
+  *::before,
+  *::after{
+    animation-duration:.001ms!important;
+    animation-iteration-count:1!important;
+    transition-duration:.001ms!important;
+    scroll-behavior:auto!important;
+  }
+
+  .milan-pointer-glow{
+    display:none!important;
+  }
+}
+
+/* ============================================================
+   MILAN — Web5 Identity Visual Layer
+   ============================================================ */
+
+.milan-web5-status{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-top:14px;
+  padding:9px 11px;
+  border:1px solid rgba(91,124,250,.14);
+  border-radius:13px;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(91,124,250,.08),
+      rgba(139,92,246,.035)
+    );
+  color:#aebde0;
+  font-size:11px;
+}
+
+.milan-web5-dot{
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:#39d98a;
+  box-shadow:
+    0 0 0 4px rgba(57,217,138,.08),
+    0 0 14px rgba(57,217,138,.55);
+  flex:0 0 auto;
+  animation:milanWeb5Pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes milanWeb5Pulse{
+  0%,100%{transform:scale(1);opacity:.75}
+  50%{transform:scale(1.22);opacity:1}
+}
+
+.milan-identity-panel{
+  position:relative;
+  overflow:hidden;
+}
+
+.milan-identity-panel::after{
+  content:"";
+  position:absolute;
+  width:240px;
+  height:240px;
+  right:-130px;
+  top:-120px;
+  border-radius:50%;
+  background:
+    radial-gradient(
+      circle,
+      rgba(91,124,250,.09),
+      transparent 68%
+    );
+  pointer-events:none;
+}
+
+.milan-did-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  margin-top:9px;
+  max-width:100%;
+  padding:6px 9px;
+  border-radius:999px;
+  background:rgba(255,255,255,.028);
+  border:1px solid rgba(148,163,184,.09);
+  color:#7f91ae;
+  font-size:10px;
+  letter-spacing:.02em;
+  overflow:hidden;
+}
+
+.milan-did-chip .label{
+  color:#aebce0;
+  font-weight:700;
+}
+
+.milan-did-chip .value{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.milan-dwn-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  margin-left:6px;
+  padding:6px 9px;
+  border-radius:999px;
+  background:rgba(57,217,138,.055);
+  border:1px solid rgba(57,217,138,.12);
+  color:#91d8b5;
+  font-size:10px;
+  font-weight:700;
+}
+
+.milan-network-strip{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:14px;
+  padding:10px 13px;
+  border-radius:15px;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(91,124,250,.06),
+      rgba(255,255,255,.018)
+    );
+  border:1px solid rgba(148,163,184,.08);
+}
+
+.milan-network-left{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+}
+
+.milan-network-label{
+  color:#8091ad;
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:.09em;
+  font-weight:800;
+}
+
+.milan-network-value{
+  color:#dce6ff;
+  font-size:12px;
+  font-weight:700;
+}
+
+.milan-network-meta{
+  color:#71829d;
+  font-size:10px;
+  white-space:nowrap;
+}
+
+.milan-privacy-meter{
+  position:relative;
+  height:4px;
+  margin-top:8px;
+  overflow:hidden;
+  border-radius:999px;
+  background:rgba(148,163,184,.08);
+}
+
+.milan-privacy-meter > span{
+  display:block;
+  width:100%;
+  height:100%;
+  border-radius:inherit;
+  background:
+    linear-gradient(
+      90deg,
+      #39d98a,
+      #5b7cfa,
+      #8b5cf6
+    );
+  box-shadow:0 0 14px rgba(91,124,250,.20);
+  transition:width .45s cubic-bezier(.2,.8,.2,1);
+}
+
+@media (max-width:768px){
+  .milan-network-strip{
+    padding:9px 11px;
+  }
+
+  .milan-network-meta{
+    display:none;
+  }
+
+  .milan-dwn-chip{
+    margin-left:3px;
+  }
+}
+
+/* ============================================================
+   MILAN — Web5 Workspace UI
+   ============================================================ */
+
+body.app-ready .composer{
+  border-color:rgba(91,124,250,.15);
+  box-shadow:
+    0 20px 60px rgba(0,0,0,.22),
+    0 0 0 1px rgba(91,124,250,.025),
+    inset 0 1px 0 rgba(255,255,255,.035);
+}
+
+body.app-ready .composer::after{
+  content:"";
+  position:absolute;
+  top:0;
+  left:12%;
+  right:12%;
+  height:1px;
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(91,124,250,.55),
+      rgba(139,92,246,.45),
+      transparent
+    );
+  opacity:.7;
+}
+
+.milan-workspace-label{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:14px;
+}
+
+.milan-workspace-title{
+  display:flex;
+  align-items:center;
+  gap:9px;
+}
+
+.milan-workspace-title .mark{
+  width:28px;
+  height:28px;
+  display:grid;
+  place-items:center;
+  border-radius:9px;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(91,124,250,.18),
+      rgba(139,92,246,.16)
+    );
+  border:1px solid rgba(91,124,250,.18);
+  box-shadow:
+    0 0 22px rgba(91,124,250,.08);
+}
+
+.milan-workspace-title strong{
+  display:block;
+  font-size:14px;
+  font-weight:800;
+  letter-spacing:-.01em;
+}
+
+.milan-workspace-title span{
+  display:block;
+  margin-top:2px;
+  color:#7183a0;
+  font-size:10px;
+}
+
+.milan-workspace-status{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:6px 9px;
+  border-radius:999px;
+  border:1px solid rgba(57,217,138,.12);
+  background:rgba(57,217,138,.045);
+  color:#93d8b5;
+  font-size:10px;
+  font-weight:700;
+}
+
+.milan-workspace-status i{
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  background:#39d98a;
+  box-shadow:0 0 12px rgba(57,217,138,.55);
+}
+
+.milan-privacy-pills{
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px;
+  margin-top:12px;
+}
+
+.milan-privacy-pill{
+  appearance:none;
+  border:1px solid rgba(148,163,184,.10);
+  background:rgba(255,255,255,.025);
+  color:#8798b2;
+  border-radius:999px;
+  padding:7px 11px;
+  font:inherit;
+  font-size:10px;
+  font-weight:700;
+  cursor:pointer;
+  transition:
+    background .18s ease,
+    color .18s ease,
+    border-color .18s ease,
+    transform .18s ease;
+}
+
+.milan-privacy-pill:hover{
+  transform:translateY(-1px);
+  background:rgba(255,255,255,.05);
+  color:#e8eefc;
+}
+
+.milan-privacy-pill.active{
+  color:#dce6ff;
+  border-color:rgba(91,124,250,.26);
+  background:
+    linear-gradient(
+      135deg,
+      rgba(91,124,250,.15),
+      rgba(139,92,246,.09)
+    );
+  box-shadow:
+    0 6px 18px rgba(91,124,250,.08);
+}
+
+.milan-visibility-note{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  margin-top:10px;
+  color:#7183a0;
+  font-size:10px;
+}
+
+.milan-visibility-note .icon{
+  width:19px;
+  height:19px;
+  display:grid;
+  place-items:center;
+  border-radius:6px;
+  background:rgba(148,163,184,.055);
+  border:1px solid rgba(148,163,184,.08);
+}
+
+.milan-feed-space-header{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:14px;
+  margin:8px 0 12px;
+}
+
+.milan-feed-space-header h2{
+  margin:0;
+  font-size:20px;
+  line-height:1.15;
+  letter-spacing:-.03em;
+  font-weight:850;
+}
+
+.milan-feed-space-header p{
+  margin:5px 0 0;
+  color:#7183a0;
+  font-size:11px;
+}
+
+.milan-feed-mode{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  padding:7px 10px;
+  border-radius:999px;
+  border:1px solid rgba(91,124,250,.12);
+  background:rgba(91,124,250,.045);
+  color:#aebde0;
+  font-size:10px;
+  font-weight:700;
+  white-space:nowrap;
+}
+
+.milan-feed-mode .signal{
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  background:#5b7cfa;
+  box-shadow:0 0 12px rgba(91,124,250,.5);
+}
+
+body.app-ready .post{
+  isolation:isolate;
+}
+
+body.app-ready .post + .post{
+  margin-top:14px;
+}
+
+body.app-ready .post .postHead{
+  padding-bottom:3px;
+}
+
+body.app-ready .post .reactionBar{
+  margin-top:3px;
+}
+
+.milan-post-access{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  margin:10px 0 0;
+  padding:5px 8px;
+  border-radius:999px;
+  background:rgba(148,163,184,.035);
+  border:1px solid rgba(148,163,184,.07);
+  color:#8091ad;
+  font-size:9px;
+  font-weight:750;
+}
+
+.milan-post-access.private{
+  color:#9eb1ff;
+  border-color:rgba(91,124,250,.12);
+  background:rgba(91,124,250,.045);
+}
+
+.milan-post-access.public{
+  color:#a0cfb5;
+  border-color:rgba(57,217,138,.11);
+  background:rgba(57,217,138,.035);
+}
+
+.milan-post-access.shared{
+  color:#d2b6ff;
+  border-color:rgba(139,92,246,.13);
+  background:rgba(139,92,246,.045);
+}
+
+.milan-post-access .access-dot{
+  width:5px;
+  height:5px;
+  border-radius:50%;
+  background:currentColor;
+  box-shadow:0 0 9px currentColor;
+}
+
+@media (max-width:768px){
+  .milan-workspace-label{
+    align-items:flex-start;
+  }
+
+  .milan-workspace-status{
+    display:none;
+  }
+
+  .milan-feed-space-header{
+    align-items:flex-start;
+  }
+
+  .milan-feed-mode{
+    display:none;
+  }
+}
+
+/* ============================================================
+   MILAN — Spatial Feed Layer
+   ============================================================ */
+
+body.app-ready .post{
+  transform-origin:center top;
+}
+
+body.app-ready .post .postHead{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+}
+
+body.app-ready .post .postUser{
+  min-width:0;
+}
+
+body.app-ready .post .postUser > div:last-child{
+  min-width:0;
+}
+
+body.app-ready .post .postUser b{
+  font-size:14px;
+}
+
+body.app-ready .post .postMetrics{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:11px 0 3px;
+  color:#667892;
+  font-size:10px;
+}
+
+body.app-ready .post .reactionTotal,
+body.app-ready .post .commentTotal{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+}
+
+body.app-ready .post .reactionTotal::before{
+  content:"✦";
+  color:#6d86ff;
+}
+
+body.app-ready .post .commentTotal::before{
+  content:"◌";
+  color:#8899b5;
+}
+
+.milan-post-context{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin:12px 0 0;
+  padding:8px 10px;
+  border-radius:11px;
+  border:1px solid rgba(148,163,184,.07);
+  background:rgba(255,255,255,.018);
+}
+
+.milan-post-context .left{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  min-width:0;
+}
+
+.milan-post-context .signal{
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  background:#5b7cfa;
+  box-shadow:0 0 10px rgba(91,124,250,.45);
+  flex:0 0 auto;
+}
+
+.milan-post-context .label{
+  color:#7e90ab;
+  font-size:9px;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+}
+
+.milan-post-context .value{
+  color:#b5c3da;
+  font-size:9px;
+  font-weight:650;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.milan-post-context .right{
+  color:#667892;
+  font-size:9px;
+  white-space:nowrap;
+}
+
+.milan-media-frame{
+  position:relative;
+  overflow:hidden;
+  border-radius:16px;
+  margin-top:14px;
+  background:
+    radial-gradient(
+      circle at 30% 20%,
+      rgba(91,124,250,.08),
+      transparent 55%
+    ),
+    rgba(2,6,23,.48);
+  border:1px solid rgba(148,163,184,.08);
+}
+
+.milan-media-frame::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255,255,255,.035),
+      transparent 22%,
+      transparent 78%,
+      rgba(0,0,0,.12)
+    );
+}
+
+.milan-media-frame img,
+.milan-media-frame video,
+.milan-media-frame iframe{
+  display:block;
+  width:100%;
+  max-height:620px;
+  object-fit:cover;
+  border-radius:inherit;
+}
+
+.milan-access-icon{
+  display:inline-grid;
+  place-items:center;
+  width:20px;
+  height:20px;
+  border-radius:7px;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(148,163,184,.08);
+  font-size:10px;
+}
+
+.milan-access-icon.private{
+  color:#aebdff;
+  background:rgba(91,124,250,.07);
+  border-color:rgba(91,124,250,.13);
+}
+
+.milan-access-icon.public{
+  color:#99dab5;
+  background:rgba(57,217,138,.05);
+  border-color:rgba(57,217,138,.11);
+}
+
+.milan-access-icon.shared{
+  color:#d4b6ff;
+  background:rgba(139,92,246,.06);
+  border-color:rgba(139,92,246,.12);
+}
+
+.milan-live-rail{
+  position:absolute;
+  left:0;
+  top:18px;
+  bottom:18px;
+  width:2px;
+  border-radius:999px;
+  background:
+    linear-gradient(
+      180deg,
+      transparent,
+      rgba(91,124,250,.55),
+      rgba(139,92,246,.48),
+      transparent
+    );
+  opacity:.6;
+}
+
+@media (max-width:768px){
+  .milan-post-context .right{
+    display:none;
+  }
+
+  .milan-media-frame img,
+  .milan-media-frame video,
+  .milan-media-frame iframe{
+    max-height:430px;
+  }
+}
+
+/* Navigation motion */
+body.app-ready .nav button,
+body.app-ready .mobile-nav a{
+  transition:
+    transform .18s cubic-bezier(.2,.8,.2,1),
+    color .18s ease,
+    background .18s ease,
+    opacity .18s ease;
+}
+
+body.app-ready .nav button:active{
+  transform:scale(.985);
+}
+
+body.app-ready .mobile-nav a.active{
+  text-shadow:
+    0 0 18px rgba(91,124,250,.32);
+}
+
+.milan-press{
+  transform:scale(.965)!important;
+}
+
+/* ============================================================
+   MILAN — DID Identity Cockpit
+   ============================================================ */
+
+.milan-identity-cockpit{
+  position:relative;
+  overflow:hidden;
+  padding:18px;
+  border-radius:20px;
+  background:
+    radial-gradient(
+      280px 160px at 50% -20%,
+      rgba(91,124,250,.14),
+      transparent 72%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(255,255,255,.035),
+      rgba(255,255,255,.012)
+    ),
+    rgba(15,23,42,.70);
+  border:1px solid rgba(148,163,184,.11);
+  box-shadow:
+    0 18px 50px rgba(0,0,0,.20),
+    inset 0 1px 0 rgba(255,255,255,.035);
+}
+
+.milan-identity-cockpit::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:
+    linear-gradient(
+      125deg,
+      transparent 0%,
+      rgba(91,124,250,.035) 45%,
+      transparent 72%
+    );
+}
+
+.milan-identity-header{
+  position:relative;
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.milan-identity-avatar{
+  position:relative;
+  width:58px;
+  height:58px;
+  flex:0 0 auto;
+  border-radius:18px;
+  padding:2px;
+  background:
+    conic-gradient(
+      from 180deg,
+      rgba(91,124,250,.9),
+      rgba(139,92,246,.9),
+      rgba(91,124,250,.25),
+      rgba(91,124,250,.9)
+    );
+  box-shadow:
+    0 0 0 5px rgba(91,124,250,.04),
+    0 0 26px rgba(91,124,250,.12);
+}
+
+.milan-identity-avatar > div,
+.milan-identity-avatar > img{
+  width:100%;
+  height:100%;
+  display:block;
+  border-radius:16px;
+  object-fit:cover;
+  background:#0a0e1a;
+}
+
+.milan-identity-core{
+  min-width:0;
+}
+
+.milan-identity-core strong{
+  display:block;
+  color:#f3f6ff;
+  font-size:16px;
+  font-weight:850;
+  letter-spacing:-.025em;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.milan-identity-core .role{
+  margin-top:3px;
+  color:#7588a5;
+  font-size:10px;
+  font-weight:700;
+}
+
+.milan-identity-live{
+  margin-left:auto;
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  padding:5px 8px;
+  border-radius:999px;
+  color:#99d9b8;
+  background:rgba(57,217,138,.045);
+  border:1px solid rgba(57,217,138,.11);
+  font-size:9px;
+  font-weight:800;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+}
+
+.milan-identity-live i{
+  width:5px;
+  height:5px;
+  border-radius:50%;
+  background:#39d98a;
+  box-shadow:0 0 10px rgba(57,217,138,.60);
+}
+
+.milan-identity-grid{
+  position:relative;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  margin-top:15px;
+}
+
+.milan-identity-stat{
+  min-width:0;
+  padding:10px;
+  border-radius:13px;
+  border:1px solid rgba(148,163,184,.07);
+  background:rgba(255,255,255,.018);
+}
+
+.milan-identity-stat .k{
+  color:#6f819c;
+  font-size:9px;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  font-weight:800;
+}
+
+.milan-identity-stat .v{
+  margin-top:4px;
+  color:#d8e2f7;
+  font-size:11px;
+  font-weight:750;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.milan-identity-stat .v.good{
+  color:#9ed8b8;
+}
+
+.milan-identity-did{
+  position:relative;
+  margin-top:9px;
+  padding:10px;
+  border-radius:13px;
+  border:1px solid rgba(91,124,250,.10);
+  background:rgba(91,124,250,.035);
+}
+
+.milan-identity-did .label{
+  color:#6f819c;
+  font-size:9px;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  font-weight:800;
+}
+
+.milan-identity-did .value{
+  margin-top:5px;
+  color:#aebde0;
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  font-size:9px;
+  line-height:1.5;
+  word-break:break-all;
+}
+
+.milan-identity-footer{
+  position:relative;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-top:11px;
+}
+
+.milan-identity-footer .network{
+  color:#6f819c;
+  font-size:9px;
+}
+
+.milan-identity-footer .network b{
+  color:#9eb1ff;
+  font-weight:800;
+}
+
+.milan-identity-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:6px 9px;
+  border-radius:999px;
+  border:1px solid rgba(139,92,246,.13);
+  background:rgba(139,92,246,.045);
+  color:#c7b1f8;
+  font-size:9px;
+  font-weight:800;
+}
+
+@media (max-width:768px){
+  .milan-identity-cockpit{
+    padding:15px;
+  }
+
+  .milan-identity-grid{
+    gap:7px;
+  }
+
+  .milan-identity-live{
+    display:none;
+  }
+}
+
+.milan-identity-score{
+  margin-top:10px;
+  padding:10px;
+  border-radius:13px;
+  border:1px solid rgba(57,217,138,.09);
+  background:rgba(57,217,138,.03);
+}
+
+.milan-identity-score-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+
+.milan-identity-score-head span{
+  color:#7183a0;
+  font-size:9px;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+}
+
+.milan-identity-score-head b{
+  color:#9ad7b7;
+  font-size:12px;
+}
+
+.milan-identity-score-bar{
+  height:4px;
+  margin-top:7px;
+  overflow:hidden;
+  border-radius:999px;
+  background:rgba(148,163,184,.08);
+}
+
+.milan-identity-score-bar span{
+  display:block;
+  width:100%;
+  height:100%;
+  border-radius:inherit;
+  background:
+    linear-gradient(
+      90deg,
+      #39d98a,
+      #5b7cfa
+    );
+  box-shadow:
+    0 0 12px rgba(57,217,138,.15);
+  transition:
+    width .5s cubic-bezier(.2,.8,.2,1);
+}
+
+/* ============================================================
+   MILAN — Profile Identity Hero
+   ============================================================ */
+
+.milan-profile-hero{
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding:4px 0 6px;
+}
+
+.milan-profile-avatar-orbit{
+  position:relative;
+  width:112px;
+  height:112px;
+  display:grid;
+  place-items:center;
+  margin-bottom:12px;
+}
+
+.milan-profile-avatar-orbit::before,
+.milan-profile-avatar-orbit::after{
+  content:"";
+  position:absolute;
+  border-radius:50%;
+  pointer-events:none;
+}
+
+.milan-profile-avatar-orbit::before{
+  inset:-7px;
+  border:1px solid rgba(91,124,250,.20);
+  box-shadow:
+    0 0 0 6px rgba(91,124,250,.025),
+    0 0 36px rgba(91,124,250,.16);
+}
+
+.milan-profile-avatar-orbit::after{
+  inset:-15px;
+  border:1px dashed rgba(139,92,246,.18);
+  animation:milanOrbit 12s linear infinite;
+}
+
+@keyframes milanOrbit{
+  to{transform:rotate(360deg)}
+}
+
+.milan-profile-avatar{
+  position:relative;
+  width:92px;
+  height:92px;
+  border-radius:26px;
+  overflow:hidden;
+  padding:2px;
+  background:
+    conic-gradient(
+      from 210deg,
+      #5b7cfa,
+      #8b5cf6,
+      rgba(91,124,250,.25),
+      #5b7cfa
+    );
+  box-shadow:
+    0 0 0 5px rgba(91,124,250,.045),
+    0 16px 38px rgba(0,0,0,.24),
+    0 0 32px rgba(91,124,250,.13);
+}
+
+.milan-profile-avatar-inner{
+  width:100%;
+  height:100%;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  border-radius:24px;
+  background:#0a0e1a;
+  color:#dbe5ff;
+  font-size:26px;
+  font-weight:850;
+}
+
+.milan-profile-avatar-inner img{
+  width:100%;
+  height:100%;
+  display:block;
+  object-fit:cover;
+  object-position:center;
+}
+
+.milan-profile-avatar-state{
+  position:absolute;
+  right:-2px;
+  bottom:2px;
+  width:22px;
+  height:22px;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  border:3px solid #0a0e1a;
+  background:#39d98a;
+  color:#06130d;
+  font-size:9px;
+  font-weight:900;
+  box-shadow:
+    0 0 14px rgba(57,217,138,.45);
+}
+
+.milan-profile-name{
+  max-width:100%;
+  color:#f5f7ff;
+  font-size:19px;
+  line-height:1.15;
+  font-weight:850;
+  letter-spacing:-.03em;
+  text-align:center;
+}
+
+.milan-profile-subtitle{
+  margin-top:4px;
+  color:#7487a5;
+  font-size:10px;
+  font-weight:700;
+  text-align:center;
+}
+
+.milan-profile-proof{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:6px;
+  margin-top:10px;
+}
+
+.milan-proof-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  padding:6px 8px;
+  border-radius:999px;
+  color:#9aabd0;
+  background:rgba(255,255,255,.025);
+  border:1px solid rgba(148,163,184,.08);
+  font-size:9px;
+  font-weight:750;
+}
+
+.milan-proof-chip.web5{
+  color:#c6b4ff;
+  border-color:rgba(139,92,246,.15);
+  background:rgba(139,92,246,.045);
+}
+
+.milan-proof-chip.dwn{
+  color:#9bd9b7;
+  border-color:rgba(57,217,138,.12);
+  background:rgba(57,217,138,.04);
+}
+
+.milan-proof-chip.did{
+  color:#acbfff;
+  border-color:rgba(91,124,250,.13);
+  background:rgba(91,124,250,.045);
+}
+
+@media (max-width:768px){
+  .milan-profile-avatar-orbit{
+    width:96px;
+    height:96px;
+  }
+
+  .milan-profile-avatar{
+    width:80px;
+    height:80px;
+    border-radius:22px;
+  }
+
+  .milan-profile-avatar-inner{
+    border-radius:20px;
+  }
+}
+
+.milan-profile-hero.is-scanning .milan-profile-avatar-orbit::before{
+  animation:milanIdentityScan 1.8s ease-in-out infinite;
+}
+
+@keyframes milanIdentityScan{
+  0%{
+    box-shadow:
+      0 0 0 6px rgba(91,124,250,.03),
+      0 0 22px rgba(91,124,250,.10);
+  }
+  50%{
+    box-shadow:
+      0 0 0 8px rgba(91,124,250,.08),
+      0 0 42px rgba(91,124,250,.22);
+  }
+  100%{
+    box-shadow:
+      0 0 0 6px rgba(91,124,250,.03),
+      0 0 22px rgba(91,124,250,.10);
+  }
+}
+
+.milan-profile-hero .milan-profile-avatar-state{
+  transition:
+    transform .22s ease,
+    box-shadow .22s ease;
+}
+
+.milan-profile-hero:hover .milan-profile-avatar-state{
+  transform:scale(1.08);
+  box-shadow:
+    0 0 18px rgba(57,217,138,.62);
+}
+
+/* ============================================================
+   MILAN — Creation Studio
+   ============================================================ */
+
+.milan-creation-studio{
+  position:relative;
+  margin-bottom:14px;
+  padding:16px;
+  border-radius:18px;
+  border:1px solid rgba(91,124,250,.13);
+  background:
+    radial-gradient(
+      420px 180px at 0% 0%,
+      rgba(91,124,250,.10),
+      transparent 68%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(255,255,255,.03),
+      rgba(255,255,255,.012)
+    ),
+    rgba(5,10,22,.36);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.035),
+    0 12px 34px rgba(0,0,0,.15);
+}
+
+.milan-creation-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+
+.milan-creation-brand{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.milan-creation-mark{
+  width:27px;
+  height:27px;
+  display:grid;
+  place-items:center;
+  border-radius:8px;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(91,124,250,.20),
+      rgba(139,92,246,.16)
+    );
+  border:1px solid rgba(91,124,250,.18);
+  color:#d5dfff;
+  box-shadow:
+    0 0 20px rgba(91,124,250,.08);
+}
+
+.milan-creation-title strong{
+  display:block;
+  font-size:12px;
+  font-weight:850;
+  letter-spacing:.01em;
+}
+
+.milan-creation-title span{
+  display:block;
+  margin-top:2px;
+  color:#7183a0;
+  font-size:9px;
+}
+
+.milan-creation-live{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  padding:5px 8px;
+  border-radius:999px;
+  color:#9ed8b8;
+  background:rgba(57,217,138,.045);
+  border:1px solid rgba(57,217,138,.11);
+  font-size:9px;
+  font-weight:800;
+}
+
+.milan-creation-live i{
+  width:5px;
+  height:5px;
+  border-radius:50%;
+  background:#39d98a;
+  box-shadow:0 0 10px rgba(57,217,138,.55);
+}
+
+.milan-creation-tools{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:7px;
+  margin-top:11px;
+}
+
+.milan-create-tool{
+  position:relative;
+  min-height:44px;
+  border:1px solid rgba(148,163,184,.08);
+  border-radius:12px;
+  background:rgba(255,255,255,.022);
+  color:#8fa1bb;
+  cursor:pointer;
+  transition:
+    transform .18s ease,
+    background .18s ease,
+    border-color .18s ease,
+    color .18s ease;
+}
+
+.milan-create-tool:hover{
+  transform:translateY(-1px);
+  background:rgba(255,255,255,.05);
+  color:#edf2ff;
+  border-color:rgba(91,124,250,.18);
+}
+
+.milan-create-tool.active{
+  color:#dbe5ff;
+  border-color:rgba(91,124,250,.25);
+  background:
+    linear-gradient(
+      135deg,
+      rgba(91,124,250,.12),
+      rgba(139,92,246,.08)
+    );
+  box-shadow:
+    0 7px 20px rgba(91,124,250,.08);
+}
+
+.milan-create-tool .icon{
+  display:block;
+  font-size:15px;
+}
+
+.milan-create-tool .label{
+  display:block;
+  margin-top:3px;
+  font-size:9px;
+  font-weight:750;
+}
+
+.milan-create-meta{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-top:11px;
+  padding-top:10px;
+  border-top:1px solid rgba(148,163,184,.07);
+}
+
+.milan-create-meta .item{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  min-width:0;
+  padding:5px 8px;
+  border-radius:999px;
+  background:rgba(255,255,255,.018);
+  border:1px solid rgba(148,163,184,.06);
+  color:#7183a0;
+  font-size:9px;
+  font-weight:700;
+}
+
+.milan-create-meta .item strong{
+  color:#aebde0;
+  font-weight:800;
+}
+
+.milan-creation-focus{
+  outline:none!important;
+  border-color:rgba(91,124,250,.30)!important;
+  box-shadow:
+    0 0 0 4px rgba(91,124,250,.06),
+    0 14px 30px rgba(0,0,0,.16)!important;
+}
+
+.milan-creation-typing{
+  box-shadow:
+    0 0 0 1px rgba(91,124,250,.12),
+    0 0 32px rgba(91,124,250,.07),
+    0 16px 36px rgba(0,0,0,.18)!important;
+}
+
+.milan-publish-state{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  margin-left:auto;
+  color:#7588a5;
+  font-size:9px;
+  font-weight:700;
+}
+
+.milan-publish-state .spinner{
+  width:10px;
+  height:10px;
+  border:2px solid rgba(148,163,184,.16);
+  border-top-color:#7c8fff;
+  border-radius:50%;
+  animation:milanCreateSpin .8s linear infinite;
+}
+
+@keyframes milanCreateSpin{
+  to{transform:rotate(360deg)}
+}
+
+@media (max-width:768px){
+  .milan-creation-tools{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+
+  .milan-create-meta{
+    flex-wrap:wrap;
+  }
+
+  .milan-creation-live{
+    display:none;
+  }
+}
+
+.milan-writing-meter{
+  position:relative;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-top:8px;
+  color:#687b97;
+  font-size:9px;
+}
+
+.milan-writing-meter .bar{
+  flex:1;
+  height:3px;
+  overflow:hidden;
+  border-radius:999px;
+  background:rgba(148,163,184,.07);
+}
+
+.milan-writing-meter .bar span{
+  display:block;
+  width:0;
+  height:100%;
+  border-radius:inherit;
+  background:
+    linear-gradient(
+      90deg,
+      #5b7cfa,
+      #8b5cf6
+    );
+  transition:width .18s ease;
+}
+
+/* ============================================================
+   MILAN — UI-8 Live Network Experience
+   ============================================================ */
+
+.milan-network-heartbeat{
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+}
+
+.milan-network-heartbeat .dot{
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  background:#39d98a;
+  box-shadow:
+    0 0 0 0 rgba(57,217,138,.35);
+  animation:milanHeartbeat 2s ease-out infinite;
+}
+
+@keyframes milanHeartbeat{
+  0%{
+    box-shadow:0 0 0 0 rgba(57,217,138,.35);
+  }
+  65%{
+    box-shadow:0 0 0 8px rgba(57,217,138,0);
+  }
+  100%{
+    box-shadow:0 0 0 0 rgba(57,217,138,0);
+  }
+}
+
+.milan-nav-pulse{
+  position:absolute;
+  right:8px;
+  top:8px;
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  background:#7c8fff;
+  box-shadow:0 0 14px rgba(124,143,255,.6);
+}
+
+.milan-notification-badge{
+  position:absolute;
+  top:-3px;
+  right:-3px;
+  min-width:15px;
+  height:15px;
+  display:grid;
+  place-items:center;
+  padding:0 4px;
+  border-radius:999px;
+  background:#7c8fff;
+  color:#fff;
+  border:2px solid #070b14;
+  font-size:8px;
+  font-weight:900;
+  box-shadow:0 4px 12px rgba(124,143,255,.32);
+}
+
+.milan-notification-badge.pulse{
+  animation:milanNotifPulse 1.8s ease-in-out infinite;
+}
+
+@keyframes milanNotifPulse{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.08)}
+}
+
+body.app-ready .topbar.scrolled{
+  box-shadow:
+    0 16px 45px rgba(0,0,0,.24),
+    inset 0 -1px 0 rgba(255,255,255,.03);
+  background:rgba(7,11,20,.84);
+}
+
+body.app-ready .mobile-nav{
+  background:rgba(7,11,20,.82);
+  backdrop-filter:blur(22px) saturate(150%);
+  -webkit-backdrop-filter:blur(22px) saturate(150%);
+  border-top-color:rgba(148,163,184,.10);
+  box-shadow:0 -14px 34px rgba(0,0,0,.16);
+}
+
+body.app-ready .mobile-nav a{
+  position:relative;
+  opacity:.72;
+}
+
+body.app-ready .mobile-nav a.active{
+  opacity:1;
+  color:#dce5ff;
+}
+
+body.app-ready .mobile-nav a.active::before{
+  content:"";
+  position:absolute;
+  top:-8px;
+  left:50%;
+  width:22px;
+  height:2px;
+  border-radius:999px;
+  transform:translateX(-50%);
+  background:
+    linear-gradient(
+      90deg,
+      #5b7cfa,
+      #8b5cf6
+    );
+  box-shadow:0 0 14px rgba(91,124,250,.36);
+}
+
+.milan-scroll-progress{
+  position:fixed;
+  top:0;
+  left:0;
+  width:0;
+  height:2px;
+  z-index:10001;
+  pointer-events:none;
+  background:
+    linear-gradient(
+      90deg,
+      #5b7cfa,
+      #8b5cf6,
+      #39d98a
+    );
+  box-shadow:0 0 14px rgba(91,124,250,.35);
+}
+
+/* ============================================================
+   MILAN — Web5 Network Constellation
+   ============================================================ */
+
+.milan-network-map{
+  position:relative;
+  height:300px;
+  margin-top:14px;
+  overflow:hidden;
+  border-radius:20px;
+  border:1px solid rgba(91,124,250,.12);
+  background:
+    radial-gradient(
+      circle at 50% 50%,
+      rgba(91,124,250,.09),
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at 20% 20%,
+      rgba(139,92,246,.055),
+      transparent 34%
+    ),
+    rgba(4,8,18,.72);
+  box-shadow:
+    0 20px 55px rgba(0,0,0,.18),
+    inset 0 1px 0 rgba(255,255,255,.03);
+}
+
+.milan-network-grid{
+  position:absolute;
+  inset:0;
+  opacity:.18;
+  background-image:
+    linear-gradient(
+      rgba(148,163,184,.045) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      rgba(148,163,184,.045) 1px,
+      transparent 1px
+    );
+  background-size:34px 34px;
+  mask-image:radial-gradient(circle at center,#000 20%,transparent 78%);
+}
+
+.milan-network-lines{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  pointer-events:none;
+}
+
+.milan-network-lines line{
+  stroke:rgba(91,124,250,.22);
+  stroke-width:1;
+}
+
+.milan-network-lines .strong{
+  stroke:rgba(91,124,250,.42);
+  stroke-width:1.4;
+}
+
+.milan-network-lines .pulse{
+  stroke:rgba(139,92,246,.48);
+  stroke-width:1.2;
+  stroke-dasharray:5 7;
+  animation:milanNetworkDash 8s linear infinite;
+}
+
+@keyframes milanNetworkDash{
+  to{stroke-dashoffset:-120}
+}
+
+.milan-network-node{
+  position:absolute;
+  width:42px;
+  height:42px;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  cursor:pointer;
+  transform:translate(-50%,-50%);
+  transition:
+    transform .22s cubic-bezier(.2,.8,.2,1),
+    box-shadow .22s ease,
+    border-color .22s ease;
+}
+
+.milan-network-node:hover{
+  transform:translate(-50%,-50%) scale(1.16);
+}
+
+.milan-network-node .core{
+  width:34px;
+  height:34px;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  border-radius:50%;
+  border:1px solid rgba(255,255,255,.11);
+  background:#0b1020;
+  color:#dce5ff;
+  font-size:11px;
+  font-weight:850;
+  box-shadow:
+    0 8px 22px rgba(0,0,0,.25);
+}
+
+.milan-network-node .core img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+
+.milan-network-node::before{
+  content:"";
+  position:absolute;
+  inset:-6px;
+  border-radius:50%;
+  border:1px solid rgba(91,124,250,.16);
+  opacity:.75;
+}
+
+.milan-network-node.central{
+  width:64px;
+  height:64px;
+}
+
+.milan-network-node.central .core{
+  width:50px;
+  height:50px;
+  border-radius:17px;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(91,124,250,.22),
+      rgba(139,92,246,.18)
+    );
+  border-color:rgba(91,124,250,.30);
+  box-shadow:
+    0 0 0 7px rgba(91,124,250,.045),
+    0 0 35px rgba(91,124,250,.18);
+}
+
+.milan-network-node.central::before{
+  inset:-10px;
+  border-color:rgba(139,92,246,.20);
+  animation:milanNetworkOrbit 10s linear infinite;
+}
+
+@keyframes milanNetworkOrbit{
+  to{transform:rotate(360deg)}
+}
+
+.milan-network-label{
+  position:absolute;
+  left:50%;
+  top:calc(100% + 7px);
+  transform:translateX(-50%);
+  white-space:nowrap;
+  color:#7285a3;
+  font-size:9px;
+  font-weight:700;
+}
+
+.milan-network-node.central .milan-network-label{
+  color:#b9c7e4;
+  font-weight:850;
+}
+
+.milan-network-status{
+  position:absolute;
+  left:12px;
+  bottom:11px;
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  padding:6px 9px;
+  border-radius:999px;
+  border:1px solid rgba(57,217,138,.10);
+  background:rgba(57,217,138,.035);
+  color:#91d7b2;
+  font-size:9px;
+  font-weight:800;
+}
+
+.milan-network-status i{
+  width:5px;
+  height:5px;
+  border-radius:50%;
+  background:#39d98a;
+  box-shadow:0 0 10px rgba(57,217,138,.5);
+}
+
+.milan-network-count{
+  position:absolute;
+  right:12px;
+  bottom:11px;
+  color:#7487a5;
+  font-size:9px;
+  font-weight:700;
+}
+
+@media (max-width:768px){
+  .milan-network-map{
+    height:250px;
+  }
+
+  .milan-network-node{
+    transform:translate(-50%,-50%) scale(.88);
+  }
+
+  .milan-network-node:hover{
+    transform:translate(-50%,-50%) scale(1);
+  }
+}
+
+/* ============================================================
+   MILAN — AI COMMAND CENTER
+   ============================================================ */
+
+.milan-ai-command{
+  position:relative;
+  overflow:hidden;
+  margin-top:14px;
+  padding:16px;
+  border-radius:20px;
+  border:1px solid rgba(139,92,246,.15);
+  background:
+    radial-gradient(
+      380px 180px at 15% 0%,
+      rgba(91,124,250,.10),
+      transparent 68%
+    ),
+    radial-gradient(
+      280px 180px at 100% 100%,
+      rgba(139,92,246,.08),
+      transparent 68%
+    ),
+    rgba(7,10,22,.70);
+  box-shadow:
+    0 18px 48px rgba(0,0,0,.20),
+    inset 0 1px 0 rgba(255,255,255,.035);
+}
+
+.milan-ai-command::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  opacity:.45;
+  background-image:
+    linear-gradient(
+      rgba(148,163,184,.035) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      rgba(148,163,184,.035) 1px,
+      transparent 1px
+    );
+  background-size:28px 28px;
+  mask-image:linear-gradient(
+    135deg,
+    rgba(0,0,0,.8),
+    transparent 75%
+  );
+}
+
+.milan-ai-command-head{
+  position:relative;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.milan-ai-command-brand{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.milan-ai-command-icon{
+  width:34px;
+  height:34px;
+  display:grid;
+  place-items:center;
+  border-radius:11px;
+  color:#e8e0ff;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(91,124,250,.18),
+      rgba(139,92,246,.22)
+    );
+  border:1px solid rgba(139,92,246,.20);
+  box-shadow:
+    0 0 24px rgba(139,92,246,.10);
+}
+
+.milan-ai-command-title strong{
+  display:block;
+  color:#f3efff;
+  font-size:13px;
+  font-weight:850;
+}
+
+.milan-ai-command-title span{
+  display:block;
+  margin-top:3px;
+  color:#786d98;
+  font-size:9px;
+}
+
+.milan-ai-status{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:6px 8px;
+  border-radius:999px;
+  color:#bcaaff;
+  background:rgba(139,92,246,.045);
+  border:1px solid rgba(139,92,246,.12);
+  font-size:9px;
+  font-weight:800;
+}
+
+.milan-ai-status i{
+  width:5px;
+  height:5px;
+  border-radius:50%;
+  background:#a78bfa;
+  box-shadow:0 0 11px rgba(167,139,250,.6);
+  animation:milanAiPulse 1.8s ease-in-out infinite;
+}
+
+@keyframes milanAiPulse{
+  0%,100%{opacity:.55;transform:scale(.9)}
+  50%{opacity:1;transform:scale(1.15)}
+}
+
+.milan-ai-command-input{
+  position:relative;
+  display:flex;
+  align-items:center;
+  gap:9px;
+  margin-top:14px;
+  padding:11px 12px;
+  border-radius:14px;
+  border:1px solid rgba(148,163,184,.09);
+  background:rgba(2,6,23,.48);
+  transition:
+    border-color .2s ease,
+    box-shadow .2s ease,
+    background .2s ease;
+}
+
+.milan-ai-command-input:focus-within{
+  border-color:rgba(139,92,246,.28);
+  background:rgba(2,6,23,.68);
+  box-shadow:
+    0 0 0 4px rgba(139,92,246,.055),
+    0 12px 30px rgba(0,0,0,.16);
+}
+
+.milan-ai-command-input .prompt{
+  color:#9f90cf;
+  font-size:13px;
+}
+
+.milan-ai-command-input input{
+  min-width:0;
+  flex:1;
+  border:0;
+  outline:0;
+  background:transparent;
+  color:#edf1ff;
+  font:inherit;
+  font-size:12px;
+}
+
+.milan-ai-command-input input::placeholder{
+  color:#53627a;
+}
+
+.milan-ai-command-input .shortcut{
+  padding:4px 7px;
+  border-radius:7px;
+  border:1px solid rgba(148,163,184,.08);
+  color:#5f6f89;
+  font-size:9px;
+  font-weight:800;
+}
+
+.milan-ai-suggestions{
+  position:relative;
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-top:10px;
+}
+
+.milan-ai-chip{
+  border:1px solid rgba(148,163,184,.08);
+  background:rgba(255,255,255,.018);
+  color:#899ab5;
+  border-radius:999px;
+  padding:6px 9px;
+  font:inherit;
+  font-size:9px;
+  font-weight:700;
+  cursor:pointer;
+  transition:
+    transform .16s ease,
+    background .16s ease,
+    color .16s ease,
+    border-color .16s ease;
+}
+
+.milan-ai-chip:hover{
+  transform:translateY(-1px);
+  background:rgba(139,92,246,.06);
+  color:#e7ddff;
+  border-color:rgba(139,92,246,.15);
+}
+
+.milan-ai-result{
+  position:relative;
+  display:none;
+  margin-top:11px;
+  padding:11px;
+  border-radius:13px;
+  border:1px solid rgba(139,92,246,.10);
+  background:rgba(139,92,246,.028);
+  color:#bfc8dd;
+  font-size:10px;
+  line-height:1.55;
+}
+
+.milan-ai-result.show{
+  display:block;
+  animation:milanAiResultIn .24s ease;
+}
+
+@keyframes milanAiResultIn{
+  from{
+    opacity:0;
+    transform:translateY(5px);
+  }
+  to{
+    opacity:1;
+    transform:none;
+  }
+}
+
+@media (max-width:768px){
+  .milan-ai-command{
+    padding:14px;
+  }
+
+  .milan-ai-status{
+    display:none;
+  }
+}
+
+/* ============================================================
+   IDENTITY HUB — remove duplicated legacy avatar rendering
+   ============================================================ */
+
+/* The new profile hero owns the visual identity avatar.
+   Keep the original #myAvatar DOM node alive because application
+   code still uses it as a data/render target. */
+.milan-profile-hero ~ #myAvatar{
+  display:none!important;
+}
+
+/* Also prevent the old avatar from occupying layout space
+   when it is wrapped by the original profile markup. */
+.profile > #myAvatar{
+  display:none!important;
+}
+
+.profile > .avatar.lg{
+  display:none!important;
+}
+
+/* ============================================================
+   IDENTITY HUB — single-source visual composition
+   ============================================================ */
+
+.milan-identity-cockpit{
+  display:none!important;
+}
+
+/* The original data/render nodes stay alive for JS/backend,
+   but are not independently rendered by the sidebar UI. */
+.profile > #myAvatar,
+.profile > .avatar.lg,
+.profile > #myName,
+.profile > #myEmail,
+.profile > #myDid,
+.profile > #myDwn{
+  display:none!important;
+}
+
+/* ============================================================
+   MILAN — Unified Identity Hub
+   ============================================================ */
+
+.milan-profile-hero{
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  width:100%;
+  padding:8px 0 4px;
+  overflow:hidden;
+}
+
+.milan-profile-hero::before{
+  content:"";
+  position:absolute;
+  width:260px;
+  height:260px;
+  top:-150px;
+  left:50%;
+  transform:translateX(-50%);
+  border-radius:50%;
+  background:
+    radial-gradient(
+      circle,
+      rgba(91,124,250,.14),
+      rgba(139,92,246,.05) 42%,
+      transparent 70%
+    );
+  pointer-events:none;
+}
+
+.milan-profile-avatar-orbit{
+  position:relative;
+  width:118px;
+  height:118px;
+  margin:4px 0 10px;
+  display:grid;
+  place-items:center;
+  z-index:1;
+}
+
+.milan-profile-avatar-orbit::before{
+  inset:-6px;
+  border:1px solid rgba(91,124,250,.22);
+  box-shadow:
+    0 0 0 5px rgba(91,124,250,.025),
+    0 0 42px rgba(91,124,250,.16);
+}
+
+.milan-profile-avatar-orbit::after{
+  inset:-12px;
+  border:1px dashed rgba(139,92,246,.20);
+}
+
+.milan-profile-avatar{
+  width:96px;
+  height:96px;
+  border-radius:28px;
+  padding:2px;
+  box-shadow:
+    0 0 0 5px rgba(91,124,250,.04),
+    0 18px 42px rgba(0,0,0,.26),
+    0 0 34px rgba(91,124,250,.16);
+}
+
+.milan-profile-avatar-inner{
+  border-radius:26px;
+}
+
+.milan-profile-name{
+  position:relative;
+  z-index:1;
+  margin-top:2px;
+  font-size:20px;
+  font-weight:850;
+  letter-spacing:-.035em;
+}
+
+.milan-profile-subtitle{
+  position:relative;
+  z-index:1;
+  margin-top:4px;
+  font-size:10px;
+  letter-spacing:.02em;
+}
+
+/* Compact Web5 proof strip */
+.milan-profile-proof{
+  position:relative;
+  z-index:1;
+  gap:6px;
+  margin-top:9px;
+}
+
+.milan-proof-chip{
+  padding:5px 8px;
+  font-size:9px;
+}
+
+/* New unified identity metrics */
+.milan-identity-metrics{
+  position:relative;
+  z-index:1;
+  width:100%;
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:6px;
+  margin-top:14px;
+}
+
+.milan-identity-metric{
+  min-width:0;
+  padding:9px 7px;
+  text-align:center;
+  border-radius:12px;
+  border:1px solid rgba(148,163,184,.07);
+  background:rgba(255,255,255,.018);
+}
+
+.milan-identity-metric .label{
+  display:block;
+  color:#6e809b;
+  font-size:8px;
+  font-weight:800;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+
+.milan-identity-metric .value{
+  display:block;
+  margin-top:4px;
+  color:#dbe5f8;
+  font-size:10px;
+  font-weight:800;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.milan-identity-metric .value.good{
+  color:#9bd8b7;
+}
+
+.milan-identity-did{
+  position:relative;
+  z-index:1;
+  width:100%;
+  margin-top:7px;
+  padding:9px 10px;
+  border-radius:12px;
+  border:1px solid rgba(91,124,250,.10);
+  background:rgba(91,124,250,.035);
+}
+
+.milan-identity-did .label{
+  font-size:8px;
+}
+
+.milan-identity-did .value{
+  margin-top:4px;
+  font-size:8px;
+  line-height:1.45;
+  color:#9eafd0;
+  max-height:31px;
+  overflow:hidden;
+}
+
+.milan-identity-score{
+  width:100%;
+  margin-top:7px;
+  padding:8px 10px;
+}
+
+.milan-identity-footer{
+  width:100%;
+  margin-top:8px;
+}
+
+@media (max-width:768px){
+  .milan-profile-avatar-orbit{
+    width:100px;
+    height:100px;
+  }
+
+  .milan-profile-avatar{
+    width:82px;
+    height:82px;
+    border-radius:23px;
+  }
+
+  .milan-profile-avatar-inner{
+    border-radius:21px;
+  }
+}
+
+/* ============================================================
+   PROFILE CLEANUP — upload control now lives on Identity Hero
+   ============================================================ */
+
+.profile > .milan-avatar-upload{
+  display:none!important;
+}
+
+.milan-profile-upload{
+  position:absolute;
+  right:6px;
+  bottom:7px;
+  width:30px;
+  height:30px;
+  display:grid;
+  place-items:center;
+  z-index:5;
+  border:3px solid #0a0e1a;
+  border-radius:50%;
+  background:
+    linear-gradient(
+      135deg,
+      #5b7cfa,
+      #8b5cf6
+    );
+  color:#fff;
+  font-size:12px;
+  cursor:pointer;
+  box-shadow:
+    0 8px 18px rgba(0,0,0,.24),
+    0 0 18px rgba(91,124,250,.18);
+  transition:
+    transform .18s ease,
+    box-shadow .18s ease;
+}
+
+.milan-profile-upload:hover{
+  transform:scale(1.08);
+  box-shadow:
+    0 10px 22px rgba(0,0,0,.28),
+    0 0 24px rgba(91,124,250,.28);
+}
+
+.milan-profile-upload:active{
+  transform:scale(.96);
+}
+
+.milan-profile-upload input{
+  display:none!important;
+}

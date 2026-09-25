@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-label="Milan">
+  <defs>
+    <linearGradient id="milanBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff9c38"/>
+      <stop offset="0.5" stop-color="#df46c8"/>
+      <stop offset="1" stop-color="#5e5cff"/>
+    </linearGradient>
+    <linearGradient id="milanM" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e9efff"/>
+    </linearGradient>
+  </defs>
+  <circle cx="96" cy="96" r="92" fill="#050e2b"/>
+  <circle cx="96" cy="96" r="82" fill="url(#milanBg)"/>
+  <path d="M43 126V67c0-10 12-16 20-9l33 29 33-29c8-7 20-1 20 9v59h-22V98l-25 21c-4 4-9 4-13 0L65 98v28H43Z" fill="url(#milanM)"/>
+  <path d="M72 74l24 21 24-21" fill="none" stroke="#050e2b" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+</svg>

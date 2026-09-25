@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en-US">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Free Music Player — Listen to Bollywood, Hollywood & Millions of Songs Free | MILAN</title>
+<meta name="description" content="Free music player — search and play millions of songs online free: Bollywood, Hollywood, Punjabi, lo-fi and more. No signup, no ads. Listen now on MILAN.">
+<meta name="theme-color" content="#070a16">
+<link rel="icon" href="/assets/milan-logo-circle.png" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/assets/milan-logo-circle.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/milan-logo-circle.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/milan-logo-circle.png">
+<link rel="icon" type="image/png" sizes="96x96" href="/assets/milan-logo-circle.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/assets/milan-logo-circle.png">
+<link rel="apple-touch-icon" href="/assets/milan-logo-circle.png">
+<link rel="manifest" href="/manifest.json">
+<link rel="stylesheet" href="/assets/css/music.css">
+  <link rel="stylesheet" href="/assets/css/music-rich-ui.css?v=20260911">
+<link rel="stylesheet" href="/milan-core.css?v=20260627">
+<link rel="preconnect" href="https://www.youtube.com" crossorigin>
+<link rel="preconnect" href="https://i.ytimg.com" crossorigin>
+<script type="application/ld+json">
+{
+  "@context":"https://schema.org",
+  "@type":"WebApplication",
+  "name":"MILAN Music",
+  "url":"https://milanlife.in/music",
+  "applicationCategory":"MultimediaApplication",
+  "operatingSystem":"Web",
+  "description":"Free music player to search and stream millions of songs online — Bollywood, Hollywood and more. No signup, no ads.",
+  "offers":{"@type":"Offer","price":"0","priceCurrency":"INR"},
+  "aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"1280"}
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context":"https://schema.org",
+  "@type":"BreadcrumbList",
+  "itemListElement":[
+    {"@type":"ListItem","position":1,"name":"Home","item":"https://milanlife.in/"},
+    {"@type":"ListItem","position":2,"name":"Free Music","item":"https://milanlife.in/music"}
+  ]
+}
+</script>
+<link rel="canonical" href="https://milanlife.in/music">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Milan">
+<meta property="og:title" content="Free Music Player — Bollywood, Hollywood & Millions of Songs Free">
+<meta property="og:description" content="Search and play millions of songs online free on MILAN. No signup, no ads.">
+<meta property="og:url" content="https://milanlife.in/music">
+<meta property="og:image" content="https://milanlife.in/assets/og-cover.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Free Music Player — MILAN">
+<meta name="twitter:description" content="Search and play millions of songs online free. No signup, no ads.">
+<meta name="twitter:image" content="https://milanlife.in/assets/og-cover.png">
+<style id="mz-hide-backfeed">/* music page already has its own Back links (logo + ← arrow); hide the global injected one that overlaps the MILAN Music brand */ .milan-backfeed{display:none!important}</style>
+</head>
+<body>
+<div class="music-app">
+
+  <header class="music-topbar">
+    <a class="music-brand" href="/app" aria-label="Back to MILAN">
+      <img src="/assets/milan-logo-circle.png" alt="MILAN">
+      <span>MILAN <b>Music</b></span>
+    </a>
+
+    <div class="music-search-shell">
+      <span class="search-icon">⌕</span>
+      <input
+        id="q"
+        type="search"
+        placeholder="Search any song, artist or mood…"
+        autocomplete="off"
+        aria-label="Search music">
+      <div id="mzsug" class="mz-sug"></div>
+    </div>
+
+    <a class="music-back" href="/app" aria-label="Back to MILAN">←</a>
+  </header>
+
+  <main>
+
+    <section class="music-hero">
+
+      <div class="hero-copy">
+        <div class="hero-eyebrow">
+          <span class="live-dot"></span>
+          MILAN MUSIC
+        </div>
+
+        <h1>
+          Find something
+          <span>worth listening to.</span>
+        </h1>
+
+        <p>
+          Search music, discover tracks, explore genres and keep listening
+          with the built-in MILAN player.
+        </p>
+
+        <div class="hero-actions">
+          <button id="heroPlay" type="button" class="hero-primary">
+            ▶ Play discovery
+          </button>
+          <a class="hero-secondary" href="/app">Back to MILAN</a>
+        </div>
+
+        <div class="hero-meta">
+          <span>Search</span>
+          <b>Millions of tracks</b>
+          <span>Stream</span>
+          <b>In-browser</b>
+          <span>Player</span>
+          <b>Background-ready</b>
+        </div>
+      </div>
+
+      <div class="hero-player-card">
+
+        <div class="player-orbit orbit-a"></div>
+        <div class="player-orbit orbit-b"></div>
+
+        <div class="hero-disc">
+          <div class="disc-shine"></div>
+          <div class="disc-center">
+            <img src="/assets/milan-logo-circle.png" alt="MILAN">
+          </div>
+        </div>
+
+        <div class="hero-player-info">
+          <span class="mini-label">NOW EXPLORING</span>
+          <strong id="heroTrack">Discover something new</strong>
+          <small id="heroArtist">MILAN Music</small>
+        </div>
+
+        <div class="hero-bars">
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+        </div>
+
+      </div>
+
+    </section>
+
+    <section class="discover-section">
+
+      <div class="section-head">
+        <div>
+          <span class="section-kicker">DISCOVER</span>
+          <h2 id="sectionTitle">Loading music… <small id="srcInfo"></small></h2>
+        </div>
+
+        <div id="chips" class="genre-chips"></div>
+      </div>
+
+      <div id="note" class="music-note" style="display:none"></div>
+
+      <div id="results" class="music-grid"></div>
+
+    </section>
+
+    <section class="music-links">
+      <a href="/decentralized-social-media">
+        <span>01</span>
+        <b>Explore MILAN social</b>
+        <small>Decentralized social media</small>
+        <strong>→</strong>
+      </a>
+
+      <a href="/social-media-privacy">
+        <span>02</span>
+        <b>Privacy by design</b>
+        <small>How social media privacy works</small>
+        <strong>→</strong>
+      </a>
+
+      <a href="/best-social-media-apps">
+        <span>03</span>
+        <b>Compare social apps</b>
+        <small>Best social media apps</small>
+        <strong>→</strong>
+      </a>
+    </section>
+
+  </main>
+
+  <footer class="music-player" id="musicPlayer" aria-label="Now playing">
+
+    <div class="now-playing">
+
+      <div class="now-art" id="thumb">
+        <img id="npArt"
+             alt=""
+             src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E">
+      </div>
+
+      <div id="ytwrap"><div id="ytplayer"></div></div>
+
+      <div class="now-meta">
+        <span class="now-kicker">NOW PLAYING</span>
+        <div class="now-title" id="npTitle">Pick a track</div>
+        <div class="now-artist" id="npArtist">MILAN Music</div>
+      </div>
+
+    </div>
+
+    <div class="player-controls">
+
+      <div class="player-buttons">
+        <button id="shuffleBtn" title="Shuffle" aria-label="Shuffle">⤮</button>
+        <button id="prevBtn" title="Previous" aria-label="Previous">⏮</button>
+        <button id="playBtn" class="main-play" title="Play / Pause" aria-label="Play or pause">▶</button>
+        <button id="nextBtn" title="Next" aria-label="Next">⏭</button>
+        <button id="repeatBtn" title="Repeat" aria-label="Repeat">🔁</button>
+      </div>
+
+      <div class="seek-row">
+        <span class="time" id="cur">0:00</span>
+        <div class="seek-bar" id="bar">
+          <div class="seek-fill" id="fill"></div>
+          <div class="seek-dot" id="dot"></div>
+        </div>
+        <span class="time" id="dur">0:00</span>
+      </div>
+
+    </div>
+
+    <div class="player-volume">
+      <span>🔊</span>
+      <input id="vol" type="range" min="0" max="100" value="90" aria-label="Volume">
+    </div>
+
+  </footer>
+
+  <audio id="audio" preload="none"></audio>
+
+</div>
+
+
+
+<script src="/milan-core.js?v=20260627" defer></script>
+<script src="/assets/js/music-engine.js?v=20260911" defer></script>
+<script src="/milan-v100-background-audio.js?v=20260710" defer></script>
+
+

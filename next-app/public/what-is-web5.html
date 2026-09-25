@@ -1,0 +1,1006 @@
+<!doctype html>
+<html lang="en-US">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>What Is Web5? Web5 Explained, DWN & DID Identity | MILAN</title>
+<meta name="description" content="Learn what Web5 is, how Decentralized Web Nodes (DWN) and Decentralized Identifiers (DID) work, and how MILAN uses Web5 technology for user-owned identity and social data.">
+<link rel="canonical" href="https://milanlife.in/what-is-web5">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="keywords" content="what is Web5, Web5 explained, Web5 social network, DWN explained, DID identity, decentralized identity, user owned data, future of internet">
+<meta name="theme-color" content="#050e2b">
+<meta name="geo.region" content="IN">
+<meta name="geo.placename" content="India">
+<meta property="og:locale" content="en_IN">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Milan">
+<meta property="og:title" content="What is Web5? Web5 Explained with DWN and DID Identity">
+<meta property="og:description" content="Your data in your own node, your identity in your own keys — Web5 explained without jargon.">
+<meta property="og:url" content="https://milanlife.in/what-is-web5">
+<meta property="og:image" content="https://milanlife.in/assets/og-cover.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/assets/milan-logo-circle.png" sizes="any">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+{"@type":"BreadcrumbList","itemListElement":[
+{"@type":"ListItem","position":1,"name":"Home","item":"https://milanlife.in/"},
+{"@type":"ListItem","position":2,"name":"What is Web5?","item":"https://milanlife.in/what-is-web5"}]},
+{"@type":"WebPage","name":"What is Web5? Web5 Explained with DWN and DID Identity","url":"https://milanlife.in/what-is-web5","inLanguage":["en-IN","en-US"],"isPartOf":{"@type":"WebSite","name":"Milan","url":"https://milanlife.in/"}},
+{"@type":"FAQPage","mainEntity":[
+{"@type":"Question","name":"What is Web5 in simple words?","acceptedAnswer":{"@type":"Answer","text":"Web5 is a way to build apps where users keep their own data and identity. Your data lives in your personal Decentralized Web Node (DWN), and your identity is a Decentralized Identifier (DID) that you control with cryptographic keys — no company account required."}},
+{"@type":"Question","name":"What is a DWN (Decentralized Web Node)?","acceptedAnswer":{"@type":"Answer","text":"A DWN is your personal data store. Instead of your posts and photos sitting in a company's database, they are written to your own node. Apps ask your permission to read or write specific records — you can grant or revoke access anytime."}},
+{"@type":"Question","name":"What is a DID (Decentralized Identifier)?","acceptedAnswer":{"@type":"Answer","text":"A DID is a self-owned digital identity — a unique identifier backed by cryptographic keys that you hold. Unlike an email login owned by a company, nobody can suspend, sell or impersonate your DID."}},
+{"@type":"Question","name":"What is Web5?","acceptedAnswer":{"@type":"Answer","text":"Web5 is a technology where your data and identity stay with you. Your data lives in your own private Decentralized Web Node (DWN), and your identity is a DID controlled by cryptographic keys that only you hold. MILAN is India's social network built on this technology."}}]}]}
+</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#eaeefb;line-height:1.7;background:radial-gradient(1100px 600px at 80% -10%,rgba(217,70,239,.12),transparent 58%),radial-gradient(900px 500px at 0 0,rgba(245,158,11,.08),transparent 55%),#070d1f}
+a{color:#fbbf24;text-decoration:none}
+.wrap{max-width:860px;margin:0 auto;padding:26px 20px 80px}
+header{display:flex;align-items:center;gap:11px;margin-bottom:30px}
+header img{height:42px;width:42px;border-radius:12px}
+header .b{font-weight:800;letter-spacing:.14em;font-size:20px;background:linear-gradient(135deg,#f59e0b,#fbbf24,#d946ef);-webkit-background-clip:text;background-clip:text;color:transparent}
+nav.bc{font-size:12.5px;color:#8ba4d4;margin-bottom:14px}
+h1{font-size:2.1rem;line-height:1.25;margin:6px 0 14px;background:linear-gradient(135deg,#fbbf24,#f59e0b 30%,#e879f9 75%,#d946ef);-webkit-background-clip:text;background-clip:text;color:transparent}
+h2{font-size:1.35rem;margin:30px 0 12px;color:#f3f6fc}
+p{color:#c3cce4;margin:0 0 14px}
+.lead{font-size:1.1rem;color:#dbe3f6}
+ul{margin:0 0 16px 20px;color:#c3cce4}li{margin:6px 0}
+.cta{display:inline-block;background:linear-gradient(135deg,#f59e0b,#fbbf24 50%,#d946ef);color:#0a0f22;font-weight:800;padding:13px 26px;border-radius:14px;margin:8px 0 6px}
+.card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:18px 20px;margin:14px 0}
+footer{margin-top:40px;border-top:1px solid rgba(255,255,255,.1);padding-top:18px;font-size:13px;color:#8ba4d4}
+footer a{margin-right:14px}
+</style>
+</head>
+<body>
+<div class="web5-page">
+
+  <header class="web5-topbar">
+    <a class="web5-brand" href="/" aria-label="MILAN home">
+      <img src="/assets/milan-logo-circle.png" alt="MILAN logo">
+      <span>MILAN</span>
+    </a>
+
+    <nav class="web5-nav" aria-label="Primary navigation">
+      <a href="/about">About</a>
+      <a href="/decentralized-social-network">Decentralized Social Network</a>
+      <a href="/app" class="nav-cta">Enter MILAN</a>
+    </nav>
+  </header>
+
+  <main>
+
+    <nav class="web5-crumbs" aria-label="Breadcrumb">
+      <a href="/">Home</a>
+      <span>›</span>
+      <span>What is Web5?</span>
+    </nav>
+
+    <section class="web5-hero">
+      <div class="hero-copy">
+        <div class="eyebrow">
+          <span class="eyebrow-dot"></span>
+          WEB5 · DID · DWN · USER-OWNED DATA
+        </div>
+
+        <h1>What is Web5?</h1>
+
+        <p class="hero-title">
+          A more user-centered way to build apps,
+          identity and data.
+        </p>
+
+        <p class="hero-lead">
+          Web5 brings decentralized identity and decentralized data
+          infrastructure into everyday applications. In the MILAN model,
+          <strong>DID</strong> represents identity and <strong>DWN</strong>
+          provides the data layer.
+        </p>
+
+        <div class="hero-actions">
+          <a class="primary-cta" href="/app">Explore MILAN →</a>
+          <a class="secondary-cta" href="/decentralized-social-network">
+            See the social network
+          </a>
+        </div>
+
+        <div class="trust-row">
+          <span>Identity</span>
+          <b>DID</b>
+          <span>Data</span>
+          <b>DWN</b>
+          <span>Architecture</span>
+          <b>Web5</b>
+        </div>
+      </div>
+
+      <div class="hero-visual" aria-label="Web5 architecture overview">
+        <div class="orbit orbit-outer"></div>
+        <div class="orbit orbit-inner"></div>
+
+        <div class="core-node">
+          <div class="core-glow"></div>
+          <strong>MILAN</strong>
+          <span>Web5 social experience</span>
+        </div>
+
+        <div class="node node-did">
+          <span class="node-icon">ID</span>
+          <b>DID</b>
+          <small>Identity</small>
+        </div>
+
+        <div class="node node-dwn">
+          <span class="node-icon">D</span>
+          <b>DWN</b>
+          <small>Data layer</small>
+        </div>
+
+        <div class="node node-app">
+          <span class="node-icon">◎</span>
+          <b>Apps</b>
+          <small>Experiences</small>
+        </div>
+
+        <div class="connector c1"></div>
+        <div class="connector c2"></div>
+        <div class="connector c3"></div>
+      </div>
+    </section>
+
+    <section class="explain-grid">
+      <article class="feature-card feature-card-accent">
+        <div class="card-number">01</div>
+        <div class="card-icon">ID</div>
+        <h2>Decentralized Identity</h2>
+        <p>
+          A <strong>DID</strong> is a decentralized identifier designed
+          to give an entity an identity that is less dependent on one
+          centralized account provider.
+        </p>
+        <a href="/decentralized-social-network">See identity in MILAN →</a>
+      </article>
+
+      <article class="feature-card">
+        <div class="card-number">02</div>
+        <div class="card-icon">D</div>
+        <h2>Decentralized Web Nodes</h2>
+        <p>
+          A <strong>DWN</strong> provides a data layer where applications
+          can work with records according to the permissions and architecture
+          of the system.
+        </p>
+        <a href="/decentralized-social-media">Explore decentralized social media →</a>
+      </article>
+
+      <article class="feature-card">
+        <div class="card-number">03</div>
+        <div class="card-icon">✓</div>
+        <h2>Permission-first sharing</h2>
+        <p>
+          Web5-oriented architectures can make identity, records and
+          access permissions explicit instead of hiding everything behind
+          one centralized platform.
+        </p>
+        <a href="/social-media-privacy">Explore privacy →</a>
+      </article>
+    </section>
+
+    <section class="section-block">
+      <div class="section-heading">
+        <span class="section-kicker">HOW IT FITS TOGETHER</span>
+        <h2>Web5, explained as a simple system</h2>
+        <p>
+          Instead of thinking about Web5 as one website or one product,
+          think of it as an application architecture built around
+          identity, data and permissions.
+        </p>
+      </div>
+
+      <div class="flow">
+        <div class="flow-card">
+          <span class="flow-icon">01</span>
+          <strong>You</strong>
+          <p>Your identity starts with an identifier rather than a single platform account.</p>
+        </div>
+
+        <div class="flow-line"></div>
+
+        <div class="flow-card">
+          <span class="flow-icon">02</span>
+          <strong>DID</strong>
+          <p>A decentralized identifier represents the identity layer.</p>
+        </div>
+
+        <div class="flow-line"></div>
+
+        <div class="flow-card">
+          <span class="flow-icon">03</span>
+          <strong>DWN</strong>
+          <p>A decentralized data layer handles records and application data.</p>
+        </div>
+
+        <div class="flow-line"></div>
+
+        <div class="flow-card">
+          <span class="flow-icon">04</span>
+          <strong>Apps</strong>
+          <p>Applications use identity and data according to their architecture and permissions.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="compare-section">
+      <div class="section-heading">
+        <span class="section-kicker">CONCEPTUAL COMPARISON</span>
+        <h2>Web2 vs Web3 vs Web5</h2>
+      </div>
+
+      <div class="compare-grid">
+        <article class="compare-card">
+          <span>WEB2</span>
+          <h3>Platform-centered</h3>
+          <p>Applications typically hold the account and data relationship.</p>
+        </article>
+
+        <article class="compare-card">
+          <span>WEB3</span>
+          <h3>Blockchain-centered</h3>
+          <p>Applications can use blockchains, wallets, tokens and smart contracts.</p>
+        </article>
+
+        <article class="compare-card featured-compare">
+          <span>WEB5</span>
+          <h3>User-centered</h3>
+          <p>
+            Combines familiar web applications with decentralized identity
+            and data concepts such as DID and DWN.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section class="milan-section">
+      <div class="milan-panel">
+        <div class="panel-badge">MILAN × WEB5</div>
+        <h2>How MILAN uses Web5 concepts</h2>
+        <p>
+          MILAN is designed as a social experience around decentralized
+          identity, DWN-based data architecture and permission-aware sharing.
+          The goal is to make the relationship between people, identity and
+          data more explicit.
+        </p>
+
+        <div class="mini-metrics">
+          <div><b>DID</b><span>Identity layer</span></div>
+          <div><b>DWN</b><span>Data layer</span></div>
+          <div><b>Social</b><span>Application layer</span></div>
+        </div>
+
+        <a class="primary-cta" href="/app">Open MILAN →</a>
+      </div>
+    </section>
+
+    <section class="faq-section">
+      <div class="section-heading">
+        <span class="section-kicker">QUESTIONS</span>
+        <h2>Web5 questions, answered</h2>
+      </div>
+
+      <div class="faq-grid">
+        <details>
+          <summary>What is Web5 in simple words?</summary>
+          <p>
+            Web5 is a way to build apps where users can keep greater control
+            over identity and data using decentralized identity and data
+            infrastructure such as DID and DWN.
+          </p>
+        </details>
+
+        <details>
+          <summary>What is a DWN?</summary>
+          <p>
+            A Decentralized Web Node is a data infrastructure component that
+            can store and expose records according to an application's
+            identity and permission model.
+          </p>
+        </details>
+
+        <details>
+          <summary>What is a DID?</summary>
+          <p>
+            A Decentralized Identifier is an identifier designed for
+            decentralized identity systems and can be controlled through
+            cryptographic mechanisms.
+          </p>
+        </details>
+
+        <details>
+          <summary>How does MILAN relate to Web5?</summary>
+          <p>
+            MILAN uses Web5-oriented concepts including DID and DWN in its
+            model for a privacy-focused social application.
+          </p>
+        </details>
+      </div>
+    </section>
+
+    <section class="bottom-cta">
+      <div>
+        <span class="section-kicker">READY TO EXPLORE?</span>
+        <h2>Your identity. Your data. Your social space.</h2>
+      </div>
+      <a class="primary-cta" href="/app">Enter MILAN →</a>
+    </section>
+
+  </main>
+
+  <footer class="web5-footer">
+    <div>
+      <a href="/">Home</a>
+      <a href="/decentralized-social-network">Decentralized Social Network</a>
+      <a href="/decentralized-social-media">Decentralized Social Media</a>
+      <a href="/social-media-privacy">Privacy</a>
+      <a href="/about">About</a>
+    </div>
+    <p>MILAN — Your Space. Your People.</p>
+  </footer>
+
+</div>
+
+<style>
+:root{
+  --bg:#050816;
+  --panel:rgba(13,22,46,.72);
+  --panel2:rgba(17,28,58,.82);
+  --line:rgba(148,163,184,.16);
+  --text:#f6f8ff;
+  --muted:#aab6d0;
+  --brand:#f59e0b;
+  --brand2:#d946ef;
+  --blue:#4f7cff;
+  --green:#34d399;
+}
+
+*{box-sizing:border-box}
+
+body{
+  margin:0;
+  min-height:100vh;
+  font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  color:var(--text);
+  background:
+    radial-gradient(800px 500px at 85% 8%,rgba(217,70,239,.14),transparent 60%),
+    radial-gradient(900px 560px at 10% 20%,rgba(79,124,255,.12),transparent 62%),
+    linear-gradient(180deg,#040711 0%,#071126 48%,#050816 100%);
+}
+
+a{color:inherit;text-decoration:none}
+
+.web5-page{
+  width:min(1240px,calc(100% - 32px));
+  margin:auto;
+  padding:24px 0 60px;
+}
+
+.web5-topbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:20px;
+  padding:10px 4px 22px;
+}
+
+.web5-brand{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-weight:900;
+  letter-spacing:.16em;
+  font-size:19px;
+}
+
+.web5-brand img{
+  width:42px;
+  height:42px;
+  border-radius:13px;
+  box-shadow:0 0 34px rgba(245,158,11,.18);
+}
+
+.web5-nav{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+.web5-nav a{
+  padding:10px 13px;
+  border-radius:11px;
+  color:#b9c4dd;
+  font-size:13px;
+}
+
+.web5-nav a:hover{
+  background:rgba(255,255,255,.05);
+  color:#fff;
+}
+
+.web5-nav .nav-cta{
+  color:#081020;
+  background:linear-gradient(135deg,#f59e0b,#fbbf24,#d946ef);
+  font-weight:900;
+}
+
+.web5-crumbs{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  color:#8090b3;
+  font-size:12px;
+  margin:10px 0 25px;
+}
+
+.web5-crumbs a:hover{color:#fff}
+
+.web5-hero{
+  display:grid;
+  grid-template-columns:minmax(0,1.02fr) minmax(420px,.98fr);
+  gap:34px;
+  align-items:center;
+  padding:35px 0 55px;
+}
+
+.eyebrow,.section-kicker,.panel-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.16em;
+  color:#a9b8dc;
+}
+
+.eyebrow-dot{
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:var(--brand);
+  box-shadow:0 0 16px rgba(245,158,11,.8);
+}
+
+.hero-copy h1{
+  margin:14px 0 4px;
+  font-size:clamp(3.3rem,7vw,6.5rem);
+  line-height:.92;
+  letter-spacing:-.065em;
+  background:linear-gradient(135deg,#fff,#fbbf24 42%,#e879f9 85%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+}
+
+.hero-title{
+  margin:14px 0 16px;
+  font-size:clamp(1.25rem,2vw,1.65rem);
+  color:#dfe7fb;
+  line-height:1.35;
+  max-width:700px;
+}
+
+.hero-lead{
+  max-width:680px;
+  margin:0;
+  color:var(--muted);
+  font-size:1.02rem;
+  line-height:1.8;
+}
+
+.hero-lead strong{color:#f6f8ff}
+
+.hero-actions{
+  display:flex;
+  gap:11px;
+  flex-wrap:wrap;
+  margin-top:24px;
+}
+
+.primary-cta,.secondary-cta{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:46px;
+  padding:0 18px;
+  border-radius:13px;
+  font-weight:900;
+  font-size:13px;
+}
+
+.primary-cta{
+  color:#071020;
+  background:linear-gradient(135deg,#f59e0b,#fbbf24,#d946ef);
+  box-shadow:0 12px 36px rgba(245,158,11,.14);
+}
+
+.secondary-cta{
+  border:1px solid var(--line);
+  background:rgba(255,255,255,.045);
+  color:#d5def1;
+}
+
+.trust-row{
+  display:flex;
+  gap:9px;
+  align-items:center;
+  flex-wrap:wrap;
+  margin-top:22px;
+  color:#7888ad;
+  font-size:11px;
+}
+
+.trust-row b{
+  color:#dbe5fb;
+  padding:6px 9px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:rgba(255,255,255,.035);
+}
+
+.hero-visual{
+  min-height:500px;
+  position:relative;
+  display:grid;
+  place-items:center;
+}
+
+.orbit{
+  position:absolute;
+  border:1px solid rgba(148,163,184,.12);
+  border-radius:50%;
+}
+
+.orbit-outer{width:430px;height:430px}
+.orbit-inner{width:290px;height:290px;border-color:rgba(245,158,11,.16)}
+
+.core-node,.node{
+  position:absolute;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  text-align:center;
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+}
+
+.core-node{
+  width:190px;
+  height:190px;
+  border:1px solid rgba(255,255,255,.16);
+  border-radius:34px;
+  background:linear-gradient(145deg,rgba(255,255,255,.09),rgba(255,255,255,.025));
+  box-shadow:0 30px 100px rgba(79,124,255,.14);
+  z-index:3;
+}
+
+.core-node strong{
+  font-size:28px;
+  letter-spacing:.08em;
+}
+
+.core-node span{
+  margin-top:7px;
+  color:#9eabca;
+  font-size:11px;
+}
+
+.core-glow{
+  position:absolute;
+  inset:20px;
+  border-radius:28px;
+  background:radial-gradient(circle,rgba(245,158,11,.16),transparent 68%);
+  z-index:-1;
+}
+
+.node{
+  width:112px;
+  height:112px;
+  border-radius:28px;
+  border:1px solid rgba(255,255,255,.11);
+  background:rgba(12,22,45,.84);
+  box-shadow:0 16px 55px rgba(0,0,0,.3);
+  z-index:4;
+}
+
+.node b{font-size:14px}
+.node small{margin-top:3px;color:#7f90b4;font-size:10px}
+
+.node-icon{
+  display:grid;
+  place-items:center;
+  width:34px;
+  height:34px;
+  border-radius:11px;
+  margin-bottom:7px;
+  font-weight:900;
+  background:rgba(245,158,11,.12);
+  color:#fbbf24;
+}
+
+.node-did{top:38px;left:8%}
+.node-dwn{right:7%;top:42%}
+.node-app{bottom:23px;left:37%}
+
+.connector{
+  position:absolute;
+  height:1px;
+  background:linear-gradient(90deg,transparent,rgba(245,158,11,.35),transparent);
+  transform-origin:left center;
+  z-index:1;
+}
+
+.c1{width:155px;left:28%;top:29%;transform:rotate(19deg)}
+.c2{width:160px;left:55%;top:47%;transform:rotate(-8deg)}
+.c3{width:170px;left:41%;top:65%;transform:rotate(18deg)}
+
+.explain-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:14px;
+}
+
+.feature-card,.compare-card,.flow-card{
+  border:1px solid var(--line);
+  background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.018));
+  border-radius:22px;
+}
+
+.feature-card{
+  padding:22px;
+  min-height:270px;
+}
+
+.feature-card-accent{
+  border-color:rgba(245,158,11,.25);
+}
+
+.card-number{
+  font-size:11px;
+  color:#68799f;
+  font-weight:900;
+  letter-spacing:.14em;
+}
+
+.card-icon{
+  display:grid;
+  place-items:center;
+  width:45px;
+  height:45px;
+  margin:20px 0 15px;
+  border-radius:14px;
+  background:linear-gradient(145deg,rgba(245,158,11,.15),rgba(217,70,239,.12));
+  color:#fbbf24;
+  font-weight:900;
+}
+
+.feature-card h2{
+  margin:0 0 9px;
+  font-size:20px;
+}
+
+.feature-card p{
+  margin:0;
+  color:var(--muted);
+  line-height:1.7;
+  font-size:14px;
+}
+
+.feature-card a{
+  display:inline-block;
+  margin-top:16px;
+  color:#fbbf24;
+  font-size:12px;
+  font-weight:800;
+}
+
+.section-block,.compare-section,.milan-section,.faq-section{
+  padding-top:78px;
+}
+
+.section-heading{
+  max-width:700px;
+  margin-bottom:24px;
+}
+
+.section-heading h2{
+  margin:8px 0;
+  font-size:clamp(1.8rem,3vw,2.7rem);
+  letter-spacing:-.035em;
+}
+
+.section-heading p{
+  margin:0;
+  color:var(--muted);
+  line-height:1.75;
+}
+
+.flow{
+  display:grid;
+  grid-template-columns:1fr auto 1fr auto 1fr auto 1fr;
+  gap:10px;
+  align-items:stretch;
+}
+
+.flow-card{
+  padding:20px;
+}
+
+.flow-card strong{
+  display:block;
+  margin:13px 0 7px;
+  font-size:18px;
+}
+
+.flow-card p{
+  margin:0;
+  color:var(--muted);
+  font-size:13px;
+  line-height:1.65;
+}
+
+.flow-icon{
+  display:inline-grid;
+  place-items:center;
+  width:34px;
+  height:34px;
+  border-radius:11px;
+  background:rgba(79,124,255,.12);
+  color:#9eb4ff;
+  font-size:11px;
+  font-weight:900;
+}
+
+.flow-line{
+  width:30px;
+  align-self:center;
+  height:1px;
+  background:linear-gradient(90deg,rgba(79,124,255,.1),rgba(245,158,11,.4));
+}
+
+.compare-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:14px;
+}
+
+.compare-card{
+  padding:24px;
+}
+
+.compare-card span{
+  font-size:10px;
+  font-weight:900;
+  letter-spacing:.14em;
+  color:#8393b6;
+}
+
+.compare-card h3{
+  margin:13px 0 7px;
+  font-size:18px;
+}
+
+.compare-card p{
+  color:var(--muted);
+  font-size:13px;
+  line-height:1.7;
+  margin:0;
+}
+
+.featured-compare{
+  border-color:rgba(245,158,11,.25);
+  background:linear-gradient(145deg,rgba(245,158,11,.08),rgba(217,70,239,.045));
+}
+
+.milan-panel{
+  padding:34px;
+  border:1px solid rgba(245,158,11,.2);
+  border-radius:28px;
+  background:
+    radial-gradient(600px 260px at 100% 0%,rgba(217,70,239,.12),transparent 65%),
+    linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.018));
+}
+
+.panel-badge{color:#fbbf24}
+
+.milan-panel h2{
+  margin:12px 0;
+  font-size:clamp(2rem,4vw,3.4rem);
+  letter-spacing:-.045em;
+}
+
+.milan-panel p{
+  color:var(--muted);
+  max-width:760px;
+  line-height:1.8;
+  margin:0;
+}
+
+.mini-metrics{
+  display:flex;
+  gap:12px;
+  flex-wrap:wrap;
+  margin:25px 0;
+}
+
+.mini-metrics div{
+  min-width:145px;
+  padding:13px 15px;
+  border:1px solid var(--line);
+  border-radius:15px;
+  background:rgba(255,255,255,.03);
+}
+
+.mini-metrics b{
+  display:block;
+  color:#fff;
+  font-size:14px;
+}
+
+.mini-metrics span{
+  display:block;
+  margin-top:4px;
+  color:#8190b1;
+  font-size:11px;
+}
+
+.faq-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+}
+
+.faq-grid details{
+  border:1px solid var(--line);
+  border-radius:17px;
+  padding:18px 19px;
+  background:rgba(255,255,255,.028);
+}
+
+.faq-grid summary{
+  cursor:pointer;
+  font-weight:800;
+  list-style:none;
+}
+
+.faq-grid summary::-webkit-details-marker{display:none}
+
+.faq-grid p{
+  margin:13px 0 0;
+  color:var(--muted);
+  line-height:1.7;
+  font-size:13px;
+}
+
+.bottom-cta{
+  margin-top:78px;
+  padding:28px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  border:1px solid var(--line);
+  border-radius:24px;
+  background:rgba(255,255,255,.035);
+}
+
+.bottom-cta h2{
+  margin:7px 0 0;
+  font-size:clamp(1.6rem,3vw,2.4rem);
+}
+
+.web5-footer{
+  display:flex;
+  justify-content:space-between;
+  gap:20px;
+  flex-wrap:wrap;
+  padding:30px 2px 0;
+  margin-top:60px;
+  border-top:1px solid var(--line);
+  color:#7f90b4;
+  font-size:12px;
+}
+
+.web5-footer a{
+  margin-right:15px;
+}
+
+.web5-footer a:hover{color:#fff}
+
+.web5-footer p{margin:0}
+
+@media(max-width:980px){
+  .web5-hero{
+    grid-template-columns:1fr;
+  }
+
+  .hero-visual{
+    min-height:410px;
+  }
+
+  .explain-grid,
+  .compare-grid{
+    grid-template-columns:1fr;
+  }
+
+  .flow{
+    grid-template-columns:1fr;
+  }
+
+  .flow-line{
+    width:1px;
+    height:24px;
+    justify-self:center;
+  }
+}
+
+@media(max-width:700px){
+  .web5-page{
+    width:min(100% - 20px,1240px);
+    padding-top:12px;
+  }
+
+  .web5-topbar{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+
+  .web5-nav{
+    width:100%;
+  }
+
+  .web5-nav a{
+    font-size:11px;
+    padding:8px 10px;
+  }
+
+  .hero-copy h1{
+    font-size:clamp(3rem,16vw,5rem);
+  }
+
+  .hero-visual{
+    min-height:340px;
+    transform:scale(.84);
+    transform-origin:center top;
+    margin-bottom:-55px;
+  }
+
+  .faq-grid{
+    grid-template-columns:1fr;
+  }
+
+  .bottom-cta{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+}
+</style>
+
+<script>
+(() => {
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduce) return;
+
+  document.querySelectorAll(".feature-card,.compare-card,.flow-card,.faq-grid details").forEach((el) => {
+    el.addEventListener("pointerenter", () => {
+      el.style.transform = "translateY(-3px)";
+      el.style.transition = "transform .2s ease, border-color .2s ease";
+    });
+    el.addEventListener("pointerleave", () => {
+      el.style.transform = "";
+    });
+  });
+})();
+</script>
+
+</body>
+</html>

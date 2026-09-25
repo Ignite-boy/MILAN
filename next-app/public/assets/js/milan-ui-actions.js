@@ -1,0 +1,2393 @@
+(function () {
+    "use strict";
+
+    /* =========================================================
+       MILAN — SINGLE AUTHORITATIVE HOME UI CONTROLLER
+       One navigation layer
+       One composer layer
+       One feed loader
+       One publish handler
+       No duplicate listeners
+       No alert boxes
+       ========================================================= */
+
+    const state = {
+        pendingPosts: new Map(),
+        feedRecords: new Map(),
+        feedLoading: false,
+        profileAvatar: "",
+        profileName: ""
+    };
+
+    const $ = (id) => document.getElementById(id);
+
+    function getToken() {
+        return (
+            localStorage.getItem("milan_token") ||
+            localStorage.getItem("milanToken") ||
+            ""
+        );
+    }
+
+    function go(url) {
+        window.location.href = url;
+    }
+
+    function escapeHtml(value) {
+        return String(value ?? "").replace(/[&<>"']/g, (m) => ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#039;"
+        })[m]);
+    }
+
+    function getRecordId(record) {
+        return String(
+            record?.id ||
+            record?.recordId ||
+            record?.dwnRecordId ||
+            ""
+        );
+    }
+
+    function getRecordText(record) {
+        const data = record?.data || {};
+
+        return String(
+            data.text ||
+            data.caption ||
+            record?.text ||
+            record?.caption ||
+            ""
+        ).trim();
+    }
+
+    function getRecordDate(record) {
+        return (
+            record?.dateModified ||
+            record?.dateCreated ||
+            record?.createdAt ||
+            new Date().toISOString()
+        );
+    }
+
+    function getRecordTitle(record) {
+        return String(
+            record?.title ||
+            record?.data?.title ||
+            "MILAN Quote"
+        ).trim();
+    }
+
+    function normalizeRecords(payload) {
+        if (Array.isArray(payload)) return payload;
+        if (Array.isArray(payload?.records)) return payload.records;
+        if (Array.isArray(payload?.items)) return payload.items;
+        if (Array.isArray(payload?.entries)) return payload.entries;
+        if (Array.isArray(payload?.feed)) return payload.feed;
+        if (Array.isArray(payload?.data)) return payload.data;
+        return [];
+    }
+
+    async function loadAuthoritativeIdentity() {
+        const auth = getToken();
+        if (!auth) return;
+
+        try {
+            const headers = {
+                "Authorization": "Bearer " + auth,
+                "Accept": "application/json"
+            };
+
+            const [profileResponse, meResponse] = await Promise.all([
+                fetch("/api/profile", {
+                    method: "GET",
+                    headers,
+                    cache: "no-store"
+                }),
+                fetch("/api/auth/me", {
+                    method: "GET",
+                    headers,
+                    cache: "no-store"
+                })
+            ]);
+
+            const profile = profileResponse.ok
+                ? await profileResponse.json().catch(() => ({}))
+                : {};
+
+            const identity = meResponse.ok
+                ? await meResponse.json().catch(() => ({}))
+                : {};
+
+            state.profileAvatar =
+                String(profile?.avatar || "").trim();
+
+            state.profileName =
+                String(
+                    profile?.display_name ||
+                    profile?.name ||
+                    identity?.name ||
+                    profile?.username ||
+                    identity?.profile?.display_name ||
+                    identity?.email?.split("@")[0] ||
+                    ""
+                ).trim();
+
+            if (state.profileAvatar) {
+                window.__milanPersistentAvatar = state.profileAvatar;
+                localStorage.setItem("milanAvatar", state.profileAvatar);
+            }
+
+            if (state.feedRecords.size) {
+                renderFeed(
+                    Array.from(state.feedRecords.values())
+                );
+            }
+        } catch (_) {
+            // Feed remains usable even if profile identity refresh fails.
+        }
+    }
+
+    function showPublishStatus(message, isError = false) {
+        let el = $("milanPublishStatus");
+
+        if (!el) {
+            el = document.createElement("div");
+            el.id = "milanPublishStatus";
+            el.style.cssText =
+                "margin-top:8px;" +
+                "min-height:18px;" +
+                "font-size:12px;" +
+                "text-align:right;" +
+                "color:#94a3b8;";
+
+            document
+                .querySelector(".composer-bottom")
+                ?.appendChild(el);
+        }
+
+        el.textContent = message || "";
+        el.style.color = isError ? "#fca5a5" : "#94a3b8";
+    }
+
+
+    async function uploadVideoChunked(file, meta, onProgress) {
+        const token = getToken();
+        const chunkBytes = Number(window.MILAN_UPLOAD_CHUNK_BYTES || 4194304);
+
+        const initResponse = await fetch("/api/records/media/chunk/init", {
+            method: "POST",
+            headers: {
+                "Authorization": "Bearer " + token,
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            },
+            body: JSON.stringify({
+                fileName: file.name,
+                mimeType: file.type || "application/octet-stream",
+                sizeBytes: file.size,
+                chunkBytes,
+                title: meta.title || file.name,
+                caption: meta.caption || "",
+                accessMode: meta.accessMode || "private",
+                sharedWithDids: [],
+                tags: []
+            })
+        });
+
+        const init = await initResponse.json().catch(() => ({}));
+
+        if (!initResponse.ok || !init.uploadId) {
+            throw new Error(
+                init.error ||
+                init.detail ||
+                "Video upload could not be started."
+            );
+        }
+
+        const uploadId = init.uploadId;
+        const actualChunkBytes = Number(init.chunkBytes || chunkBytes);
+        const totalChunks = Number(
+            init.totalChunks ||
+            Math.ceil(file.size / actualChunkBytes)
+        );
+
+        let uploadedBase = 0;
+
+        const removeUpload = async () => {
+            try {
+                await fetch(
+                    "/api/records/media/chunk/" +
+                    encodeURIComponent(uploadId),
+                    {
+                        method: "DELETE",
+                        headers: {
+                            "Authorization": "Bearer " + token,
+                            "Accept": "application/json"
+                        }
+                    }
+                );
+            } catch (_) {}
+        };
+
+        try {
+            for (let index = 0; index < totalChunks; index++) {
+                const start = index * actualChunkBytes;
+                const end = Math.min(
+                    file.size,
+                    start + actualChunkBytes
+                );
+                const blob = file.slice(start, end);
+
+                let lastError = null;
+                let uploaded = false;
+
+                for (let attempt = 0; attempt < 4 && !uploaded; attempt++) {
+                    try {
+                        await new Promise((resolve, reject) => {
+                            const xhr = new XMLHttpRequest();
+
+                            xhr.open(
+                                "POST",
+                                "/api/records/media/chunk/" +
+                                encodeURIComponent(uploadId),
+                                true
+                            );
+
+                            xhr.timeout = Number(
+                                window.MILAN_CHUNK_UPLOAD_TIMEOUT_MS ||
+                                240000
+                            );
+
+                            xhr.setRequestHeader(
+                                "Authorization",
+                                "Bearer " + token
+                            );
+                            xhr.setRequestHeader(
+                                "Content-Type",
+                                "application/octet-stream"
+                            );
+                            xhr.setRequestHeader(
+                                "X-Chunk-Index",
+                                String(index)
+                            );
+                            xhr.setRequestHeader(
+                                "X-Total-Chunks",
+                                String(totalChunks)
+                            );
+                            xhr.setRequestHeader(
+                                "X-Chunk-Bytes",
+                                String(blob.size)
+                            );
+
+                            xhr.upload.onprogress = event => {
+                                if (!event.lengthComputable || !onProgress) return;
+
+                                const pct =
+                                    ((uploadedBase + event.loaded) /
+                                        file.size) *
+                                    96;
+
+                                onProgress(
+                                    Math.max(
+                                        1,
+                                        Math.min(96, pct)
+                                    )
+                                );
+                            };
+
+                            xhr.onload = () => {
+                                if (
+                                    xhr.status >= 200 &&
+                                    xhr.status < 300
+                                ) {
+                                    resolve();
+                                    return;
+                                }
+
+                                let data = {};
+                                try {
+                                    data = JSON.parse(
+                                        xhr.responseText || "{}"
+                                    );
+                                } catch (_) {}
+
+                                reject(
+                                    new Error(
+                                        data.error ||
+                                        "Video chunk upload failed: HTTP " +
+                                        xhr.status
+                                    )
+                                );
+                            };
+
+                            xhr.onerror = () =>
+                                reject(
+                                    new Error(
+                                        "Network error while uploading video."
+                                    )
+                                );
+
+                            xhr.ontimeout = () =>
+                                reject(
+                                    new Error(
+                                        "Video chunk upload timed out."
+                                    )
+                                );
+
+                            xhr.onabort = () =>
+                                reject(
+                                    new Error(
+                                        "Video upload cancelled."
+                                    )
+                                );
+
+                            xhr.send(blob);
+                        });
+
+                        uploaded = true;
+                    } catch (error) {
+                        lastError = error;
+
+                        if (attempt < 3) {
+                            await new Promise(resolve =>
+                                setTimeout(
+                                    resolve,
+                                    700 + attempt * 900
+                                )
+                            );
+                        }
+                    }
+                }
+
+                if (!uploaded) {
+                    throw lastError ||
+                        new Error("Video chunk upload failed.");
+                }
+
+                uploadedBase = end;
+
+                if (onProgress) {
+                    onProgress(
+                        Math.max(
+                            1,
+                            Math.min(
+                                96,
+                                (uploadedBase / file.size) * 96
+                            )
+                        )
+                    );
+                }
+            }
+
+            if (onProgress) onProgress(98);
+
+            const completeResponse = await fetch(
+                "/api/records/media/chunk/" +
+                encodeURIComponent(uploadId) +
+                "/complete",
+                {
+                    method: "POST",
+                    headers: {
+                        "Authorization": "Bearer " + token,
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
+                    },
+                    body: JSON.stringify({})
+                }
+            );
+
+            const record = await completeResponse.json().catch(() => ({}));
+
+            if (!completeResponse.ok) {
+                throw new Error(
+                    record.error ||
+                    record.detail ||
+                    "Video upload could not be completed."
+                );
+            }
+
+            if (onProgress) onProgress(100);
+
+            return record;
+        } catch (error) {
+            await removeUpload();
+            throw error;
+        }
+    }
+
+    function showVideoUploadProgress(percent) {
+        let box = $("milanVideoUploadProgress");
+
+        if (percent === null || percent === undefined) {
+            box?.remove();
+            return;
+        }
+
+        if (!box) {
+            box = document.createElement("div");
+            box.id = "milanVideoUploadProgress";
+            box.setAttribute("role", "status");
+            box.setAttribute("aria-live", "polite");
+            box.style.cssText =
+                "position:relative;width:100%;box-sizing:border-box;" +
+                "padding:9px 18px 10px;margin:0;" +
+                "background:rgba(10,10,14,.96);" +
+                "backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);" +
+                "border-bottom:1px solid rgba(255,255,255,.10);" +
+                "box-shadow:0 4px 18px rgba(0,0,0,.16);";
+
+            box.innerHTML =
+                '<div style="display:flex;align-items:center;justify-content:space-between;' +
+                'gap:12px;margin-bottom:7px;">' +
+                '<span id="milanVideoUploadProgressLabel" style="' +
+                'font-size:12px;font-weight:700;letter-spacing:.2px;color:#fff;">' +
+                'Uploading…</span>' +
+                '<span id="milanVideoUploadProgressPct" style="' +
+                'min-width:42px;text-align:right;font-size:12px;font-weight:800;color:#fff;">' +
+                '0%</span>' +
+                '</div>' +
+                '<div style="width:100%;height:4px;border-radius:999px;' +
+                'background:rgba(255,255,255,.16);overflow:hidden;">' +
+                '<div id="milanVideoUploadProgressBar" style="' +
+                'height:100%;width:0%;border-radius:999px;' +
+                'background:linear-gradient(90deg,#8b5cf6,#ec4899,#f43f5e);' +
+                'transition:width .16s ease-out;box-shadow:0 0 10px rgba(236,72,153,.45);">' +
+                '</div></div>';
+
+            const topbar = document.querySelector("header.topbar");
+
+            if (topbar && topbar.parentNode) {
+                topbar.parentNode.insertBefore(box, topbar.nextSibling);
+            } else {
+                document.body.prepend(box);
+            }
+        }
+
+        const safePct = Math.max(
+            0,
+            Math.min(100, Number(percent) || 0)
+        );
+
+        const bar = $("milanVideoUploadProgressBar");
+        const pct = $("milanVideoUploadProgressPct");
+        const label = $("milanVideoUploadProgressLabel");
+
+        if (bar) bar.style.width = safePct + "%";
+        if (pct) pct.textContent = Math.round(safePct) + "%";
+        if (label) {
+            label.textContent =
+                safePct >= 100 ? "Upload complete" : "Uploading…";
+        }
+    }
+
+    function playVideoUploadTing() {
+        try {
+            const AudioContext =
+                window.AudioContext ||
+                window.webkitAudioContext;
+
+            if (!AudioContext) return;
+
+            const ctx = new AudioContext();
+            const oscillator = ctx.createOscillator();
+            const gain = ctx.createGain();
+
+            oscillator.type = "sine";
+            oscillator.frequency.value = 880;
+            gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(
+                0.12,
+                ctx.currentTime + 0.01
+            );
+            gain.gain.exponentialRampToValueAtTime(
+                0.0001,
+                ctx.currentTime + 0.16
+            );
+
+            oscillator.connect(gain);
+            gain.connect(ctx.destination);
+
+            oscillator.start();
+            oscillator.stop(ctx.currentTime + 0.16);
+
+            setTimeout(() => {
+                try { ctx.close(); } catch (_) {}
+            }, 300);
+        } catch (_) {}
+    }
+
+    /* =========================================================
+       PROFILE IDENTITY — anti-flicker
+       ========================================================= */
+
+    function initIdentityGuard() {
+        const nameEl = $("myName");
+        const emailEl = $("myEmail");
+
+        if (!nameEl || !emailEl) return;
+
+        const styleId = "milan-identity-guard";
+
+        if (!$(styleId)) {
+            const style = document.createElement("style");
+            style.id = styleId;
+            style.textContent = `
+                #myName,
+                #myEmail {
+                    visibility:hidden;
+                    opacity:0;
+                    transition:opacity .15s ease;
+                }
+
+                #myName.milan-ready,
+                #myEmail.milan-ready {
+                    visibility:visible;
+                    opacity:1;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        const reveal = () => {
+            const name = String(nameEl.textContent || "").trim();
+            const email = String(emailEl.textContent || "").trim();
+
+            const validName =
+                name &&
+                name !== "MILAN User" &&
+                name !== "Milan User";
+
+            const validEmail =
+                email &&
+                email !== "Welcome to Milan";
+
+            if (validName && validEmail) {
+                nameEl.classList.add("milan-ready");
+                emailEl.classList.add("milan-ready");
+                return true;
+            }
+
+            return false;
+        };
+
+        if (reveal()) return;
+
+        const observer = new MutationObserver(() => {
+            if (reveal()) observer.disconnect();
+        });
+
+        observer.observe(nameEl, {
+            childList: true,
+            characterData: true,
+            subtree: true
+        });
+
+        observer.observe(emailEl, {
+            childList: true,
+            characterData: true,
+            subtree: true
+        });
+    }
+
+    /* =========================================================
+       NAVIGATION
+       ========================================================= */
+
+    function initLogout() {
+        const button = document.getElementById("logoutBtn");
+        if (!button) return;
+
+        const cleanButton = button.cloneNode(true);
+        button.replaceWith(cleanButton);
+
+        cleanButton.addEventListener("click", () => {
+            localStorage.removeItem("milan_token");
+            localStorage.removeItem("milanToken");
+            localStorage.removeItem("milanBootCache");
+            sessionStorage.clear();
+
+            window.location.replace("/");
+        });
+    }
+
+    function initNavigation() {
+        const navButtons = Array.from(
+            document.querySelectorAll(".nav button")
+        );
+
+        if (navButtons[0]) {
+            navButtons[0].onclick = () => go("/app?view=home");
+        }
+
+        if (navButtons[1]) {
+            navButtons[1].onclick = () => go("/app?view=mine");
+        }
+
+        if (navButtons[2]) {
+            navButtons[2].onclick = () => go("/app?view=public");
+        }
+
+        if (navButtons[3]) {
+            navButtons[3].onclick = () => go("/app?view=saved");
+        }
+
+        const editProfile = $("editProfileBtn");
+
+        if (editProfile) {
+            editProfile.onclick = () => openEditProfileModal();
+        }
+
+        if (navButtons[8]) {
+            navButtons[8].onclick = () => go("/privacy");
+        }
+
+        if (navButtons[9]) {
+            navButtons[9].onclick = () => go("/app?view=ai");
+        }
+
+        const topActions = document.querySelectorAll(
+            ".top-actions .icon-btn"
+        );
+
+        if (topActions[1]) {
+            topActions[1].onclick = () => go("/chat");
+        }
+
+        if (topActions[2]) {
+            topActions[2].onclick = () => go("/music");
+        }
+
+        if (topActions[3]) {
+            topActions[3].onclick = () => {
+                const light =
+                    document.documentElement.dataset.milanTheme === "light";
+
+                if (light) {
+                    delete document.documentElement.dataset.milanTheme;
+                    document.documentElement.style.colorScheme = "dark";
+                    localStorage.setItem("milanTheme", "dark");
+                } else {
+                    document.documentElement.dataset.milanTheme = "light";
+                    document.documentElement.style.colorScheme = "light";
+                    localStorage.setItem("milanTheme", "light");
+                }
+            };
+
+            const savedTheme =
+                localStorage.getItem("milanTheme");
+
+            if (savedTheme === "light") {
+                document.documentElement.dataset.milanTheme = "light";
+                document.documentElement.style.colorScheme = "light";
+            }
+        }
+
+        if (topActions[4]) {
+            topActions[4].onclick = () =>
+                go("/app?view=notifications");
+        }
+    }
+
+
+    /* =========================================================
+       EDIT PROFILE — SAME PAGE LIVE MODAL
+       ========================================================= */
+
+    let editProfileBackdrop = null;
+
+    function editProfileCss() {
+        if ($("milan-edit-profile-css")) return;
+
+        const style = document.createElement("style");
+        style.id = "milan-edit-profile-css";
+
+        style.textContent = `
+            #milanEditProfileBackdrop{
+                position:fixed;
+                inset:0;
+                z-index:9999;
+                display:grid;
+                place-items:center;
+                padding:20px;
+                background:rgba(2,6,23,.72);
+                backdrop-filter:blur(12px);
+            }
+
+            #milanEditProfileModal{
+                width:min(560px,100%);
+                max-height:min(88vh,760px);
+                overflow:auto;
+                background:#0f172a;
+                color:#e8edf5;
+                border:1px solid #263551;
+                border-radius:22px;
+                box-shadow:0 28px 80px rgba(0,0,0,.48);
+            }
+
+            .milan-edit-head{
+                display:flex;
+                align-items:center;
+                justify-content:space-between;
+                padding:20px 22px;
+                border-bottom:1px solid #1e293b;
+            }
+
+            .milan-edit-head h2{
+                margin:0;
+                font-size:20px;
+            }
+
+            .milan-edit-head span{
+                display:block;
+                margin-top:3px;
+                color:#94a3b8;
+                font-size:12px;
+            }
+
+            .milan-edit-close{
+                width:36px;
+                height:36px;
+                border:0;
+                border-radius:50%;
+                background:#1e293b;
+                color:#e8edf5;
+                cursor:pointer;
+                font-size:20px;
+            }
+
+            .milan-edit-body{
+                padding:22px;
+            }
+
+            .milan-edit-photo-row{
+                display:flex;
+                align-items:center;
+                gap:16px;
+                margin-bottom:22px;
+            }
+
+            .milan-edit-photo{
+                width:76px;
+                height:76px;
+                border-radius:50%;
+                overflow:hidden;
+                background:#263551;
+                background-size:cover;
+                background-position:center;
+                display:grid;
+                place-items:center;
+                font-size:24px;
+                flex:none;
+            }
+
+            .milan-edit-photo-actions button{
+                border:1px solid #334155;
+                background:#1e293b;
+                color:#e8edf5;
+                border-radius:10px;
+                padding:8px 12px;
+                cursor:pointer;
+            }
+
+            .milan-edit-field{
+                margin-bottom:16px;
+            }
+
+            .milan-edit-field label{
+                display:block;
+                margin-bottom:7px;
+                font-size:12px;
+                font-weight:700;
+                color:#cbd5e1;
+            }
+
+            .milan-edit-field input,
+            .milan-edit-field textarea{
+                width:100%;
+                border:1px solid #293851;
+                background:#0a0e1a;
+                color:#e8edf5;
+                border-radius:12px;
+                padding:11px 13px;
+                outline:none;
+                font:inherit;
+            }
+
+            .milan-edit-field textarea{
+                min-height:110px;
+                resize:vertical;
+            }
+
+            .milan-edit-field input:focus,
+            .milan-edit-field textarea:focus{
+                border-color:#6366f1;
+                box-shadow:0 0 0 3px rgba(99,102,241,.14);
+            }
+
+            .milan-edit-username-wrap{
+                position:relative;
+            }
+
+            .milan-edit-username-wrap span{
+                position:absolute;
+                left:13px;
+                top:11px;
+                color:#64748b;
+                pointer-events:none;
+            }
+
+            .milan-edit-username-wrap input{
+                padding-left:28px;
+            }
+
+            .milan-edit-footer{
+                display:flex;
+                align-items:center;
+                justify-content:space-between;
+                gap:12px;
+                padding:16px 22px;
+                border-top:1px solid #1e293b;
+            }
+
+            .milan-edit-status{
+                min-height:18px;
+                font-size:12px;
+                color:#94a3b8;
+            }
+
+            .milan-edit-actions{
+                display:flex;
+                gap:8px;
+            }
+
+            .milan-edit-actions button{
+                border:0;
+                border-radius:999px;
+                padding:9px 17px;
+                cursor:pointer;
+                font-weight:700;
+            }
+
+            .milan-edit-cancel{
+                background:#1e293b;
+                color:#cbd5e1;
+            }
+
+            .milan-edit-save{
+                background:#6366f1;
+                color:#fff;
+            }
+
+            .milan-edit-save:disabled{
+                opacity:.6;
+                cursor:wait;
+            }
+        `;
+
+        document.head.appendChild(style);
+    }
+
+    function closeEditProfileModal() {
+        editProfileBackdrop?.remove();
+        editProfileBackdrop = null;
+        document.body.style.overflow = "";
+    }
+
+    async function openEditProfileModal() {
+        if (editProfileBackdrop) return;
+
+        const token = getToken();
+
+        if (!token) {
+            return;
+        }
+
+        editProfileCss();
+
+        editProfileBackdrop =
+            document.createElement("div");
+
+        editProfileBackdrop.id =
+            "milanEditProfileBackdrop";
+
+        editProfileBackdrop.innerHTML = `
+            <div id="milanEditProfileModal" role="dialog"
+                 aria-modal="true"
+                 aria-labelledby="milanEditProfileTitle">
+
+                <div class="milan-edit-head">
+                    <div>
+                        <h2 id="milanEditProfileTitle">
+                            Edit Profile
+                        </h2>
+                        <span>
+                            Keep your MILAN identity up to date.
+                        </span>
+                    </div>
+
+                    <button type="button"
+                            class="milan-edit-close"
+                            aria-label="Close">
+                        ×
+                    </button>
+                </div>
+
+                <div class="milan-edit-body">
+
+                    <div class="milan-edit-photo-row">
+                        <div id="milanEditPhoto"
+                             class="milan-edit-photo">
+                            M
+                        </div>
+
+                        <div class="milan-edit-photo-actions">
+                            <button type="button"
+                                    id="milanEditPhotoBtn">
+                                Change photo
+                            </button>
+                            <input id="milanEditPhotoInput"
+                                   type="file"
+                                   accept="image/*"
+                                   hidden>
+                        </div>
+                    </div>
+
+                    <div class="milan-edit-field">
+                        <label for="milanEditName">
+                            Full Name
+                        </label>
+                        <input id="milanEditName"
+                               maxlength="80"
+                               autocomplete="name">
+                    </div>
+
+                    <div class="milan-edit-field">
+                        <label for="milanEditUsername">
+                            Username
+                        </label>
+
+                        <div class="milan-edit-username-wrap">
+                            <span>@</span>
+                            <input id="milanEditUsername"
+                                   maxlength="30"
+                                   autocomplete="username"
+                                   placeholder="yourname">
+                        </div>
+                    </div>
+
+                    <div class="milan-edit-field">
+                        <label for="milanEditBio">
+                            Bio
+                        </label>
+                        <textarea id="milanEditBio"
+                                  maxlength="500"
+                                  placeholder="Tell people a little about yourself..."></textarea>
+                    </div>
+
+                    <div class="milan-edit-field">
+                        <label for="milanEditWebsite">
+                            Website
+                        </label>
+                        <input id="milanEditWebsite"
+                               maxlength="200"
+                               type="url"
+                               placeholder="https://...">
+                    </div>
+
+                </div>
+
+                <div class="milan-edit-footer">
+                    <div id="milanEditStatus"
+                         class="milan-edit-status"></div>
+
+                    <div class="milan-edit-actions">
+                        <button type="button"
+                                class="milan-edit-cancel">
+                            Cancel
+                        </button>
+
+                        <button type="button"
+                                class="milan-edit-save"
+                                id="milanEditSave">
+                            Save Changes
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(
+            editProfileBackdrop
+        );
+
+        document.body.style.overflow =
+            "hidden";
+
+        const modal =
+            $("milanEditProfileModal");
+
+        const status =
+            $("milanEditStatus");
+
+        const close =
+            () => closeEditProfileModal();
+
+        modal
+            ?.querySelector(".milan-edit-close")
+            ?.addEventListener("click", close);
+
+        modal
+            ?.querySelector(".milan-edit-cancel")
+            ?.addEventListener("click", close);
+
+        editProfileBackdrop.addEventListener(
+            "click",
+            (event) => {
+                if (event.target === editProfileBackdrop) {
+                    close();
+                }
+            }
+        );
+
+        try {
+            status.textContent =
+                "Loading your saved profile…";
+
+            const profile =
+                await fetch("/api/profile", {
+                    headers: {
+                        "Authorization":
+                            "Bearer " + token,
+                        "Accept":
+                            "application/json"
+                    },
+                    cache: "no-store"
+                }).then(
+                    async (response) => {
+                        const data =
+                            await response
+                                .json()
+                                .catch(() => ({}));
+
+                        if (!response.ok) {
+                            throw new Error(
+                                data.error ||
+                                "Could not load profile."
+                            );
+                        }
+
+                        return data;
+                    }
+                );
+
+            $("milanEditName").value =
+                profile.display_name ||
+                "";
+
+            $("milanEditUsername").value =
+                profile.username ||
+                "";
+
+            $("milanEditBio").value =
+                profile.bio ||
+                "";
+
+            $("milanEditWebsite").value =
+                profile.website ||
+                "";
+
+            const savedAvatar =
+                profile.avatar || "";
+
+            const photo =
+                $("milanEditPhoto");
+
+            if (savedAvatar) {
+                photo.style.backgroundImage =
+                    `url("${savedAvatar}")`;
+
+                photo.textContent = "";
+            }
+
+            status.textContent = "";
+
+            const photoBtn =
+                $("milanEditPhotoBtn");
+
+            const photoInput =
+                $("milanEditPhotoInput");
+
+            photoBtn.onclick =
+                () => photoInput.click();
+
+            photoInput.onchange =
+                () => {
+                    const file =
+                        photoInput.files?.[0];
+
+                    if (!file) return;
+
+                    const reader =
+                        new FileReader();
+
+                    reader.onload =
+                        () => {
+                            photo.style.backgroundImage =
+                                `url("${reader.result}")`;
+
+                            photo.textContent = "";
+                        };
+
+                    reader.readAsDataURL(file);
+                };
+
+        } catch (error) {
+            status.textContent =
+                error.message ||
+                "Could not load profile.";
+
+            status.style.color =
+                "#fca5a5";
+
+            return;
+        }
+
+        $("milanEditSave").onclick =
+            async () => {
+                const save =
+                    $("milanEditSave");
+
+                const name =
+                    $("milanEditName")
+                        .value
+                        .trim();
+
+                const username =
+                    $("milanEditUsername")
+                        .value
+                        .trim()
+                        .replace(/^@+/, "")
+                        .toLowerCase();
+
+                const bio =
+                    $("milanEditBio")
+                        .value
+                        .trim();
+
+                const website =
+                    $("milanEditWebsite")
+                        .value
+                        .trim();
+
+                if (!name) {
+                    status.textContent =
+                        "Full Name cannot be empty.";
+
+                    status.style.color =
+                        "#fca5a5";
+
+                    return;
+                }
+
+                if (
+                    username &&
+                    !/^[a-z0-9._]{3,30}$/.test(
+                        username
+                    )
+                ) {
+                    status.textContent =
+                        "Username must be 3–30 characters using letters, numbers, dot or underscore.";
+
+                    status.style.color =
+                        "#fca5a5";
+
+                    return;
+                }
+
+                try {
+                    save.disabled = true;
+                    save.textContent =
+                        "Saving…";
+
+                    status.textContent =
+                        "Updating your profile…";
+
+                    status.style.color =
+                        "#94a3b8";
+
+                    const payload = {
+                        display_name: name,
+                        username,
+                        bio,
+                        website
+                    };
+
+                    const photoInput =
+                        $("milanEditPhotoInput");
+
+                    const file =
+                        photoInput.files?.[0];
+
+                    if (file) {
+                        const avatar =
+                            await new Promise(
+                                (resolve, reject) => {
+                                    const reader =
+                                        new FileReader();
+
+                                    reader.onload =
+                                        () =>
+                                            resolve(
+                                                reader.result
+                                            );
+
+                                    reader.onerror =
+                                        () =>
+                                            reject(
+                                                new Error(
+                                                    "Could not read profile photo."
+                                                )
+                                            );
+
+                                    reader.readAsDataURL(
+                                        file
+                                    );
+                                }
+                            );
+
+                        payload.avatar =
+                            avatar;
+                    }
+
+                    const response =
+                        await fetch(
+                            "/api/profile",
+                            {
+                                method: "PUT",
+                                headers: {
+                                    "Content-Type":
+                                        "application/json",
+                                    "Authorization":
+                                        "Bearer " +
+                                        token,
+                                    "Accept":
+                                        "application/json"
+                                },
+                                body:
+                                    JSON.stringify(
+                                        payload
+                                    )
+                            }
+                        );
+
+                    const saved =
+                        await response
+                            .json()
+                            .catch(() => ({}));
+
+                    if (!response.ok) {
+                        throw new Error(
+                            saved.error ||
+                            saved.detail ||
+                            "Profile update failed."
+                        );
+                    }
+
+                    /*
+                     * Live Home update — no page reload.
+                     */
+                    const nameEl =
+                        $("myName");
+
+                    const emailEl =
+                        $("myEmail");
+
+                    if (nameEl) {
+                        nameEl.textContent =
+                            saved.display_name ||
+                            name;
+                    }
+
+                    if (emailEl && token) {
+                        // Email remains unchanged.
+                    }
+
+                    const profileName =
+                        saved.display_name ||
+                        name;
+
+                    document
+                        .querySelectorAll(
+                            ".milan-feed-name"
+                        )
+                        .forEach((el) => {
+                            el.textContent =
+                                profileName;
+                        });
+
+                    if (window.me) {
+                        window.me.profile = {
+                            ...(window.me.profile || {}),
+                            ...saved
+                        };
+
+                        window.me.name =
+                            profileName;
+                    }
+
+                    if (saved.avatar) {
+                        try {
+                            localStorage.setItem("milanAvatar", String(saved.avatar));
+                        } catch (_) {}
+                        [
+                            "myAvatar",
+                            "composerAvatar"
+                        ].forEach((id) => {
+                            const el = $(id);
+
+                            if (!el) return;
+
+                            el.style.backgroundImage = "none";
+                            el.style.backgroundColor = "transparent";
+                            el.style.backgroundSize = "cover";
+                            el.style.backgroundPosition = "center";
+                            el.style.backgroundRepeat = "no-repeat";
+                            el.textContent = "";
+
+                            let img = el.querySelector("img");
+
+                            if (!img) {
+                                img = document.createElement("img");
+                                img.alt = "Profile photo";
+                                el.appendChild(img);
+                            }
+
+                            img.src = saved.avatar;
+                            img.alt = "Profile photo";
+                            img.style.display = "block";
+                            img.style.width = "100%";
+                            img.style.height = "100%";
+                            img.style.objectFit = "cover";
+                            img.style.objectPosition = "center";
+                            img.style.border = "0";
+                        });
+                    }
+
+                    status.textContent =
+                        "Profile updated ✓";
+
+                    status.style.color =
+                        "#86efac";
+
+                    setTimeout(
+                        close,
+                        550
+                    );
+
+                } catch (error) {
+                    console.error(
+                        "[MILAN] Edit Profile save failed:",
+                        error
+                    );
+
+                    status.textContent =
+                        error.message ||
+                        "Profile update failed.";
+
+                    status.style.color =
+                        "#fca5a5";
+
+                    save.disabled =
+                        false;
+
+                    save.textContent =
+                        "Save Changes";
+                }
+            };
+    }
+
+
+    /* =========================================================
+       COMPOSER TOOLS
+       ========================================================= */
+
+    function initComposerTools() {
+        const tools = Array.from(
+            document.querySelectorAll(".composer-tools .tool")
+        );
+
+        const mediaInput = $("mediaFile");
+
+        if (tools[0] && mediaInput) {
+            tools[0].onclick = () => {
+                mediaInput.accept = "image/*";
+                mediaInput.click();
+            };
+        }
+
+        if (tools[1] && mediaInput) {
+            tools[1].onclick = () => {
+                mediaInput.accept =
+                    "video/*,audio/*,text/*,.txt,.md,.csv,.json,.xml,.html,.pdf,.doc,.docx,.xls,.xlsx,.zip";
+                mediaInput.click();
+            };
+        }
+
+        if (tools[2]) {
+            tools[2].onclick = () => {
+                const text = $("postText");
+                if (!text) return;
+
+                const emoji = " 😊";
+                const start = text.selectionStart ?? text.value.length;
+                const end = text.selectionEnd ?? text.value.length;
+
+                text.value =
+                    text.value.slice(0, start) +
+                    emoji +
+                    text.value.slice(end);
+
+                text.focus();
+                text.selectionStart = text.selectionEnd =
+                    start + emoji.length;
+            };
+        }
+
+        if (tools[3]) {
+            tools[3].onclick = () => {
+                const privateNow =
+                    tools[3].dataset.privacy !== "public";
+
+                tools[3].dataset.privacy =
+                    privateNow ? "public" : "private";
+
+                tools[3].textContent =
+                    privateNow ? "🌍" : "🔒";
+
+                tools[3].title =
+                    privateNow ? "Public post" : "Private post";
+            };
+        }
+    }
+
+    /* =========================================================
+       FEED CARD
+       ========================================================= */
+
+
+
+    if (!document.getElementById("milan-feed-media-css")) {
+        const style = document.createElement("style");
+        style.id = "milan-feed-media-css";
+        style.textContent = `
+            .milan-feed-media{
+                margin:12px 0 2px;
+                border-radius:16px;
+                overflow:hidden;
+                background:#0b0f17;
+                border:1px solid rgba(255,255,255,.08);
+            }
+            .milan-feed-media img{
+                display:block;
+                width:100%;
+                max-height:620px;
+                object-fit:cover;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    if (!$('milan-delete-record-css')) {
+        const style = document.createElement('style');
+        style.id = 'milan-delete-record-css';
+        style.textContent = `            .milan-delete-record{
+                color:#fca5a5 !important;
+                border-color:rgba(248,113,113,.20) !important;
+                background:rgba(248,113,113,.07) !important;
+            }
+`;
+        document.head.appendChild(style);
+    }
+
+
+    function feedCard(record) {
+        const id = escapeHtml(getRecordId(record));
+        const text = escapeHtml(getRecordText(record))
+            .replace(/\n/g, "<br>");
+
+        const title = escapeHtml(getRecordTitle(record));
+
+        const date = new Date(getRecordDate(record));
+
+        const when =
+            Number.isNaN(date.getTime())
+                ? "Just now"
+                : date.toLocaleString([], {
+                    day: "2-digit",
+                    month: "short",
+                    hour: "2-digit",
+                    minute: "2-digit"
+                });
+
+        const name =
+            state.profileName ||
+            document
+                .getElementById("myName")
+                ?.textContent
+                ?.trim() ||
+            "Milan User";
+
+        const avatar = String(
+            window.__milanPersistentAvatar ||
+            localStorage.getItem("milanAvatar") ||
+            ""
+        ).trim();
+
+        const avatarMarkup = avatar
+            ? `<img src="${escapeHtml(avatar)}" alt="Profile photo">`
+            : "M";
+
+        const media = record?.data?.media || record?.media || {};
+        const mediaUrl = String(
+            record?.mediaUrl ||
+            media?.mediaUrl ||
+            ""
+        ).trim();
+
+        const imageDataUrl = String(
+            media?.dataUrl ||
+            record?.dataUrl ||
+            ""
+        ).trim();
+
+        let mediaMarkup = "";
+
+        if (
+            imageDataUrl &&
+            /^data:image\//i.test(imageDataUrl)
+        ) {
+            mediaMarkup = `
+                <div class="milan-feed-media">
+                    <img
+                        src="${escapeHtml(imageDataUrl)}"
+                        alt="${escapeHtml(media.fileName || "Uploaded image")}"
+                        loading="lazy"
+                        decoding="async"
+                    >
+                </div>
+            `;
+        } else if (
+            mediaUrl &&
+            String(media?.mimeType || record?.dataFormat || "")
+                .toLowerCase()
+                .startsWith("image/")
+        ) {
+            const sep = mediaUrl.includes("?") ? "&" : "?";
+            const imageSrc =
+                mediaUrl +
+                sep +
+                "token=" +
+                encodeURIComponent(getToken());
+
+            mediaMarkup = `
+                <div class="milan-feed-media">
+                    <img
+                        src="${escapeHtml(imageSrc)}"
+                        alt="${escapeHtml(media.fileName || "Uploaded image")}"
+                        loading="lazy"
+                        decoding="async"
+                    >
+                </div>
+            `;
+        } else if (
+            mediaUrl &&
+            String(media?.mimeType || record?.dataFormat || "")
+                .toLowerCase()
+                .startsWith("video/")
+        ) {
+            const videoSrc =
+                "/api/records/" +
+                encodeURIComponent(getRecordId(record)) +
+                "/media/play.mp4?token=" +
+                encodeURIComponent(getToken());
+
+            mediaMarkup = `
+                <div class="milan-feed-media milan-feed-video">
+                    <video
+                        controls
+                        preload="metadata"
+                        playsinline
+                        webkit-playsinline
+                        x5-playsinline
+                        style="display:block;width:100%;max-height:620px;background:#000;"
+                    >
+                        <source
+                            src="${escapeHtml(videoSrc)}"
+                            type="video/mp4"
+                        >
+                    </video>
+                </div>
+            `;
+        }
+
+        return `
+            <article
+                class="milan-feed-card"
+                data-record-id="${id}"
+            >
+                <div class="milan-feed-card-head">
+                    <div class="milan-feed-avatar">${avatarMarkup}</div>
+
+                    <div class="milan-feed-meta">
+                        <strong class="milan-feed-name">
+                            ${escapeHtml(name)}
+                        </strong>
+                        <span>${escapeHtml(when)}</span>
+                    </div>
+                </div>
+
+                <div class="milan-feed-body">
+                    <h3>${title}</h3>
+                    ${mediaMarkup}
+                    ${text ? `<p>${text}</p>` : ""}
+                </div>
+
+                <div class="milan-feed-actions">
+                    <button type="button"
+                            data-feed-action="like">
+                        ♡ Like
+                    </button>
+
+                    <button type="button"
+                            data-feed-action="comment">
+                        💬 Comment
+                    </button>
+
+                    <button type="button"
+                            data-feed-action="share">
+                        ↗ Share
+                    </button>
+
+                    <button type="button"
+                            data-feed-action="save">
+                        🔖 Save
+                    </button>
+
+                    <button type="button"
+                            data-feed-action="delete"
+                            class="milan-delete-record">
+                        🗑 Delete
+                    </button>
+                </div>
+            </article>
+        `;
+    }
+
+    function bindFeedActions() {
+        document
+            .querySelectorAll(".milan-feed-card")
+            .forEach((card) => {
+                card
+                    .querySelectorAll("[data-feed-action]")
+                    .forEach((button) => {
+                        button.onclick = async () => {
+                            const action =
+                                button.dataset.feedAction;
+
+                            if (action === "delete") {
+                                const recordId =
+                                    card.dataset.recordId || "";
+
+                                if (!recordId) return;
+
+                                if (!confirm(
+                                    "Delete this record permanently from DWN?"
+                                )) {
+                                    return;
+                                }
+
+                                const auth = getToken();
+                                if (!auth) return;
+
+                                button.disabled = true;
+                                button.textContent = "Deleting…";
+
+                                try {
+                                    const response = await fetch(
+                                        "/api/records/" +
+                                        encodeURIComponent(recordId),
+                                        {
+                                            method: "DELETE",
+                                            headers: {
+                                                "Authorization":
+                                                    "Bearer " + auth,
+                                                "Accept":
+                                                    "application/json"
+                                            },
+                                            cache: "no-store"
+                                        }
+                                    );
+
+                                    const payload =
+                                        await response.json().catch(
+                                            () => ({})
+                                        );
+
+                                    if (!response.ok) {
+                                        throw new Error(
+                                            payload.error ||
+                                            "Permanent DWN deletion failed."
+                                        );
+                                    }
+
+                                    state.pendingPosts.delete(recordId);
+
+                                    if (state.feedRecords) {
+                                        state.feedRecords.delete(recordId);
+                                    }
+
+                                    card.remove();
+
+                                    const list =
+                                        $("milanFeedList");
+
+                                    if (
+                                        list &&
+                                        !list.querySelector(
+                                            ".milan-feed-card"
+                                        )
+                                    ) {
+                                        list.innerHTML = `
+                                            <div class="milan-feed-empty">
+                                                No posts yet. Write your first quote above.
+                                            </div>
+                                        `;
+                                    }
+
+                                    showPublishStatus(
+                                        "Record permanently deleted from DWN."
+                                    );
+                                } catch (error) {
+                                    button.disabled = false;
+                                    button.textContent = "🗑 Delete";
+                                    showPublishStatus(
+                                        error.message ||
+                                        "Delete failed.",
+                                        true
+                                    );
+                                }
+
+                                return;
+                            }
+
+                            if (action === "like") {
+                                button.classList.toggle("active");
+                                button.textContent =
+                                    button.classList.contains("active")
+                                        ? "♥ Liked"
+                                        : "♡ Like";
+                            }
+
+                            if (action === "comment") {
+                                const value =
+                                    prompt("Write a comment");
+
+                                if (value?.trim()) {
+                                    button.textContent =
+                                        "💬 Commented";
+                                }
+                            }
+
+                            if (action === "share") {
+                                const shareUrl =
+                                    window.location.origin + "/app";
+
+                                navigator.clipboard
+                                    ?.writeText(shareUrl)
+                                    .then(() => {
+                                        button.textContent = "✓ Copied";
+
+                                        setTimeout(() => {
+                                            button.textContent =
+                                                "↗ Share";
+                                        }, 1200);
+                                    })
+                                    .catch(() => {});
+                            }
+
+                            if (action === "save") {
+                                button.classList.toggle("active");
+
+                                button.textContent =
+                                    button.classList.contains("active")
+                                        ? "✓ Saved"
+                                        : "🔖 Save";
+                            }
+                        };
+                    });
+            });
+    }
+
+    /* =========================================================
+       FEED MERGE
+       IMPORTANT:
+       Server refresh NEVER deletes a just-published local record
+       unless the server actually returns that same record ID.
+       ========================================================= */
+
+    function mergeRecords(serverRecords = []) {
+        const byId = new Map();
+
+        for (const record of state.feedRecords.values()) {
+            const id = getRecordId(record);
+            if (id) byId.set(id, record);
+        }
+
+        for (const record of serverRecords || []) {
+            const id = getRecordId(record);
+            if (id) byId.set(id, record);
+        }
+
+        for (const [id, record] of state.pendingPosts) {
+            if (!byId.has(id)) {
+                byId.set(id, record);
+            } else {
+                state.pendingPosts.delete(id);
+            }
+        }
+
+        const merged = Array.from(byId.values())
+            .filter(record =>
+                getRecordText(record) ||
+                getRecordTitle(record)
+            )
+            .sort(
+                (a, b) =>
+                    new Date(getRecordDate(b)) -
+                    new Date(getRecordDate(a))
+            );
+
+        state.feedRecords = new Map(
+            merged
+                .map(record => [getRecordId(record), record])
+                .filter(([id]) => id)
+        );
+
+        return merged;
+    }
+
+    function renderFeed(records) {
+        const list = $("milanFeedList");
+
+        if (!list) return;
+
+        state.feedRecords = new Map(
+            (records || [])
+                .map(record => [getRecordId(record), record])
+                .filter(([id]) => id)
+        );
+
+        if (!records.length) {
+            list.innerHTML = `
+                <div class="milan-feed-empty">
+                    No posts yet. Write your first quote above.
+                </div>
+            `;
+            return;
+        }
+
+        list.innerHTML =
+            records.map(feedCard).join("");
+
+        bindFeedActions();
+    }
+
+    async function loadFeed(options = {}) {
+        const list = $("milanFeedList");
+
+        if (!list || state.feedLoading) return;
+
+        const auth = getToken();
+
+        if (!auth) {
+            list.innerHTML = `
+                <div class="milan-feed-empty">
+                    Login required to load your feed.
+                </div>
+            `;
+            return;
+        }
+
+        state.feedLoading = true;
+
+        const keepExisting =
+            options.keepExisting === true;
+
+        if (!keepExisting && !list.children.length) {
+            list.innerHTML = `
+                <div class="milan-feed-loading">
+                    Loading your MILAN feed…
+                </div>
+            `;
+        }
+
+        try {
+            const response = await fetch(
+                "/api/records",
+                {
+                    method: "GET",
+                    headers: {
+                        "Authorization": "Bearer " + auth,
+                        "Accept": "application/json"
+                    },
+                    cache: "no-store"
+                }
+            );
+
+            const payload =
+                await response
+                    .json()
+                    .catch(() => ({}));
+
+            if (!response.ok) {
+                throw new Error(
+                    payload.error ||
+                    payload.detail ||
+                    `Feed failed: HTTP ${response.status}`
+                );
+            }
+
+            const serverRecords =
+                normalizeRecords(payload);
+
+            const merged =
+                mergeRecords(serverRecords);
+
+            renderFeed(merged);
+
+        } catch (error) {
+            console.error(
+                "[MILAN] Feed load failed:",
+                error
+            );
+
+            /*
+             * CRITICAL:
+             * Never erase an already visible feed because
+             * a background refresh failed.
+             */
+            if (!list.children.length) {
+                list.innerHTML = `
+                    <div class="milan-feed-empty">
+                        Feed is reconnecting…
+                        <button
+                            type="button"
+                            id="milanFeedRetry">
+                            Retry
+                        </button>
+                    </div>
+                `;
+
+                $("milanFeedRetry")?.addEventListener(
+                    "click",
+                    () => loadFeed({ keepExisting: true }),
+                    { once: true }
+                );
+            }
+        } finally {
+            state.feedLoading = false;
+        }
+    }
+
+    /* =========================================================
+       SINGLE PUBLISH HANDLER
+       ========================================================= */
+
+    async function publish() {
+        const button = $("publishBtn");
+        const textarea = $("postText");
+        const mediaInput = $("mediaFile");
+
+        if (!button || !textarea) return;
+
+        const text = String(textarea.value || "").trim();
+        const file = mediaInput?.files?.[0] || null;
+
+        if (!text && !file) {
+            showPublishStatus(
+                "Select an image or write something first.",
+                true
+            );
+            textarea.focus();
+            return;
+        }
+
+        const auth = getToken();
+
+        if (!auth) {
+            showPublishStatus(
+                "Login session missing.",
+                true
+            );
+            return;
+        }
+
+        const originalText = button.textContent;
+
+        const privacyButton =
+            document.querySelectorAll(".composer-tools .tool")[3];
+
+        const privacyMode =
+            privacyButton?.dataset?.privacy === "public"
+                ? "public"
+                : "private";
+
+        const b64 = value =>
+            btoa(unescape(encodeURIComponent(String(value || ""))));
+
+        try {
+            button.disabled = true;
+            button.textContent = originalText;
+            $("milanPublishStatus")?.remove();
+
+            let saved = null;
+
+            const videoExtensions = new Set([
+                ".mp4", ".m4v", ".mov", ".qt", ".webm", ".ogv",
+                ".mkv", ".avi", ".wmv", ".flv", ".3gp", ".3g2",
+                ".mpeg", ".mpg", ".mts", ".m2ts", ".ts"
+            ]);
+
+            const fileExt =
+                "." +
+                String(file?.name || "")
+                    .split(".")
+                    .pop()
+                    .toLowerCase();
+
+            const isVideoFile =
+                !!file &&
+                (
+                    /^video\//i.test(file.type || "") ||
+                    videoExtensions.has(fileExt)
+                );
+
+            if (isVideoFile) {
+                showVideoUploadProgress(0);
+
+                saved = await uploadVideoChunked(
+                    file,
+                    {
+                        title: file.name,
+                        caption: text,
+                        accessMode: privacyMode
+                    },
+                    percent => {
+                        showVideoUploadProgress(percent);
+                    }
+                );
+
+                showVideoUploadProgress(100);
+                playVideoUploadTing();
+            } else if (file) {
+                showVideoUploadProgress(0);
+
+                response = await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+
+                    xhr.open("POST", "/api/records/media", true);
+                    xhr.timeout = Number(window.MILAN_UPLOAD_TIMEOUT_MS || 18e5);
+
+                    xhr.setRequestHeader("Authorization", "Bearer " + auth);
+                    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+                    xhr.setRequestHeader("Accept", "application/json");
+                    xhr.setRequestHeader("X-File-Name", b64(file.name));
+                    xhr.setRequestHeader("X-Record-Title", b64(file.name));
+                    xhr.setRequestHeader("X-Record-Caption", b64(text));
+                    xhr.setRequestHeader("X-Access-Mode", privacyMode);
+                    xhr.setRequestHeader("X-Record-Tags", b64(JSON.stringify([])));
+                    xhr.setRequestHeader("X-Shared-With-Dids", b64(JSON.stringify([])));
+
+                    xhr.upload.onprogress = event => {
+                        if (event.lengthComputable) {
+                            const percent = Math.max(
+                                1,
+                                Math.min(99, (event.loaded / event.total) * 100)
+                            );
+                            showVideoUploadProgress(percent);
+                        }
+                    };
+
+                    xhr.onload = () => {
+                        let data = {};
+                        try {
+                            data = JSON.parse(xhr.responseText || "{}");
+                        } catch (_) {}
+
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            showVideoUploadProgress(100);
+                            playVideoUploadTing();
+                            resolve({
+                                ok: true,
+                                json: async () => data
+                            });
+                        } else {
+                            reject(
+                                new Error(
+                                    data.error ||
+                                    data.detail ||
+                                    `DWN write failed: HTTP ${xhr.status}`
+                                )
+                            );
+                        }
+                    };
+
+                    xhr.onerror = () =>
+                        reject(new Error("Network error during upload."));
+
+                    xhr.ontimeout = () =>
+                        reject(new Error("Upload is taking too long."));
+
+                    xhr.onabort = () =>
+                        reject(new Error("Upload cancelled."));
+
+                    xhr.send(file);
+                });
+            } else {
+                const createdAt = new Date().toISOString();
+
+                response = await fetch("/api/records", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + auth,
+                        "Accept": "application/json"
+                    },
+                    body: JSON.stringify({
+                        title: "MILAN Quote",
+                        data: {
+                            kind: "quote",
+                            text,
+                            createdAt
+                        },
+                        dataFormat: "application/json",
+                        accessMode: privacyMode,
+                        sharedWithDids: [],
+                        tags: ["quote"]
+                    })
+                });
+            }
+
+            if (saved === null) {
+                saved =
+                    await response
+                        .json()
+                        .catch(() => ({}));
+
+                if (!response.ok) {
+                    throw new Error(
+                        saved.error ||
+                        saved.detail ||
+                        `DWN write failed: HTTP ${response.status}`
+                    );
+                }
+            }
+
+            const savedId =
+                getRecordId(saved);
+
+            /*
+             * IMPORTANT:
+             * Put the actual server/DWN response into the
+             * pending collection BEFORE rendering.
+             */
+            if (savedId) {
+                state.pendingPosts.set(
+                    savedId,
+                    saved
+                );
+            }
+
+            textarea.value = "";
+            if (mediaInput) mediaInput.value = "";
+
+            /*
+             * Immediately render the real saved record.
+             */
+            const currentRecords =
+                Array.from(
+                    state.feedRecords.values()
+                );
+
+            const mergedNow = mergeRecords([
+                ...currentRecords,
+                saved
+            ]);
+
+            renderFeed(mergedNow);
+
+            button.textContent = originalText;
+            $("milanPublishStatus")?.remove();
+
+            /*
+             * Background sync is allowed, but it uses mergeRecords().
+             * Therefore it CANNOT make the newly published post vanish.
+             */
+            setTimeout(() => {
+                loadFeed({
+                    keepExisting: true
+                });
+            }, 1500);
+
+            setTimeout(() => {
+                button.textContent =
+                    originalText;
+
+                button.disabled = false;
+
+                $("milanPublishStatus")?.remove();
+                showVideoUploadProgress(null);
+            }, 1400);
+
+        } catch (error) {
+            console.error(
+                "[MILAN] Publish failed:",
+                error
+            );
+
+            button.textContent =
+                originalText;
+
+            button.disabled = false;
+
+            $("milanPublishStatus")?.remove();
+            showVideoUploadProgress(null);
+        }
+    }
+
+    function initPublish() {
+        const button = $("publishBtn");
+
+        if (!button) return;
+
+        /*
+         * Replace the button once so any old click
+         * listeners from previous builds are removed.
+         */
+        const cleanButton =
+            button.cloneNode(true);
+
+        button.replaceWith(cleanButton);
+
+        cleanButton.addEventListener(
+            "click",
+            publish
+        );
+    }
+
+    /* =========================================================
+       FOLLOW BUTTONS
+       ========================================================= */
+
+    function initFollowButtons() {
+        document
+            .querySelectorAll(".follow")
+            .forEach((button) => {
+                if (
+                    button.dataset.milanFollowBound === "1"
+                ) {
+                    return;
+                }
+
+                button.dataset.milanFollowBound =
+                    "1";
+
+                button.addEventListener(
+                    "click",
+                    () => {
+                        const person =
+                            button
+                                .closest(".person")
+                                ?.querySelector(
+                                    ".person-info b"
+                                )
+                                ?.textContent
+                                ?.trim() ||
+                            "user";
+
+                        const following =
+                            button.dataset.following ===
+                            "true";
+
+                        button.dataset.following =
+                            following
+                                ? "false"
+                                : "true";
+
+                        button.textContent =
+                            following
+                                ? "Follow"
+                                : "Following";
+
+                        localStorage.setItem(
+                            "milan_follow_" +
+                            person
+                                .toLowerCase()
+                                .replace(
+                                    /\s+/g,
+                                    "_"
+                                ),
+                            following
+                                ? "false"
+                                : "true"
+                        );
+                    }
+                );
+            });
+    }
+
+    /* =========================================================
+       INIT
+       ========================================================= */
+
+    function init() {
+        initIdentityGuard();
+        initLogout();
+        initNavigation();
+        initComposerTools();
+        initPublish();
+        initFollowButtons();
+
+        /*
+         * Feed and authoritative profile identity load in parallel.
+         * Identity is server-side, not device-local.
+         */
+        void loadAuthoritativeIdentity();
+        loadFeed();
+    }
+
+    window.milanRefreshHomeFeed =
+        () => loadFeed({
+            keepExisting: true
+        });
+
+    if (
+        document.readyState === "loading"
+    ) {
+        document.addEventListener(
+            "DOMContentLoaded",
+            init,
+            { once: true }
+        );
+    } else {
+        init();
+    }
+
+    console.log(
+        "[MILAN] Single authoritative UI controller active."
+    );
+})();

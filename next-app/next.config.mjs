@@ -8,6 +8,15 @@ const nextConfig = {
     optimizePackageImports: ["framer-motion"],
   },
 
+  async rewrites() {
+    return [
+      {
+        source: "/app",
+        destination: "/app.html",
+      },
+    ];
+  },
+
   async headers() {
     return [
       {
