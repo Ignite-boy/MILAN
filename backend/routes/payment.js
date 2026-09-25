@@ -16,12 +16,12 @@ const router = express.Router();
 const PLANS = {
   '500mb': {
     name: '500 MB',
-    amountInr: Number(process.env.PLAN_500_AMOUNT || 500),
+    amountInr: Number(process.env.PLAN_500_AMOUNT || 250),
     quotaBytes: 524288000
   },
   '1gb': {
     name: '1 GB',
-    amountInr: Number(process.env.PLAN_1GB_AMOUNT || 1000),
+    amountInr: Number(process.env.PLAN_1GB_AMOUNT || 500),
     quotaBytes: 1073741824
   }
 };

@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>MILAN Storage Plans — 100 MB Free, 500 MB & 1 GB</title>
-<meta name="description" content="Choose your MILAN storage plan. Get 100 MB free, upgrade to 500 MB for ₹500 or 1 GB for ₹1,000 with direct UPI payment and manual UTR verification.">
+<meta name="description" content="Choose your MILAN storage plan. Get 100 MB free, upgrade to 500 MB for ₹250 or 1 GB for ₹500 with direct UPI payment and manual UTR verification.">
 <meta name="robots" content="index,follow,max-image-preview:large">
 <link rel="canonical" href="https://milanlife.in/storage-upgrade.html">
 <link rel="icon" type="image/png" sizes="48x48" href="/assets/milan-logo-circle.png">
@@ -671,7 +671,7 @@ border-color:#8b5cf6;
       <div class="plan-badge">RECOMMENDED CAPACITY</div>
       <div class="plan-kicker">Upgrade</div>
       <h3>500 MB</h3>
-      <div class="price">₹500</div>
+      <div class="price">₹250</div>
       <p class="plan-description">Five times the included storage for a larger personal data footprint.</p>
       <ul class="features">
         <li>500 MB personal storage quota</li>
@@ -685,7 +685,7 @@ border-color:#8b5cf6;
     <article class="plan">
       <div class="plan-kicker">Upgrade</div>
       <h3>1 GB</h3>
-      <div class="price">₹1,000</div>
+      <div class="price">₹500</div>
       <p class="plan-description">Ten times the included storage for accounts that need a larger quota.</p>
       <ul class="features">
         <li>1 GB personal storage quota</li>
@@ -744,8 +744,8 @@ border-color:#8b5cf6;
         <tr>
           <td>Payment</td>
           <td>None</td>
+          <td>₹250 UPI</td>
           <td>₹500 UPI</td>
-          <td>₹1,000 UPI</td>
         </tr>
         <tr>
           <td>Verification</td>
@@ -781,7 +781,7 @@ border-color:#8b5cf6;
         <div class="row"><span>New storage quota</span><strong id="summaryQuota">500 MB</strong></div>
         <div class="row"><span>Payment method</span><strong>UPI</strong></div>
         <div class="row"><span>Verification</span><strong>Manual UTR review</strong></div>
-        <div class="row"><span>Total</span><strong class="amount" id="summaryAmount">₹500</strong></div>
+        <div class="row"><span>Total</span><strong class="amount" id="summaryAmount">₹250</strong></div>
       </div>
     </div>
 
@@ -912,8 +912,8 @@ border-color:#8b5cf6;
 <script>
 (() => {
   const plans = {
-    "500mb": {label:"500 MB", quota:"500 MB", amount:1},
-    "1gb": {label:"1 GB", quota:"1 GB", amount:1000}
+    "500mb": {label:"500 MB", quota:"500 MB", amount:250},
+    "1gb": {label:"1 GB", quota:"1 GB", amount:500}
   };
 
   let selected = new URLSearchParams(location.search).get("plan");
