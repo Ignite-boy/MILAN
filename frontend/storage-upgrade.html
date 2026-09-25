@@ -795,7 +795,6 @@ border-color:#8b5cf6;
             <span class="payment-label">PAYMENT</span>
             <strong>MILAN UPI</strong>
           </div>
-          <input id="customAmount" class="amount-input" type="number" value="1" min="1" placeholder="Enter amount">
         </div>
 
         <div class="payment-subline">Complete the selected storage upgrade directly through UPI.</div>
@@ -946,7 +945,7 @@ border-color:#8b5cf6;
     const authToken = localStorage.getItem("milan_token") || localStorage.getItem("milanToken") || "";
     if (!authToken) throw new Error("Please login first.");
 
-    const amount = Number(document.getElementById("customAmount")?.value || plans[selected].amount);
+    const amount = plans[selected].amount;
     if (!Number.isFinite(amount) || amount < 1) {
       throw new Error("Invalid payment amount");
     }
@@ -975,7 +974,7 @@ border-color:#8b5cf6;
     const authToken = localStorage.getItem("milan_token") || localStorage.getItem("milanToken") || "";
     if (!authToken) return;
 
-    const amount = Number(document.getElementById("customAmount")?.value || plans[selected].amount);
+    const amount = plans[selected].amount;
     const orderKey = selected + "|" + amount;
     if (currentOrder && currentOrderKey === orderKey) return;
 
@@ -1075,7 +1074,7 @@ border-color:#8b5cf6;
 
     summaryPlan.textContent = plan.label;
     summaryQuota.textContent = plan.quota;
-    const amount = Number(document.getElementById("customAmount")?.value || plan.amount);
+    const amount = plan.amount;
 
     summaryAmount.textContent = "₹" + amount.toLocaleString("en-IN");
 
@@ -1086,15 +1085,6 @@ border-color:#8b5cf6;
     upiButton.style.pointerEvents = canPay ? "" : "none";
     if (!canPay) upiOptions.hidden = true;
   }
-
-  document.getElementById("customAmount")?.addEventListener("input", () => {
-    currentOrder = null;
-    currentOrderKey = "";
-    orderRequestVersion++;
-    sessionStorage.removeItem("milanPaymentOrderId");
-    render();
-    schedulePaymentOrder();
-  });
 
   copyUpi?.addEventListener("click", async () => {
     const value = "np7218468@okhdfcbank";
