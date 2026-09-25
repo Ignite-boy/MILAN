@@ -3,6 +3,7 @@
 const express = require('express');
 const auth = require('../middleware/auth');
 const { createClient } = require('@supabase/supabase-js');
+const QRCode = require('qrcode');
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -57,13 +58,29 @@ router.post('/create-order', auth, async (req, res) => {
 
     if (error) throw error;
 
+    const upiPayload = new URLSearchParams({
+      pa: 'np7218468@okhdfcbank',
+      pn: 'Nitesh Pandey',
+      tr: orderId,
+      tn: 'MILAN Storage Upgrade',
+      am: String(customAmount),
+      cu: 'INR'
+    }).toString();
+
+    const qrDataUrl = await QRCode.toDataURL('upi://pay?' + upiPayload, {
+      width: 480,
+      margin: 2,
+      errorCorrectionLevel: 'M'
+    });
+
     res.json({
       success: true,
       orderId,
       plan: planKey,
       name: plan.name,
       amountInr: customAmount,
-      status: 'pending'
+      status: 'pending',
+      qrDataUrl
     });
 
   } catch (err) {

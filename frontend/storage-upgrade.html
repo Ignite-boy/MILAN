@@ -808,7 +808,13 @@ border-color:#8b5cf6;
           </div>
         </div>
 
-        <a class="upi-button" id="upiButton" href="#">Pay in UPI App <span>→</span></a>
+        <a class="upi-button" id="upiButton" href="#">Pay with UPI <span>→</span></a>
+
+        <div id="upiQrBox" hidden style="margin-top:14px;padding:16px;text-align:center;border:1px solid rgba(255,255,255,.12);border-radius:14px;background:#fff;">
+          <img id="upiQrImage" alt="UPI payment QR code" style="display:block;width:240px;height:240px;max-width:100%;margin:0 auto;">
+          <div style="margin-top:10px;color:#111;font-weight:800;font-size:13px;">Scan with GPay, PhonePe, Paytm or any UPI app</div>
+          <div id="upiQrAmount" style="margin-top:4px;color:#333;font-size:12px;"></div>
+        </div>
 
         <div class="payment-mini-steps">
           <div><b>01</b><span>Open UPI</span></div>
@@ -923,6 +929,9 @@ border-color:#8b5cf6;
   upiOptions.style.cssText = "display:grid;gap:8px;margin-top:12px;padding:12px;border:1px solid rgba(255,255,255,.12);border-radius:14px;background:rgba(255,255,255,.04)";
   upiButton.insertAdjacentElement("afterend", upiOptions);
   const upiIdText = document.getElementById("upiIdText");
+  const upiQrBox = document.getElementById("upiQrBox");
+  const upiQrImage = document.getElementById("upiQrImage");
+  const upiQrAmount = document.getElementById("upiQrAmount");
   const copyUpi = document.getElementById("copyUpi");
   const utr = document.getElementById("utr");
   const submit = document.getElementById("submit");
@@ -1031,32 +1040,25 @@ border-color:#8b5cf6;
     return (schemes[app] || "upi://pay?") + buildUpiParams(order).toString();
   }
 
-  function showUpiOptions() {
+  async function showUpiQr() {
     if (!currentOrder) return;
 
-    upiOptions.innerHTML = `
-      <div style="font-weight:800;font-size:13px;margin-bottom:2px">Choose UPI app</div>
-      <button type="button" data-upi-app="gpay">📱 Google Pay</button>
-      <button type="button" data-upi-app="phonepe">🟣 PhonePe</button>
-      <button type="button" data-upi-app="paytm">🔵 Paytm</button>
-      <button type="button" data-upi-app="bhim">🟢 BHIM</button>
-      <button type="button" data-upi-app="generic">▣ Other UPI Apps</button>
-    `;
+    const payload = buildUpiUrl(currentOrder);
 
-    upiOptions.querySelectorAll("button").forEach((btn) => {
-      btn.style.cssText = "width:100%;padding:11px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:transparent;color:inherit;font-weight:800;text-align:left;cursor:pointer";
-      btn.addEventListener("click", () => {
-        const app = btn.dataset.upiApp;
-        const url = app === "generic"
-          ? buildUpiUrl(currentOrder)
-          : buildAppUpiUrl(currentOrder, app);
+    try {
+      if (!currentOrder.qrDataUrl) {
+        throw new Error("Payment QR is not available yet.");
+      }
 
-        upiOptions.hidden = true;
-        window.location.href = url;
-      });
-    });
-
-    upiOptions.hidden = false;
+      upiQrImage.src = currentOrder.qrDataUrl;
+      upiQrAmount.textContent = "Amount: ₹" + Number(currentOrder.amountInr).toLocaleString("en-IN");
+      upiQrBox.hidden = false;
+      upiOptions.hidden = true;
+      upiQrBox.scrollIntoView({behavior:"smooth",block:"nearest"});
+    } catch (error) {
+      status.textContent = "Unable to generate payment QR.";
+      console.error("UPI QR generation failed:", error);
+    }
   }
 
   window.selectPlan = function(plan) {
@@ -1114,8 +1116,7 @@ border-color:#8b5cf6;
       return;
     }
 
-    showUpiOptions();
-    upiOptions.scrollIntoView({behavior:"smooth",block:"nearest"});
+    showUpiQr();
   });
 
   submit.addEventListener("click", async () => {
