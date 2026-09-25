@@ -430,23 +430,41 @@
         if (!box) {
             box = document.createElement("div");
             box.id = "milanVideoUploadProgress";
+            box.setAttribute("role", "status");
+            box.setAttribute("aria-live", "polite");
             box.style.cssText =
-                "display:flex;align-items:center;gap:8px;" +
-                "width:100%;margin-top:8px;";
+                "position:relative;width:100%;box-sizing:border-box;" +
+                "padding:9px 18px 10px;margin:0;" +
+                "background:rgba(10,10,14,.96);" +
+                "backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);" +
+                "border-bottom:1px solid rgba(255,255,255,.10);" +
+                "box-shadow:0 4px 18px rgba(0,0,0,.16);";
 
             box.innerHTML =
-                '<div style="flex:1;height:5px;border-radius:999px;' +
-                'background:rgba(148,163,184,.18);overflow:hidden;">' +
-                '<div id="milanVideoUploadProgressBar" style="height:100%;' +
-                'width:0%;border-radius:999px;background:#22c55e;' +
-                'transition:width .12s linear;"></div></div>' +
-                '<span id="milanVideoUploadProgressPct" ' +
-                'style="min-width:36px;text-align:right;font-size:11px;' +
-                'font-weight:700;color:#94a3b8;">0%</span>';
+                '<div style="display:flex;align-items:center;justify-content:space-between;' +
+                'gap:12px;margin-bottom:7px;">' +
+                '<span id="milanVideoUploadProgressLabel" style="' +
+                'font-size:12px;font-weight:700;letter-spacing:.2px;color:#fff;">' +
+                'Uploading…</span>' +
+                '<span id="milanVideoUploadProgressPct" style="' +
+                'min-width:42px;text-align:right;font-size:12px;font-weight:800;color:#fff;">' +
+                '0%</span>' +
+                '</div>' +
+                '<div style="width:100%;height:4px;border-radius:999px;' +
+                'background:rgba(255,255,255,.16);overflow:hidden;">' +
+                '<div id="milanVideoUploadProgressBar" style="' +
+                'height:100%;width:0%;border-radius:999px;' +
+                'background:linear-gradient(90deg,#8b5cf6,#ec4899,#f43f5e);' +
+                'transition:width .16s ease-out;box-shadow:0 0 10px rgba(236,72,153,.45);">' +
+                '</div></div>';
 
-            document
-                .querySelector(".composer-bottom")
-                ?.appendChild(box);
+            const topbar = document.querySelector("header.topbar");
+
+            if (topbar && topbar.parentNode) {
+                topbar.parentNode.insertBefore(box, topbar.nextSibling);
+            } else {
+                document.body.prepend(box);
+            }
         }
 
         const safePct = Math.max(
@@ -456,9 +474,14 @@
 
         const bar = $("milanVideoUploadProgressBar");
         const pct = $("milanVideoUploadProgressPct");
+        const label = $("milanVideoUploadProgressLabel");
 
         if (bar) bar.style.width = safePct + "%";
         if (pct) pct.textContent = Math.round(safePct) + "%";
+        if (label) {
+            label.textContent =
+                safePct >= 100 ? "Upload complete" : "Uploading…";
+        }
     }
 
     function playVideoUploadTing() {
