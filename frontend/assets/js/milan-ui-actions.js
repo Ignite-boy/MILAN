@@ -2051,8 +2051,8 @@
 
         try {
             button.disabled = true;
-            button.textContent = file ? "Uploading…" : "Saving…";
-            showPublishStatus("");
+            button.textContent = originalText;
+            $("milanPublishStatus")?.remove();
 
             let saved = null;
 
@@ -2230,10 +2230,8 @@
 
             renderFeed(mergedNow);
 
-            button.textContent =
-                "Saved ✓";
-
-            showPublishStatus("");
+            button.textContent = originalText;
+            $("milanPublishStatus")?.remove();
 
             /*
              * Background sync is allowed, but it uses mergeRecords().
@@ -2251,7 +2249,7 @@
 
                 button.disabled = false;
 
-                showPublishStatus("");
+                $("milanPublishStatus")?.remove();
                 showVideoUploadProgress(null);
             }, 1400);
 
@@ -2266,7 +2264,7 @@
 
             button.disabled = false;
 
-            showPublishStatus("");
+            $("milanPublishStatus")?.remove();
             showVideoUploadProgress(null);
         }
     }
