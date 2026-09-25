@@ -1,0 +1,3 @@
+# Keep GitHub language stats focused on the application code.
+# HTML is still used by the app; this only changes GitHub's language display.
+*.html linguist-detectable=false
