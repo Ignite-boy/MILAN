@@ -2029,7 +2029,7 @@
         try {
             button.disabled = true;
             button.textContent = file ? "Uploading…" : "Saving…";
-            showPublishStatus(file ? "Uploading image to DWN…" : "Saving to DWN…");
+            showPublishStatus("");
 
             let saved = null;
 
@@ -2071,20 +2071,68 @@
                 showVideoUploadProgress(100);
                 playVideoUploadTing();
             } else if (file) {
-                response = await fetch("/api/records/media", {
-                    method: "POST",
-                    headers: {
-                        "Authorization": "Bearer " + auth,
-                        "Content-Type": file.type || "application/octet-stream",
-                        "Accept": "application/json",
-                        "X-File-Name": b64(file.name),
-                        "X-Record-Title": b64(file.name),
-                        "X-Record-Caption": b64(text),
-                        "X-Access-Mode": privacyMode,
-                        "X-Record-Tags": b64(JSON.stringify([])),
-                        "X-Shared-With-Dids": b64(JSON.stringify([]))
-                    },
-                    body: file
+                showVideoUploadProgress(0);
+
+                response = await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+
+                    xhr.open("POST", "/api/records/media", true);
+                    xhr.timeout = Number(window.MILAN_UPLOAD_TIMEOUT_MS || 18e5);
+
+                    xhr.setRequestHeader("Authorization", "Bearer " + auth);
+                    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+                    xhr.setRequestHeader("Accept", "application/json");
+                    xhr.setRequestHeader("X-File-Name", b64(file.name));
+                    xhr.setRequestHeader("X-Record-Title", b64(file.name));
+                    xhr.setRequestHeader("X-Record-Caption", b64(text));
+                    xhr.setRequestHeader("X-Access-Mode", privacyMode);
+                    xhr.setRequestHeader("X-Record-Tags", b64(JSON.stringify([])));
+                    xhr.setRequestHeader("X-Shared-With-Dids", b64(JSON.stringify([])));
+
+                    xhr.upload.onprogress = event => {
+                        if (event.lengthComputable) {
+                            const percent = Math.max(
+                                1,
+                                Math.min(99, (event.loaded / event.total) * 100)
+                            );
+                            showVideoUploadProgress(percent);
+                        }
+                    };
+
+                    xhr.onload = () => {
+                        let data = {};
+                        try {
+                            data = JSON.parse(xhr.responseText || "{}");
+                        } catch (_) {}
+
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            showVideoUploadProgress(100);
+                            playVideoUploadTing();
+                            resolve({
+                                ok: true,
+                                json: async () => data
+                            });
+                        } else {
+                            reject(
+                                new Error(
+                                    data.error ||
+                                    data.detail ||
+                                    `DWN write failed: HTTP ${xhr.status}`
+                                )
+                            );
+                        }
+                    };
+
+                    xhr.onerror = () =>
+                        reject(new Error("Network error during upload."));
+
+                    xhr.ontimeout = () =>
+                        reject(new Error("Upload is taking too long."));
+
+                    xhr.onabort = () =>
+                        reject(new Error("Upload cancelled."));
+
+                    xhr.send(file);
                 });
             } else {
                 const createdAt = new Date().toISOString();
@@ -2162,9 +2210,7 @@
             button.textContent =
                 "Saved ✓";
 
-            showPublishStatus(
-                "Saved to DWN ✓"
-            );
+            showPublishStatus("");
 
             /*
              * Background sync is allowed, but it uses mergeRecords().
@@ -2197,12 +2243,8 @@
 
             button.disabled = false;
 
-            showPublishStatus(
-                "Could not save: " +
-                (error.message ||
-                    "Unknown error"),
-                true
-            );
+            showPublishStatus("");
+            showVideoUploadProgress(null);
         }
     }
 
