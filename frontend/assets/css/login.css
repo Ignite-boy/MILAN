@@ -361,3 +361,25 @@ a.milan-storage-upgrade .milan-storage-plan{cursor:pointer}
   font-weight:900;
   text-decoration:none !important;
 }
+
+.auth-value{
+  margin:12px 0 16px;
+  padding:12px 14px;
+  border:1px solid rgba(245,158,11,.18);
+  border-radius:12px;
+  background:rgba(245,158,11,.05);
+  text-align:center;
+}
+.auth-value strong{
+  display:block;
+  font-size:13px;
+  line-height:1.35;
+  color:#f8fafc;
+  margin-bottom:4px;
+}
+.auth-value span{
+  display:block;
+  font-size:11px;
+  line-height:1.5;
+  color:#94a3b8;
+}
