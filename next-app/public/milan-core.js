@@ -230,6 +230,26 @@
         "font-size:15px;font-weight:900;box-shadow:0 12px 35px rgba(0,0,0,.28);" +
         "cursor:pointer;";
 
+      btn.onclick = async function () {
+        if (deferred) {
+          var promptEvent = deferred;
+          deferred = null;
+          try {
+            promptEvent.prompt();
+            await promptEvent.userChoice;
+          } catch (_) {}
+          hide();
+          return;
+        }
+
+        if (isIOS()) {
+          milanToast("Tap Share ↗ → Add to Home Screen");
+          return;
+        }
+
+        milanToast("Install is preparing… tap Install MILAN again in a moment.");
+      };
+
       document.body.appendChild(btn);
       return btn;
     }
@@ -266,11 +286,15 @@
       btn.textContent = "⬇️ Install MILAN";
       btn.onclick = async function () {
         if (!deferred) return;
-        deferred.prompt();
-        try {
-          await deferred.userChoice;
-        } catch (_) {}
+
+        var promptEvent = deferred;
         deferred = null;
+
+        try {
+          promptEvent.prompt();
+          await promptEvent.userChoice;
+        } catch (_) {}
+
         hide();
       };
 
