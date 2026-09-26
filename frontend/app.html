@@ -3336,3 +3336,25 @@ document.addEventListener("DOMContentLoaded",()=>{
   setInterval(()=>{if(document.getElementById("milanControlOverlay")?.classList.contains("open"))mccUpdate()},2000);
 })();
 </script>
+
+<style>
+@media (max-width:760px){
+  body.milan-app-visible .rightbar{
+    display:grid !important;
+    grid-template-columns:1fr !important;
+    grid-column:auto !important;
+    visibility:visible !important;
+    opacity:1 !important;
+  }
+
+  body.milan-app-visible #peopleConnectCard{
+    display:block !important;
+    visibility:visible !important;
+    opacity:1 !important;
+  }
+
+  body.milan-app-visible #recentActivityCard{
+    display:none !important;
+  }
+}
+</style>
