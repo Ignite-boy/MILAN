@@ -583,15 +583,32 @@ async function pushMediaToCloudDwn(record, user, absoluteFilePath) {
 
     const fileBuffer = fs.readFileSync(absoluteFilePath);
 
-    const { error } = await supabase.storage
-      .from(bucket)
-      .upload(objectPath, fileBuffer, {
-        upsert: true,
-        contentType: record.dataFormat || 'application/octet-stream',
-        cacheControl: '3600'
-      });
+    let uploadError = null;
+    const uploadAttempts = Math.max(
+      1,
+      Number(process.env.MILAN_MEDIA_SYNC_RETRIES || 3)
+    );
 
-    if (error) throw error;
+    for (let attempt = 1; attempt <= uploadAttempts; attempt++) {
+      const result = await supabase.storage
+        .from(bucket)
+        .upload(objectPath, fileBuffer, {
+          upsert: true,
+          contentType: record.dataFormat || 'application/octet-stream',
+          cacheControl: '3600'
+        });
+
+      uploadError = result.error || null;
+      if (!uploadError) break;
+
+      if (attempt < uploadAttempts) {
+        await new Promise(resolve =>
+          setTimeout(resolve, 800 * attempt)
+        );
+      }
+    }
+
+    if (uploadError) throw uploadError;
 
     const { data: publicData } = supabase.storage
       .from(bucket)
