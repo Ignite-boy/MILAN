@@ -389,3 +389,31 @@ a.milan-storage-upgrade .milan-storage-plan{cursor:pointer}
 @media (max-width:780px){.desktop-hero{display:none!important}}
 
 @media (max-width:780px){.hero-panel{display:none!important}}
+
+@media (min-width:781px){
+  html,body{overflow:auto;position:static;min-height:100%;height:auto}
+  body{min-height:100vh}
+  .milan-container{
+    max-height:none!important;
+    height:auto!important;
+    min-height:0!important;
+    align-items:stretch!important;
+  }
+  .login-card{
+    height:auto!important;
+    max-height:none!important;
+    min-height:0!important;
+    overflow:visible!important;
+    justify-content:center!important;
+  }
+}
+@media (min-width:781px){
+  .hero-panel .security-footer{
+    margin-top:.45rem!important;
+    margin-bottom:.45rem!important;
+    padding:.7rem .9rem!important;
+  }
+  .hero-panel .feature-grid{
+    margin-top:.45rem!important;
+  }
+}
