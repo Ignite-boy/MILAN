@@ -223,12 +223,13 @@
       btn.type = "button";
       btn.innerHTML = "⬇️ Install MILAN";
       btn.style.cssText =
-        "position:fixed;left:14px;right:14px;bottom:max(18px,env(safe-area-inset-bottom));" +
+        "position:fixed;left:14px;right:14px;top:max(14px,env(safe-area-inset-top));" +
         "z-index:99998;display:none;width:calc(100% - 28px);padding:14px 18px;" +
         "border:1px solid rgba(36,93,255,.35);border-radius:16px;" +
         "background:linear-gradient(135deg,#245dff,#7c3aed);color:#fff;" +
         "font-size:15px;font-weight:900;box-shadow:0 12px 35px rgba(0,0,0,.28);" +
-        "cursor:pointer;";
+        "cursor:pointer;transform:translateY(-140%);opacity:0;" +
+        "transition:transform .42s cubic-bezier(.22,1,.36,1),opacity .3s ease;";
 
       btn.onclick = async function () {
         if (deferred) {
@@ -264,7 +265,18 @@
         hide();
         return;
       }
-      getButton().style.display = "block";
+      var btn = getButton();
+      btn.style.display = "block";
+      btn.style.transform = "translateY(-140%)";
+      btn.style.opacity = "0";
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          if (btn.style.display !== "none") {
+            btn.style.transform = "translateY(0)";
+            btn.style.opacity = "1";
+          }
+        });
+      });
     }
 
     function showIOSInstructions() {
