@@ -384,6 +384,8 @@ a.milan-storage-upgrade .milan-storage-plan{cursor:pointer}
   color:#94a3b8;
 }
 
-@media (min-width:781px){.milan-container{grid-template-columns:minmax(0,1fr) minmax(0,1fr);max-width:1100px;justify-content:center}}
+
 
 @media (max-width:780px){.desktop-hero{display:none!important}}
+
+@media (max-width:780px){.hero-panel{display:none!important}}
