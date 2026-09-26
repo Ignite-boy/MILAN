@@ -215,32 +215,54 @@
     }
 
     function getButton() {
-      var btn = document.getElementById("milan-install-btn");
-      if (btn) return btn;
+      var card = document.getElementById("milan-install-btn");
+      if (card) return card;
 
-      btn = document.createElement("button");
-      btn.id = "milan-install-btn";
-      btn.type = "button";
-      btn.innerHTML = "⬇️ Install MILAN";
-      btn.style.cssText =
+      card = document.createElement("div");
+      card.id = "milan-install-btn";
+      card.setAttribute("role", "dialog");
+      card.setAttribute("aria-label", "Install MILAN");
+      card.style.cssText =
         "position:fixed !important;left:50% !important;right:auto !important;" +
         "top:max(12px,env(safe-area-inset-top)) !important;bottom:auto !important;" +
         "z-index:99998 !important;display:none;width:calc(100% - 24px) !important;" +
-        "max-width:430px !important;height:auto !important;min-height:0 !important;" +
-        "max-height:72px !important;box-sizing:border-box !important;" +
-        "padding:13px 17px !important;margin:0 !important;" +
-        "border:1px solid rgba(124,58,237,.42) !important;" +
-        "border-radius:18px !important;" +
-        "background:linear-gradient(135deg,rgba(5,14,43,.98),rgba(18,31,72,.98)) !important;" +
-        "color:#fff !important;font-size:15px !important;font-weight:800 !important;" +
-        "line-height:1.2 !important;text-align:center !important;" +
-        "box-shadow:0 14px 38px rgba(0,0,0,.34),0 0 0 1px rgba(36,93,255,.10) !important;" +
-        "backdrop-filter:blur(18px) !important;-webkit-backdrop-filter:blur(18px) !important;" +
-        "cursor:pointer !important;appearance:none !important;-webkit-appearance:none !important;" +
+        "max-width:430px !important;box-sizing:border-box !important;" +
+        "padding:14px !important;margin:0 !important;" +
+        "border:1px solid rgba(91,120,255,.30) !important;" +
+        "border-radius:20px !important;" +
+        "background:linear-gradient(145deg,rgba(5,14,43,.98),rgba(15,27,63,.98)) !important;" +
+        "color:#fff !important;" +
+        "box-shadow:0 18px 45px rgba(0,0,0,.38),0 0 0 1px rgba(124,58,237,.08) !important;" +
+        "backdrop-filter:blur(20px) !important;-webkit-backdrop-filter:blur(20px) !important;" +
         "transform:translate(-50%,-140%) !important;opacity:0 !important;" +
-        "transition:transform .42s cubic-bezier(.22,1,.36,1),opacity .3s ease !important;";
+        "transition:transform .45s cubic-bezier(.22,1,.36,1),opacity .32s ease !important;";
 
-      btn.onclick = async function () {
+      card.innerHTML =
+        '<div style="display:flex;align-items:center;gap:12px;">' +
+          '<div style="width:42px;height:42px;flex:0 0 42px;border-radius:13px;' +
+            'display:flex;align-items:center;justify-content:center;' +
+            'background:linear-gradient(135deg,#245dff,#7c3aed);' +
+            'box-shadow:0 7px 20px rgba(36,93,255,.28);font-size:21px;">✦</div>' +
+          '<div style="min-width:0;flex:1;">' +
+            '<div style="font-size:15px;font-weight:900;line-height:1.2;">Install MILAN</div>' +
+            '<div style="margin-top:4px;font-size:12px;font-weight:500;line-height:1.35;' +
+              'color:rgba(255,255,255,.68);">A faster, smoother app-like experience.</div>' +
+          '</div>' +
+          '<button id="milan-install-action" type="button" ' +
+            'style="border:0;border-radius:12px;padding:10px 13px;white-space:nowrap;' +
+            'background:linear-gradient(135deg,#245dff,#7c3aed);color:#fff;' +
+            'font-size:13px;font-weight:900;cursor:pointer;box-shadow:0 7px 18px rgba(36,93,255,.24);">' +
+            'Install</button>' +
+        '</div>' +
+        '<button id="milan-install-dismiss" type="button" ' +
+          'style="display:block;width:100%;margin-top:9px;padding:4px;border:0;' +
+          'background:transparent;color:rgba(255,255,255,.48);font-size:11px;' +
+          'font-weight:700;cursor:pointer;">Not now</button>';
+
+      var installAction = card.querySelector("#milan-install-action");
+      var dismissAction = card.querySelector("#milan-install-dismiss");
+
+      installAction.onclick = async function () {
         if (deferred) {
           var promptEvent = deferred;
           deferred = null;
@@ -257,16 +279,25 @@
           return;
         }
 
-        milanToast("Install is preparing… tap Install MILAN again in a moment.");
+        milanToast("Install is preparing… tap Install again in a moment.");
       };
 
-      document.body.appendChild(btn);
-      return btn;
+      dismissAction.onclick = function () {
+        hide();
+      };
+
+      document.body.appendChild(card);
+      return card;
     }
 
     function hide() {
-      var btn = document.getElementById("milan-install-btn");
-      if (btn) btn.style.display = "none";
+      var card = document.getElementById("milan-install-btn");
+      if (!card) return;
+      card.style.transform = "translate(-50%,-140%)";
+      card.style.opacity = "0";
+      setTimeout(function () {
+        if (card.style.opacity === "0") card.style.display = "none";
+      }, 320);
     }
 
     function show() {
@@ -274,26 +305,31 @@
         hide();
         return;
       }
-      var btn = getButton();
-      btn.style.display = "block";
-      btn.style.transform = "translate(-50%,-140%)";
-      btn.style.opacity = "0";
+
+      var card = getButton();
+      card.style.display = "block";
+      card.style.transform = "translate(-50%,-140%)";
+      card.style.opacity = "0";
+
       requestAnimationFrame(function () {
         requestAnimationFrame(function () {
-          if (btn.style.display !== "none") {
-            btn.style.transform = "translate(-50%,0)";
-            btn.style.opacity = "1";
+          if (card.style.display !== "none") {
+            card.style.transform = "translate(-50%,0)";
+            card.style.opacity = "1";
           }
         });
       });
     }
 
     function showIOSInstructions() {
-      var btn = getButton();
-      btn.textContent = "📲 Add MILAN to Home Screen";
-      btn.onclick = function () {
-        milanToast("Tap Share ↗ → Add to Home Screen");
-      };
+      var card = getButton();
+      var installAction = card.querySelector("#milan-install-action");
+      if (installAction) {
+        installAction.textContent = "How";
+        installAction.onclick = function () {
+          milanToast("Tap Share ↗ → Add to Home Screen");
+        };
+      }
       show();
     }
 
@@ -303,21 +339,25 @@
       e.preventDefault();
       deferred = e;
 
-      var btn = getButton();
-      btn.textContent = "⬇️ Install MILAN";
-      btn.onclick = async function () {
-        if (!deferred) return;
+      var card = getButton();
+      var installAction = card.querySelector("#milan-install-action");
 
-        var promptEvent = deferred;
-        deferred = null;
+      if (installAction) {
+        installAction.textContent = "Install";
+        installAction.onclick = async function () {
+          if (!deferred) return;
 
-        try {
-          promptEvent.prompt();
-          await promptEvent.userChoice;
-        } catch (_) {}
+          var promptEvent = deferred;
+          deferred = null;
 
-        hide();
-      };
+          try {
+            promptEvent.prompt();
+            await promptEvent.userChoice;
+          } catch (_) {}
+
+          hide();
+        };
+      }
 
       show();
     });
