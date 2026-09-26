@@ -4,6 +4,11 @@ const auth = require('../middleware/auth');
 const dwnStore = require('../services/dwnService');
 const { readJson, writeJson, findUserById, findUserByDid, addActivity } = require('../utils/store');
 const notify = require('../services/notifyService');
+const { createClient } = require('@supabase/supabase-js');
+const supabaseDb = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY
+);
 const router = express.Router();
 const uuidv4 = () => crypto.randomUUID();
 const now = () => new Date().toISOString();
@@ -124,16 +129,36 @@ router.get('/summary', auth, async (req, res) => {
   });
 });
 
-router.get('/people', auth, (req, res) => {
+router.get('/people', auth, async (req, res) => {
   const me = current(req); if (!me) return res.status(404).json({ error:'User not found' });
   const q = String(req.query.q || '').toLowerCase();
-  const rows = Object.values(users())
+
+  const { data: accounts, error } = await supabaseDb
+    .from('users')
+    .select('id,email,name,did,space_id,portable_did,dwn_quota_bytes')
+    .order('name', { ascending: true });
+
+  if (error) {
+    console.error('[social/people] Supabase users lookup failed:', error);
+    return res.status(500).json({ error: 'People directory unavailable', details: error.message });
+  }
+
+  const localUsers = users();
+
+  const rows = (accounts || [])
     .filter(u => u.id !== req.userId)
-    .map(u => {
-      const row = connectionRow(me.user.did, u.did);
-      const status = connectionStatus(me.user.did, u.did);
+    .map(account => {
+      const local = localUsers[account.email] || {};
+      const merged = {
+        ...local,
+        ...account,
+        profile: local.profile || {}
+      };
+      const row = connectionRow(me.user.did, account.did);
+      const status = connectionStatus(me.user.did, account.did);
       return {
-        ...profileFor(u),
+        ...profileFor(merged),
+        name: merged.profile?.display_name || account.name || account.email?.split('@')[0] || 'MILAN User',
         connectionStatus: status,
         connectionId: row?.id || '',
         connectionDirection: !row ? 'none' : (row.fromDid === me.user.did ? 'outgoing' : 'incoming'),
@@ -142,6 +167,7 @@ router.get('/people', auth, (req, res) => {
     })
     .filter(p => !q || JSON.stringify(p).toLowerCase().includes(q))
     .sort((a,b) => (a.connectionStatus === 'friends' ? -1 : 0) - (b.connectionStatus === 'friends' ? -1 : 0) || a.name.localeCompare(b.name));
+
   res.json(rows);
 });
 
