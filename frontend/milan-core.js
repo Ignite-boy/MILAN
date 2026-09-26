@@ -196,32 +196,115 @@
   /* ---------------- Install prompt (A2HS) ---------------- */
   function installPrompt() {
     var deferred = null;
+
+    function isInstalled() {
+      return window.matchMedia("(display-mode: standalone)").matches ||
+        window.matchMedia("(display-mode: fullscreen)").matches ||
+        window.matchMedia("(display-mode: minimal-ui)").matches ||
+        window.navigator.standalone === true;
+    }
+
+    function isMobile() {
+      return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "") ||
+        window.matchMedia("(pointer:coarse)").matches;
+    }
+
+    function isIOS() {
+      return /iPhone|iPad|iPod/i.test(navigator.userAgent || "") ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    }
+
+    function getButton() {
+      var btn = document.getElementById("milan-install-btn");
+      if (btn) return btn;
+
+      btn = document.createElement("button");
+      btn.id = "milan-install-btn";
+      btn.type = "button";
+      btn.innerHTML = "⬇️ Install MILAN";
+      btn.style.cssText =
+        "position:fixed;left:14px;right:14px;bottom:max(18px,env(safe-area-inset-bottom));" +
+        "z-index:99998;display:none;width:calc(100% - 28px);padding:14px 18px;" +
+        "border:1px solid rgba(36,93,255,.35);border-radius:16px;" +
+        "background:linear-gradient(135deg,#245dff,#7c3aed);color:#fff;" +
+        "font-size:15px;font-weight:900;box-shadow:0 12px 35px rgba(0,0,0,.28);" +
+        "cursor:pointer;";
+
+      document.body.appendChild(btn);
+      return btn;
+    }
+
+    function hide() {
+      var btn = document.getElementById("milan-install-btn");
+      if (btn) btn.style.display = "none";
+    }
+
+    function show() {
+      if (!isMobile() || isInstalled()) {
+        hide();
+        return;
+      }
+      getButton().style.display = "block";
+    }
+
+    function showIOSInstructions() {
+      var btn = getButton();
+      btn.textContent = "📲 Add MILAN to Home Screen";
+      btn.onclick = function () {
+        milanToast("Tap Share ↗ → Add to Home Screen");
+      };
+      show();
+    }
+
     window.addEventListener("beforeinstallprompt", function (e) {
+      if (!isMobile() || isInstalled()) return;
+
       e.preventDefault();
       deferred = e;
-      var btn = document.getElementById("milan-install-btn");
-      if (!btn) {
-        btn = document.createElement("button");
-        btn.id = "milan-install-btn";
-        btn.type = "button";
-        btn.innerHTML = "⬇️ Install MILAN";
-        /* Install MILAN button disabled — not added to the DOM. */
-        return;
-        btn.addEventListener("click", async function () {
-          if (!deferred) return;
-          deferred.prompt();
-          try { await deferred.userChoice; } catch (e) {}
-          deferred = null;
-          btn.classList.remove("show");
-        });
-      }
-      btn.classList.add("show");
+
+      var btn = getButton();
+      btn.textContent = "⬇️ Install MILAN";
+      btn.onclick = async function () {
+        if (!deferred) return;
+        deferred.prompt();
+        try {
+          await deferred.userChoice;
+        } catch (_) {}
+        deferred = null;
+        hide();
+      };
+
+      show();
     });
+
     window.addEventListener("appinstalled", function () {
-      var btn = document.getElementById("milan-install-btn");
-      if (btn) btn.classList.remove("show");
-      milanToast("MILAN installed 🎉");
+      deferred = null;
+      hide();
+      if (typeof milanToast === "function") milanToast("MILAN installed 🎉");
     });
+
+    /* Show the install CTA immediately on mobile when not installed.
+       Android/Chrome upgrades it to the native prompt when available. */
+    function init() {
+      if (!isMobile() || isInstalled()) {
+        hide();
+        return;
+      }
+
+      if (isIOS()) {
+        showIOSInstructions();
+      } else {
+        show();
+      }
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", init, { once: true });
+    } else {
+      init();
+    }
+
+    window.addEventListener("pageshow", init);
   }
 
   /* ---------------- Esc closes modals ---------------- */
