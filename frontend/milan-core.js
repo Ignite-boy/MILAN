@@ -223,13 +223,22 @@
       btn.type = "button";
       btn.innerHTML = "⬇️ Install MILAN";
       btn.style.cssText =
-        "position:fixed;left:14px;right:14px;top:max(14px,env(safe-area-inset-top));" +
-        "z-index:99998;display:none;width:calc(100% - 28px);padding:14px 18px;" +
-        "border:1px solid rgba(36,93,255,.35);border-radius:16px;" +
-        "background:linear-gradient(135deg,#245dff,#7c3aed);color:#fff;" +
-        "font-size:15px;font-weight:900;box-shadow:0 12px 35px rgba(0,0,0,.28);" +
-        "cursor:pointer;transform:translateY(-140%);opacity:0;" +
-        "transition:transform .42s cubic-bezier(.22,1,.36,1),opacity .3s ease;";
+        "position:fixed !important;left:50% !important;right:auto !important;" +
+        "top:max(12px,env(safe-area-inset-top)) !important;bottom:auto !important;" +
+        "z-index:99998 !important;display:none;width:calc(100% - 24px) !important;" +
+        "max-width:430px !important;height:auto !important;min-height:0 !important;" +
+        "max-height:72px !important;box-sizing:border-box !important;" +
+        "padding:13px 17px !important;margin:0 !important;" +
+        "border:1px solid rgba(124,58,237,.42) !important;" +
+        "border-radius:18px !important;" +
+        "background:linear-gradient(135deg,rgba(5,14,43,.98),rgba(18,31,72,.98)) !important;" +
+        "color:#fff !important;font-size:15px !important;font-weight:800 !important;" +
+        "line-height:1.2 !important;text-align:center !important;" +
+        "box-shadow:0 14px 38px rgba(0,0,0,.34),0 0 0 1px rgba(36,93,255,.10) !important;" +
+        "backdrop-filter:blur(18px) !important;-webkit-backdrop-filter:blur(18px) !important;" +
+        "cursor:pointer !important;appearance:none !important;-webkit-appearance:none !important;" +
+        "transform:translate(-50%,-140%) !important;opacity:0 !important;" +
+        "transition:transform .42s cubic-bezier(.22,1,.36,1),opacity .3s ease !important;";
 
       btn.onclick = async function () {
         if (deferred) {
@@ -267,12 +276,12 @@
       }
       var btn = getButton();
       btn.style.display = "block";
-      btn.style.transform = "translateY(-140%)";
+      btn.style.transform = "translate(-50%,-140%)";
       btn.style.opacity = "0";
       requestAnimationFrame(function () {
         requestAnimationFrame(function () {
           if (btn.style.display !== "none") {
-            btn.style.transform = "translateY(0)";
+            btn.style.transform = "translate(-50%,0)";
             btn.style.opacity = "1";
           }
         });
