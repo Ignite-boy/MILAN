@@ -383,3 +383,5 @@ a.milan-storage-upgrade .milan-storage-plan{cursor:pointer}
   line-height:1.5;
   color:#94a3b8;
 }
+
+@media (min-width:781px){.milan-container{grid-template-columns:minmax(0,680px);max-width:720px;justify-content:center}}
