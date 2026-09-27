@@ -2713,6 +2713,21 @@ button{
   }
 })();
 </script>
+
+<style>
+/* MILAN UI RESTORE — normal desktop flow */
+@media (min-width: 769px){
+  body.milan-app-visible{overflow-x:hidden!important;overflow-y:auto!important}
+  body.milan-app-visible .app{height:auto!important;min-height:100vh!important;overflow:visible!important}
+  body.milan-app-visible .topbar{position:sticky!important;top:0!important;left:auto!important;right:auto!important;width:calc(100% - 28px)!important;height:auto!important;min-height:72px!important;margin:14px auto 0!important}
+  body.milan-app-visible #appView{position:relative!important;inset:auto!important;width:100%!important;height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important}
+  body.milan-app-visible .layout{position:relative!important;inset:auto!important;width:calc(100% - 28px)!important;max-width:1500px!important;height:auto!important;min-height:0!important;max-height:none!important;margin:18px auto 28px!important;padding:0!important;display:grid!important;grid-template-columns:285px minmax(0,1fr) 300px!important;gap:18px!important;align-items:start!important;overflow:visible!important}
+  body.milan-app-visible .leftRail,
+  body.milan-app-visible .centerRail,
+  body.milan-app-visible .rightRail{height:auto!important;max-height:none!important;min-height:0!important;overflow:visible!important}
+}
+</style>
+
 </head>
 <body>
 <div class="app">
