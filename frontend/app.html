@@ -2717,14 +2717,63 @@ button{
 <style>
 /* MILAN UI RESTORE — normal desktop flow */
 @media (min-width: 769px){
-  body.milan-app-visible{overflow-x:hidden!important;overflow-y:auto!important}
-  body.milan-app-visible .app{height:auto!important;min-height:100vh!important;overflow:visible!important}
-  body.milan-app-visible .topbar{position:sticky!important;top:0!important;left:auto!important;right:auto!important;width:calc(100% - 28px)!important;height:auto!important;min-height:72px!important;margin:14px auto 0!important}
-  body.milan-app-visible #appView{position:relative!important;inset:auto!important;width:100%!important;height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important}
-  body.milan-app-visible .layout{position:relative!important;inset:auto!important;width:calc(100% - 28px)!important;max-width:1500px!important;height:auto!important;min-height:0!important;max-height:none!important;margin:18px auto 28px!important;padding:0!important;display:grid!important;grid-template-columns:285px minmax(0,1fr) 300px!important;gap:18px!important;align-items:start!important;overflow:visible!important}
+  body.milan-app-visible{
+    overflow-x:hidden !important;
+    overflow-y:auto !important;
+  }
+
+  body.milan-app-visible .app{
+    height:auto !important;
+    min-height:100vh !important;
+    overflow:visible !important;
+  }
+
+  body.milan-app-visible .topbar{
+    position:sticky !important;
+    top:0 !important;
+    left:auto !important;
+    right:auto !important;
+    width:calc(100% - 28px) !important;
+    height:auto !important;
+    min-height:72px !important;
+    margin:14px auto 0 !important;
+  }
+
+  body.milan-app-visible #appView{
+    position:relative !important;
+    inset:auto !important;
+    width:100% !important;
+    height:auto !important;
+    min-height:0 !important;
+    max-height:none !important;
+    overflow:visible !important;
+  }
+
+  body.milan-app-visible .layout{
+    position:relative !important;
+    inset:auto !important;
+    width:calc(100% - 28px) !important;
+    max-width:1500px !important;
+    height:auto !important;
+    min-height:0 !important;
+    max-height:none !important;
+    margin:18px auto 28px !important;
+    padding:0 !important;
+    display:grid !important;
+    grid-template-columns:285px minmax(0,1fr) 300px !important;
+    gap:18px !important;
+    align-items:start !important;
+    overflow:visible !important;
+  }
+
   body.milan-app-visible .leftRail,
   body.milan-app-visible .centerRail,
-  body.milan-app-visible .rightRail{height:auto!important;max-height:none!important;min-height:0!important;overflow:visible!important}
+  body.milan-app-visible .rightRail{
+    height:auto !important;
+    max-height:none !important;
+    min-height:0 !important;
+    overflow:visible !important;
+  }
 }
 </style>
 
@@ -2797,7 +2846,26 @@ button{
 <aside class="rightRail rightbar">
   <div class="right-card card" id="peopleConnectCard">
     <h3>People to connect</h3>
-    <div id="peopleConnectList" class="empty">No suggestions yet.</div>
+    <div id="peopleConnectList" class="empty">Loading people...</div>
+<script>
+(async () => {
+  const box = document.getElementById("peopleConnectList");
+  const token = localStorage.getItem("milan_token") || localStorage.getItem("milanToken") || "";
+  if (!box || !token) return;
+  try {
+    const r = await fetch("/api/social/people", {
+      headers: { Authorization: "Bearer " + token },
+      cache: "no-store"
+    });
+    const people = await r.json();
+    box.innerHTML = people.length
+      ? people.map(p => `<div class="person"><b>${String(p.name || "MILAN User").replace(/[<>&"]/g, "")}</b><div class="mini">${String(p.email || "").replace(/[<>&"]/g, "")}</div></div>`).join("")
+      : "No suggestions yet.";
+  } catch (_) {
+    box.textContent = "No suggestions yet.";
+  }
+})();
+</script>
   </div>
   <div class="right-card card" id="recentActivityCard">
     <h3>Recent activity</h3>
@@ -2811,45 +2879,6 @@ button{
 
 
 <script src="/assets/js/inline-05.js" defer></script>
-<script>
-/* MILAN — People directory fallback: renders Supabase users independently of the main UI controller. */
-(() => {
-  const esc = (s = "") => String(s).replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
-  const initials = (s = "MILAN") => String(s || "M").trim().split(/\\s+/).slice(0, 2).map(x => x[0] || "").join("").toUpperCase() || "M";
-  async function renderPeopleDirectory() {
-    const box = document.getElementById("peopleConnectList");
-    if (!box) return;
-    const token = localStorage.getItem("milan_token") || localStorage.getItem("milanToken") || "";
-    if (!token) return;
-    try {
-      const r = await fetch("/api/social/people", { headers: { Authorization: "Bearer " + token }, cache: "no-store" });
-      const people = await r.json();
-      if (!r.ok || !Array.isArray(people)) throw new Error(people?.error || "People directory unavailable");
-      box.innerHTML = people.length ? people.map(p => {
-        const name = p.name || p.email?.split("@")[0] || "MILAN User";
-        const avatar = p.avatar && (/^data:image\\//.test(p.avatar) || /^https?:\\/\\//.test(p.avatar))
-          ? '<img src="' + esc(p.avatar) + '" alt="profile">'
-          : esc(initials(name));
-        return '<div class="person"><div class="personMain"><div class="avatar">' + avatar + '</div><div class="personInfo"><b>' + esc(name) + '</b><div class="mini"><span class="personDid" title="' + esc(p.did || "") + '">' + esc(p.did || "") + '</span><div class="personMeta"><span class="badge">' + esc(p.connectionStatus || "none") + '</span></div></div></div></div><div class="personActions"><button onclick="window.milanDirectoryConnect(this.dataset.did)" data-did="' + esc(p.did || "") + '">➕ Connect</button></div></div>';
-      }).join("") : '<div class="empty">No suggestions yet.</div>';
-    } catch (e) {
-      console.warn("[MILAN] People directory fallback failed:", e?.message || e);
-    }
-  }
-  window.milanDirectoryConnect = async did => {
-    const token = localStorage.getItem("milan_token") || localStorage.getItem("milanToken") || "";
-    if (!token || !did) return;
-    try {
-      const r = await fetch("/api/connections", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + token }, body: JSON.stringify({ toDid: did, message: "I would like to connect with you on MILAN." }) });
-      if (!r.ok) throw new Error((await r.json().catch(() => ({})))?.error || "Connection request failed");
-      await renderPeopleDirectory();
-    } catch (e) { console.warn("[MILAN] Connect failed:", e?.message || e); }
-  };
-  const run = () => setTimeout(renderPeopleDirectory, 0);
-  document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", run, { once: true }) : run();
-  setTimeout(renderPeopleDirectory, 1500);
-})();
-</script>
 <script src="/milan-creative-mode.js" defer></script>
 <script src="/assets/js/milan-creative-bridge.js" defer></script>
 <script src="/milan-mobile.js" defer></script>
