@@ -81,5 +81,55 @@ Error generating stack: `+o.message+`
 </script>
   <script>(function(){function m(a){var h=a.getAttribute("href");if(!h)return;try{var u=new URL(h,document.baseURI);if((u.protocol==="http:"||u.protocol==="https:")&&u.host!==location.host){a.target="_blank";a.rel="noopener noreferrer";}}catch(e){}}function s(){document.querySelectorAll("a[href]").forEach(m);}if(document.readyState!=="loading"){s();}else{document.addEventListener("DOMContentLoaded",s);}document.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(a){m(a);}},true);})();</script>
   
+
+<script>
+(function () {
+  const routes = {
+    "chat": "/chat",
+    "music": "/music.html",
+    "settings": "/settings.html",
+    "profile": "/settings.html",
+    "privacy": "/privacy.html",
+    "storage": "/storage-upgrade.html",
+    "upgrade storage": "/storage-upgrade.html",
+    "home": "/app.html",
+    "home feed": "/app.html",
+    "alerts": "/app.html#notifications",
+    "notifications": "/app.html#notifications",
+    "saved": "/app.html#saved",
+    "my posts": "/app.html#my-posts",
+    "public feed": "/app.html#public-feed",
+    "milan ai": "/app.html#ai"
+  };
+
+  document.addEventListener("click", function (e) {
+    const el = e.target && e.target.closest("button, a");
+    if (!el) return;
+
+    const raw = [el.textContent, el.getAttribute("aria-label"), el.getAttribute("title")]
+      .filter(Boolean)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+
+    const key = raw.replace(/[•·]+/g, "").trim();
+    const match = Object.keys(routes).find(k => key === k || key.startsWith(k + " ") || key.includes(k));
+
+    if (!match) return;
+
+    const target = routes[match];
+    if (target === "/app.html" && location.pathname === "/app.html") {
+      window.scrollTo({top: 0, behavior: "smooth"});
+      return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+    window.location.href = target;
+  }, true);
+})();
+</script>
+
 </body>
 </html>
