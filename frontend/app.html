@@ -3258,6 +3258,63 @@ document.addEventListener("DOMContentLoaded", function () {
 })();
 </script>
 
+
+<script id="milan-persistent-profile-name">
+(() => {
+  async function syncProfileName() {
+    const el = document.getElementById("myName");
+    const token =
+      localStorage.getItem("milan_token") ||
+      localStorage.getItem("milanToken") ||
+      "";
+    if (!el || !token) return;
+
+    try {
+      const headers = { Authorization: "Bearer " + token };
+
+      const [profileRes, meRes] = await Promise.all([
+        fetch("/api/profile", { headers, cache: "no-store" }),
+        fetch("/api/auth/me", { headers, cache: "no-store" })
+      ]);
+
+      const profile = profileRes.ok
+        ? await profileRes.json().catch(() => ({}))
+        : {};
+
+      const me = meRes.ok
+        ? await meRes.json().catch(() => ({}))
+        : {};
+
+      const user = me?.user || me?.data?.user || me?.data || {};
+
+      const name = String(
+        profile?.display_name ||
+        profile?.name ||
+        user?.name ||
+        user?.display_name ||
+        ""
+      ).trim();
+
+      if (name) el.textContent = name;
+    } catch (_) {}
+  }
+
+  const run = () => {
+    syncProfileName();
+    setTimeout(syncProfileName, 1200);
+    setTimeout(syncProfileName, 3000);
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", run, { once: true });
+  } else {
+    run();
+  }
+
+  window.addEventListener("pageshow", syncProfileName);
+})();
+</script>
+
 </body>
 </html>
 
