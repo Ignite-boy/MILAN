@@ -84,101 +84,29 @@
   </div>
 </noscript>
 
-<div class="milan-container">
-  <!-- LEFT HERO (exactly as per image) -->
-  <div class="hero-panel">
-    <div>
-      <h1 class="hero-title">MILAN — Decentralized Social Network<br><span>Your Data. Your Privacy. Our Future.</span></h1>
-      <div class="auth-value"><strong>Your space. Your data. Your people.</strong><span>Join MILAN for free — a privacy-first social network with no ads, no tracking, and data you control.</span></div>
-
-      <div class="feature-grid">
-        <div class="feature-item">
-          <div class="feature-icon">🎵</div>
-          <div class="feature-text"><h4>Unlimited free music</h4><p>Search &amp; play any song — Bollywood, Hollywood, lo-fi — with no ads.</p></div>
-        </div>
-        <div class="feature-item">
-          <div class="feature-icon">🔒</div>
-          <div class="feature-text"><h4>Truly private</h4><p>Your posts, chats and connections stay yours. Zero tracking.</p></div>
-        </div>
-        <div class="feature-item">
-          <div class="feature-icon">🪪</div>
-          <div class="feature-text"><h4>You own your data</h4><p>Your own data node. Export or delete anytime — for real.</p></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="security-footer">
-        <div>🛡️</div>
-        <div><strong>No ads · No tracking · No data selling.</strong><br>Free forever. Your data stays yours.</div>
-      </div>
-  </div>
-
-  <!-- RIGHT LOGIN CARD -->
-  <div class="login-card">
-    <div class="logo-center"><img src="/assets/milan-logo-circle.png" alt="MILAN logo" width="72" height="72" style="width:72px;height:72px;border-radius:20px;margin:0 auto 8px;display:block;box-shadow:0 8px 28px rgba(245,158,11,.35),0 0 0 1px rgba(245,158,11,.25);"><h2>MILAN</h2></div>
-    <div class="card-header"><h3>Login to your account</h3><p>Enter your credentials to continue</p></div>
-
-    <div class="tabs">
-      <button class="tab active" data-auth="login">Login</button>
-      <button class="tab" data-auth="register">Register</button>
-    </div>
-
-    <!-- LOGIN FORM -->
-    <div id="loginBox">
-      <div class="input-group">
-        <label class="input-label">Email</label>
-        <div class="input-wrapper">
-          <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 8l10 7 10-7"/></svg>
-          <label for="loginEmail" class="sr-only">Email address</label><input type="email" class="input-field" id="loginEmail" placeholder="Enter your email" autocomplete="email">
-        </div>
-      </div>
-      <div class="input-group">
-        <label class="input-label">Password</label>
-        <div class="input-wrapper">
-          <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          <input type="password" class="input-field" id="loginPass" placeholder="Enter your password" autocomplete="current-password">
-          <button type="button" class="eye-btn" id="togglePasswordBtn">👁️</button>
-        </div>
-      </div>
-      <div class="options-row">
-        <label class="checkbox"><input type="checkbox" checked id="rememberMeCheckbox"> Remember me</label>
-        <a href="/reset-password" class="forgot-link" id="forgotPasswordLink">Forgot password?</a>
-      </div>
-      <button class="login-button" id="loginBtn">Login →</button>
-    </div>
-
-    <!-- REGISTER FORM -->
-    <div id="registerBox" class="hidden">
-      <div class="input-group">
-        <label class="input-label">Full Name</label>
-        <div class="input-wrapper">
-          <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-          <label for="regName" class="sr-only">Full name</label><input type="text" class="input-field" id="regName" placeholder="Your full name">
-        </div>
-      </div>
-      <div class="input-group">
-        <label class="input-label">Email</label>
-        <div class="input-wrapper">
-          <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 8l10 7 10-7"/></svg>
-          <label for="regEmail" class="sr-only">Email address</label><input type="email" class="input-field" id="regEmail" placeholder="Your email address">
-        </div>
-      </div>
-      <div class="input-group">
-        <label class="input-label">Password</label>
-        <div class="input-wrapper">
-          <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          <input type="password" class="input-field" id="regPass" placeholder="Create a strong password">
-        </div>
-      </div>
-      <button class="login-button" id="registerBtn" style="background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 50%, #d946ef 100%);">Create my MILAN space</button>
-    </div>
-
-    <div id="authMsg" class="auth-msg"></div>
-    <div class="divider">OR</div>
-    <button class="did-button" id="didLoginBtn"><span class="did-badge">did</span> Sign with ID3</button>
-    <div class="register-link">Don't have an account? <a id="switchToRegister" href="#">Register</a></div>
-  </div>
-</div>
+<div id="root"></div>
+<script>
+(function () {
+  function renderMilanLogin() {
+    if (!window.React || !window.ReactDOM) {
+      console.error("MILAN React runtime unavailable");
+      return;
+    }
+    const html = atob("PGRpdiBjbGFzcz0ibWlsYW4tY29udGFpbmVyIj4KICA8IS0tIExFRlQgSEVSTyAoZXhhY3RseSBhcyBwZXIgaW1hZ2UpIC0tPgogIDxkaXYgY2xhc3M9Imhlcm8tcGFuZWwiPgogICAgPGRpdj4KICAgICAgPGgxIGNsYXNzPSJoZXJvLXRpdGxlIj5NSUxBTiDigJQgRGVjZW50cmFsaXplZCBTb2NpYWwgTmV0d29yazxicj48c3Bhbj5Zb3VyIERhdGEuIFlvdXIgUHJpdmFjeS4gT3VyIEZ1dHVyZS48L3NwYW4+PC9oMT4KICAgICAgPGRpdiBjbGFzcz0iYXV0aC12YWx1ZSI+PHN0cm9uZz5Zb3VyIHNwYWNlLiBZb3VyIGRhdGEuIFlvdXIgcGVvcGxlLjwvc3Ryb25nPjxzcGFuPkpvaW4gTUlMQU4gZm9yIGZyZWUg4oCUIGEgcHJpdmFjeS1maXJzdCBzb2NpYWwgbmV0d29yayB3aXRoIG5vIGFkcywgbm8gdHJhY2tpbmcsIGFuZCBkYXRhIHlvdSBjb250cm9sLjwvc3Bhbj48L2Rpdj4KCiAgICAgIDxkaXYgY2xhc3M9ImZlYXR1cmUtZ3JpZCI+CiAgICAgICAgPGRpdiBjbGFzcz0iZmVhdHVyZS1pdGVtIj4KICAgICAgICAgIDxkaXYgY2xhc3M9ImZlYXR1cmUtaWNvbiI+8J+OtTwvZGl2PgogICAgICAgICAgPGRpdiBjbGFzcz0iZmVhdHVyZS10ZXh0Ij48aDQ+VW5saW1pdGVkIGZyZWUgbXVzaWM8L2g0PjxwPlNlYXJjaCAmYW1wOyBwbGF5IGFueSBzb25nIOKAlCBCb2xseXdvb2QsIEhvbGx5d29vZCwgbG8tZmkg4oCUIHdpdGggbm8gYWRzLjwvcD48L2Rpdj4KICAgICAgICA8L2Rpdj4KICAgICAgICA8ZGl2IGNsYXNzPSJmZWF0dXJlLWl0ZW0iPgogICAgICAgICAgPGRpdiBjbGFzcz0iZmVhdHVyZS1pY29uIj7wn5SSPC9kaXY+CiAgICAgICAgICA8ZGl2IGNsYXNzPSJmZWF0dXJlLXRleHQiPjxoND5UcnVseSBwcml2YXRlPC9oND48cD5Zb3VyIHBvc3RzLCBjaGF0cyBhbmQgY29ubmVjdGlvbnMgc3RheSB5b3Vycy4gWmVybyB0cmFja2luZy48L3A+PC9kaXY+CiAgICAgICAgPC9kaXY+CiAgICAgICAgPGRpdiBjbGFzcz0iZmVhdHVyZS1pdGVtIj4KICAgICAgICAgIDxkaXYgY2xhc3M9ImZlYXR1cmUtaWNvbiI+8J+qqjwvZGl2PgogICAgICAgICAgPGRpdiBjbGFzcz0iZmVhdHVyZS10ZXh0Ij48aDQ+WW91IG93biB5b3VyIGRhdGE8L2g0PjxwPllvdXIgb3duIGRhdGEgbm9kZS4gRXhwb3J0IG9yIGRlbGV0ZSBhbnl0aW1lIOKAlCBmb3IgcmVhbC48L3A+PC9kaXY+CiAgICAgICAgPC9kaXY+CiAgICAgIDwvZGl2PgogICAgPC9kaXY+CgogICAgPGRpdiBjbGFzcz0ic2VjdXJpdHktZm9vdGVyIj4KICAgICAgICA8ZGl2PvCfm6HvuI88L2Rpdj4KICAgICAgICA8ZGl2PjxzdHJvbmc+Tm8gYWRzIMK3IE5vIHRyYWNraW5nIMK3IE5vIGRhdGEgc2VsbGluZy48L3N0cm9uZz48YnI+RnJlZSBmb3JldmVyLiBZb3VyIGRhdGEgc3RheXMgeW91cnMuPC9kaXY+CiAgICAgIDwvZGl2PgogIDwvZGl2PgoKICA8IS0tIFJJR0hUIExPR0lOIENBUkQgLS0+CiAgPGRpdiBjbGFzcz0ibG9naW4tY2FyZCI+CiAgICA8ZGl2IGNsYXNzPSJsb2dvLWNlbnRlciI+PGltZyBzcmM9Ii9hc3NldHMvbWlsYW4tbG9nby1jaXJjbGUucG5nIiBhbHQ9Ik1JTEFOIGxvZ28iIHdpZHRoPSI3MiIgaGVpZ2h0PSI3MiIgc3R5bGU9IndpZHRoOjcycHg7aGVpZ2h0OjcycHg7Ym9yZGVyLXJhZGl1czoyMHB4O21hcmdpbjowIGF1dG8gOHB4O2Rpc3BsYXk6YmxvY2s7Ym94LXNoYWRvdzowIDhweCAyOHB4IHJnYmEoMjQ1LDE1OCwxMSwuMzUpLDAgMCAwIDFweCByZ2JhKDI0NSwxNTgsMTEsLjI1KTsiPjxoMj5NSUxBTjwvaDI+PC9kaXY+CiAgICA8ZGl2IGNsYXNzPSJjYXJkLWhlYWRlciI+PGgzPkxvZ2luIHRvIHlvdXIgYWNjb3VudDwvaDM+PHA+RW50ZXIgeW91ciBjcmVkZW50aWFscyB0byBjb250aW51ZTwvcD48L2Rpdj4KCiAgICA8ZGl2IGNsYXNzPSJ0YWJzIj4KICAgICAgPGJ1dHRvbiBjbGFzcz0idGFiIGFjdGl2ZSIgZGF0YS1hdXRoPSJsb2dpbiI+TG9naW48L2J1dHRvbj4KICAgICAgPGJ1dHRvbiBjbGFzcz0idGFiIiBkYXRhLWF1dGg9InJlZ2lzdGVyIj5SZWdpc3RlcjwvYnV0dG9uPgogICAgPC9kaXY+CgogICAgPCEtLSBMT0dJTiBGT1JNIC0tPgogICAgPGRpdiBpZD0ibG9naW5Cb3giPgogICAgICA8ZGl2IGNsYXNzPSJpbnB1dC1ncm91cCI+CiAgICAgICAgPGxhYmVsIGNsYXNzPSJpbnB1dC1sYWJlbCI+RW1haWw8L2xhYmVsPgogICAgICAgIDxkaXYgY2xhc3M9ImlucHV0LXdyYXBwZXIiPgogICAgICAgICAgPHN2ZyBjbGFzcz0iaW5wdXQtaWNvbiIgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiB2aWV3Qm94PSIwIDAgMjQgMjQiIGZpbGw9Im5vbmUiIHN0cm9rZT0iY3VycmVudENvbG9yIiBzdHJva2Utd2lkdGg9IjEuNiI+PHJlY3QgeD0iMiIgeT0iNCIgd2lkdGg9IjIwIiBoZWlnaHQ9IjE2IiByeD0iMyIvPjxwYXRoIGQ9Ik0yIDhsMTAgNyAxMC03Ii8+PC9zdmc+CiAgICAgICAgICA8bGFiZWwgZm9yPSJsb2dpbkVtYWlsIiBjbGFzcz0ic3Itb25seSI+RW1haWwgYWRkcmVzczwvbGFiZWw+PGlucHV0IHR5cGU9ImVtYWlsIiBjbGFzcz0iaW5wdXQtZmllbGQiIGlkPSJsb2dpbkVtYWlsIiBwbGFjZWhvbGRlcj0iRW50ZXIgeW91ciBlbWFpbCIgYXV0b2NvbXBsZXRlPSJlbWFpbCI+CiAgICAgICAgPC9kaXY+CiAgICAgIDwvZGl2PgogICAgICA8ZGl2IGNsYXNzPSJpbnB1dC1ncm91cCI+CiAgICAgICAgPGxhYmVsIGNsYXNzPSJpbnB1dC1sYWJlbCI+UGFzc3dvcmQ8L2xhYmVsPgogICAgICAgIDxkaXYgY2xhc3M9ImlucHV0LXdyYXBwZXIiPgogICAgICAgICAgPHN2ZyBjbGFzcz0iaW5wdXQtaWNvbiIgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiB2aWV3Qm94PSIwIDAgMjQgMjQiIGZpbGw9Im5vbmUiIHN0cm9rZT0iY3VycmVudENvbG9yIiBzdHJva2Utd2lkdGg9IjEuNiI+PHJlY3QgeD0iMyIgeT0iMTEiIHdpZHRoPSIxOCIgaGVpZ2h0PSIxMSIgcng9IjIiLz48cGF0aCBkPSJNNyAxMVY3YTUgNSAwIDAgMSAxMCAwdjQiLz48L3N2Zz4KICAgICAgICAgIDxpbnB1dCB0eXBlPSJwYXNzd29yZCIgY2xhc3M9ImlucHV0LWZpZWxkIiBpZD0ibG9naW5QYXNzIiBwbGFjZWhvbGRlcj0iRW50ZXIgeW91ciBwYXNzd29yZCIgYXV0b2NvbXBsZXRlPSJjdXJyZW50LXBhc3N3b3JkIj4KICAgICAgICAgIDxidXR0b24gdHlwZT0iYnV0dG9uIiBjbGFzcz0iZXllLWJ0biIgaWQ9InRvZ2dsZVBhc3N3b3JkQnRuIj7wn5GB77iPPC9idXR0b24+CiAgICAgICAgPC9kaXY+CiAgICAgIDwvZGl2PgogICAgICA8ZGl2IGNsYXNzPSJvcHRpb25zLXJvdyI+CiAgICAgICAgPGxhYmVsIGNsYXNzPSJjaGVja2JveCI+PGlucHV0IHR5cGU9ImNoZWNrYm94IiBjaGVja2VkIGlkPSJyZW1lbWJlck1lQ2hlY2tib3giPiBSZW1lbWJlciBtZTwvbGFiZWw+CiAgICAgICAgPGEgaHJlZj0iL3Jlc2V0LXBhc3N3b3JkIiBjbGFzcz0iZm9yZ290LWxpbmsiIGlkPSJmb3Jnb3RQYXNzd29yZExpbmsiPkZvcmdvdCBwYXNzd29yZD88L2E+CiAgICAgIDwvZGl2PgogICAgICA8YnV0dG9uIGNsYXNzPSJsb2dpbi1idXR0b24iIGlkPSJsb2dpbkJ0biI+TG9naW4g4oaSPC9idXR0b24+CiAgICA8L2Rpdj4KCiAgICA8IS0tIFJFR0lTVEVSIEZPUk0gLS0+CiAgICA8ZGl2IGlkPSJyZWdpc3RlckJveCIgY2xhc3M9ImhpZGRlbiI+CiAgICAgIDxkaXYgY2xhc3M9ImlucHV0LWdyb3VwIj4KICAgICAgICA8bGFiZWwgY2xhc3M9ImlucHV0LWxhYmVsIj5GdWxsIE5hbWU8L2xhYmVsPgogICAgICAgIDxkaXYgY2xhc3M9ImlucHV0LXdyYXBwZXIiPgogICAgICAgICAgPHN2ZyBjbGFzcz0iaW5wdXQtaWNvbiIgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiB2aWV3Qm94PSIwIDAgMjQgMjQiIGZpbGw9Im5vbmUiIHN0cm9rZT0iY3VycmVudENvbG9yIj48Y2lyY2xlIGN4PSIxMiIgY3k9IjgiIHI9IjQiLz48cGF0aCBkPSJNNCAyMGMwLTQgMy42LTcgOC03czggMyA4IDciLz48L3N2Zz4KICAgICAgICAgIDxsYWJlbCBmb3I9InJlZ05hbWUiIGNsYXNzPSJzci1vbmx5Ij5GdWxsIG5hbWU8L2xhYmVsPjxpbnB1dCB0eXBlPSJ0ZXh0IiBjbGFzcz0iaW5wdXQtZmllbGQiIGlkPSJyZWdOYW1lIiBwbGFjZWhvbGRlcj0iWW91ciBmdWxsIG5hbWUiPgogICAgICAgIDwvZGl2PgogICAgICA8L2Rpdj4KICAgICAgPGRpdiBjbGFzcz0iaW5wdXQtZ3JvdXAiPgogICAgICAgIDxsYWJlbCBjbGFzcz0iaW5wdXQtbGFiZWwiPkVtYWlsPC9sYWJlbD4KICAgICAgICA8ZGl2IGNsYXNzPSJpbnB1dC13cmFwcGVyIj4KICAgICAgICAgIDxzdmcgY2xhc3M9ImlucHV0LWljb24iIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciI+PHJlY3QgeD0iMiIgeT0iNCIgd2lkdGg9IjIwIiBoZWlnaHQ9IjE2IiByeD0iMyIvPjxwYXRoIGQ9Ik0yIDhsMTAgNyAxMC03Ii8+PC9zdmc+CiAgICAgICAgICA8bGFiZWwgZm9yPSJyZWdFbWFpbCIgY2xhc3M9InNyLW9ubHkiPkVtYWlsIGFkZHJlc3M8L2xhYmVsPjxpbnB1dCB0eXBlPSJlbWFpbCIgY2xhc3M9ImlucHV0LWZpZWxkIiBpZD0icmVnRW1haWwiIHBsYWNlaG9sZGVyPSJZb3VyIGVtYWlsIGFkZHJlc3MiPgogICAgICAgIDwvZGl2PgogICAgICA8L2Rpdj4KICAgICAgPGRpdiBjbGFzcz0iaW5wdXQtZ3JvdXAiPgogICAgICAgIDxsYWJlbCBjbGFzcz0iaW5wdXQtbGFiZWwiPlBhc3N3b3JkPC9sYWJlbD4KICAgICAgICA8ZGl2IGNsYXNzPSJpbnB1dC13cmFwcGVyIj4KICAgICAgICAgIDxzdmcgY2xhc3M9ImlucHV0LWljb24iIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciI+PHJlY3QgeD0iMyIgeT0iMTEiIHdpZHRoPSIxOCIgaGVpZ2h0PSIxMSIgcng9IjIiLz48cGF0aCBkPSJNNyAxMVY3YTUgNSAwIDAgMSAxMCAwdjQiLz48L3N2Zz4KICAgICAgICAgIDxpbnB1dCB0eXBlPSJwYXNzd29yZCIgY2xhc3M9ImlucHV0LWZpZWxkIiBpZD0icmVnUGFzcyIgcGxhY2Vob2xkZXI9IkNyZWF0ZSBhIHN0cm9uZyBwYXNzd29yZCI+CiAgICAgICAgPC9kaXY+CiAgICAgIDwvZGl2PgogICAgICA8YnV0dG9uIGNsYXNzPSJsb2dpbi1idXR0b24iIGlkPSJyZWdpc3RlckJ0biIgc3R5bGU9ImJhY2tncm91bmQ6IGxpbmVhci1ncmFkaWVudCgxMzVkZWcsICNmNTllMGIgMCUsICNmYmJmMjQgNTAlLCAjZDk0NmVmIDEwMCUpOyI+Q3JlYXRlIG15IE1JTEFOIHNwYWNlPC9idXR0b24+CiAgICA8L2Rpdj4KCiAgICA8ZGl2IGlkPSJhdXRoTXNnIiBjbGFzcz0iYXV0aC1tc2ciPjwvZGl2PgogICAgPGRpdiBjbGFzcz0iZGl2aWRlciI+T1I8L2Rpdj4KICAgIDxidXR0b24gY2xhc3M9ImRpZC1idXR0b24iIGlkPSJkaWRMb2dpbkJ0biI+PHNwYW4gY2xhc3M9ImRpZC1iYWRnZSI+ZGlkPC9zcGFuPiBTaWduIHdpdGggSUQzPC9idXR0b24+CiAgICA8ZGl2IGNsYXNzPSJyZWdpc3Rlci1saW5rIj5Eb24ndCBoYXZlIGFuIGFjY291bnQ/IDxhIGlkPSJzd2l0Y2hUb1JlZ2lzdGVyIiBocmVmPSIjIj5SZWdpc3RlcjwvYT48L2Rpdj4KICA8L2Rpdj4KPC9kaXY+");
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(
+      React.createElement("div", {
+        dangerouslySetInnerHTML: { __html: html }
+      })
+    );
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", renderMilanLogin, { once: true });
+  } else {
+    renderMilanLogin();
+  }
+})();
+</script>
 
 <!-- MILAN V2 ADVANCED — Login Page Enhancements -->
 
@@ -195,5 +123,8 @@ window.addEventListener("DOMContentLoaded", function () {
 
 <script src="/assets/login.js" defer></script>
 <script src="/assets/js/login-actions.js" defer></script>
+
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 </body>
 </html>
