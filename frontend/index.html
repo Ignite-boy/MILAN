@@ -1,337 +1,130 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-US">
 <head>
+    <meta name="description" content="Milan is a privacy-first decentralized social network where you own your data. Explore Web5, DID, DWN, decentralized social media, no ads and no tracking.">
+  <!-- MILAN — authoritative favicon setup -->
+  <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico?v=2" type="image/x-icon" sizes="any">
+  <link rel="apple-touch-icon" href="/assets/milan-logo-circle.png?v=2" sizes="180x180">
+  <link rel="manifest" href="/manifest.json">
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>React Artifact</title>
-  <style>*,:after,:before{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgba(59,130,246,.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgba(59,130,246,.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }/*! tailwindcss v3.4.18 | MIT License | https://tailwindcss.com*/*,:after,:before{box-sizing:border-box;border:0 solid #e5e7eb}:after,:before{--tw-content:""}:host,html{line-height:1.5;-webkit-text-size-adjust:100%;-moz-tab-size:4;-o-tab-size:4;tab-size:4;font-family:ui-sans-serif,system-ui,sans-serif,Apple Color Emoji,Segoe UI Emoji,Segoe UI Symbol,Noto Color Emoji;font-feature-settings:normal;font-variation-settings:normal;-webkit-tap-highlight-color:transparent}body{line-height:inherit}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){-webkit-text-decoration:underline dotted;text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,pre,samp{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,Liberation Mono,Courier New,monospace;font-feature-settings:normal;font-variation-settings:normal;font-size:1em}small{font-size:80%}sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}button,input,optgroup,select,textarea{font-family:inherit;font-feature-settings:inherit;font-variation-settings:inherit;font-size:100%;font-weight:inherit;line-height:inherit;letter-spacing:inherit;color:inherit;margin:0;padding:0}button,select{text-transform:none}button,input:where([type=button]),input:where([type=reset]),input:where([type=submit]){-webkit-appearance:button;background-color:transparent;background-image:none}:-moz-focusring{outline:auto}:-moz-ui-invalid{box-shadow:none}progress{vertical-align:baseline}::-webkit-inner-spin-button,::-webkit-outer-spin-button{height:auto}[type=search]{-webkit-appearance:textfield;outline-offset:-2px}::-webkit-search-decoration{-webkit-appearance:none}::-w
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Milan — Decentralized Social Media Where You Own Your Data</title>
+<meta name="author" content="MILAN">
+  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+  <meta name="googlebot" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+  <meta name="bingbot" content="index, follow">
+  <meta name="language" content="English">
+  <meta name="rating" content="general">
+  <meta name="revisit-after" content="3 days">
+  <meta name="theme-color" content="#050e2b">
+  <meta name="application-name" content="Milan">
+  <meta name="apple-mobile-web-app-title" content="Milan">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="format-detection" content="telephone=no">
+
+  <!-- Canonical -->
+  <link rel="canonical" href="https://milanlife.in/">
+  <link rel="alternate" hreflang="en-US" href="https://milanlife.in/">
+  <meta name="geo.region" content="IN">
+  <meta name="geo.placename" content="India">
+
+  <!-- Open Graph / Facebook / LinkedIn / WhatsApp -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Milan">
+  <meta property="og:title" content="Milan — Decentralized Social Media Where You Own Your Data">
+  <meta property="og:description" content="A privacy-first decentralized social network built on DWN + DID. Every user owns their own real Decentralized Web Node. No ads. No tracking. Your space, your people.">
+  <meta property="og:url" content="https://milanlife.in/">
+  <meta property="og:image" content="https://milanlife.in/assets/og-cover.png">
+  <meta property="og:image:secure_url" content="https://milanlife.in/assets/og-cover.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="MILAN — Decentralized Social Media. Own Your Data.">
+  <meta property="og:locale" content="en_IN">
+  <meta property="og:locale:alternate" content="hi_IN">
+
+  <!-- Twitter / X Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Milan — Decentralized Social Media Where You Own Your Data">
+  <meta name="twitter:description" content="Privacy-first decentralized social network on DWN + DID. Every user runs their own real Decentralized Web Node. No ads, no tracking.">
+  <meta name="twitter:image" content="https://milanlife.in/assets/og-cover.png">
+  <meta name="twitter:image:alt" content="MILAN — Decentralized Social Media">
+
+  <!-- MILAN — authoritative favicon setup -->
+
+  <!-- Performance: preconnect to font origin (Core Web Vitals) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+
+  <!-- ═══════════════ JSON-LD STRUCTURED DATA ═══════════════ -->
+  <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebApplication","@id":"https://milanlife.in/#webapp","name":"Milan","alternateName":["MILAN","Milan Social","Milan App","Milan Decentralized Social Media"],"url":"https://milanlife.in/","description":"MILAN is a privacy-first decentralized social network built on Decentralized Web Nodes (DWN) and Decentralized Identifiers (DID). Every user owns their own real DWN node and their data.","applicationCategory":"SocialNetworkingApplication","applicationSubCategory":"Decentralized Social Media","operatingSystem":"Web, Android, iOS","browserRequirements":"Requires JavaScript. Modern browser.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"featureList":["Decentralized Web Node (DWN) per user","Decentralized Identifiers (DID)","Privacy-first data ownership","No ads, no tracking, no data selling","End-to-end private records","Web5 architecture"],"screenshot":"https://milanlife.in/assets/og-cover.png","softwareVersion":"6.0","keywords":"MILAN, Milan App, MILAN Organization, true social media, best social media, sovereign social media, Social Media DWN, DWN, Decentralized Web Node, Decentralized Foundation, decentralized social network, decentralized social media, DID social network, self-sovereign identity, Nitesh Pandey, DWN Nitesh, Nitesh Milan App DWN, free music on social media, YouTube song free, AI based social media platform, automated social media, auto upload social media, target audienced social media, social media boost, booster social media, social media boom, trusted social media, information security social media, social media that never sells your data, digital society, digital social media, peer-to-peer messaging, encrypted social media, user-owned data hub, Web5 social app, decentralized Facebook alternative, decentralized Instagram alternative","significantLink":"https://milanlife.in/keywords","publisher":{"@id":"https://milanlife.in/#org"}},{"@type":"Organization","@id":"https://milanlife.in/#org","name":"Milan","url":"https://milanlife.in/","logo":{"@type":"ImageObject","url":"https://milanlife.in/assets/milan-logo-circle.png","width":512,"height":512},"description":"MILAN — a decentralized, privacy-first social media platform where you own your data via DWN and DID technology.","slogan":"Your Space. Your People.","foundingDate":"2025","contactPoint":{"@type":"ContactPoint","email":"support@milanlife.in","contactType":"customer support"},"areaServed":{"@type":"Country","name":"India"},"founder":{"@id":"https://milanlife.in/#founder"}},{"@type":"Person","@id":"https://milanlife.in/#founder","name":"Nitesh Pandey","jobTitle":"Founder of MILAN","description":"Nitesh Pandey is the founder and creator of MILAN (milanlife.in), a privacy-first decentralized social media platform where users own their data through Decentralized Web Nodes (DWN) and Decentralized Identifiers (DID).","founderOf":{"@id":"https://milanlife.in/#org"},"url":"https://milanlife.in/about","image":{"@id":"https://milanlife.in/#founderphoto"},"sameAs":["https://milanlife.in/about","https://www.linkedin.com/in/nitesh-pandey","https://github.com/nitesh-pandey"],"worksFor":{"@id":"https://milanlife.in/#org"},"knowsAbout":["Decentralized social media","Web5","Decentralized Web Nodes (DWN)","Decentralized Identifiers (DID)","Self-sovereign identity","Data privacy","Full-stack development"],"nationality":{"@type":"Country","name":"India"}},{"@type":"WebSite","@id":"https://milanlife.in/#website","url":"https://milanlife.in/","name":"Milan","alternateName":["Milan","MILAN Social","MILAN App"],"description":"Decentralized social media. Own your data.","publisher":{"@id":"https://milanlife.in/#org"},"potentialAction":{"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"https://milanlife.in/?q={search_term_string}"},"query-input":"required name=search_term_string"}},{"@type":"FAQPage","@id":"https://milanlife.in/#faq","mainEntity":[{"@type":"Question","name":"Who is the founder of MILAN?","acceptedAnswer":{"@type":"Answer","text":"MILAN was founded by Nitesh Pandey. He created MILAN as a privacy-first decentralized social media platform where every user owns their own data through a Decentralized Web Node (DWN) and a Decentralized Identifier (DID). MILAN is hosted at milanlife.in."}},{"@type":"Question","name":"What is MILAN?","acceptedAnswer":{"@type":"Answer","text":"MILAN is a privacy-first decentralized social media platform, founded by Nitesh Pandey, where every user owns their own data through a real Decentralized Web Node (DWN) and a Decentralized Identifier (DID). There are no ads, no tracking, and no data selling."}},{"@type":"Question","name":"How is MILAN different from regular social media?","acceptedAnswer":{"@type":"Answer","text":"Unlike centralized platforms, MILAN gives each user their own decentralized web node. Your posts, media, and connections live in your own node signed by your own cryptographic identity, so you stay in control of your data."}},{"@type":"Question","name":"What is a DWN (Decentralized Web Node)?","acceptedAnswer":{"@type":"Answer","text":"A Decentralized Web Node is personal data storage that you own and control. On MILAN, every user gets their own real DWN node so their social data is self-sovereign instead of locked inside a company's servers."}},{"@type":"Question","name":"Is MILAN free to use?","acceptedAnswer":{"@type":"Answer","text":"Yes. MILAN is free to join. It is ad-free and does not sell user data."}},{"@type":"Question","name":"What is the best decentralized social media app in India?","acceptedAnswer":{"@type":"Answer","text":"MILAN is a made-in-India decentralized social media app where you own your own data. Built on Decentralized Web Nodes (DWN) and Decentralized Identifiers (DID), MILAN gives Indian users a privacy-first alternative to ad-driven social networks, with no tracking and no data selling. You can join free at milanlife.in."}},{"@type":"Question","name":"Is there a social media app where you actually own your data?","acceptedAnswer":{"@type":"Answer","text":"Yes. MILAN is a social network where you truly own your data. Instead of storing your posts and connections on a company's servers, MILAN gives every user their own real Decentralized Web Node (DWN) controlled by their own cryptographic identity, so your data stays self-sovereign and under your control."}},{"@type":"Question","name":"What is a good privacy-first alternative to Facebook and Instagram?","acceptedAnswer":{"@type":"Answer","text":"MILAN is a privacy-first alternative to centralized social networks like Facebook and Instagram. It is decentralized, ad-free, and tracking-free, and every user owns their own data through a Decentralized Web Node and a Decentralized Identifier instead of handing it to a single company."}},{"@type":"Question","name":"How do I join MILAN?","acceptedAnswer":{"@type":"Answer","text":"You can join MILAN for free by visiting milanlife.in and registering with your email. Once you sign up, you get your own decentralized web node and a self-sovereign decentralized identity, and you can start sharing privately right away."}},{"@type":"Question","name":"Does MILAN work in my city in India?","acceptedAnswer":{"@type":"Answer","text":"Yes. MILAN is a web app at milanlife.in, so it works in every city, town and village in India — from Mumbai, Delhi and Bengaluru to the smallest tehsil. All you need is an internet connection and any browser. There are no regional restrictions."}}]},{"@type":"ImageObject","@id":"https://milanlife.in/#founderphoto","url":"https://milanlife.in/assets/founder-nitesh-pandey.jpg","contentUrl":"https://milanlife.in/assets/founder-nitesh-pandey.jpg","caption":"Nitesh Pandey — Founder of MILAN (milanlife.in)","width":600,"height":600}]}</script>
+
+<!-- MILAN sober premium theme — authoritative, loaded last -->
+<link rel="stylesheet" href="/milan-premium-sober.css">
+<link rel="stylesheet" href="/milan-core.css">
+<link rel="prefetch" href="/app">
+<link rel="prefetch" href="/milan-core.css" as="style">
+<link rel="prefetch" href="/milan-core.js" as="script">
+<link rel="prefetch" href="/milan-premium.js" as="script">
+
+
+  <link rel="stylesheet" href="/assets/css/login.css">
 </head>
 <body>
-  <div id="root"></div>
-  
-  <script type="module">var Hc=Object.create;var{getPrototypeOf:Qc,defineProperty:Ml,getOwnPropertyNames:Yc}=Object;var Kc=Object.prototype.hasOwnProperty;var yt=(e,t,n)=>{n=e!=null?Hc(Qc(e)):{};let r=t||!e||!e.__esModule?Ml(n,"default",{value:e,enumerable:!0}):n;for(let l of Yc(e))if(!Kc.call(r,l))Ml(r,l,{get:()=>e[l],enumerable:!0});return r};var cr=(e,t)=>()=>(t||e((t={exports:{}}).exports,t),t.exports);var Xc=(e,t)=>{for(var n in t)Ml(e,n,{get:t[n],enumerable:!0,configurable:!0,set:(r)=>t[n]=()=>r})};var Gc=(e,t)=>()=>(e&&(t=e(e=0)),t);var mn=cr((cd)=>{var pn=Symbol.for("react.element"),Zc=Symbol.for("react.portal"),Jc=Symbol.for("react.fragment"),qc=Symbol.for("react.strict_mode"),jc=Symbol.for("react.profiler"),bc=Symbol.for("react.provider"),ed=Symbol.for("react.context"),td=Symbol.for("react.forward_ref"),nd=Symbol.for("react.suspense"),rd=Symbol.for("react.memo"),ld=Symbol.for("react.lazy"),nu=Symbol.iterator;function id(e){if(e===null||typeof e!=="object")return null;return e=nu&&e[nu]||e["@@iterator"],typeof e==="function"?e:null}var iu={isMounted:function(){return!1},enqueueForceUpdate:function(){},enqueueReplaceState:function(){},enqueueSetState:function(){}},ou=Object.assign,uu={};function Ft(e,t,n){this.props=e,this.context=t,this.refs=uu,this.updater=n||iu}Ft.prototype.isReactComponent={};Ft.prototype.setState=function(e,t){if(typeof e!=="object"&&typeof e!=="function"&&e!=null)throw Error("setState(...): takes an object of state variables to update or a function which returns an object of state variables.");this.updater.enqueueSetState(this,e,t,"setState")};Ft.prototype.forceUpdate=function(e){this.updater.enqueueForceUpdate(this,e,"forceUpdate")};function au(){}au.prototype=Ft.prototype;function Dl(e,t,n){this.props=e,this.context=t,this.refs=uu,this.updater=n||iu}var Fl=Dl.prototype=new au;Fl.constructor=Dl;ou(Fl,Ft.prototype);Fl.isPureReactComponent=!0;var ru=Array.isArray,su=Object.prototype.hasOwnProperty,Ol={current:null},cu={key:!0,ref:!0,__self:!0,__source:!0};function du(e,t,n){var r,l={},i=null,o=null;if(t!=null)for(r in t.ref!==void 0&&(o=t.ref),t.key!==void 0&&(i=""+t.key),t)su.call(t,r)&&!cu.hasOwnProperty(r)&&(l[r]=t[r]);var u=arguments.length-2;if(u===1)l.children=n;else if(1<u){for(var a=Array(u),c=0;c<u;c++)a[c]=arguments[c+2];l.children=a}if(e&&e.defaultProps)for(r in u=e.defaultProps,u)l[r]===void 0&&(l[r]=u[r]);return{$$typeof:pn,type:e,key:i,ref:o,props:l,_owner:Ol.current}}function od(e,t){return{$$typeof:pn,type:e.type,key:t,ref:e.ref,props:e.props,_owner:e._owner}}function Ul(e){return typeof e==="object"&&e!==null&&e.$$typeof===pn}function ud(e){var t={"=":"=0",":":"=2"};return"$"+e.replace(/[=:]/g,function(n){return t[n]})}var lu=/\/+/g;function Il(e,t){return typeof e==="object"&&e!==null&&e.key!=null?ud(""+e.key):t.toString(36)}function fr(e,t,n,r,l){var i=typeof e;if(i==="undefined"||i==="boolean")e=null;var o=!1;if(e===null)o=!0;else switch(i){case"string":case"number":o=!0;break;case"object":switch(e.$$typeof){case pn:case Zc:o=!0}}if(o)return o=e,l=l(o),e=r===""?"."+Il(o,0):r,ru(l)?(n="",e!=null&&(n=e.replace(lu,"$&/")+"/"),fr(l,t,n,"",function(c){return c})):l!=null&&(Ul(l)&&(l=od(l,n+(!l.key||o&&o.key===l.key?"":(""+l.key).replace(lu,"$&/")+"/")+e)),t.push(l)),1;if(o=0,r=r===""?".":r+":",ru(e))for(var u=0;u<e.length;u++){i=e[u];var a=r+Il(i,u);o+=fr(i,t,n,a,l)}else if(a=id(e),typeof a==="function")for(e=a.call(e),u=0;!(i=e.next()).done;)i=i.value,a=r+Il(i,u++),o+=fr(i,t,n,a,l);else if(i==="object")throw t=String(e),Error("Objects are not valid as a React child (found: "+(t==="[object Object]"?"object with keys {"+Object.keys(e).join(", ")+"}":t)+"). If you meant to render a collection of children, use an array instead.");return o}function dr(e,t,n){if(e==null)return e;var r=[],l=0;return fr(e,r,"","",function(i){return t.call(n,i,l++)}),r}function ad(e){if(e._status===-1){var t=e._result;t=t(),t.then(function(n){if(e._status===0||e._status===-1)e._status=1,e._result=n},function(n){if(e._status===0||e._status===-1)e._status=2,e._result=n}),e._status===-1&&(e._status=0,e.
-`+Gl+e}function Jl(e,t){if(!e||Zl)return"";Zl=!0;var n=Error.prepareStackTrace;Error.prepareStackTrace=void 0;try{if(t)if(t=function(){throw Error()},Object.defineProperty(t.prototype,"props",{set:function(){throw Error()}}),typeof Reflect==="object"&&Reflect.construct){try{Reflect.construct(t,[])}catch(c){var r=c}Reflect.construct(e,[],t)}else{try{t.call()}catch(c){r=c}e.call(t.prototype)}else{try{throw Error()}catch(c){r=c}e()}}catch(c){if(c&&r&&typeof c.stack==="string"){for(var l=c.stack.split(`
-`),i=r.stack.split(`
-`),o=l.length-1,u=i.length-1;1<=o&&0<=u&&l[o]!==i[u];)u--;for(;1<=o&&0<=u;o--,u--)if(l[o]!==i[u]){if(o!==1||u!==1)do if(o--,u--,0>u||l[o]!==i[u]){var a=`
-`+l[o].replace(" at new "," at ");return e.displayName&&a.includes("<anonymous>")&&(a=a.replace("<anonymous>",e.displayName)),a}while(1<=o&&0<=u);break}}}finally{Zl=!1,Error.prepareStackTrace=n}return(e=e?e.displayName||e.name:"")?Cn(e):""}function yf(e){switch(e.tag){case 5:return Cn(e.type);case 16:return Cn("Lazy");case 13:return Cn("Suspense");case 19:return Cn("SuspenseList");case 0:case 2:case 15:return e=Jl(e.type,!1),e;case 11:return e=Jl(e.type.render,!1),e;case 1:return e=Jl(e.type,!0),e;default:return""}}function wi(e){if(e==null)return null;if(typeof e==="function")return e.displayName||e.name||null;if(typeof e==="string")return e;switch(e){case Vt:return"Fragment";case Wt:return"Portal";case gi:return"Profiler";case po:return"StrictMode";case vi:return"Suspense";case yi:return"SuspenseList"}if(typeof e==="object")switch(e.$$typeof){case za:return(e.displayName||"Context")+".Consumer";case _a:return(e._context.displayName||"Context")+".Provider";case mo:var t=e.render;return e=e.displayName,e||(e=t.displayName||t.name||"",e=e!==""?"ForwardRef("+e+")":"ForwardRef"),e;case ho:return t=e.displayName||null,t!==null?t:wi(e.type)||"Memo";case je:t=e._payload,e=e._init;try{return wi(e(t))}catch(n){}}return null}function wf(e){var t=e.type;switch(e.tag){case 24:return"Cache";case 9:return(t.displayName||"Context")+".Consumer";case 10:return(t._context.displayName||"Context")+".Provider";case 18:return"DehydratedFragment";case 11:return e=t.render,e=e.displayName||e.name||"",t.displayName||(e!==""?"ForwardRef("+e+")":"ForwardRef");case 7:return"Fragment";case 5:return t;case 4:return"Portal";case 3:return"Root";case 6:return"Text";case 16:return wi(t);case 8:return t===po?"StrictMode":"Mode";case 22:return"Offscreen";case 12:return"Profiler";case 21:return"Scope";case 13:return"Suspense";case 19:return"SuspenseList";case 25:return"TracingMarker";case 1:case 0:case 17:case 2:case 14:case 15:if(typeof t==="function")return t.displayName||t.name||null;if(typeof t==="string")return t}return null}function ft(e){switch(typeof e){case"boolean":case"number":case"string":case"undefined":return e;case"object":return e;default:return""}}function Ta(e){var t=e.type;return(e=e.nodeName)&&e.toLowerCase()==="input"&&(t==="checkbox"||t==="radio")}function kf(e){var t=Ta(e)?"checked":"value",n=Object.getOwnPropertyDescriptor(e.constructor.prototype,t),r=""+e[t];if(!e.hasOwnProperty(t)&&typeof n<"u"&&typeof n.get==="function"&&typeof n.set==="function"){var{get:l,set:i}=n;return Object.defineProperty(e,t,{configurable:!0,get:function(){return l.call(this)},set:function(o){r=""+o,i.call(this,o)}}),Object.defineProperty(e,t,{enumerable:n.enumerable}),{getValue:function(){return r},setValue:function(o){r=""+o},stopTracking:function(){e._valueTracker=null,delete e[t]}}}}function Sr(e){e._valueTracker||(e._valueTracker=kf(e))}function La(e){if(!e)return!1;var t=e._valueTracker;if(!t)return!0;var n=t.getValue(),r="";return e&&(r=Ta(e)?e.checked?"true":"false":e.value),e=r,e!==n?(t.setValue(e),!0):!1}function Xr(e){if(e=e||(typeof document<"u"?document:void 0),typeof e>"u")return null;try{return e.activeElement||e.body}catch(t){return e.body}}function ki(e,t){var n=t.checked;return V({},t,{defaultChecked:void 0,defaultValue:void 0,value:void 0,checked:n!=null?n:e._wrapperState.initialChecked})}function Eu(e,t){var n=t.defaultValue==null?"":t.defaultValue,r=t.checked!=null?t.checked:t.defaultChecked;n=ft(t.value!=null?t.value:n),e._wrapperState={initialChecked:r,initialValue:n,controlled:t.type==="checkbox"||t.type==="radio"?t.checked!=null:t.value!=null}}function Ra(e,t){t=t.checked,t!=null&&fo(e,"checked",t,!1)}function xi(e,t){Ra(e,t);var n=ft(t.value),r=t.type;if(n!=null)if(r==="number"){if(n===0&&e.value===""||e.value!=n)e.value=""+n}else e.value!==""+n&&(e.value=""+n);else if(r==="submit"||r==="reset"){e.removeAttribute("value");return}t.hasOwnProperty("value")?Si(e,t.type,n):t.hasOwnProperty("defaultValue")&&Si(e,t.type,ft(t.defaultValue)),t.checked==null&&t.defaultChecked!=null&&(e.defaultChecked=!!t.defaultChecked)}function Nu(e,t,n)
-`).replace(Pp,"")}function Lr(e,t,n){if(t=Ku(t),Ku(e)!==t&&n)throw Error(y(425))}function tl(){}function Vi(e,t){return e==="textarea"||e==="noscript"||typeof t.children==="string"||typeof t.children==="number"||typeof t.dangerouslySetInnerHTML==="object"&&t.dangerouslySetInnerHTML!==null&&t.dangerouslySetInnerHTML.__html!=null}function Rp(e){setTimeout(function(){throw e})}function ii(e,t){var n=t,r=0;do{var l=n.nextSibling;if(e.removeChild(n),l&&l.nodeType===8)if(n=l.data,n==="/$"){if(r===0){e.removeChild(l),Xn(t);return}r--}else n!=="$"&&n!=="$?"&&n!=="$!"||r++;n=l}while(n);Xn(t)}function ut(e){for(;e!=null;e=e.nextSibling){var t=e.nodeType;if(t===1||t===3)break;if(t===8){if(t=e.data,t==="$"||t==="$!"||t==="$?")break;if(t==="/$")return null}}return e}function Gu(e){e=e.previousSibling;for(var t=0;e;){if(e.nodeType===8){var n=e.data;if(n==="$"||n==="$!"||n==="$?"){if(t===0)return e;t--}else n==="/$"&&t++}e=e.previousSibling}return null}function Et(e){var t=e[Oe];if(t)return t;for(var n=e.parentNode;n;){if(t=n[Ke]||n[Oe]){if(n=t.alternate,t.child!==null||n!==null&&n.child!==null)for(e=Gu(e);e!==null;){if(n=e[Oe])return n;e=Gu(e)}return t}e=n,n=e.parentNode}return null}function ur(e){return e=e[Oe]||e[Ke],!e||e.tag!==5&&e.tag!==6&&e.tag!==13&&e.tag!==3?null:e}function Qt(e){if(e.tag===5||e.tag===6)return e.stateNode;throw Error(y(33))}function xl(e){return e[jn]||null}function ht(e){return{current:e}}function D(e){0>Yt||(e.current=Hi[Yt],Hi[Yt]=null,Yt--)}function M(e,t){Yt++,Hi[Yt]=e.current,e.current=t}function ln(e,t){var n=e.type.contextTypes;if(!n)return pt;var r=e.stateNode;if(r&&r.__reactInternalMemoizedUnmaskedChildContext===t)return r.__reactInternalMemoizedMaskedChildContext;var l={},i;for(i in n)l[i]=t[i];return r&&(e=e.stateNode,e.__reactInternalMemoizedUnmaskedChildContext=t,e.__reactInternalMemoizedMaskedChildContext=l),l}function de(e){return e=e.childContextTypes,e!==null&&e!==void 0}function nl(){D(ce),D(ne)}function Zu(e,t,n){if(ne.current!==pt)throw Error(y(168));M(ne,t),M(ce,n)}function ws(e,t,n){var r=e.stateNode;if(t=t.childContextTypes,typeof r.getChildContext!=="function")return n;r=r.getChildContext();for(var l in r)if(!(l in t))throw Error(y(108,wf(e)||"Unknown",l));return V({},n,r)}function rl(e){return e=(e=e.stateNode)&&e.__reactInternalMemoizedMergedChildContext||pt,Pt=ne.current,M(ne,e),M(ce,ce.current),!0}function Ju(e,t,n){var r=e.stateNode;if(!r)throw Error(y(169));n?(e=ws(e,t,Pt),r.__reactInternalMemoizedMergedChildContext=e,D(ce),D(ne),M(ne,e)):D(ce),M(ce,n)}function ks(e){Be===null?Be=[e]:Be.push(e)}function Dp(e){Sl=!0,ks(e)}function gt(){if(!oi&&Be!==null){oi=!0;var e=0,t=R;try{var n=Be;for(R=1;e<n.length;e++){var r=n[e];do r=r(!0);while(r!==null)}Be=null,Sl=!1}catch(l){throw Be!==null&&(Be=Be.slice(e+1)),Ya(vo,gt),l}finally{R=t,oi=!1}}return null}function xt(e,t){Kt[Xt++]=il,Kt[Xt++]=ll,ll=e,il=t}function xs(e,t,n){ye[we++]=$e,ye[we++]=He,ye[we++]=Tt,Tt=e;var r=$e;e=He;var l=32-Le(r)-1;r&=~(1<<l),n+=1;var i=32-Le(t)+l;if(30<i){var o=l-l%5;i=(r&(1<<o)-1).toString(32),r>>=o,l-=o,$e=1<<32-Le(t)+l|n<<l|r,He=i+e}else $e=1<<i|n<<l|r,He=e}function _o(e){e.return!==null&&(xt(e,1),xs(e,1,0))}function zo(e){for(;e===ll;)ll=Kt[--Xt],Kt[Xt]=null,il=Kt[--Xt],Kt[Xt]=null;for(;e===Tt;)Tt=ye[--we],ye[we]=null,He=ye[--we],ye[we]=null,$e=ye[--we],ye[we]=null}function Ss(e,t){var n=ke(5,null,null,0);n.elementType="DELETED",n.stateNode=t,n.return=e,t=e.deletions,t===null?(e.deletions=[n],e.flags|=16):t.push(n)}function qu(e,t){switch(e.tag){case 5:var n=e.type;return t=t.nodeType!==1||n.toLowerCase()!==t.nodeName.toLowerCase()?null:t,t!==null?(e.stateNode=t,he=e,me=ut(t.firstChild),!0):!1;case 6:return t=e.pendingProps===""||t.nodeType!==3?null:t,t!==null?(e.stateNode=t,he=e,me=null,!0):!1;case 13:return t=t.nodeType!==8?null:t,t!==null?(n=Tt!==null?{id:$e,overflow:He}:null,e.memoizedState={dehydrated:t,treeContext:n,retryLane:1073741824},n=ke(18,null,null,0),n.stateNode=t,n.return=e,e.child=n,he=e,me=null,!0):!1;default:return!1}}function Qi(e){return(e.mode&1)!==0&&(e.flags&128)===0}function Yi(e){
-Error generating stack: `+i.message+`
-`+i.stack}return{value:e,source:t,stack:l,digest:null}}function di(e,t,n){return{value:e,source:null,stack:n!=null?n:null,digest:t!=null?t:null}}function Zi(e,t){try{console.error(t.value)}catch(n){setTimeout(function(){throw n})}}function Zs(e,t,n){n=Qe(-1,n),n.tag=3,n.payload={element:null};var r=t.value;return n.callback=function(){pl||(pl=!0,io=r),Zi(e,t)},n}function Js(e,t,n){n=Qe(-1,n),n.tag=3;var r=e.type.getDerivedStateFromError;if(typeof r==="function"){var l=t.value;n.payload=function(){return r(l)},n.callback=function(){Zi(e,t)}}var i=e.stateNode;return i!==null&&typeof i.componentDidCatch==="function"&&(n.callback=function(){Zi(e,t),typeof r!=="function"&&(st===null?st=new Set([this]):st.add(this));var o=t.stack;this.componentDidCatch(t.value,{componentStack:o!==null?o:""})}),n}function oa(e,t,n){var r=e.pingCache;if(r===null){r=e.pingCache=new Hp;var l=new Set;r.set(t,l)}else l=r.get(t),l===void 0&&(l=new Set,r.set(t,l));l.has(n)||(l.add(n),e=r0.bind(null,e,t,n),t.then(e,e))}function ua(e){do{var t;if(t=e.tag===13)t=e.memoizedState,t=t!==null?t.dehydrated!==null?!0:!1:!0;if(t)return e;e=e.return}while(e!==null);return null}function aa(e,t,n,r,l){if((e.mode&1)===0)return e===t?e.flags|=65536:(e.flags|=128,n.flags|=131072,n.flags&=-52805,n.tag===1&&(n.alternate===null?n.tag=17:(t=Qe(-1,1),t.tag=2,at(n,t,1))),n.lanes|=1),e;return e.flags|=65536,e.lanes=l,e}function le(e,t,n,r){t.child=e===null?Cs(t,null,n,r):un(t,e.child,n,r)}function sa(e,t,n,r,l){n=n.render;var i=t.ref;if(tn(t,l),r=Ao(e,t,n,r,i,l),n=Wo(),e!==null&&!se)return t.updateQueue=e.updateQueue,t.flags&=-2053,e.lanes&=~l,Ge(e,t,l);return O&&n&&_o(t),t.flags|=1,le(e,t,r,l),t.child}function ca(e,t,n,r,l){if(e===null){var i=n.type;if(typeof i==="function"&&!Zo(i)&&i.defaultProps===void 0&&n.compare===null&&n.defaultProps===void 0)return t.tag=15,t.type=i,qs(e,t,i,r,l);return e=Kr(n.type,null,r,t,t.mode,l),e.ref=t.ref,e.return=t,t.child=e}if(i=e.child,(e.lanes&l)===0){var o=i.memoizedProps;if(n=n.compare,n=n!==null?n:Zn,n(o,r)&&e.ref===t.ref)return Ge(e,t,l)}return t.flags|=1,e=dt(i,r),e.ref=t.ref,e.return=t,t.child=e}function qs(e,t,n,r,l){if(e!==null){var i=e.memoizedProps;if(Zn(i,r)&&e.ref===t.ref)if(se=!1,t.pendingProps=r=i,(e.lanes&l)!==0)(e.flags&131072)!==0&&(se=!0);else return t.lanes=e.lanes,Ge(e,t,l)}return Ji(e,t,n,r,l)}function js(e,t,n){var r=t.pendingProps,l=r.children,i=e!==null?e.memoizedState:null;if(r.mode==="hidden")if((t.mode&1)===0)t.memoizedState={baseLanes:0,cachePool:null,transitions:null},M(Jt,pe),pe|=n;else{if((n&1073741824)===0)return e=i!==null?i.baseLanes|n:n,t.lanes=t.childLanes=1073741824,t.memoizedState={baseLanes:e,cachePool:null,transitions:null},t.updateQueue=null,M(Jt,pe),pe|=e,null;t.memoizedState={baseLanes:0,cachePool:null,transitions:null},r=i!==null?i.baseLanes:n,M(Jt,pe),pe|=r}else i!==null?(r=i.baseLanes|n,t.memoizedState=null):r=n,M(Jt,pe),pe|=r;return le(e,t,l,n),t.child}function bs(e,t){var n=t.ref;if(e===null&&n!==null||e!==null&&e.ref!==n)t.flags|=512,t.flags|=2097152}function Ji(e,t,n,r,l){var i=de(n)?Pt:ne.current;if(i=ln(t,i),tn(t,l),n=Ao(e,t,n,r,i,l),r=Wo(),e!==null&&!se)return t.updateQueue=e.updateQueue,t.flags&=-2053,e.lanes&=~l,Ge(e,t,l);return O&&r&&_o(t),t.flags|=1,le(e,t,n,l),t.child}function da(e,t,n,r,l){if(de(n)){var i=!0;rl(t)}else i=!1;if(tn(t,l),t.stateNode===null)Hr(e,t),Gs(t,n,r),Gi(t,n,r,l),r=!0;else if(e===null){var{stateNode:o,memoizedProps:u}=t;o.props=u;var a=o.context,c=n.contextType;typeof c==="object"&&c!==null?c=Se(c):(c=de(n)?Pt:ne.current,c=ln(t,c));var h=n.getDerivedStateFromProps,g=typeof h==="function"||typeof o.getSnapshotBeforeUpdate==="function";g||typeof o.UNSAFE_componentWillReceiveProps!=="function"&&typeof o.componentWillReceiveProps!=="function"||(u!==r||a!==c)&&ia(t,o,r,c),be=!1;var m=t.memoizedState;o.state=m,al(t,r,o,l),a=t.memoizedState,u!==r||m!==a||ce.current||be?(typeof h==="function"&&(Xi(t,n,h,r),a=t.memoizedState),(u=be||la(t,n,u,r,m,a,c))?(g||typeof o.UNSAFE_componentWillMount!=="function"&&typeof o.componentWillMount!=="function"||(typeof o.componentWillM
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
-        :root{
-          --navy:#050e2b;
-          --navy-2:#08163f;
-          --navy-3:#0a1d4d;
-          --gold:#f59e0b;
-          --gold-2:#fbbf24;
-          --pink:#d946ef;
-          --line:rgba(255,255,255,0.08);
-          --line-2:rgba(255,255,255,0.12);
-          --text: #eef2ff;
-          --muted: #94a3b8;
-          --muted-2:#64748b;
-        }
-        *{box-sizing:border-box}
-        html,body{margin:0; background:var(--navy)}
-        .milan-root{
-          min-height:100vh;
-          background: var(--navy);
-          font-family: 'Inter', system-ui, -apple-system, sans-serif;
-          color: var(--text);
-          position:relative;
-          overflow-x:hidden;
-          -webkit-font-smoothing:antialiased;
-        }
-        /* background mesh */
-        .bg-mesh{
-          position:fixed; inset:0; pointer-events:none; z-index:0;
-          background:
-            radial-gradient(900px 600px at 20% -10%, rgba(245,158,11,0.18), transparent 60%),
-            radial-gradient(800px 500px at 90% 10%, rgba(217,70,239,0.16), transparent 60%),
-            radial-gradient(1000px 700px at 50% 120%, rgba(14,165,233,0.12), transparent 70%),
-            radial-gradient(600px 400px at 0% 90%, rgba(245,158,11,0.08), transparent 60%);
-        }
-        .bg-grid{
-          position:fixed; inset:0; pointer-events:none; z-index:0; opacity:0.22;
-          background-image: linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
-          background-size: 72px 72px;
-          mask-image: radial-gradient(ellipse at center, black 40%, transparent 80%);
-        }
-        .bg-noise{
-          position:fixed; inset:0; pointer-events:none; z-index:1; opacity:0.035;
-          background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-        }
-        .orb{
-          position:absolute; border-radius:999px; filter: blur(40px); opacity:0.5; pointer-events:none;
-          animation: float 12s ease-in-out infinite;
-        }
-        .orb-1{ width:420px; height:420px; left:-80px; top:10%; background: radial-gradient(circle at 30% 30%, #fbbf24, #f59e0b 40%, #d946ef 85%); }
-        .orb-2{ width:360px; height:360px; right:-60px; top:22%; background: radial-gradient(circle at 30% 30%, #d946ef, #8b5cf6 70%); animation-delay:-4s }
-        .orb-3{ width:520px; height:520px; left:15%; bottom:-12%; background: radial-gradient(circle at 50% 50%, rgba(14,165,233,0.8), rgba(5,14,43,0)); animation-delay:-8s }
-        @keyframes float{ 0%,100%{ transform: translate3d(0,0,0) scale(1)} 50%{ transform: translate3d(0,-18px,0) scale(1.04)} }
 
-        /* top preview bar */
-        .preview-bar{
-          position:sticky; top:0; z-index:50;
-          display:flex; align-items:center; justify-content:space-between;
-          padding: 10px 18px;
-          background: rgba(5,14,43,0.72);
-          backdrop-filter: blur(20px) saturate(140%);
-          border-bottom: 1px solid var(--line);
-          font-size:12px; letter-spacing:0.02em;
-        }
-        .preview-brand{ display:flex; align-items:center; gap:10px; font-weight:700; }
-        .dot{ width:8px; height:8px; border-radius:99px; background:#22c55e; box-shadow:0 0 12px #22c55e; animation:pulse 2s infinite }
-        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.6}}
-        .preview-switch{ display:flex; background: rgba(255,255,255,0.06); border:1px solid var(--line); border-radius:999px; padding:3px; gap:3px }
-        .preview-btn{
-          padding:6px 14px; border-radius:999px; border:0; background:transparent; color:var(--muted);
-          font-size:12px; font-weight:600; cursor:pointer; transition: all .2s; letter-spacing:0.01em;
-        }
-        .preview-btn.active{ background:white; color:#050e2b; box-shadow: 0 2px 10px rgba(0,0,0,0.2) }
-        .preview-meta{ color:var(--muted-2); display:flex; gap:10px; align-items:center }
+<!-- SEO crawlable content (visually hidden, served to crawlers without JS) -->
+<noscript>
+  <div style="max-width:760px;margin:40px auto;font-family:system-ui,Arial,sans-serif;color:#0f172a;padding:20px">
+    <h2>MILAN — Decentralized Social Media</h2>
+    <p>MILAN is a privacy-first decentralized social network where you own your data, built on Decentralized Web Nodes (DWN) and Decentralized Identifiers (DID). Please enable JavaScript to use the app, or read more <a href="/about">about MILAN</a>.</p>
+  </div>
+</noscript>
 
-        /* app shell */
-        .shell{
-          position:relative; z-index:2;
-          display:flex; justify-content:center; padding: 18px 16px 28px;
-          min-height: calc(100vh - 48px);
-        }
-        .frame{
-          width:100%; max-width: 1280px; min-height: 720px;
-          display:grid; border-radius: 24px; overflow:hidden;
-          background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
-          border: 1px solid rgba(255,255,255,0.08);
-          box-shadow: 0 24px 80px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06);
-          transition: all .5s cubic-bezier(.2,.8,.2,1);
-        }
-        .frame.view-mobile{ max-width: 390px; min-height: 844px; border-radius: 40px; border-width:2px; }
-        .frame.view-tablet{ max-width: 820px; min-height: 700px; }
-        .frame.view-desktop{ max-width: 1220px; min-height: 740px; }
-
-        /* desktop traffic lights */
-        .titlebar{
-          display:none; height:36px; background: rgba(0,0,0,0.2); border-bottom:1px solid var(--line);
-          align-items:center; padding:0 14px; gap:8px; -webkit-app-region: drag;
-        }
-        .view-desktop .titlebar{ display:flex }
-        .traffic{ display:flex; gap:7px }
-        .traffic span{ width:12px; height:12px; border-radius:99px; display:block }
-        .traffic .r{ background:#ff5f56 } .traffic .y{ background:#ffbd2e } .traffic .g{ background:#27c93f }
-        .titlebar-title{ flex:1; text-align:center; font-size:11px; letter-spacing:0.18em; font-weight:600; color:var(--muted-2); text-transform:uppercase }
-
-        .layout{
-          display:grid; grid-template-columns: 1.15fr 0.85fr; min-height: 680px;
-        }
-        .view-tablet .layout{ grid-template-columns: 0.9fr 1.1fr }
-        .view-mobile .layout{ grid-template-columns: 1fr; }
-        
-        /* HERO */
-        .hero{
-          position:relative; padding: 42px 42px 28px;
-          display:flex; flex-direction:column; justify-content:space-between;
-          background:
-            radial-gradient(600px 400px at 30% 0%, rgba(251,191,36,0.14), transparent 60%),
-            linear-gradient(180deg, rgba(8,22,63,0.9), rgba(5,14,43,0.98));
-          overflow:hidden;
-        }
-        .view-mobile .hero{ padding: 22px 20px 18px; }
-        .view-tablet .hero{ padding: 28px 26px 20px; }
-        .hero-content{ position:relative; z-index:2 }
-        .eyebrow{
-          display:inline-flex; align-items:center; gap:8px;
-          font-size:11px; font-weight:700; letter-spacing:0.18em; text-transform:uppercase;
-          color: var(--gold-2); background: rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.22);
-          padding:6px 12px; border-radius:999px; margin-bottom:18px;
-        }
-        .hero-title{
-          font-family:'Space Grotesk', sans-serif;
-          font-weight:700; line-height:0.95; letter-spacing:-0.03em;
-          font-size: clamp(32px, 4.2vw, 60px);
-          margin:0 0 14px;
-        }
-        .view-mobile .hero-title{ font-size: 28px; line-height:1.05 }
-        .hero-title .accent{
-          background: linear-gradient(135deg, var(--gold) 10%, var(--gold-2) 45%, var(--pink) 95%);
-          -webkit-background-clip:text; background-clip:text; color:transparent;
-        }
-        .hero-sub{
-          font-family:'Space Grotesk', sans-serif;
-          font-size: clamp(16px, 1.6vw, 22px); font-weight:600; letter-spacing:-0.01em;
-          color: #cbd5e1; margin:0 0 14px;
-        }
-        .view-mobile .hero-sub{ font-size:15px }
-        .hero-desc{
-          font-size: 14.5px; line-height:1.6; color: #94a3b8; max-width: 48ch; margin:0 0 28px;
-        }
-        .view-mobile .hero-desc{ font-size:13px; margin-bottom:18px }
-        .hero-desc strong{ color:#e2e8f0; font-weight:600 }
-
-        .features{ display:grid; gap:14px; margin-top:8px }
-        .view-mobile .features{ display:flex; overflow:auto; gap:12px; padding-bottom:6px; scrollbar-width:none }
-        .view-mobile .features::-webkit-scrollbar{ display:none }
-        .f-item{
-          display:flex; gap:14px; padding:14px 14px;
-          background: rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.07);
-          border-radius:16px; backdrop-filter: blur(10px);
-        }
-        .view-mobile .f-item{ min-width: 240px; flex:0 0 auto }
-        .f-icon{
-          width:40px; height:40px; border-radius:12px; flex:0 0 40px;
-          display:grid; place-items:center;
-          background: linear-gradient(135deg, rgba(245,158,11,0.18), rgba(217,70,239,0.18));
-          border:1px solid rgba(255,255,255,0.08); font-size:18px;
-        }
-        .f-text h4{ margin:0 0 4px; font-size:13.5px; font-weight:700; letter-spacing:-0.01em; color:#e2e8f0 }
-        .f-text p{ margin:0; font-size:12.5px; line-height:1.5; color:#94a3b8 }
-
-        .security{
-          position:relative; z-index:2; margin-top:28px;
-          display:flex; gap:14px; align-items:flex-start;
-          padding:14px 14px; border-radius:14px;
-          background: rgba(5,14,43,0.6); border:1px solid rgba(255,255,255,0.06);
-        }
-        .view-mobile .security{ margin-top:18px; padding:10px 12px }
-        .sec-icon{ width:32px; height:32px; border-radius:999px; background: rgba(34,197,94,0.14); border:1px solid rgba(34,197,94,0.22); display:grid; place-items:center; font-size:14px; flex:0 0 32px }
-        .sec-text{ font-size:11.5px; line-height:1.5; color:#94a3b8 }
-        .sec-text strong{ color:#e2e8f0; font-weight:700; font-size:12px; display:block; margin-bottom:2px }
-
-        /* LOGIN CARD */
-        .card-wrap{
-          background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
-          backdrop-filter: blur(24px) saturate(140%);
-          padding: 36px 32px 24px;
-          display:flex; flex-direction:column; position:relative;
-        }
-        .view-mobile .card-wrap{
-          border-radius: 32px 32px 0 0; margin-top:-18px; padding: 26px 20px 22px;
-          box-shadow: 0 -12px 40px rgba(0,0,0,0.35);
-        }
-        .view-desktop .card-wrap{ padding: 40px 38px 26px }
-
-        .card-glow{
-          position:absolute; top:-60px; right:-60px; width:220px; height:220px; border-radius:999px;
-          background: radial-gradient(circle, rgba(251,191,36,0.22), transparent 70%); filter:blur(18px); pointer-events:none;
-        }
-
-        .logo-center{ display:flex; flex-direction:column; align-items:center; gap:10px; margin-bottom:18px; position:relative; z-index:1 }
-        .logo-circle{
-          width:72px; height:72px; border-radius:20px;
-          background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 50%, #d946ef 100%);
-          box-shadow: 0 8px 28px rgba(245,158,11,0.35), 0 0 0 1px rgba(245,158,11,0.25), inset 0 1px 0 rgba(255,255,255,0.6);
-          display:grid; place-items:center; font-family:'Space Grotesk'; font-weight:700; font-size:22px; color:#050e2b; letter-spacing:0.06em;
-          position:relative;
-        }
-        .logo-circle:after{
-          content:''; position:absolute; inset:-1px; border-radius:20px; padding:1px;
-          background: linear-gradient(135deg, rgba(255,255,255,0.8), rgba(255,255,255,0.1));
-          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-          -webkit-mask-composite: xor; mask-composite: exclude;
-        }
-        .milan-word{ font-family:'Space Grotesk'; font-weight:700; letter-spacing:0.18em; font-size:13px; color:#e2e8f0 }
-        .card-head h3{ margin:0; font-size:22px; font-weight:700; letter-spacing:-0.02em; text-align:center; font-family:'Space Grotesk' }
-        .card-head p{ margin:6px 0 18px; text-align:center; font-size:13px; color:var(--muted); }
-
-        .tabs{
-          display:flex; background: rgba(0,0,0,0.28); border:1px solid rgba(255,255,255,0.08);
-          border-radius: 999px; padding:4px; gap:4px; margin-bottom:20px;
-        }
-        .tab{
-          flex:1; height:36px; border-radius:999px; border:0; background:transparent; color:var(--muted);
-          font-weight:600; font-size:13px; cursor:pointer; transition:.2s; position:relative;
-        }
-        .tab.active{ background:white; color:#050e2b; box-shadow: 0 2px 12px rgba(0,0,0,0.18) }
-
-        .field{ margin-bottom:14px }
-        .label{ display:block; font-size:12px; font-weight:600; color:#cbd5e1; margin-bottom:7px; letter-spacing:0.01em }
-        .input-wrap{
-          position:relative; display:flex; align-items:center;
-          background: rgba(0,0,0,0.36); border:1px solid rgba(255,255,255,0.09);
-          border-radius:12px; height:46px; transition:.2s;
-        }
-        .input-wrap:focus-within{ border-color: rgba(245,158,11,0.55); box-shadow: 0 0 0 4px rgba(245,158,11,0.16), inset 0 1px 0 rgba(255,255,255,0.06); background: rgba(0,0,0,0.48) }
-        .input-wrap.error{ border-color: rgba(239,68,68,0.6); box-shadow: 0 0 0 4px rgba(239,68,68,0.15) }
-        .input-icon{ width:42px; display:grid; place-items:center; color:#64748b; flex:0 0 42px }
-        .input-field{
-          flex:1; height:100%; background:transparent; border:0; outline:0;
-          color:#e2e8f0; font-size:14px; font-weight:500; padding-right:12px;
-        }
-        .input-field::placeholder{ color:#475569 }
-        .eye{ width:42px; height:100%; border:0; background:transparent; color:#64748b; cursor:pointer; display:grid; place-items:center }
-        .eye:hover{ color:#cbd5e1 }
-
-        .row{ display:flex; align-items:center; justify-content:space-between; margin: 4px 0 18px; gap:12px }
-        .check{
-          display:flex; align-items:center; gap:8px; font-size:12.5px; color:#94a3b8; cursor:pointer; user-select:none;
-        }
-        .check input{ appearance:none; width:18px; height:18px; border-radius:5px; border:1.5px solid rgba(255,255,255,0.18); background: rgba(0,0,0,0.3); display:grid; place-items:center; cursor:pointer; transition:.15s }
-        .check input:checked{ background: var(--gold); border-color: var(--gold); }
-        .check input:checked:after{ content:'✓'; color:#050e2b; font-weight:900; font-size:11px; line-height:1 }
-        .forgot{ font-size:12.5px; color:#fbbf24; text-decoration:none; font-weight:600 }
-        .forgot:hover{ text-decoration:underline }
-
-        .btn-primary{
-          width:100%; height:48px; border-radius:12px; border:0; cursor:pointer;
-          background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 50%, #d946ef 100%);
-          color:#0a0a0a; font-weight:700; font-size:14px; letter-spacing:0.01em;
-          box-shadow: 0 8px 24px rgba(245,158,11,0.28), inset 0 1px 0 rgba(255,255,255,0.6);
-          transition: transform .15s, box-shadow .15s, filter .15s; position:relative; overflow:hidden;
-        }
-        .btn-primary:hover{ transform: translateY(-1px); box-shadow: 0 12px 32px rgba(245,158,11,0.36), inset 0 1px 0 rgba(255,255,255,0.7); filter: brightness(1.04) }
-        .btn-primary:active{ transform: translateY(0px) }
-        .btn-primary:disabled{ opacity:0.7; cursor:not-allowed; transform:none }
-        .shine{ position:absolute; inset:0; background: linear-gradient(105deg, transparent 20%, rgba(255,255,255,0.35) 40%, transparent 60%); transform: translateX(-120%); animation: shine 3.8s ease-in-out infinite }
-        @keyframes shine{ 0%{transform:translateX(-120%)} 55%{transform:translateX(120%)} 100%{transform:translateX(120%)} }
-
-        .err{ font-size:11.5px; color:#fca5a5; margin-top:6px; font-weight:500 }
-
-        .divider{ display:flex; align-items:center; gap:12px; margin:18px 0; color:#475569; font-size:11px; font-weight:700; letter-spacing:0.18em; text-transform:uppercase }
-        .divider:before,.divider:after{ content:''; flex:1; height:1px; background: rgba(255,255,255,0.08) }
-
-        .btn-did{
-          width:100%; height:46px; border-radius:12px; border:1px solid rgba(255,255,255,0.12);
-          background: rgba(255,255,255,0.04); color:#e2e8f0; font-weight:600; font-size:13.5px;
-          display:flex; align-items:center; justify-content:center; gap:10px; cursor:pointer; transition:.2s;
-        }
-        .btn-did:hover{ background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.18) }
-        .did-badge{ font-size:10px; font-weight:800; letter-spacing:0.08em; padding:4px 7px; border-radius:6px; background: white; color:#050e2b }
-
-        .bottom-link{ text-align:center; margin-top:18px; font-size:13px; color:var(--muted) }
-        .bottom-link a{ color:#fbbf24; font-weight:700; text-decoration:none; cursor:pointer }
-        .bottom-link a:hover{ text-decoration:underline }
-
-        .toast{
-          position:fixed; left:50%; bottom:22px; transform: translateX(-50%) translateY(20px);
-          background: rgba(15,23,42,0.92); border:1px solid rgba(255,255,255,0.12);
-          backdrop-filter: blur(20px); color:#e2e8f0; padding:12px 16px; border-radius:12px;
-          display:flex; align-items:center; gap:10px; font-size:13px; font-weight:600;
-          box-shadow: 0 12px 40px rgba(0,0,0,0.4); z-index:100; opacity:0; transition:.35s cubic-bezier(.2,.8,.2,1);
-          max-width: 92vw;
-        }
-        .toast.show{ opacity:1; transform: translateX(-50%) translateY(0) }
-        .toast-dot{ width:8px; height:8px; border-radius:99px; background:#22c55e; box-shadow:0 0 10px #22c55e }
-
-        /* loader */
-        .spin{ width:16px; height:16px; border:2px solid rgba(0,0,0,0.18); border-top-color:#0a0a0a; border-radius:999px; display:inline-block; animation: rot .7s linear infinite; vertical-align:middle; margin-right:6px }
-        @keyframes rot{ to{transform:rotate(360deg)} }
-
-        .sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0 }
-
-        /* animations */
-        .fade-in{ animation: fadeIn .5s ease both }
-        @keyframes fadeIn{ from{ opacity:0; transform: translateY(8px)} to{opacity:1; transform:translateY(0)} }
-      `}),p("div",{className:"bg-mesh"}),p("div",{className:"bg-grid"}),p("div",{className:"bg-noise"}),C("div",{className:"preview-bar",children:[C("div",{className:"preview-brand",children:[p("span",{style:{width:24,height:24,borderRadius:8,background:"linear-gradient(135deg,#f59e0b,#d946ef)",display:"grid",placeItems:"center",fontFamily:"Space Grotesk",fontWeight:700,fontSize:11,color:"#050e2b"},children:"M"}),p("span",{children:"MILAN • Preview:"}),p("span",{className:"dot"})]}),C("div",{className:"preview-switch",role:"tablist","aria-label":"Preview device",children:[p("button",{className:`preview-btn ${e==="mobile"?"active":""}`,onClick:()=>t("mobile"),children:"Mobile"}),p("button",{className:`preview-btn ${e==="tablet"?"active":""}`,onClick:()=>t("tablet"),children:"Tablet"}),p("button",{className:`preview-btn ${e==="desktop"?"active":""}`,onClick:()=>t("desktop"),children:"Desktop App"})]}),p("div",{className:"preview-meta hide-mobile",children:C("span",{style:{display:"flex",gap:6,alignItems:"center"},children:[p("span",{style:{width:8,height:8,borderRadius:99,background:"#f59e0b"}})," DWN • DID • Web5"]})})]}),p("div",{className:"shell",children:C("div",{className:`frame view-${e}`,children:[C("div",{className:"titlebar",style:{WebkitAppRegion:"drag"},children:[C("div",{className:"traffic",children:[p("span",{className:"r"}),p("span",{className:"y"}),p("span",{className:"g"})]}),p("div",{className:"titlebar-title",children:"MILAN — Decentralized Social • milanlife.in"}),p("div",{style:{width:48}})]}),C("div",{className:"layout",children:[C("div",{className:"hero",children:[p("div",{className:"orb orb-1"}),p("div",{className:"orb orb-2"}),p("div",{className:"orb orb-3"}),C("div",{className:"hero-content",children:[C("div",{className:"eyebrow",children:[p("span",{style:{width:6,height:6,borderRadius:99,background:"var(--gold-2)",boxShadow:"0 0 10px var(--gold-2)"}}),"Decentralized • Privacy-first • No ads"]}),C("h1",{className:"hero-title",children:["MILAN —",p("br",{}),"Decentralized",p("br",{}),p("span",{className:"accent",children:"Social Network"})]}),p("p",{className:"hero-sub",children:"Your Data. Your Privacy. Our Future."}),C("p",{className:"hero-desc",children:[p("strong",{children:"Your space. Your data. Your people."})," Join MILAN for free — a privacy-first social network with no ads, no tracking, and data you control."]}),C("div",{className:"features",children:[C("div",{className:"f-item",children:[p("div",{className:"f-icon",children:"\uD83C\uDFA7"}),C("div",{className:"f-text",children:[p("h4",{children:"Unlimited free music"}),p("p",{children:"Search & play any song — Bollywood, Hollywood, lo-fi — with no ads."})]})]}),C("div",{className:"f-item",children:[p("div",{className:"f-icon",children:"\uD83D\uDD12"}),C("div",{className:"f-text",children:[p("h4",{children:"Truly private"}),p("p",{children:"Your posts, chats and connections stay yours. Zero tracking."})]})]}),C("div",{className:"f-item",children:[p("div",{className:"f-icon",children:"◍"}),C("div",{className:"f-text",children:[p("h4",{children:"You own your data"}),p("p",{children:"Your own data node. Export or delete anytime — for real."})]})]})]})]}),C("div",{className:"security",children:[p("div",{className:"sec-icon",children:"\uD83D\uDEE1️"}),C("div",{className:"sec-text",children:[p("strong",{children:"No ads • No tracking • No data selling."}),"Free forever. Your data stays yours."]})]})]}),C("div",{className:"card-wrap",children:[p("div",{className:"card-glow"}),C("div",{className:"logo-center",children:[p("div",{className:"logo-circle",children:"M"}),p("div",{className:"milan-word",children:"MILAN"})]}),C("div",{className:"card-head",children:[p("h3",{children:"Login to your account"}),p("p",{children:"Enter your credentials to continue"})]}),C("div",{className:"tabs",role:"tablist",children:[p("button",{role:"tab","aria-selected":n==="login",className:`tab ${n==="login"?"active":""}`,onClick:()=>r("login"),children:"Login"}),p("button",{role:"tab","aria-selected":n==="register",className:`tab ${n==
-        @media (max-width: 768px){
-          .preview-meta{ display:none }
-          .hide-mobile{ display:none }
-          .preview-bar{ padding: 8px 12px }
-          .preview-btn{ padding:5px 10px; font-size:11px }
-          .shell{ padding: 10px 8px 16px }
-          .frame.view-mobile{ border-radius: 28px }
-        }
-      `})]})}$c.createRoot(document.getElementById("root")).render(p(Bc.default.StrictMode,{children:p(tu,{})}));
+<div id="root"></div>
+<script>
+(function () {
+  function renderMilanLogin() {
+    if (!window.React || !window.ReactDOM) {
+      console.error("MILAN React runtime unavailable");
+      return;
+    }
+    const html = atob("PGRpdiBjbGFzcz0ibWlsYW4tY29udGFpbmVyIj4KICA8IS0tIExFRlQgSEVSTyAoZXhhY3RseSBhcyBwZXIgaW1hZ2UpIC0tPgogIDxkaXYgY2xhc3M9Imhlcm8tcGFuZWwiPgogICAgPGRpdj4KICAgICAgPGgxIGNsYXNzPSJoZXJvLXRpdGxlIj5NSUxBTiDigJQgRGVjZW50cmFsaXplZCBTb2NpYWwgTmV0d29yazxicj48c3Bhbj5Zb3VyIERhdGEuIFlvdXIgUHJpdmFjeS4gT3VyIEZ1dHVyZS48L3NwYW4+PC9oMT4KICAgICAgPGRpdiBjbGFzcz0iYXV0aC12YWx1ZSI+PHN0cm9uZz5Zb3VyIHNwYWNlLiBZb3VyIGRhdGEuIFlvdXIgcGVvcGxlLjwvc3Ryb25nPjxzcGFuPkpvaW4gTUlMQU4gZm9yIGZyZWUg4oCUIGEgcHJpdmFjeS1maXJzdCBzb2NpYWwgbmV0d29yayB3aXRoIG5vIGFkcywgbm8gdHJhY2tpbmcsIGFuZCBkYXRhIHlvdSBjb250cm9sLjwvc3Bhbj48L2Rpdj4KCiAgICAgIDxkaXYgY2xhc3M9ImZlYXR1cmUtZ3JpZCI+CiAgICAgICAgPGRpdiBjbGFzcz0iZmVhdHVyZS1pdGVtIj4KICAgICAgICAgIDxkaXYgY2xhc3M9ImZlYXR1cmUtaWNvbiI+8J+OtTwvZGl2PgogICAgICAgICAgPGRpdiBjbGFzcz0iZmVhdHVyZS10ZXh0Ij48aDQ+VW5saW1pdGVkIGZyZWUgbXVzaWM8L2g0PjxwPlNlYXJjaCAmYW1wOyBwbGF5IGFueSBzb25nIOKAlCBCb2xseXdvb2QsIEhvbGx5d29vZCwgbG8tZmkg4oCUIHdpdGggbm8gYWRzLjwvcD48L2Rpdj4KICAgICAgICA8L2Rpdj4KICAgICAgICA8ZGl2IGNsYXNzPSJmZWF0dXJlLWl0ZW0iPgogICAgICAgICAgPGRpdiBjbGFzcz0iZmVhdHVyZS1pY29uIj7wn5SSPC9kaXY+CiAgICAgICAgICA8ZGl2IGNsYXNzPSJmZWF0dXJlLXRleHQiPjxoND5UcnVseSBwcml2YXRlPC9oND48cD5Zb3VyIHBvc3RzLCBjaGF0cyBhbmQgY29ubmVjdGlvbnMgc3RheSB5b3Vycy4gWmVybyB0cmFja2luZy48L3A+PC9kaXY+CiAgICAgICAgPC9kaXY+CiAgICAgICAgPGRpdiBjbGFzcz0iZmVhdHVyZS1pdGVtIj4KICAgICAgICAgIDxkaXYgY2xhc3M9ImZlYXR1cmUtaWNvbiI+8J+qqjwvZGl2PgogICAgICAgICAgPGRpdiBjbGFzcz0iZmVhdHVyZS10ZXh0Ij48aDQ+WW91IG93biB5b3VyIGRhdGE8L2g0PjxwPllvdXIgb3duIGRhdGEgbm9kZS4gRXhwb3J0IG9yIGRlbGV0ZSBhbnl0aW1lIOKAlCBmb3IgcmVhbC48L3A+PC9kaXY+CiAgICAgICAgPC9kaXY+CiAgICAgIDwvZGl2PgogICAgPC9kaXY+CgogICAgPGRpdiBjbGFzcz0ic2VjdXJpdHktZm9vdGVyIj4KICAgICAgICA8ZGl2PvCfm6HvuI88L2Rpdj4KICAgICAgICA8ZGl2PjxzdHJvbmc+Tm8gYWRzIMK3IE5vIHRyYWNraW5nIMK3IE5vIGRhdGEgc2VsbGluZy48L3N0cm9uZz48YnI+RnJlZSBmb3JldmVyLiBZb3VyIGRhdGEgc3RheXMgeW91cnMuPC9kaXY+CiAgICAgIDwvZGl2PgogIDwvZGl2PgoKICA8IS0tIFJJR0hUIExPR0lOIENBUkQgLS0+CiAgPGRpdiBjbGFzcz0ibG9naW4tY2FyZCI+CiAgICA8ZGl2IGNsYXNzPSJsb2dvLWNlbnRlciI+PGltZyBzcmM9Ii9hc3NldHMvbWlsYW4tbG9nby1jaXJjbGUucG5nIiBhbHQ9Ik1JTEFOIGxvZ28iIHdpZHRoPSI3MiIgaGVpZ2h0PSI3MiIgc3R5bGU9IndpZHRoOjcycHg7aGVpZ2h0OjcycHg7Ym9yZGVyLXJhZGl1czoyMHB4O21hcmdpbjowIGF1dG8gOHB4O2Rpc3BsYXk6YmxvY2s7Ym94LXNoYWRvdzowIDhweCAyOHB4IHJnYmEoMjQ1LDE1OCwxMSwuMzUpLDAgMCAwIDFweCByZ2JhKDI0NSwxNTgsMTEsLjI1KTsiPjxoMj5NSUxBTjwvaDI+PC9kaXY+CiAgICA8ZGl2IGNsYXNzPSJjYXJkLWhlYWRlciI+PGgzPkxvZ2luIHRvIHlvdXIgYWNjb3VudDwvaDM+PHA+RW50ZXIgeW91ciBjcmVkZW50aWFscyB0byBjb250aW51ZTwvcD48L2Rpdj4KCiAgICA8ZGl2IGNsYXNzPSJ0YWJzIj4KICAgICAgPGJ1dHRvbiBjbGFzcz0idGFiIGFjdGl2ZSIgZGF0YS1hdXRoPSJsb2dpbiI+TG9naW48L2J1dHRvbj4KICAgICAgPGJ1dHRvbiBjbGFzcz0idGFiIiBkYXRhLWF1dGg9InJlZ2lzdGVyIj5SZWdpc3RlcjwvYnV0dG9uPgogICAgPC9kaXY+CgogICAgPCEtLSBMT0dJTiBGT1JNIC0tPgogICAgPGRpdiBpZD0ibG9naW5Cb3giPgogICAgICA8ZGl2IGNsYXNzPSJpbnB1dC1ncm91cCI+CiAgICAgICAgPGxhYmVsIGNsYXNzPSJpbnB1dC1sYWJlbCI+RW1haWw8L2xhYmVsPgogICAgICAgIDxkaXYgY2xhc3M9ImlucHV0LXdyYXBwZXIiPgogICAgICAgICAgPHN2ZyBjbGFzcz0iaW5wdXQtaWNvbiIgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiB2aWV3Qm94PSIwIDAgMjQgMjQiIGZpbGw9Im5vbmUiIHN0cm9rZT0iY3VycmVudENvbG9yIiBzdHJva2Utd2lkdGg9IjEuNiI+PHJlY3QgeD0iMiIgeT0iNCIgd2lkdGg9IjIwIiBoZWlnaHQ9IjE2IiByeD0iMyIvPjxwYXRoIGQ9Ik0yIDhsMTAgNyAxMC03Ii8+PC9zdmc+CiAgICAgICAgICA8bGFiZWwgZm9yPSJsb2dpbkVtYWlsIiBjbGFzcz0ic3Itb25seSI+RW1haWwgYWRkcmVzczwvbGFiZWw+PGlucHV0IHR5cGU9ImVtYWlsIiBjbGFzcz0iaW5wdXQtZmllbGQiIGlkPSJsb2dpbkVtYWlsIiBwbGFjZWhvbGRlcj0iRW50ZXIgeW91ciBlbWFpbCIgYXV0b2NvbXBsZXRlPSJlbWFpbCI+CiAgICAgICAgPC9kaXY+CiAgICAgIDwvZGl2PgogICAgICA8ZGl2IGNsYXNzPSJpbnB1dC1ncm91cCI+CiAgICAgICAgPGxhYmVsIGNsYXNzPSJpbnB1dC1sYWJlbCI+UGFzc3dvcmQ8L2xhYmVsPgogICAgICAgIDxkaXYgY2xhc3M9ImlucHV0LXdyYXBwZXIiPgogICAgICAgICAgPHN2ZyBjbGFzcz0iaW5wdXQtaWNvbiIgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiB2aWV3Qm94PSIwIDAgMjQgMjQiIGZpbGw9Im5vbmUiIHN0cm9rZT0iY3VycmVudENvbG9yIiBzdHJva2Utd2lkdGg9IjEuNiI+PHJlY3QgeD0iMyIgeT0iMTEiIHdpZHRoPSIxOCIgaGVpZ2h0PSIxMSIgcng9IjIiLz48cGF0aCBkPSJNNyAxMVY3YTUgNSAwIDAgMSAxMCAwdjQiLz48L3N2Zz4KICAgICAgICAgIDxpbnB1dCB0eXBlPSJwYXNzd29yZCIgY2xhc3M9ImlucHV0LWZpZWxkIiBpZD0ibG9naW5QYXNzIiBwbGFjZWhvbGRlcj0iRW50ZXIgeW91ciBwYXNzd29yZCIgYXV0b2NvbXBsZXRlPSJjdXJyZW50LXBhc3N3b3JkIj4KICAgICAgICAgIDxidXR0b24gdHlwZT0iYnV0dG9uIiBjbGFzcz0iZXllLWJ0biIgaWQ9InRvZ2dsZVBhc3N3b3JkQnRuIj7wn5GB77iPPC9idXR0b24+CiAgICAgICAgPC9kaXY+CiAgICAgIDwvZGl2PgogICAgICA8ZGl2IGNsYXNzPSJvcHRpb25zLXJvdyI+CiAgICAgICAgPGxhYmVsIGNsYXNzPSJjaGVja2JveCI+PGlucHV0IHR5cGU9ImNoZWNrYm94IiBjaGVja2VkIGlkPSJyZW1lbWJlck1lQ2hlY2tib3giPiBSZW1lbWJlciBtZTwvbGFiZWw+CiAgICAgICAgPGEgaHJlZj0iL3Jlc2V0LXBhc3N3b3JkIiBjbGFzcz0iZm9yZ290LWxpbmsiIGlkPSJmb3Jnb3RQYXNzd29yZExpbmsiPkZvcmdvdCBwYXNzd29yZD88L2E+CiAgICAgIDwvZGl2PgogICAgICA8YnV0dG9uIGNsYXNzPSJsb2dpbi1idXR0b24iIGlkPSJsb2dpbkJ0biI+TG9naW4g4oaSPC9idXR0b24+CiAgICA8L2Rpdj4KCiAgICA8IS0tIFJFR0lTVEVSIEZPUk0gLS0+CiAgICA8ZGl2IGlkPSJyZWdpc3RlckJveCIgY2xhc3M9ImhpZGRlbiI+CiAgICAgIDxkaXYgY2xhc3M9ImlucHV0LWdyb3VwIj4KICAgICAgICA8bGFiZWwgY2xhc3M9ImlucHV0LWxhYmVsIj5GdWxsIE5hbWU8L2xhYmVsPgogICAgICAgIDxkaXYgY2xhc3M9ImlucHV0LXdyYXBwZXIiPgogICAgICAgICAgPHN2ZyBjbGFzcz0iaW5wdXQtaWNvbiIgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiB2aWV3Qm94PSIwIDAgMjQgMjQiIGZpbGw9Im5vbmUiIHN0cm9rZT0iY3VycmVudENvbG9yIj48Y2lyY2xlIGN4PSIxMiIgY3k9IjgiIHI9IjQiLz48cGF0aCBkPSJNNCAyMGMwLTQgMy42LTcgOC03czggMyA4IDciLz48L3N2Zz4KICAgICAgICAgIDxsYWJlbCBmb3I9InJlZ05hbWUiIGNsYXNzPSJzci1vbmx5Ij5GdWxsIG5hbWU8L2xhYmVsPjxpbnB1dCB0eXBlPSJ0ZXh0IiBjbGFzcz0iaW5wdXQtZmllbGQiIGlkPSJyZWdOYW1lIiBwbGFjZWhvbGRlcj0iWW91ciBmdWxsIG5hbWUiPgogICAgICAgIDwvZGl2PgogICAgICA8L2Rpdj4KICAgICAgPGRpdiBjbGFzcz0iaW5wdXQtZ3JvdXAiPgogICAgICAgIDxsYWJlbCBjbGFzcz0iaW5wdXQtbGFiZWwiPkVtYWlsPC9sYWJlbD4KICAgICAgICA8ZGl2IGNsYXNzPSJpbnB1dC13cmFwcGVyIj4KICAgICAgICAgIDxzdmcgY2xhc3M9ImlucHV0LWljb24iIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciI+PHJlY3QgeD0iMiIgeT0iNCIgd2lkdGg9IjIwIiBoZWlnaHQ9IjE2IiByeD0iMyIvPjxwYXRoIGQ9Ik0yIDhsMTAgNyAxMC03Ii8+PC9zdmc+CiAgICAgICAgICA8bGFiZWwgZm9yPSJyZWdFbWFpbCIgY2xhc3M9InNyLW9ubHkiPkVtYWlsIGFkZHJlc3M8L2xhYmVsPjxpbnB1dCB0eXBlPSJlbWFpbCIgY2xhc3M9ImlucHV0LWZpZWxkIiBpZD0icmVnRW1haWwiIHBsYWNlaG9sZGVyPSJZb3VyIGVtYWlsIGFkZHJlc3MiPgogICAgICAgIDwvZGl2PgogICAgICA8L2Rpdj4KICAgICAgPGRpdiBjbGFzcz0iaW5wdXQtZ3JvdXAiPgogICAgICAgIDxsYWJlbCBjbGFzcz0iaW5wdXQtbGFiZWwiPlBhc3N3b3JkPC9sYWJlbD4KICAgICAgICA8ZGl2IGNsYXNzPSJpbnB1dC13cmFwcGVyIj4KICAgICAgICAgIDxzdmcgY2xhc3M9ImlucHV0LWljb24iIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciI+PHJlY3QgeD0iMyIgeT0iMTEiIHdpZHRoPSIxOCIgaGVpZ2h0PSIxMSIgcng9IjIiLz48cGF0aCBkPSJNNyAxMVY3YTUgNSAwIDAgMSAxMCAwdjQiLz48L3N2Zz4KICAgICAgICAgIDxpbnB1dCB0eXBlPSJwYXNzd29yZCIgY2xhc3M9ImlucHV0LWZpZWxkIiBpZD0icmVnUGFzcyIgcGxhY2Vob2xkZXI9IkNyZWF0ZSBhIHN0cm9uZyBwYXNzd29yZCI+CiAgICAgICAgPC9kaXY+CiAgICAgIDwvZGl2PgogICAgICA8YnV0dG9uIGNsYXNzPSJsb2dpbi1idXR0b24iIGlkPSJyZWdpc3RlckJ0biIgc3R5bGU9ImJhY2tncm91bmQ6IGxpbmVhci1ncmFkaWVudCgxMzVkZWcsICNmNTllMGIgMCUsICNmYmJmMjQgNTAlLCAjZDk0NmVmIDEwMCUpOyI+Q3JlYXRlIG15IE1JTEFOIHNwYWNlPC9idXR0b24+CiAgICA8L2Rpdj4KCiAgICA8ZGl2IGlkPSJhdXRoTXNnIiBjbGFzcz0iYXV0aC1tc2ciPjwvZGl2PgogICAgPGRpdiBjbGFzcz0iZGl2aWRlciI+T1I8L2Rpdj4KICAgIDxidXR0b24gY2xhc3M9ImRpZC1idXR0b24iIGlkPSJkaWRMb2dpbkJ0biI+PHNwYW4gY2xhc3M9ImRpZC1iYWRnZSI+ZGlkPC9zcGFuPiBTaWduIHdpdGggSUQzPC9idXR0b24+CiAgICA8ZGl2IGNsYXNzPSJyZWdpc3Rlci1saW5rIj5Eb24ndCBoYXZlIGFuIGFjY291bnQ/IDxhIGlkPSJzd2l0Y2hUb1JlZ2lzdGVyIiBocmVmPSIjIj5SZWdpc3RlcjwvYT48L2Rpdj4KICA8L2Rpdj4KPC9kaXY+");
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(
+      React.createElement("div", {
+        dangerouslySetInnerHTML: { __html: html }
+      })
+    );
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", renderMilanLogin, { once: true });
+  } else {
+    renderMilanLogin();
+  }
+})();
 </script>
-  <script>(function(){function m(a){var h=a.getAttribute("href");if(!h)return;try{var u=new URL(h,document.baseURI);if((u.protocol==="http:"||u.protocol==="https:")&&u.host!==location.host){a.target="_blank";a.rel="noopener noreferrer";}}catch(e){}}function s(){document.querySelectorAll("a[href]").forEach(m);}if(document.readyState!=="loading"){s();}else{document.addEventListener("DOMContentLoaded",s);}document.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(a){m(a);}},true);})();</script>
-  
+
+<!-- MILAN V2 ADVANCED — Login Page Enhancements -->
+
+
+<script src="/milan-creative-mode.js" defer></script>
+<script>
+window.addEventListener("DOMContentLoaded", function () {
+  window.__milanAppReady = true;
+  window.dispatchEvent(new CustomEvent("milan:app-ready"));
+}, { once: true });
+</script>
+<script src="/milan-core.js" defer></script>
+<script src="/milan-polish.js" defer></script>
+
+<script src="/assets/login.js" defer></script>
+<script src="/assets/js/login-actions.js" defer></script>
+
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 </body>
 </html>
