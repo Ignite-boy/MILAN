@@ -3315,6 +3315,57 @@ document.addEventListener("DOMContentLoaded", function () {
 })();
 </script>
 
+
+<script id="milan-canonical-profile-name-v2">
+(() => {
+  async function fixCanonicalName() {
+    const el = document.getElementById("myName");
+    const token =
+      localStorage.getItem("milan_token") ||
+      localStorage.getItem("milanToken") || "";
+
+    if (!el || !token) return;
+
+    try {
+      const headers = { Authorization: "Bearer " + token };
+      const [a, b] = await Promise.all([
+        fetch("/api/profile", { headers, cache: "no-store" }),
+        fetch("/api/auth/me", { headers, cache: "no-store" })
+      ]);
+
+      const profile = a.ok ? await a.json().catch(() => ({})) : {};
+      const me = b.ok ? await b.json().catch(() => ({})) : {};
+      const user = me?.user || me?.data?.user || me?.data || me || {};
+
+      const name = String(
+        profile?.display_name ||
+        profile?.name ||
+        profile?.username ||
+        user?.display_name ||
+        user?.name ||
+        user?.username ||
+        ""
+      ).trim();
+
+      if (name) {
+        el.textContent = name;
+        el.dataset.canonicalName = "1";
+      }
+    } catch (_) {}
+  }
+
+  fixCanonicalName();
+  setTimeout(fixCanonicalName, 1000);
+  setTimeout(fixCanonicalName, 3000);
+  setInterval(fixCanonicalName, 5000);
+
+  new MutationObserver(() => {
+    const el = document.getElementById("myName");
+    if (el?.dataset.canonicalName !== "1") fixCanonicalName();
+  }).observe(document.body, { childList: true, subtree: true, characterData: true });
+})();
+</script>
+
 </body>
 </html>
 
