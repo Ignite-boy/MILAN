@@ -2,54 +2,51 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MILAN — No Scroll Desktop</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Syne:wght@700;800&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<title>MILAN — Login + Register</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100vh;overflow:hidden;background:#060608;color:#fff;font-family:'Inter',sans-serif}
-.grid{position:fixed;inset:0;background-image:linear-gradient(rgba(255,255,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.02) 1px,transparent 1px);background-size:40px 40px;mask-image:radial-gradient(ellipse at center,black 50%,transparent 85%);pointer-events:none}
-.orb{position:fixed;border-radius:50%;filter:blur(110px);pointer-events:none}
-.o1{width:800px;height:800px;background:radial-gradient(circle,#2a1f5a,transparent 70%);top:-200px;left:-200px;opacity:0.6}
-.o2{width:700px;height:700px;background:radial-gradient(circle,#4a2040,transparent 70%);right:-10%;top:5%;opacity:0.45}
-.topnav{height:52px;display:flex;justify-content:space-between;align-items:center;padding:0 28px;background:rgba(6,6,8,0.8);backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,0.06);position:relative;z-index:10}
-.desktop{height:calc(100vh - 52px);max-width:1440px;margin:0 auto;display:grid;grid-template-columns:1.1fr 0.9fr;position:relative;z-index:1}
-.left{padding:18px 36px 12px 24px;display:flex;flex-direction:column;justify-content:center;gap:14px}
-.badge{padding:5px 12px;border-radius:20px;background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.2);font-size:10px;color:#c4b5fd;width:fit-content}
-.hero h1{font-family:'Syne',sans-serif;font-size:58px;line-height:0.88;letter-spacing:-2.5px;font-weight:800}
+.topnav{height:52px;display:flex;justify-content:space-between;align-items:center;padding:0 28px;background:rgba(6,6,8,0.8);backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,0.06)}
+.desktop{height:calc(100vh - 52px);max-width:1440px;margin:0 auto;display:grid;grid-template-columns:1.1fr 0.9fr}
+.left{padding:20px 36px 12px 24px;display:flex;flex-direction:column;justify-content:center;gap:12px}
+.hero h1{font-family:'Syne',sans-serif;font-size:56px;line-height:0.88;letter-spacing:-2.5px;font-weight:800}
 .grad{background:linear-gradient(90deg,#a78bfa,#f472b6,#fb7185);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.hero p{margin-top:10px;font-size:14px;color:#a1a1aa;max-width:420px;line-height:1.5}
-.bento{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:440px;margin-top:4px}
-.b{padding:10px 12px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)}
-.b b{font-size:12px}.b span{font-size:11px;color:#71717a;display:block;margin-top:2px}
+.bento{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:440px}
+.b{padding:10px 12px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);font-size:12px}
 .right{display:flex;align-items:center;justify-content:center;padding:12px 24px}
-.card{width:100%;max-width:380px;background:linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02));border:1px solid rgba(255,255,255,0.1);border-radius:24px;padding:24px;backdrop-filter:blur(24px);box-shadow:0 30px 80px rgba(0,0,0,0.6)}
+.card{width:100%;max-width:400px;background:linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02));border:1px solid rgba(255,255,255,0.1);border-radius:24px;padding:22px;backdrop-filter:blur(24px);box-shadow:0 30px 80px rgba(0,0,0,0.6)}
+.tabs{display:flex;gap:4px;padding:4px;background:rgba(0,0,0,0.5);border-radius:10px;margin-bottom:16px}
+.tab{flex:1;padding:8px;border-radius:8px;font-size:12px;font-weight:700;text-align:center;cursor:pointer;color:#71717a}
+.tab.active{background:white;color:black}
 .label{font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#5a5a66;font-weight:700;margin-bottom:4px}
-.input{width:100%;padding:11px 12px;border-radius:10px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.1);color:white;font-size:13px;outline:none}
+.input{width:100%;padding:11px 12px;border-radius:10px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.1);color:white;font-size:13px;outline:none;margin-bottom:8px}
 .input:focus{border-color:#a78bfa}
-.btn{width:100%;padding:11px;border-radius:10px;background:white;color:black;font-weight:800;font-size:13px;border:none;cursor:pointer;margin-top:2px}
-.meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-.meta span{font-size:9px;font-family:'JetBrains Mono',monospace;padding:3px 6px;border-radius:5px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.06);color:#71717a}
+.btn{width:100%;padding:11px;border-radius:10px;background:white;color:black;font-weight:800;font-size:13px;border:none;cursor:pointer}
+.btn2{width:100%;padding:11px;border-radius:10px;background:rgba(255,255,255,0.06);color:white;border:1px solid rgba(255,255,255,0.1);font-weight:700;font-size:13px;cursor:pointer}
+.hidden{display:none}
 </style>
 </head>
 <body>
-<div class="grid"></div><div class="orb o1"></div><div class="orb o2"></div>
-<div class="topnav"><div style="display:flex;gap:24px;align-items:center"><div style="font-family:'Syne';font-weight:800;font-size:20px;display:flex;gap:8px;align-items:center"><div style="width:7px;height:7px;background:#a78bfa;border-radius:50%;box-shadow:0 0 12px #a78bfa"></div>MILAN</div><div style="display:flex;gap:18px;font-size:12px;color:#8a8a96"><span>Features</span><span>DID</span><span>DWN</span></div></div><div style="font-size:10px;font-family:'JetBrains Mono';color:#9f9fa9;display:flex;gap:8px;align-items:center"><div style="width:5px;height:5px;background:#22c55e;border-radius:50%"></div>dwn.milanlife.in • 200 OK</div></div>
+<div class="topnav"><div style="font-weight:800;font-family:'Syne';display:flex;gap:8px;align-items:center"><div style="width:7px;height:7px;background:#a78bfa;border-radius:50%"></div>MILAN</div><div style="font-size:10px;color:#9f9fa9">dwn.milanlife.in • 200 OK • No Scroll</div></div>
 <div class="desktop">
 <div class="left">
-<div class="badge">✦ One User = One DID = One DWN</div>
-<div class="hero"><h1>Your Space.<br>Your People.<br><span class="grad">Owned by you.</span></h1><p>Privacy-first Web5 social — no ads, no tracking, no phone. Whole page fits in one viewport, no scroll.</p></div>
-<div class="bento"><div class="b"><b>🔐 DID Identity</b><span>Self-sovereign, did:dht:...</span></div><div class="b"><b>🗄️ DWN Vault</b><span>PostgreSQL isolated</span></div><div class="b"><b>⚡ Web5 Native</b><span>e2e encrypted</span></div><div class="b"><b>🎨 Desktop 1440p</b><span>No scroll, 100vh fit</span></div></div>
+<div style="font-size:10px;padding:5px 12px;border-radius:20px;background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.2);color:#c4b5fd;width:fit-content">✦ One DID = One DWN Space</div>
+<div class="hero"><h1>Your Space.<br>Your People.<br><span class="grad">Owned by you.</span></h1><p style="margin-top:10px;font-size:14px;color:#a1a1aa;max-width:420px">Whole page in one viewport — Login + Register TOP card.</p></div>
+<div class="bento"><div class="b">🔐 DID Identity</div><div class="b">🗄️ DWN Vault</div><div class="b">⚡ Web5 Native</div><div class="b">🚀 100vh No Scroll</div></div>
 </div>
 <div class="right">
 <div class="card">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><h2 style="font-size:18px;font-weight:700">Welcome back</h2><div style="font-size:10px;padding:4px 8px;border-radius:8px;background:white;color:black;font-weight:700">Sign in</div></div>
-<form id="f" style="display:flex;flex-direction:column;gap:10px"><div><div class="label">Email or DID</div><input id="email" class="input" placeholder="you@milan.life" required></div><div><div class="label">Password</div><input id="password" class="input" type="password" placeholder="••••••••" required></div><button class="btn" id="b" type="submit">Sign in →</button></form>
-<div class="meta"><span>DID: demo</span><span>DWN: PG</span><span>UI: no-scroll</span><span>100vh</span></div>
+<div class="tabs"><div id="t1" class="tab active" onclick="switchTab('login')">Sign in</div><div id="t2" class="tab" onclick="switchTab('register')">Register</div></div>
+<form id="loginForm" style="display:flex;flex-direction:column"><div class="label">Email or DID</div><input id="email" class="input" placeholder="you@milan.life" required><div class="label">Password</div><input id="password" class="input" type="password" placeholder="••••••••" required><button class="btn" type="submit">Sign in →</button><div style="margin-top:8px;text-align:center;font-size:11px;color:#71717a">No account? <span style="color:white;cursor:pointer" onclick="switchTab('register')">Create DID</span></div></form>
+<form id="registerForm" class="hidden" style="display:flex;flex-direction:column"><div class="label">Full Name</div><input id="rname" class="input" placeholder="Satoshi" required><div class="label">Email</div><input id="remail" class="input" placeholder="you@milan.life" required><div class="label">Password</div><input id="rpass" class="input" type="password" placeholder="••••••••" required><div class="label">Confirm Password</div><input id="rcpass" class="input" type="password" placeholder="••••••••" required><button class="btn" type="submit">Create DID →</button><div style="margin-top:8px;text-align:center;font-size:11px;color:#71717a">Already have DID? <span style="color:white;cursor:pointer" onclick="switchTab('login')">Sign in</span></div></form>
 </div>
 </div>
 </div>
 <script>
-document.getElementById('f').addEventListener('submit',async(e)=>{e.preventDefault();const btn=document.getElementById('b');btn.textContent='Signing...';const email=document.getElementById('email').value;localStorage.setItem('milan_user',JSON.stringify({email,did:'did:dht:demo'}));location.href='app.html';});
+function switchTab(t){document.getElementById('loginForm').classList.toggle('hidden',t!=='login');document.getElementById('registerForm').classList.toggle('hidden',t!=='register');document.getElementById('t1').classList.toggle('active',t==='login');document.getElementById('t2').classList.toggle('active',t==='register');}
+document.getElementById('loginForm').addEventListener('submit',async(e)=>{e.preventDefault();const email=document.getElementById('email').value;localStorage.setItem('milan_user',JSON.stringify({email,did:'did:dht:demo'}));location.href='app.html';});
+document.getElementById('registerForm').addEventListener('submit',async(e)=>{e.preventDefault();const name=document.getElementById('rname').value;const email=document.getElementById('remail').value;const pass=document.getElementById('rpass').value;const cpass=document.getElementById('rcpass').value;if(pass!==cpass){alert('Passwords not match');return;}try{const r=await fetch('http://localhost:5000/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,email,password:pass})});const d=await r.json();localStorage.setItem('milan_user',JSON.stringify(d.user||{email,name,did:'did:dht:'+Date.now()}));location.href='app.html';}catch{localStorage.setItem('milan_user',JSON.stringify({email,name,did:'did:dht:'+Date.now()}));location.href='app.html';}});
 </script>
 </body>
 </html>
