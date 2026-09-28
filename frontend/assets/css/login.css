@@ -846,3 +846,63 @@ body{
     padding-right:15px !important;
   }
 }
+
+
+/* =========================================================
+   MILAN — WINDOWS CHROME DESKTOP
+   100% VIEWPORT / NO SCROLL / SINGLE AUTHORITATIVE BLOCK
+   ========================================================= */
+
+@media (min-width:1101px){
+  html,
+  body{
+    width:100%;
+    height:100%;
+    min-width:0;
+    min-height:0;
+    margin:0 !important;
+    padding:0 !important;
+    overflow:hidden !important;
+    overflow-x:hidden !important;
+    overflow-y:hidden !important;
+  }
+
+  #root{
+    width:100vw !important;
+    height:100vh !important;
+    min-width:0 !important;
+    min-height:0 !important;
+    margin:0 !important;
+    padding:12px !important;
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    overflow:hidden !important;
+  }
+
+  .milan-container{
+    width:100% !important;
+    height:100% !important;
+    max-width:none !important;
+    max-height:none !important;
+    min-width:0 !important;
+    min-height:0 !important;
+    margin:0 !important;
+    padding:12px !important;
+    overflow:hidden !important;
+    display:grid !important;
+    grid-template-columns:minmax(0,1.2fr) minmax(430px,.8fr) !important;
+    gap:20px !important;
+  }
+
+  .hero-panel,
+  .login-card{
+    width:100% !important;
+    height:100% !important;
+    min-width:0 !important;
+    min-height:0 !important;
+    max-width:100% !important;
+    max-height:100% !important;
+    overflow:hidden !important;
+  }
+}
