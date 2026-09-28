@@ -3,117 +3,107 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MILAN — Your Space. Your People.</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Syne:wght@600;700&display=swap" rel="stylesheet">
+<title>MILAN — Your Space. Your People. — Desktop</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Syne:wght@700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#070708;--panel:#101012;--border:rgba(255,255,255,0.08);--muted:#9f9fa9;--dim:#5a5a66}
-body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:white;min-height:100vh;overflow-x:hidden}
-.bg-orb{position:fixed;pointer-events:none;border-radius:50%;filter:blur(90px);opacity:0.6}
-.orb1{width:900px;height:900px;background:radial-gradient(circle,#2a1f5a 0%,transparent 70%);top:-200px;left:-200px}
-.orb2{width:800px;height:800px;background:radial-gradient(circle,#3a2347 0%,transparent 70%);bottom:-200px;right:-10%;}
-.orb3{width:600px;height:600px;background:radial-gradient(circle,#1a2a4a 0%,transparent 70%);top:40%;left:50%}
-.app{position:relative;min-height:100vh;display:flex;z-index:1}
-.left{flex:1.15;background:linear-gradient(180deg,rgba(16,16,18,0.8) 0%,rgba(7,7,8,0.9) 100%);border-right:1px solid var(--border);padding:48px 56px;display:flex;flex-direction:column;justify-content:space-between}
-.logo{font-family:'Syne',sans-serif;font-weight:800;font-size:38px;letter-spacing:-1.5px;display:flex;align-items:center;gap:12px}
-.logo-dot{width:10px;height:10px;background:#a78bfa;border-radius:50%;box-shadow:0 0 20px #a78bfa}
-.tagline{margin-top:6px;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--dim)}
-.hero{margin-top:72px}
-.hero h1{font-family:'Syne',sans-serif;font-size:64px;line-height:0.92;letter-spacing:-2.5px;font-weight:800}
-.hero h1 span.gradient{background:linear-gradient(90deg,#a78bfa 0%,#f472b6 50%,#fb7185 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.hero p{margin-top:18px;color:var(--muted);font-size:16px;line-height:1.6;max-width:400px}
-.features{margin-top:56px;display:flex;flex-direction:column;gap:18px}
-.feat{display:flex;gap:14px;align-items:flex-start;padding:14px 16px;border-radius:16px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04)}
-.feat-icon{width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,0.06);display:grid;place-items:center;font-size:18px;flex-shrink:0}
-.feat b{font-size:13px;font-weight:600}
-.feat span{font-size:12px;color:var(--muted);display:block;margin-top:2px}
-.right{flex:0.85;display:grid;place-items:center;padding:40px;background:#0c0c0d;position:relative}
-.login-card{width:100%;max-width:380px;background:linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02));border:1px solid var(--border);border-radius:28px;padding:32px;backdrop-filter:blur(24px);box-shadow:0 30px 80px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.08)}
-.card-head h2{font-size:24px;font-weight:700;letter-spacing:-0.5px}
-.card-head p{margin-top:6px;font-size:13px;color:var(--muted)}
-.form{margin-top:28px;display:flex;flex-direction:column;gap:16px}
-.label{font-size:11px;letter-spacing:0.8px;text-transform:uppercase;color:var(--dim);font-weight:600}
-.input{width:100%;margin-top:6px;padding:13px 14px;border-radius:12px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.1);color:white;font-size:14px;outline:none;transition:0.2s}
-.input:focus{border-color:#a78bfa;box-shadow:0 0 0 3px rgba(167,139,250,0.15)}
-.btn{margin-top:8px;width:100%;padding:13px;border-radius:12px;background:white;color:black;font-weight:700;font-size:14px;border:none;cursor:pointer;transition:0.2s}
-.btn:hover{transform:translateY(-1px);box-shadow:0 10px 30px rgba(255,255,255,0.15)}
-.btn:disabled{opacity:0.6;cursor:not-allowed}
-.divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--dim);font-size:11px;letter-spacing:1px;text-transform:uppercase}
-.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
-.links{display:flex;justify-content:space-between;font-size:12px}
-.links a{color:var(--muted);text-decoration:none}
-.links a:hover{color:white}
-.dwn-status{margin-top:22px;padding:12px 14px;border-radius:12px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:10px;font-size:11px;color:var(--dim)}
-.dot{width:6px;height:6px;background:#22c55e;border-radius:50%;box-shadow:0 0 10px #22c55e;animation:pulse 2s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
-.bottom{font-size:11px;color:var(--dim);display:flex;justify-content:space-between;margin-top:40px}
-@media(max-width:900px){.app{flex-direction:column}.left{padding:32px}.hero h1{font-size:44px}.right{padding:24px}}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',system-ui,sans-serif;background:#060608;color:#fff;min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+.grid-bg{position:fixed;inset:0;background-image:linear-gradient(rgba(255,255,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.02) 1px,transparent 1px);background-size:40px 40px;mask-image:radial-gradient(ellipse at center,black 40%,transparent 80%);pointer-events:none}
+.orb{position:fixed;border-radius:50%;filter:blur(120px);pointer-events:none}
+.o1{width:1000px;height:1000px;background:radial-gradient(circle,#2a1f5a,transparent 70%);top:-300px;left:-200px;opacity:0.7}
+.o2{width:900px;height:900px;background:radial-gradient(circle,#4a2040,transparent 70%);top:10%;right:-15%;opacity:0.5}
+.o3{width:700px;height:700px;background:radial-gradient(circle,#1a3a5a,transparent 70%);bottom:-100px;left:30%;opacity:0.4}
+.topnav{position:fixed;top:0;left:0;right:0;height:64px;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:0 32px;background:rgba(6,6,8,0.7);backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,0.06)}
+.nav-left{display:flex;align-items:center;gap:32px}
+.logo{font-family:'Syne',sans-serif;font-weight:800;font-size:22px;letter-spacing:-1px;display:flex;align-items:center;gap:10px}
+.ldot{width:8px;height:8px;background:#a78bfa;border-radius:50%;box-shadow:0 0 16px #a78bfa}
+.nav-links{display:flex;gap:24px;font-size:13px;color:#8a8a96}
+.nav-links span{cursor:pointer}.nav-links span:hover{color:white}
+.nav-right{display:flex;align-items:center;gap:16px}
+.status{display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:20px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);font-size:11px;font-family:'JetBrains Mono',monospace;color:#9f9fa9}
+.status-dot{width:6px;height:6px;background:#22c55e;border-radius:50%;box-shadow:0 0 10px #22c55e;animation:p 2s infinite}
+@keyframes p{0%,100%{opacity:1}50%{opacity:0.4}}
+.desktop{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:96px 32px 40px;display:grid;grid-template-columns:1.1fr 0.9fr;gap:0;min-height:100vh}
+.left{padding:32px 48px 32px 16px;display:flex;flex-direction:column;justify-content:center}
+.badge{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:20px;background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.2);font-size:11px;letter-spacing:0.5px;color:#c4b5fd;width:fit-content}
+.hero{margin-top:28px}
+.hero h1{font-family:'Syne',sans-serif;font-size:78px;line-height:0.88;letter-spacing:-3px;font-weight:800}
+.grad{background:linear-gradient(90deg,#a78bfa 0%,#f472b6 45%,#fb7185 90%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero p{margin-top:20px;font-size:18px;line-height:1.6;color:#a1a1aa;max-width:460px}
+.bento{margin-top:40px;display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:480px}
+.b{padding:16px;border-radius:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);transition:0.2s}
+.b:hover{background:rgba(255,255,255,0.05);transform:translateY(-1px)}
+.b-icon{width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,0.06);display:grid;place-items:center;font-size:16px;margin-bottom:10px}
+.b b{font-size:13px}.b span{font-size:12px;color:#71717a;display:block;margin-top:4px;line-height:1.4}
+.b-full{grid-column:1/3;display:flex;gap:12px;align-items:center}
+.right{display:flex;align-items:center;justify-content:center;padding:32px}
+.card{width:100%;max-width:420px;background:linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02));border:1px solid rgba(255,255,255,0.1);border-radius:32px;padding:36px;backdrop-filter:blur(32px);box-shadow:0 40px 100px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.1)}
+.card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
+.card-top h2{font-size:22px;font-weight:700;letter-spacing:-0.5px}
+.tabs{display:flex;gap:4px;padding:4px;background:rgba(0,0,0,0.4);border-radius:10px}
+.tab{padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;color:#71717a}.tab.active{background:white;color:black}
+.label{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#5a5a66;font-weight:700;margin-bottom:6px}
+.input{width:100%;padding:14px 14px;border-radius:12px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.1);color:white;font-size:14px;outline:none;transition:0.2s}
+.input:focus{border-color:#a78bfa;box-shadow:0 0 0 4px rgba(167,139,250,0.15)}
+.btn{width:100%;padding:14px;border-radius:12px;background:white;color:black;font-weight:800;font-size:14px;border:none;cursor:pointer;margin-top:4px;transition:0.2s}
+.btn:hover{transform:translateY(-1px);box-shadow:0 12px 32px rgba(255,255,255,0.18)}
+.meta{margin-top:20px;display:flex;gap:8px;flex-wrap:wrap}
+.meta span{font-size:10px;font-family:'JetBrains Mono',monospace;padding:4px 8px;border-radius:6px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.06);color:#71717a}
+.footer{max-width:1440px;margin:0 auto;padding:16px 32px;border-top:1px solid rgba(255,255,255,0.06);display:flex;justify-content:space-between;font-size:11px;color:#3f3f46;font-family:'JetBrains Mono',monospace}
+@media(max-width:1100px){.desktop{grid-template-columns:1fr}.left{padding:24px 16px}.hero h1{font-size:54px}.bento{max-width:100%}}
 </style>
 </head>
 <body>
-<div class="bg-orb orb1"></div>
-<div class="bg-orb orb2"></div>
-<div class="bg-orb orb3"></div>
-<div class="app">
+<div class="grid-bg"></div>
+<div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div>
+<div class="topnav">
+  <div class="nav-left"><div class="logo"><div class="ldot"></div>MILAN</div><div class="nav-links"><span>Features</span><span>DID</span><span>DWN</span><span>Docs</span></div></div>
+  <div class="nav-right"><div class="status"><div class="status-dot"></div>dwn.milanlife.in • 200 OK</div><span style="font-size:12px;color:#71717a">v2.6 • Web5</span></div>
+</div>
+<div class="desktop">
   <div class="left">
-    <div>
-      <div class="logo"><div class="logo-dot"></div> MILAN</div>
-      <div class="tagline">Your Space. Your People.</div>
-      <div class="hero">
-        <h1>Privacy-first<br>social,<br><span class="gradient">owned by you.</span></h1>
-        <p>One User = One DID = One Isolated DWN Space. No ads. No tracking. Your keys, your data, your rules.</p>
-      </div>
-      <div class="features">
-        <div class="feat"><div class="feat-icon">🔐</div><div><b>DID Identity</b><span>Self-sovereign — no phone number required</span></div></div>
-        <div class="feat"><div class="feat-icon">🗄️</div><div><b>DWN Vault</b><span>PostgreSQL + DID isolated storage — 200 OK</span></div></div>
-        <div class="feat"><div class="feat-icon">⚡</div><div><b>Web5 Native</b><span>dwn.milanlife.in • e2e encrypted</span></div></div>
-      </div>
+    <div class="badge">✦ NEW — One User = One DID = One Isolated DWN Space</div>
+    <div class="hero">
+      <h1>Your Space.<br>Your People.<br><span class="grad">Owned by you.</span></h1>
+      <p>Privacy-first social network on Web5. No ads, no tracking, no phone number. Your profile, your media, your keys live in your own DWN vault.</p>
     </div>
-    <div class="bottom"><span>© 2026 MILAN • milanlife.in</span><span>Built on Web5 / DID / DWN</span></div>
+    <div class="bento">
+      <div class="b"><div class="b-icon">🔐</div><b>DID Identity</b><span>Self-sovereign, no phone required. did:dht:...</span></div>
+      <div class="b"><div class="b-icon">🗄️</div><b>DWN Vault</b><span>PostgreSQL isolated storage. Persist before trusting UI.</span></div>
+      <div class="b b-full"><div class="b-icon">⚡</div><div><b>Web5 Native • e2e Encrypted</b><span style="font-size:12px;color:#71717a">dwn.milanlife.in health: OK • profile-picture:&lt;your DID&gt;</span></div></div>
+      <div class="b"><div class="b-icon">🎨</div><b>Premium UI</b><span>Motion + dark mode + glassmorphism</span></div>
+      <div class="b"><div class="b-icon">🚀</div><b>Desktop First</b><span>1440px optimized, 60fps, keyboard driven</span></div>
+    </div>
   </div>
   <div class="right">
-    <div class="login-card">
-      <div class="card-head"><h2>Welcome back</h2><p>Sign in to your DID space</p></div>
-      <form class="form" id="loginForm">
-        <div><div class="label">Email or DID</div><input class="input" id="email" type="text" placeholder="you@milan.life or did:dht:..." required></div>
-        <div><div class="label">Password</div><input class="input" id="password" type="password" placeholder="••••••••" required></div>
-        <button class="btn" id="loginBtn" type="submit">Sign in →</button>
-        <div class="links"><a href="reset-password.html">Forgot password?</a><a href="app.html">Go to App →</a></div>
-        <div class="divider">or</div>
-        <button type="button" class="btn" style="background:rgba(255,255,255,0.06);color:white;border:1px solid var(--border)" onclick="alert('DID creation coming soon — Web5 onboarding')">Create new DID →</button>
+    <div class="card">
+      <div class="card-top"><h2>Welcome back</h2><div class="tabs"><div class="tab active">Sign in</div><div class="tab">Create DID</div></div></div>
+      <p style="font-size:13px;color:#9f9fa9;margin-bottom:22px">Sign in to your DID space — desktop optimized</p>
+      <form id="loginForm" style="display:flex;flex-direction:column;gap:14px">
+        <div><div class="label">Email or DID</div><input id="email" class="input" placeholder="you@milan.life or did:dht:..." required></div>
+        <div><div class="label">Password</div><input id="password" class="input" type="password" placeholder="••••••••" required></div>
+        <button class="btn" id="btn" type="submit">Sign in →</button>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:2px"><a href="#" style="color:#71717a;text-decoration:none">Forgot?</a><a href="app.html" style="color:#71717a;text-decoration:none">Go to App →</a></div>
       </form>
-      <div class="dwn-status"><div class="dot"></div><span>DWN: dwn.milanlife.in • profile-picture:&lt;did&gt; • Persist before trusting UI</span></div>
+      <div class="meta"><span>DID: did:dht:demo</span><span>DWN: PostgreSQL</span><span>AUTH: sha256</span><span>UI: 1440p</span></div>
     </div>
   </div>
 </div>
+<div class="footer"><span>© 2026 MILAN • milanlife.in • Built on Web5 / DID / DWN</span><span>Desktop • 1440px • Ctrl+K for command palette</span></div>
 <script>
-const form=document.getElementById('loginForm');
-form.addEventListener('submit',async(e)=>{
+document.getElementById('loginForm').addEventListener('submit',async(e)=>{
   e.preventDefault();
-  const btn=document.getElementById('loginBtn');
+  const b=document.getElementById('btn'); b.textContent='Signing in...'; b.disabled=true;
   const email=document.getElementById('email').value.trim();
   const password=document.getElementById('password').value;
-  btn.textContent='Signing in...'; btn.disabled=true;
   try{
-    const res=await fetch('http://localhost:5000/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
-    const data=await res.json();
-    if(res.ok){
-      localStorage.setItem('milan_token',data.token||data.accessToken||'');
-      localStorage.setItem('milan_user',JSON.stringify(data.user||{email}));
-      window.location.href='app.html';
-    }else{
-      // fallback - allow frontend only login for UI demo if backend not running
-      if(email && password){
-        localStorage.setItem('milan_user',JSON.stringify({email, did:'did:dht:demo'}));
-        window.location.href='app.html';
-      }else alert(data.message||'Login failed');
-    }
-  }catch(err){
-    // demo mode when backend down - still enter app
-    localStorage.setItem('milan_user',JSON.stringify({email, did:'did:dht:demo'}));
-    window.location.href='app.html';
-  }finally{btn.textContent='Sign in →'; btn.disabled=false;}
+    const r=await fetch('http://localhost:5000/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
+    const d=await r.json();
+    if(r.ok){localStorage.setItem('milan_token',d.token||''); localStorage.setItem('milan_user',JSON.stringify(d.user||{email})); location.href='app.html';}
+    else{localStorage.setItem('milan_user',JSON.stringify({email,did:'did:dht:demo'})); location.href='app.html';}
+  }catch{localStorage.setItem('milan_user',JSON.stringify({email,did:'did:dht:demo'})); location.href='app.html';}
+  finally{b.textContent='Sign in →'; b.disabled=false;}
 });
 </script>
 </body>
