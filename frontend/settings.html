@@ -65,7 +65,7 @@ button.danger{background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff}
 <body>
 <div class="top"><div class="top-in">
   <div class="brand" style="display:flex;align-items:center;gap:9px"><img src="/assets/milan-logo-circle.png" alt="MILAN" style="height:30px;width:30px;border-radius:9px">MILAN · Settings</div>
-  <div style="display:flex;align-items:center;gap:16px"><a href="/app">← Back to app</a><a href="#" id="logoutLink" style="color:#f87171;font-weight:700" onclick="try{localStorage.removeItem('milanToken');localStorage.removeItem('rememberedEmail');}catch(e){};location.href='/';return false;">Log out</a></div>
+  <div style="display:flex;align-items:center;gap:16px"><a href="/app">← Back to app</a><a href="#" id="logoutLink" style="color:#f87171;font-weight:700" onclick="try{localStorage.removeItem('milan_token');localStorage.removeItem('rememberedEmail');}catch(e){};location.href='/index.html';return false;">Log out</a></div>
 </div></div>
 
 <div class="wrap">
@@ -230,8 +230,8 @@ button.danger{background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff}
 </div>
 
 <script>
-var token=localStorage.getItem("milanToken");
-if(!token){ location.href="/"; }
+var token=localStorage.getItem("milan_token");
+if(!token){ location.href="/index.html"; }
 var $=function(id){return document.getElementById(id);};
 function H(){return {"Content-Type":"application/json","Authorization":"Bearer "+token};}
 function setMsg(el,t,ok){var m=$(el);if(!m)return;m.textContent=t||"";m.className="msg"+(t?(ok?" ok":" err"):"");}
@@ -258,7 +258,7 @@ function toggleRow(key,label,val){
 
 function load(){
   fetch("/api/settings",{headers:H()}).then(function(r){
-    if(r.status===401){location.href="/";return;}
+    if(r.status===401){location.href="/index.html";return;}
     return r.json();
   }).then(function(d){
     if(!d||!d.settings)return; S=d.settings;
@@ -401,14 +401,14 @@ $("d_export").onclick=function(){
 $("d_deactivate").onclick=function(){
   if(!confirm("Deactivate your account? You can reactivate by signing in again."))return;
   fetch("/api/settings/account/deactivate",{method:"POST",headers:H()}).then(function(r){return r.json();}).then(function(d){
-    setMsg("d_demsg",d.message||"Deactivated.",true); localStorage.removeItem("milanToken"); setTimeout(function(){location.href="/";},1500);
+    setMsg("d_demsg",d.message||"Deactivated.",true); localStorage.removeItem("milan_token"); setTimeout(function(){location.href="/index.html";},1500);
   });
 };
 $("d_delete").onclick=function(){
   if(!confirm("Permanently delete your account? This cannot be undone."))return;
   fetch("/api/settings/account/delete",{method:"POST",headers:H(),body:JSON.stringify({password:$("d_pass").value})})
     .then(function(r){return r.json().then(function(d){if(!r.ok)throw new Error(d.error||"Failed");return d;});})
-    .then(function(d){ setMsg("d_msg",d.message||"Deleted.",true); localStorage.removeItem("milanToken"); setTimeout(function(){location.href="/";},1500); })
+    .then(function(d){ setMsg("d_msg",d.message||"Deleted.",true); localStorage.removeItem("milan_token"); setTimeout(function(){location.href="/index.html";},1500); })
     .catch(function(e){ setMsg("d_msg",e.message,false); });
 };
 

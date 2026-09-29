@@ -80,7 +80,7 @@ a{color:inherit;text-decoration:none}.shell{width:min(var(--max),calc(100% - 32p
 <script>
 function milanSmartEnter(event) {
   event.preventDefault();
-  const token = localStorage.getItem("milanToken");
+  const token = localStorage.getItem("milan_token");
   window.location.href = token ? "/app" : "/index.html";
 }
 </script>
