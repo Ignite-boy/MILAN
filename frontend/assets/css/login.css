@@ -1373,3 +1373,12 @@ html,body{width:100%;height:100%;margin:0!important;overflow:hidden!important}bo
   width:100%!important;
   padding-right:52px!important;
 }
+
+
+/* PASSWORD EYE ACCESSIBILITY + TOUCH */
+#togglePasswordBtn{
+  -webkit-tap-highlight-color:transparent!important;
+  user-select:none!important;
+  -webkit-user-select:none!important;
+  touch-action:manipulation!important;
+}
