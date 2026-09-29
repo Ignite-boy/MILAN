@@ -122,8 +122,31 @@
                 ? await meResponse.json().catch(() => ({}))
                 : {};
 
+            const identityVersion =
+                Number(window.__milanAvatarUploadVersion) || 0;
+
+            if (
+                identityVersion !==
+                (Number(window.__milanAvatarUploadVersion) || 0)
+            ) {
+                return;
+            }
+
+            const recentAvatar =
+                String(window.__milanPersistentAvatar || "").trim();
+
+            const recentAvatarAt =
+                Number(window.__milanAvatarUploadCommittedAt || 0);
+
+            const recentUploadStillFresh =
+                recentAvatar &&
+                recentAvatarAt > 0 &&
+                (Date.now() - recentAvatarAt) < 60000;
+
             state.profileAvatar =
-                String(profile?.avatar || "").trim();
+                recentUploadStillFresh
+                    ? recentAvatar
+                    : String(profile?.avatar || "").trim();
 
             state.profileName =
                 String(
@@ -136,7 +159,10 @@
                     ""
                 ).trim();
 
-            if (state.profileAvatar) {
+            if (
+                state.profileAvatar &&
+                !recentUploadStillFresh
+            ) {
                 window.__milanPersistentAvatar = state.profileAvatar;
                 localStorage.setItem("milanAvatar", state.profileAvatar);
             }

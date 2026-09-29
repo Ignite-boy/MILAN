@@ -149,6 +149,10 @@
     }
 
     const previewUrl = URL.createObjectURL(file);
+    const uploadVersion = (Number(window.__milanAvatarUploadVersion) || 0) + 1;
+    window.__milanAvatarUploadVersion = uploadVersion;
+    window.__milanAvatarUploadActive = true;
+    window.__milanAvatarUploadActive = true;
 
     try {
       // Immediate local preview.
@@ -195,6 +199,10 @@
       const savedAvatar = String(saved.avatar || optimized.dataUrl || "").trim();
       if (savedAvatar) {
         localStorage.setItem("milanAvatar", savedAvatar);
+        window.__milanPersistentAvatar = savedAvatar;
+        ["myAvatar", "composerAvatar"].forEach(id => {
+          setAvatar(id, savedAvatar);
+        });
         if (window.me) {
           window.me.profile = {
             ...(window.me.profile || {}),
@@ -211,12 +219,13 @@
       );
 
       // CRITICAL:
-      // The blob: preview is temporary. After the Real DWN write succeeds,
-      // immediately replace that temporary URL with the persisted DWN avatar.
-      await syncLiveProfileIdentity();
+      // Keep the avatar returned by the successful PUT response on screen.
+      // Do not immediately re-read /api/profile here because its DWN read path
+      // can briefly return the previous record while the new write propagates.
     } catch (error) {
       console.error("[MILAN] DP upload failed:", error);
     } finally {
+      window.__milanAvatarUploadActive = false;
       URL.revokeObjectURL(previewUrl);
       input.value = "";
     }
@@ -226,6 +235,7 @@
   // MILAN ONE: avatar restoration is handled only by syncLiveProfileIdentity().
  
   async function syncLiveProfileIdentity() {
+    const syncVersion = Number(window.__milanAvatarUploadVersion) || 0;
     const token = getToken();
     if (!token) return;
 
@@ -280,7 +290,10 @@
       {};
 
     // MILAN ONE: /api/profile -> persistent DWN is the only avatar source.
-    const remoteAvatar = String(profileData.avatar || "").trim() || String(localStorage.getItem("milanAvatar") || "").trim();
+    const remoteAvatar =
+      String(window.__milanPersistentAvatar || "").trim() ||
+      String(profileData.avatar || "").trim() ||
+      String(localStorage.getItem("milanAvatar") || "").trim();
 
     if (remoteAvatar) {
       profileData.avatar = remoteAvatar;

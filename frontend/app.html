@@ -2969,7 +2969,10 @@ button{
         me ||
         {};
 
-      const avatar = String(profile?.avatar || "").trim();
+      const avatar =
+        String(window.__milanPersistentAvatar || "").trim() ||
+        String(profile?.avatar || "").trim() ||
+        String(localStorage.getItem("milanAvatar") || "").trim();
 
       const did = String(
         user?.did ||
