@@ -320,6 +320,25 @@
       ""
     ).trim();
 
+    if (!remoteAvatar) {
+      const initial = String(name || "M").trim().charAt(0).toUpperCase() || "M";
+      ["myAvatar", "composerAvatar"].forEach(id => {
+        const el = $(id);
+        if (!el) return;
+        el.replaceChildren();
+        el.textContent = initial;
+        el.style.backgroundImage = "none";
+        el.style.backgroundColor = "";
+        el.style.backgroundSize = "cover";
+        el.style.backgroundPosition = "center";
+        el.style.backgroundRepeat = "no-repeat";
+        el.style.display = "flex";
+        el.style.alignItems = "center";
+        el.style.justifyContent = "center";
+        el.style.fontWeight = "800";
+      });
+    }
+
     const nameEl = $("myName");
     const emailEl = $("myEmail");
 
