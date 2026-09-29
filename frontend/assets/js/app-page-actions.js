@@ -304,11 +304,11 @@
     }
 
     const name = String(
+      user.name ||
+      meProfile.name ||
       profileData.display_name ||
       profileData.name ||
       meProfile.display_name ||
-      meProfile.name ||
-      user.name ||
       user.display_name ||
       ""
     ).trim();
