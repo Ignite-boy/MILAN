@@ -1,0 +1,312 @@
+/* ============================================================
+   MILAN — Premium Sober Theme (authoritative override)
+   Goal: calm, trustworthy, privacy-tech aesthetic.
+   One restrained accent. No rainbow gradients, no confetti noise,
+   no spinning rings. Loaded LAST so it wins the cascade.
+   ============================================================ */
+
+:root, html.milan-premium-ui, body, body.dark {
+  /* Calm ink palette */
+  --bg: #0b0f1a !important;
+  --card: #121826 !important;
+  --text: #eef1f8 !important;
+  --muted: #97a2bd !important;
+  --line: rgba(148, 163, 196, 0.14) !important;
+
+  /* Single restrained accent (indigo-blue) + one cool secondary */
+  --brand: #4f7cf6 !important;
+  --brand2: #5b9bd8 !important;
+  --brand3: #3a5fd0 !important;
+  --accent-soft: rgba(79, 124, 246, 0.12) !important;
+
+  --danger: #e5645f !important;
+  --ok: #46c08a !important;
+  --shadow: 0 16px 44px rgba(0, 0, 0, 0.42) !important;
+  --radius: 18px !important;
+
+  /* Neutralize the loud Krishna tokens so leftover refs stay calm */
+  --k-gold: #4f7cf6 !important;  --k-gold2: #5b9bd8 !important;
+  --k-lotus: #5b9bd8 !important; --k-lotus2: #6ea7e0 !important;
+  --k-glow: rgba(79,124,246,0.14) !important;
+
+  --milan-primary: #4f7cf6 !important;
+  --milan-primary-2: #5b9bd8 !important;
+}
+
+/* ---- Quiet, even background (kills the 4-color radial soup) ---- */
+html.milan-premium-ui body,
+html.milan-premium-ui body.dark,
+body,
+body.dark,
+body > .milan-container {
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(79,124,246,0.10), transparent 60%),
+    linear-gradient(180deg, #0b0f1a 0%, #0c111d 60%, #0b0f1a 100%) !important;
+  color: var(--text) !important;
+}
+
+/* ---- Typography: calmer weights, no 1000-weight shouting ---- */
+body { letter-spacing: -0.005em !important; }
+.brand h1, .heroTitle, .authTitle, .hero-title, .logo-center h2 {
+  font-weight: 750 !important;
+  letter-spacing: 0.02em !important;
+}
+
+/* ============================================================
+   KILL THE NOISE — animations, glows, confetti, neon
+   ============================================================ */
+.authHero::before, .authHero::after,
+.heroLogo::after,
+.brand img,
+::-webkit-scrollbar-thumb,
+.milan-login-aurora::before,
+.milan-avatar-breathing, .milan-neon-glow, .milan-3d-hover,
+.milan-logo-lottie, .milan-story-ring,
+.milan-edge-lit, .milan-ambient-glow {
+  animation: none !important;
+}
+/* remove conic spin ring on hero logo */
+.heroLogo::after { display: none !important; content: none !important; }
+/* remove grain/noise overlay */
+body::after { display: none !important; content: none !important; }
+/* neutralize neon text accents */
+.milan-neon-accent { text-shadow: none !important; color: var(--text) !important; }
+/* confetti canvas + reward popups: keep them out of the sober experience */
+#milan-confetti-canvas { display: none !important; }
+#milan-reward-popup { display: none !important; }
+#milan-live-badge, .milan-live-indicator { display: none !important; }
+/* day/night auto background tinting from V2 — override to stay calm */
+body[style*="background-image"] { background-image: none !important; }
+
+/* ============================================================
+   SURFACES — flat, refined glass. One subtle border, soft shadow.
+   ============================================================ */
+.card, .post, .composer, .quickCard, .rightBox, .profileCard,
+.authBox, .modal, .hero-panel, .login-card,
+html.milan-premium-ui .card, html.milan-premium-ui .post,
+html.milan-premium-ui .composer, html.milan-premium-ui .quickCard,
+html.milan-premium-ui .rightBox, html.milan-premium-ui .profileCard,
+html.milan-premium-ui .authBox {
+  background: var(--card) !important;
+  border: 1px solid var(--line) !important;
+  box-shadow: var(--shadow) !important;
+  border-radius: var(--radius) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.card:hover, .post:hover { border-color: rgba(148,163,196,0.22) !important; }
+
+/* Topbar: quiet, single hairline, soft blur */
+.topbar,
+html.milan-premium-ui .topbar,
+body.dark .topbar {
+  background: rgba(12, 16, 26, 0.82) !important;
+  border-bottom: 1px solid var(--line) !important;
+  box-shadow: none !important;
+  backdrop-filter: saturate(1.1) blur(14px) !important;
+  -webkit-backdrop-filter: saturate(1.1) blur(14px) !important;
+}
+
+/* Brand mark: simple rounded tile, no pulsing marigold */
+.brand img,
+html.milan-premium-ui .brand img {
+  background: #0e1422 !important;
+  border-radius: 14px !important;
+  padding: 4px !important;
+  box-shadow: 0 0 0 1px var(--line) !important;
+}
+.brand h1, html.milan-premium-ui .brand h1 {
+  background: none !important;
+  -webkit-background-clip: initial !important;
+  background-clip: initial !important;
+  color: var(--text) !important;
+}
+.brand .tag { color: var(--muted) !important; font-weight: 600 !important; }
+
+/* ============================================================
+   BUTTONS — solid restrained accent, subtle hover. No glow blasts.
+   ============================================================ */
+button,
+html.milan-premium-ui button {
+  background: var(--brand) !important;
+  color: #fff !important;
+  font-weight: 650 !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+  transition: background .15s ease, transform .08s ease !important;
+}
+button:hover, html.milan-premium-ui button:hover {
+  background: var(--brand3) !important;
+  filter: none !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+button.ghost, html.milan-premium-ui button.ghost {
+  background: transparent !important;
+  color: var(--text) !important;
+  border: 1px solid var(--line) !important;
+}
+button.ghost:hover { background: rgba(148,163,196,0.06) !important; border-color: rgba(148,163,196,0.28) !important; color: var(--text) !important; }
+button.ok, html.milan-premium-ui button.ok { background: var(--ok) !important; color: #06281c !important; }
+button.soft { background: var(--accent-soft) !important; color: var(--brand2) !important; }
+button.danger { background: transparent !important; color: var(--danger) !important; border: 1px solid rgba(229,100,95,0.4) !important; }
+button.danger:hover { background: rgba(229,100,95,0.12) !important; }
+
+/* Primary auth/publish buttons: flat accent, not the 3-stop rainbow */
+#loginBtn, #registerBtn, #publishBtn, .login-button,
+html.milan-premium-ui #loginBtn, html.milan-premium-ui #registerBtn,
+html.milan-premium-ui #publishBtn {
+  background: var(--brand) !important;
+  color: #fff !important;
+  font-weight: 650 !important;
+  box-shadow: none !important;
+}
+#loginBtn:hover, #registerBtn:hover, #publishBtn:hover, .login-button:hover {
+  background: var(--brand3) !important;
+  filter: none !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+}
+/* kill the login-button shine sweep */
+.login-button::after { display: none !important; }
+
+/* ============================================================
+   INPUTS — calm, clear focus ring in the single accent.
+   ============================================================ */
+input, textarea, select,
+.input-field,
+html.milan-premium-ui input, html.milan-premium-ui textarea, html.milan-premium-ui select {
+  background: #0e1322 !important;
+  border: 1px solid var(--line) !important;
+  color: var(--text) !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+}
+input:focus, textarea:focus, select:focus, .input-field:focus,
+html.milan-premium-ui input:focus, html.milan-premium-ui textarea:focus, html.milan-premium-ui select:focus {
+  border-color: rgba(79,124,246,0.6) !important;
+  box-shadow: 0 0 0 3px rgba(79,124,246,0.16) !important;
+  outline: 0 !important;
+}
+input::placeholder, textarea::placeholder { color: rgba(151,162,189,0.55) !important; }
+
+/* ============================================================
+   AUTH / LANDING — sober hero, single accent, real spacing.
+   ============================================================ */
+.authHero,
+html.milan-premium-ui .authHero {
+  background:
+    radial-gradient(900px 500px at 50% -20%, rgba(79,124,246,0.18), transparent 60%),
+    linear-gradient(160deg, #0e1422 0%, #111a30 60%, #0e1626 100%) !important;
+  border: 1px solid var(--line) !important;
+  box-shadow: var(--shadow) !important;
+}
+.authBox, html.milan-premium-ui .authBox {
+  background: var(--card) !important;
+  border: 1px solid var(--line) !important;
+}
+.heroTitle, .hero-title, .heroTitle * {
+  background: none !important;
+  -webkit-background-clip: initial !important;
+  background-clip: initial !important;
+  color: var(--text) !important;
+  text-shadow: none !important;
+}
+.heroTagline .space { color: var(--brand2) !important; }
+.heroTagline .people { color: var(--brand) !important; }
+.heroBadge, .heroPill, .heroCard, .heroFooter, .securePill, .milan-badge {
+  background: rgba(148,163,196,0.05) !important;
+  border: 1px solid var(--line) !important;
+  color: var(--muted) !important;
+}
+.heroCard .icon, .feature-icon { background: var(--accent-soft) !important; }
+.heroLogo {
+  background: #0e1422 !important;
+  border: 1px solid var(--line) !important;
+  box-shadow: var(--shadow) !important;
+}
+.tabs { background: rgba(148,163,196,0.06) !important; border: 1px solid var(--line) !important; }
+.tab { color: var(--muted) !important; background: transparent !important; box-shadow: none !important; }
+.tab.active {
+  background: var(--accent-soft) !important;
+  color: var(--text) !important;
+  box-shadow: inset 0 0 0 1px rgba(79,124,246,0.3) !important;
+}
+
+/* login card (index.html) specifics */
+.login-card { background: var(--card) !important; border: 1px solid var(--line) !important; box-shadow: var(--shadow) !important; }
+.logo-center h2 { background: none !important; -webkit-background-clip: initial !important; background-clip: initial !important; color: var(--text) !important; letter-spacing: .14em !important; }
+.did-button { background: transparent !important; border: 1px solid var(--line) !important; color: var(--text) !important; }
+.did-badge { background: var(--brand) !important; color: #fff !important; }
+.forgot-link, .register-link a { color: var(--brand2) !important; }
+.input-label, .card-header h3 { color: var(--text) !important; }
+.card-header p, .checkbox { color: var(--muted) !important; }
+
+/* ============================================================
+   MENU / NAV / MISC
+   ============================================================ */
+.menu button, html.milan-premium-ui .menu button {
+  background: transparent !important;
+  color: var(--muted) !important;
+  box-shadow: none !important;
+  border-radius: 12px !important;
+}
+.menu button.active, .menu button:hover,
+html.milan-premium-ui .menu button.active, html.milan-premium-ui .menu button:hover {
+  background: var(--accent-soft) !important;
+  color: var(--text) !important;
+}
+.navlinks a { color: var(--muted) !important; }
+.navlinks a:hover { color: var(--brand2) !important; }
+.avatar, html.milan-premium-ui .avatar {
+  background: linear-gradient(135deg, var(--brand3), var(--brand2)) !important;
+  box-shadow: none !important;
+}
+.did { background: rgba(79,124,246,0.06) !important; border: 1px solid var(--line) !important; color: var(--muted) !important; }
+.badge { background: rgba(148,163,196,0.05) !important; border: 1px solid var(--line) !important; color: var(--muted) !important; }
+.health, html.milan-premium-ui .health {
+  background: rgba(70,192,138,0.10) !important;
+  color: #5fd2a3 !important;
+  border: 1px solid rgba(70,192,138,0.28) !important;
+}
+.reactionBar button.active, .reactionBar button:hover {
+  background: var(--accent-soft) !important;
+  color: var(--brand2) !important;
+}
+.privacyMeter span { background: linear-gradient(90deg, var(--brand3), var(--brand2)) !important; }
+.postMetrics { background: transparent !important; border-top: 1px solid var(--line) !important; }
+.toast { background: var(--card) !important; border: 1px solid var(--line) !important; box-shadow: var(--shadow) !important; }
+.empty { border-color: var(--line) !important; color: var(--muted) !important; }
+
+/* scrollbar: thin, neutral, no animated rainbow */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(148,163,196,0.25) !important; border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(148,163,196,0.4) !important; }
+::selection { background: rgba(79,124,246,0.3); color: #fff; }
+
+/* AI chips / V3 chips: calm them down */
+.milan-ai-chip, .milan-feed-tab, .milan-chip, .milan-filter-chips button {
+  background: rgba(148,163,196,0.05) !important;
+  border: 1px solid var(--line) !important;
+  color: var(--muted) !important;
+  box-shadow: none !important;
+}
+.milan-ai-chip:hover, .milan-feed-tab.active, .milan-chip.active {
+  background: var(--accent-soft) !important;
+  color: var(--text) !important;
+}
+#milanAiBtn {
+  background: var(--brand) !important;
+  color: #fff !important;
+}
+
+/* MILAN AI overlay (mai-) — align to sober palette */
+.mai-title { background: none !important; -webkit-background-clip: initial !important; background-clip: initial !important; color: var(--text) !important; }
+.mai-send, .mai-avatar.ai { background: var(--brand) !important; }
+.mai-tab.active { background: var(--accent-soft) !important; }
+
+/* Respect reduced motion fully */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
