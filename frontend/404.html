@@ -21,6 +21,11 @@ a.btn:focus-visible,
 a.link:focus-visible{outline:3px solid #fbbf24;outline-offset:3px}
 main{max-width:34rem}
 
+@media (prefers-reduced-motion: reduce){
+  a.btn{transition:none}
+  a.btn:hover{transform:none}
+}
+
 </style>
 </head>
 <body>
