@@ -162,3 +162,7 @@ body { background: #0a0e1a; color: #e8edf5; font-family: Inter, system-ui, -appl
     margin-top:0 !important;
   }
 }
+.milan-feed-actions button:focus-visible{
+  outline:3px solid rgba(99,102,241,.72);
+  outline-offset:2px;
+}
