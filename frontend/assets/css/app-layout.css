@@ -4,6 +4,16 @@
    ============================================================ */
 
 *{box-sizing:border-box}
+
+/* Keyboard focus visibility for primary app controls */
+.publish:focus-visible,
+.tool:focus-visible,
+.icon-btn:focus-visible,
+.follow:focus-visible,
+#milanFeedRefresh:focus-visible{
+  outline:3px solid rgba(99,102,241,.72);
+  outline-offset:3px;
+}
 html,body{margin:0;padding:0}
 body { background: #0a0e1a; color: #e8edf5; font-family: Inter, system-ui, -apple-system, sans-serif; line-height:1.5; }
 .app { min-height:100vh; display:flex; flex-direction:column; }
