@@ -56,6 +56,16 @@ tr:last-child td{border-bottom:0}
 .copy{background:transparent;border:1px solid var(--line);color:var(--muted);padding:4px 9px;font-size:11px;border-radius:8px;margin-top:6px}
 pre{background:#0d1322;border:1px solid var(--line);border-radius:12px;padding:14px;font-size:12px;overflow:auto;color:#c2cbe0;font-family:ui-monospace,Consolas,monospace}
 .msg{font-size:13px;margin:6px 0}
+.tab:focus-visible,
+button:focus-visible,
+.copy:focus-visible{
+  outline:3px solid rgba(79,124,246,.72);
+  outline-offset:2px;
+}
+
+@media (prefers-reduced-motion: reduce){
+  button,.tab,.copy{transition:none}
+}
 </style>
 <link rel="stylesheet" href="/milan-core.css?v=20260627">
 </head>
