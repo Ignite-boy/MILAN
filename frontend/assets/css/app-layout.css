@@ -14,7 +14,10 @@
 .nav button:focus-visible,
 #milanFeedRefresh:focus-visible,
 .mobile-nav a:focus-visible,
-.search input:focus-visible{
+.search input:focus-visible,
+#milanControlFab:focus-visible,
+#milanControlClose:focus-visible,
+.mcc-actions button:focus-visible{
   outline:3px solid rgba(99,102,241,.72);
   outline-offset:3px;
 }
