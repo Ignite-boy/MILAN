@@ -1,0 +1,972 @@
+/* ============================================================================
+   MILAN — App Pro layer  (v1)
+   ----------------------------------------------------------------------------
+   Additive, presentation-only layer for the post-login app shell
+   (frontend/app.html). Carries the login page's visual language into the app.
+
+   DESIGN CONTRACT
+   • Loaded LAST, scoped entirely under `body.map`. Remove that class and the
+     previous look returns instantly.
+   • app.html already carries ~2,700 lines of inline CSS written with
+     `!important`. Every rule here is therefore scoped `body.map ...` so it
+     outranks the base on specificity, and `!important` is used only where the
+     base uses it.
+   • No app logic, DOM structure, IDs or handlers are touched. Feed rendering,
+     auth, uploads and the control centre all stay owned by their own modules.
+   • `prefers-reduced-motion: reduce` disables every animation and transition.
+   • Target: desktop Chrome. Mobile keeps the base layout.
+   ========================================================================== */
+
+@property --map-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+body.map {
+  --map-gold: #f59e0b;
+  --map-gold-l: #fbbf24;
+  --map-magenta: #d946ef;
+  --map-magenta-l: #e879f9;
+  --map-cyan: #22d3ee;
+  --map-ink: #050e2b;
+  --map-text: #eef1f8;
+  --map-muted: #8ba4d4;
+  --map-line: rgba(139, 164, 212, .16);
+  --map-glass: linear-gradient(150deg, rgba(12, 26, 60, .74) 0%, rgba(7, 16, 40, .84) 100%);
+  --map-ease: cubic-bezier(.16, .84, .44, 1);
+  --map-ease-out: cubic-bezier(.22, 1, .36, 1);
+}
+
+/* Several controls render emoji glyphs. Force an emoji-capable stack so they
+   never fall back to a tofu box — the composer's photo tool was rendering as
+   an empty square because the surrounding font had no glyph for it.
+   NOTE: .icon-btn is deliberately excluded — it mixes real symbols (↪, ◐)
+   with emoji, and an emoji-first stack renders those as boxed variants. */
+body.map .composer-tools .tool,
+body.map .nav button,
+body.map .feature-icon {
+  font-family:
+    "Segoe UI Emoji",
+    "Apple Color Emoji",
+    "Noto Color Emoji",
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   1. BACKGROUND — same aurora family as the login page, dialled back so it
+   never competes with feed content.
+   ══════════════════════════════════════════════════════════════════════════ */
+body.map #map-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+}
+
+body.map .app {
+  position: relative;
+  z-index: 1;
+}
+
+body.map #map-bg .map-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+  opacity: .34;
+  will-change: transform;
+}
+
+body.map #map-bg .map-blob--a {
+  width: 56vw; height: 56vw; top: -24vw; left: -16vw;
+  background: radial-gradient(circle at 40% 40%, rgba(20, 100, 184, .8), rgba(20, 100, 184, 0) 70%);
+  animation: map-drift-a 34s var(--map-ease-out) infinite alternate;
+}
+body.map #map-bg .map-blob--b {
+  width: 48vw; height: 48vw; top: 6vh; right: -18vw;
+  background: radial-gradient(circle at 55% 45%, rgba(217, 70, 239, .62), rgba(217, 70, 239, 0) 70%);
+  animation: map-drift-b 42s var(--map-ease-out) infinite alternate;
+}
+body.map #map-bg .map-blob--c {
+  width: 52vw; height: 52vw; bottom: -30vw; left: 26vw;
+  background: radial-gradient(circle at 50% 50%, rgba(245, 158, 11, .4), rgba(245, 158, 11, 0) 70%);
+  animation: map-drift-c 48s var(--map-ease-out) infinite alternate;
+}
+
+@keyframes map-drift-a {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(7vw, 5vh, 0) scale(1.12); }
+}
+@keyframes map-drift-b {
+  from { transform: translate3d(0, 0, 0) scale(1.04); }
+  to   { transform: translate3d(-6vw, 7vh, 0) scale(.94); }
+}
+@keyframes map-drift-c {
+  from { transform: translate3d(0, 0, 0) scale(.96); }
+  to   { transform: translate3d(5vw, -6vh, 0) scale(1.1); }
+}
+
+body.map #map-bg .map-grid {
+  position: absolute;
+  inset: -10%;
+  background-image:
+    linear-gradient(rgba(139, 164, 212, .05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(139, 164, 212, .05) 1px, transparent 1px);
+  background-size: 74px 74px;
+  -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 20%, #000 5%, transparent 72%);
+  mask-image: radial-gradient(ellipse 80% 70% at 50% 20%, #000 5%, transparent 72%);
+  animation: map-grid-pan 52s linear infinite;
+}
+
+@keyframes map-grid-pan {
+  from { background-position: 0 0, 0 0; }
+  to   { background-position: 74px 74px, 74px 74px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   2. TOPBAR
+   ══════════════════════════════════════════════════════════════════════════ */
+body.map .topbar {
+  background: linear-gradient(135deg, rgba(6, 13, 33, .88), rgba(11, 24, 56, .82)) !important;
+  border: 1px solid var(--map-line) !important;
+  border-radius: 20px !important;
+  backdrop-filter: blur(20px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(140%) !important;
+  box-shadow:
+    0 18px 50px -26px rgba(0, 0, 0, .95),
+    inset 0 1px 0 rgba(255, 255, 255, .06) !important;
+  box-shadow:
+    0 18px 50px -26px rgba(0, 0, 0, .95),
+    0 0 0 1px rgba(255, 255, 255, .02),
+    inset 0 1px 0 rgba(255, 255, 255, .06) !important;
+}
+
+body.map .brand-logo-img {
+  border-radius: 14px !important;
+  box-shadow:
+    0 8px 22px rgba(245, 158, 11, .3),
+    0 0 0 1px rgba(245, 158, 11, .28) !important;
+  transition: transform .45s var(--map-ease-out), box-shadow .45s ease;
+}
+
+body.map .brand-logo:hover .brand-logo-img,
+body.map .brand-logo:focus-visible .brand-logo-img {
+  transform: scale(1.07) rotate(-4deg);
+  box-shadow:
+    0 12px 30px rgba(245, 158, 11, .48),
+    0 0 0 1px rgba(245, 158, 11, .45),
+    0 0 34px -8px rgba(217, 70, 239, .8) !important;
+}
+
+body.map .brand-text-inner strong {
+  background: linear-gradient(120deg, #ffffff 0%, var(--map-gold-l) 45%, var(--map-magenta-l) 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  color: transparent !important;
+  animation: map-brand-shimmer 8s linear infinite;
+  letter-spacing: .06em;
+}
+
+@keyframes map-brand-shimmer {
+  from { background-position: 0% 50%; }
+  to   { background-position: 200% 50%; }
+}
+
+/* search */
+body.map .search {
+  position: relative;
+}
+
+body.map .search input {
+  background: rgba(4, 11, 30, .6) !important;
+  border: 1px solid var(--map-line) !important;
+  border-radius: 999px !important;
+  color: var(--map-text) !important;
+  transition:
+    border-color .3s ease,
+    box-shadow .35s ease,
+    background .3s ease,
+    transform .35s var(--map-ease) !important;
+}
+
+body.map .search input::placeholder {
+  color: rgba(139, 164, 212, .66) !important;
+  -webkit-text-fill-color: rgba(139, 164, 212, .66) !important;
+}
+
+body.map .search input:focus {
+  outline: none !important;
+  background: rgba(6, 15, 38, .85) !important;
+  border-color: rgba(245, 158, 11, .45) !important;
+  box-shadow:
+    0 0 0 4px rgba(245, 158, 11, .12),
+    0 12px 34px -18px rgba(245, 158, 11, .9) !important;
+}
+
+/* icon buttons */
+body.map .icon-btn {
+  position: relative;
+  border-radius: 12px !important;
+  border: 1px solid transparent !important;
+  background: rgba(255, 255, 255, .035) !important;
+  color: #cbd9f5 !important;
+  transition:
+    transform .28s var(--map-ease-out),
+    background .28s ease,
+    border-color .28s ease,
+    box-shadow .28s ease,
+    color .28s ease !important;
+}
+
+body.map .icon-btn:hover {
+  transform: translateY(-2px) scale(1.06);
+  background: linear-gradient(140deg, rgba(245, 158, 11, .18), rgba(217, 70, 239, .14)) !important;
+  border-color: rgba(245, 158, 11, .35) !important;
+  color: #fff !important;
+  box-shadow: 0 10px 24px -12px rgba(245, 158, 11, .95) !important;
+}
+
+body.map .icon-btn:active { transform: translateY(0) scale(.96); }
+
+/* logout gets a warmer treatment so it reads as destructive-ish */
+body.map #logoutBtn:hover {
+  background: linear-gradient(140deg, rgba(239, 68, 68, .2), rgba(245, 158, 11, .12)) !important;
+  border-color: rgba(239, 68, 68, .4) !important;
+  box-shadow: 0 10px 24px -12px rgba(239, 68, 68, .9) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   3. SHARED CARD TREATMENT
+   ══════════════════════════════════════════════════════════════════════════ */
+body.map .card {
+  background: var(--map-glass) !important;
+  border: 1px solid var(--map-line) !important;
+  border-radius: 20px !important;
+  backdrop-filter: blur(18px) saturate(135%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(135%) !important;
+  box-shadow:
+    0 26px 60px -34px rgba(0, 0, 0, .95),
+    inset 0 1px 0 rgba(255, 255, 255, .05) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   4. LEFT RAIL — profile + navigation
+   ══════════════════════════════════════════════════════════════════════════ */
+body.map .leftRail .profile {
+  position: relative;
+  padding: 18px 16px 14px !important;
+  border-radius: 18px !important;
+  background: linear-gradient(160deg, rgba(255, 255, 255, .045), rgba(255, 255, 255, .01)) !important;
+  border: 1px solid rgba(139, 164, 212, .13) !important;
+  overflow: hidden;
+}
+
+/* soft aurora wash inside the profile card */
+body.map .leftRail .profile::before {
+  content: "";
+  position: absolute;
+  inset: -40% -20% auto -20%;
+  height: 150px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(245, 158, 11, .16), transparent 70%);
+  pointer-events: none;
+}
+
+/* avatar + rotating DID ring */
+body.map .milan-avatar-upload {
+  position: relative;
+  display: inline-block;
+}
+
+body.map .milan-avatar-upload::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  padding: 2px;
+  background: conic-gradient(
+    from var(--map-angle),
+    rgba(245, 158, 11, .9),
+    rgba(217, 70, 239, .85),
+    rgba(34, 211, 238, .8),
+    rgba(245, 158, 11, .9)
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+  animation: map-ring-spin 9s linear infinite;
+}
+
+@keyframes map-ring-spin {
+  from { --map-angle: 0deg; }
+  to   { --map-angle: 360deg; }
+}
+
+body.map .leftRail #myAvatar,
+body.map .leftRail .avatar {
+  box-shadow: 0 12px 30px -14px rgba(0, 0, 0, .9) !important;
+  transition: transform .45s var(--map-ease-out);
+}
+
+body.map .milan-avatar-upload:hover #myAvatar {
+  transform: scale(1.04);
+}
+
+body.map .milan-avatar-upload-icon {
+  animation: map-badge-pulse 3.2s ease-in-out infinite;
+}
+
+@keyframes map-badge-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(245, 158, 11, .5); }
+  50%      { transform: scale(1.1); box-shadow: 0 0 0 7px rgba(245, 158, 11, 0); }
+}
+
+body.map .leftRail #myName {
+  letter-spacing: .01em;
+}
+
+/* profile stats */
+body.map .profile-stats {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+body.map .profile-stat {
+  padding: 9px 6px !important;
+  border-radius: 12px !important;
+  background: rgba(255, 255, 255, .035) !important;
+  border: 1px solid rgba(139, 164, 212, .1) !important;
+  transition: transform .3s var(--map-ease-out), background .3s ease, border-color .3s ease;
+}
+
+body.map .profile-stat:hover {
+  transform: translateY(-2px);
+  background: rgba(245, 158, 11, .1) !important;
+  border-color: rgba(245, 158, 11, .3) !important;
+}
+
+body.map .profile-stat b {
+  display: block;
+  font-variant-numeric: tabular-nums;
+}
+
+/* navigation */
+body.map .nav button {
+  position: relative;
+  overflow: hidden;
+  border-radius: 13px !important;
+  border: 1px solid transparent !important;
+  background: transparent !important;
+  color: #c6d4f0 !important;
+  text-align: left;
+  transition:
+    transform .3s var(--map-ease-out),
+    color .3s ease,
+    border-color .3s ease,
+    background .3s ease !important;
+}
+
+/* sweeping highlight on hover */
+body.map .nav button::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(100deg, rgba(245, 158, 11, .16), rgba(217, 70, 239, .12));
+  opacity: 0;
+  transform: translateX(-12%);
+  transition: opacity .3s ease, transform .45s var(--map-ease-out);
+  pointer-events: none;
+}
+
+body.map .nav button:hover::before {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+body.map .nav button:hover {
+  transform: translateX(4px);
+  color: #ffffff !important;
+  border-color: rgba(245, 158, 11, .24) !important;
+}
+
+body.map .nav button.active {
+  color: #ffffff !important;
+  background: linear-gradient(100deg, rgba(245, 158, 11, .24), rgba(217, 70, 239, .18)) !important;
+  border-color: rgba(245, 158, 11, .4) !important;
+  box-shadow:
+    0 12px 30px -16px rgba(245, 158, 11, .95),
+    inset 0 1px 0 rgba(255, 255, 255, .08) !important;
+}
+
+/* left accent bar on the active item */
+body.map .nav button.active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 18%;
+  bottom: 18%;
+  width: 3px;
+  border-radius: 99px;
+  background: linear-gradient(180deg, var(--map-gold), var(--map-magenta));
+  box-shadow: 0 0 12px rgba(245, 158, 11, .85);
+}
+
+/* MILAN AI gets a gentle living gradient */
+body.map .nav button.accent {
+  background: linear-gradient(100deg, rgba(34, 211, 238, .1), rgba(217, 70, 239, .12)) !important;
+  border-color: rgba(34, 211, 238, .26) !important;
+  background-size: 200% 100% !important;
+  animation: map-accent-shift 9s linear infinite;
+}
+
+@keyframes map-accent-shift {
+  from { background-position: 0% 50%; }
+  to   { background-position: 200% 50%; }
+}
+
+body.map .nav button:active { transform: translateX(4px) scale(.985); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   5. CENTER RAIL — hero, stats, composer, feed
+   ══════════════════════════════════════════════════════════════════════════ */
+body.map #milanHomeIntro .heroIntro {
+  position: relative;
+  padding: 26px 28px !important;
+  border-radius: 20px !important;
+  overflow: hidden;
+  /* the base sheet sets `background` on this block with !important, so the
+     shorthand here must be !important too or the colourful wash is dropped */
+  background: var(--map-glass) !important;
+  border: 1px solid rgba(245, 158, 11, .2) !important;
+  backdrop-filter: blur(16px) saturate(135%);
+  -webkit-backdrop-filter: blur(16px) saturate(135%);
+  box-shadow: 0 26px 60px -34px rgba(0, 0, 0, .95);
+  animation: map-rise .7s var(--map-ease-out) both;
+}
+
+/* colour wash, kept on its own layer so the glass background above stays clean */
+body.map #milanHomeIntro .heroIntro::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    140deg,
+    rgba(245, 158, 11, .11),
+    rgba(217, 70, 239, .10) 55%,
+    rgba(34, 211, 238, .08)
+  );
+}
+
+/* slow light sweep across the hero */
+body.map #milanHomeIntro .heroIntro::after {
+  content: "";
+  position: absolute;
+  top: -60%;
+  bottom: -60%;
+  left: -60%;
+  width: 40%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .07), transparent);
+  transform: skewX(-18deg);
+  animation: map-hero-sweep 9s var(--map-ease-out) infinite;
+  pointer-events: none;
+}
+
+@keyframes map-hero-sweep {
+  0%   { left: -60%; }
+  55%  { left: 130%; }
+  100% { left: 130%; }
+}
+
+body.map #milanHomeIntro .heroIntro h1 {
+  position: relative;
+  z-index: 1;
+  /* background MUST be !important: the base sheet also sets a background here
+     with !important, and if it wins while our text-fill-colour is transparent
+     the heading renders completely invisible. */
+  background: linear-gradient(100deg, #ffffff 0%, var(--map-gold-l) 38%, var(--map-magenta-l) 70%, var(--map-cyan) 100%) !important;
+  background-size: 220% 100% !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  color: transparent !important;
+  animation: map-title-shimmer 10s linear infinite;
+  letter-spacing: -.02em;
+}
+
+body.map #milanHomeIntro .heroIntro p {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes map-title-shimmer {
+  from { background-position: 0% 50%; }
+  to   { background-position: 220% 50%; }
+}
+
+/* quick stats */
+body.map .quickStat {
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform .35s var(--map-ease-out),
+    border-color .35s ease,
+    box-shadow .35s ease !important;
+  animation: map-rise .6s var(--map-ease-out) both;
+}
+
+body.map .quickStat:nth-child(1) { animation-delay: .06s; }
+body.map .quickStat:nth-child(2) { animation-delay: .12s; }
+body.map .quickStat:nth-child(3) { animation-delay: .18s; }
+
+body.map .quickStat::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--map-gold), var(--map-magenta), var(--map-cyan));
+  opacity: .75;
+}
+
+body.map .quickStat:hover {
+  transform: translateY(-3px);
+  border-color: rgba(245, 158, 11, .4) !important;
+  box-shadow:
+    0 20px 44px -22px rgba(0, 0, 0, .95),
+    0 0 30px -12px rgba(245, 158, 11, .55) !important;
+}
+
+body.map .quickStat .v {
+  font-variant-numeric: tabular-nums;
+  transition: transform .35s var(--map-ease-out), text-shadow .35s ease;
+}
+
+body.map .quickStat.is-bump .v {
+  transform: scale(1.16);
+  text-shadow: 0 0 18px rgba(245, 158, 11, .8);
+}
+
+@keyframes map-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* composer */
+body.map .composer {
+  border-radius: 20px !important;
+  transition:
+    box-shadow .4s ease,
+    border-color .4s ease,
+    transform .4s var(--map-ease-out) !important;
+}
+
+body.map .composer:focus-within {
+  border-color: rgba(245, 158, 11, .45) !important;
+  transform: translateY(-2px);
+  box-shadow:
+    0 34px 70px -34px rgba(0, 0, 0, .95),
+    0 0 0 4px rgba(245, 158, 11, .1),
+    0 0 44px -14px rgba(245, 158, 11, .5) !important;
+}
+
+body.map #postText {
+  background: transparent !important;
+  color: var(--map-text) !important;
+  border: 0 !important;
+  outline: none !important;
+  resize: vertical;
+}
+
+body.map #postText::placeholder {
+  color: rgba(139, 164, 212, .62) !important;
+  -webkit-text-fill-color: rgba(139, 164, 212, .62) !important;
+}
+
+body.map .composer .mini-avatar {
+  box-shadow: 0 8px 20px -10px rgba(0, 0, 0, .9);
+}
+
+body.map .composer-tools .tool {
+  border-radius: 12px !important;
+  border: 1px solid rgba(139, 164, 212, .14) !important;
+  background: rgba(255, 255, 255, .04) !important;
+  transition:
+    transform .3s var(--map-ease-out),
+    background .3s ease,
+    border-color .3s ease,
+    box-shadow .3s ease !important;
+}
+
+body.map .composer-tools .tool:hover {
+  transform: translateY(-3px) scale(1.06);
+  background: linear-gradient(140deg, rgba(245, 158, 11, .2), rgba(217, 70, 239, .16)) !important;
+  border-color: rgba(245, 158, 11, .4) !important;
+  box-shadow: 0 12px 26px -12px rgba(245, 158, 11, .95) !important;
+}
+
+/* publish button — same language as the login CTA */
+body.map .publish {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: 14px !important;
+  font-weight: 700 !important;
+  letter-spacing: .02em;
+  background: linear-gradient(135deg, var(--map-gold-l) 0%, var(--map-gold) 45%, var(--map-magenta) 100%) !important;
+  box-shadow:
+    0 14px 34px -14px rgba(245, 158, 11, .9),
+    inset 0 1px 0 rgba(255, 255, 255, .28) !important;
+  transition:
+    transform .18s var(--map-ease),
+    box-shadow .3s ease,
+    filter .3s ease !important;
+}
+
+body.map .publish:hover:not(:disabled) {
+  filter: saturate(115%) brightness(1.05);
+  box-shadow:
+    0 22px 46px -16px rgba(245, 158, 11, 1),
+    0 0 40px -10px rgba(217, 70, 239, .7),
+    inset 0 1px 0 rgba(255, 255, 255, .34) !important;
+}
+
+body.map .publish::after {
+  content: "";
+  position: absolute;
+  top: -60%;
+  bottom: -60%;
+  left: -140%;
+  width: 55%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .5), transparent);
+  transform: skewX(-20deg);
+  pointer-events: none;
+  z-index: 1;
+  transition: left .75s var(--map-ease-out);
+}
+
+body.map .publish:hover:not(:disabled)::after { left: 165%; }
+
+body.map .publish .map-ripple {
+  position: absolute;
+  border-radius: 50%;
+  transform: scale(0);
+  background: rgba(255, 255, 255, .5);
+  pointer-events: none;
+  z-index: 2;
+  animation: map-ripple .62s var(--map-ease-out) forwards;
+}
+
+@keyframes map-ripple {
+  to { transform: scale(2.6); opacity: 0; }
+}
+
+/* feed header + refresh */
+body.map .milan-feed-header strong {
+  letter-spacing: .01em;
+}
+
+body.map #milanFeedRefresh {
+  border-radius: 999px !important;
+  border: 1px solid rgba(139, 164, 212, .18) !important;
+  background: rgba(255, 255, 255, .04) !important;
+  transition:
+    transform .3s var(--map-ease-out),
+    background .3s ease,
+    border-color .3s ease,
+    box-shadow .3s ease !important;
+}
+
+body.map #milanFeedRefresh:hover {
+  transform: translateY(-2px);
+  background: rgba(34, 211, 238, .14) !important;
+  border-color: rgba(34, 211, 238, .4) !important;
+  box-shadow: 0 12px 26px -14px rgba(34, 211, 238, .9) !important;
+}
+
+body.map #milanFeedRefresh.is-spinning {
+  animation: map-spin .8s linear infinite;
+}
+
+@keyframes map-spin { to { transform: rotate(360deg); } }
+
+/* feed items — scoped to the list so the shared .card rule stays intact */
+body.map #milanFeedList > * {
+  border-radius: 16px !important;
+  transition:
+    transform .35s var(--map-ease-out),
+    border-color .35s ease,
+    box-shadow .35s ease !important;
+}
+
+body.map #milanFeedList > *:hover {
+  transform: translateY(-3px);
+  border-color: rgba(245, 158, 11, .3) !important;
+  box-shadow:
+    0 26px 56px -30px rgba(0, 0, 0, .95),
+    0 0 30px -14px rgba(245, 158, 11, .45) !important;
+}
+
+body.map #milanFeedList > *[data-map-reveal] {
+  animation: map-rise .55s var(--map-ease-out) both;
+}
+
+body.map #milanFeedList .empty {
+  border: 1px dashed rgba(139, 164, 212, .2) !important;
+  border-radius: 16px !important;
+  background: rgba(255, 255, 255, .015) !important;
+}
+
+/* let the feed column run to the bottom of the rail. Previously the centre
+   column stopped at ~570px while the left rail ran to ~950px, leaving a void
+   under the empty feed. */
+body.map .centerRail {
+  display: flex !important;
+  flex-direction: column !important;
+  /* the left rail already stretches to the rail height; match it so the feed
+     can actually grow into the space instead of stopping short */
+  align-self: stretch !important;
+}
+
+body.map #milanHomeFeed {
+  flex: 1 1 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 320px;
+}
+
+body.map #milanFeedList {
+  flex: 1 1 auto !important;
+  min-height: 0;
+}
+
+/* The hero and the composer must never shrink. Without this, the feed's
+   min-height below squeezes the composer down to a sliver on short viewports
+   (visible at 1366x768) because every column child defaults to flex-shrink:1. */
+body.map #milanHomeIntro,
+body.map .composer {
+  flex: 0 0 auto !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   6. RIGHT RAIL
+   ══════════════════════════════════════════════════════════════════════════ */
+body.map .right-card {
+  transition: transform .35s var(--map-ease-out), border-color .35s ease, box-shadow .35s ease !important;
+  animation: map-rise .7s var(--map-ease-out) both;
+}
+
+body.map .right-card:nth-child(2) { animation-delay: .08s; }
+
+body.map .right-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(139, 164, 212, .28) !important;
+  box-shadow:
+    0 30px 64px -34px rgba(0, 0, 0, .95),
+    0 0 30px -16px rgba(217, 70, 239, .4) !important;
+}
+
+body.map .right-card h3 {
+  position: relative;
+  padding-left: 12px;
+}
+
+body.map .right-card h3::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 20%;
+  bottom: 20%;
+  width: 3px;
+  border-radius: 99px;
+  background: linear-gradient(180deg, var(--map-gold), var(--map-magenta));
+  box-shadow: 0 0 10px rgba(245, 158, 11, .7);
+}
+
+/* shimmering skeleton for placeholder text */
+body.map .right-card .empty {
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px !important;
+  border: 1px dashed rgba(139, 164, 212, .18) !important;
+  background: rgba(255, 255, 255, .015) !important;
+}
+
+body.map .right-card .empty::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .06), transparent);
+  transform: translateX(-100%);
+  animation: map-skeleton 2.6s var(--map-ease-out) infinite;
+  pointer-events: none;
+}
+
+@keyframes map-skeleton {
+  0%   { transform: translateX(-100%); }
+  60%  { transform: translateX(100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   7. FLOATING BUTTONS
+   The Control Centre FAB and the Creative Mode FAB were both pinned to the
+   same corner, so the Control Centre label was clipped and the two overlapped.
+   They are now a single right-aligned column with room for both.
+   ══════════════════════════════════════════════════════════════════════════ */
+body.map #milanControlFab {
+  position: fixed !important;
+  right: 22px !important;
+  bottom: 84px !important;
+  left: auto !important;
+  top: auto !important;
+  max-width: none !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(245, 158, 11, .35) !important;
+  background: linear-gradient(135deg, rgba(15, 27, 56, .95), rgba(9, 17, 40, .95)) !important;
+  color: #ffe6b8 !important;
+  box-shadow:
+    0 18px 40px -18px rgba(0, 0, 0, .95),
+    0 0 26px -12px rgba(245, 158, 11, .8) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition:
+    transform .3s var(--map-ease-out),
+    box-shadow .3s ease,
+    border-color .3s ease !important;
+  z-index: 9000 !important;
+}
+
+body.map #milanControlFab:hover {
+  transform: translateY(-3px);
+  border-color: rgba(245, 158, 11, .7) !important;
+  box-shadow:
+    0 24px 52px -20px rgba(0, 0, 0, .95),
+    0 0 40px -10px rgba(245, 158, 11, 1) !important;
+}
+
+body.map .mcm-fab {
+  position: fixed !important;
+  right: 22px !important;
+  bottom: 22px !important;
+  left: auto !important;
+  top: auto !important;
+  border-radius: 999px !important;
+  box-shadow:
+    0 18px 40px -18px rgba(0, 0, 0, .95),
+    0 0 26px -12px rgba(217, 70, 239, .85) !important;
+  transition: transform .3s var(--map-ease-out), box-shadow .3s ease !important;
+  z-index: 9000 !important;
+}
+
+body.map .mcm-fab:hover {
+  transform: translateY(-3px) rotate(-8deg) scale(1.06);
+  box-shadow:
+    0 24px 52px -20px rgba(0, 0, 0, .95),
+    0 0 42px -10px rgba(217, 70, 239, 1) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   8. SCROLLBARS
+   ══════════════════════════════════════════════════════════════════════════ */
+body.map .leftRail .nav::-webkit-scrollbar,
+body.map .centerRail::-webkit-scrollbar,
+body.map .rightRail::-webkit-scrollbar {
+  width: 8px;
+}
+
+body.map .leftRail .nav::-webkit-scrollbar-track,
+body.map .centerRail::-webkit-scrollbar-track,
+body.map .rightRail::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+body.map .leftRail .nav::-webkit-scrollbar-thumb,
+body.map .centerRail::-webkit-scrollbar-thumb,
+body.map .rightRail::-webkit-scrollbar-thumb {
+  border-radius: 99px;
+  background: linear-gradient(180deg, rgba(245, 158, 11, .45), rgba(217, 70, 239, .4));
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   9. A11Y
+   ══════════════════════════════════════════════════════════════════════════ */
+body.map :focus-visible {
+  outline: 2px solid rgba(251, 191, 36, .85) !important;
+  outline-offset: 2px !important;
+  border-radius: 8px;
+}
+
+body.map #postText:focus-visible,
+body.map .search input:focus-visible { outline: none !important; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   10. MOTION PREFERENCES
+   ══════════════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  body.map #map-bg .map-blob,
+  body.map #map-bg .map-grid,
+  body.map .brand-text-inner strong,
+  body.map .nav button.accent,
+  body.map #milanHomeIntro .heroIntro,
+  body.map #milanHomeIntro .heroIntro::after,
+  body.map #milanHomeIntro .heroIntro h1,
+  body.map .quickStat,
+  body.map .right-card,
+  body.map .milan-avatar-upload::before,
+  body.map .milan-avatar-upload-icon,
+  body.map .right-card .empty::after {
+    animation: none !important;
+  }
+
+  body.map .quickStat::after { opacity: .5; }
+
+  body.map .leftRail .profile::before { display: none; }
+
+  body.map *,
+  body.map *::before,
+  body.map *::after {
+    transition-duration: .001ms !important;
+    animation-duration: .001ms !important;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   11. ADAPTIVE — leave the base responsive rules in charge, just tidy up
+   ══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 1200px) {
+  body.map #milanControlFab { bottom: 82px !important; }
+}
+
+/* short desktop viewports: the centre column cannot fit hero + stats +
+   composer + a 320px feed, so let the feed be shorter instead of crushing
+   the composer. */
+@media (min-width: 781px) and (max-height: 860px) {
+  body.map #milanHomeFeed { min-height: 210px !important; }
+  body.map #milanHomeIntro .heroIntro { padding: 18px 22px !important; }
+  body.map #milanHomeIntro .heroIntro h1 { font-size: 30px !important; }
+  body.map .quickStat { padding: 11px 8px !important; }
+}
+
+@media (max-width: 780px) {
+  /* mobile keeps the base layout; soften the glass and drop the heavy motion */
+  body.map .card,
+  body.map .topbar {
+    backdrop-filter: blur(12px) saturate(125%) !important;
+    -webkit-backdrop-filter: blur(12px) saturate(125%) !important;
+  }
+  body.map #map-bg .map-blob { opacity: .22; }
+  body.map #milanHomeIntro .heroIntro::after { display: none; }
+}

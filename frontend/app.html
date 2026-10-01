@@ -52,7 +52,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>MILAN — Your Space. Your People.</title>
   <link rel="stylesheet" href="/milan-core.css">
-  <link rel="stylesheet" href="/milan-ui.css">
+  <!-- NOTE: the /milan-ui.css link was removed here. That file has never
+       existed in this repo, so every app-page load produced a 404 and the
+       stylesheet contributed nothing. The remaining sheets carry the layout. -->
   <link rel="stylesheet" href="/premium.css">
   <link rel="stylesheet" href="/assets/css/app-layout.css">
   <link rel="stylesheet" href="/assets/css/milan-visual-base.css">
@@ -2783,8 +2785,17 @@ button{
 #myEmail{display:none!important}
 </style>
 
+<!-- MILAN App Pro - additive presentation layer for the app shell.
+     Placed at the very END of <head> on purpose: this document carries ~2,700
+     lines of inline <style> BELOW the stylesheet links above, and at equal
+     specificity the later rule in source order wins. Loading this sheet up
+     with the other <link>s meant the inline blocks silently beat it.
+     Scoped under body.map: remove that class to roll back instantly.
+     Not ?v=-versioned on purpose (see index.html) - frontend/sw.js serves
+     ?v= JS/CSS cache-first forever. -->
+<link rel="stylesheet" href="/milan-app-pro.css">
 </head>
-<body>
+<body class="map">
 <div class="app">
 <header class="topbar">
   <div class="brand">
@@ -2878,6 +2889,10 @@ button{
 <script src="/assets/js/milan-identity-status.js" defer></script>
 <script src="/assets/js/milan-identity-intelligence.js?v=dwn-always-connected-20260908" defer></script>
 <script src="/assets/js/milan-identity-status-sync.js" defer></script>
+
+<!-- MILAN App Pro interactions. Deferred and last, so every app module has
+     already wired its own behaviour before this layer touches anything. -->
+<script src="/milan-app-pro.js" defer></script>
 
 <script>
 (() => {
@@ -3022,8 +3037,7 @@ button{
       }
 
       document.querySelectorAll(
-        ".milan-identity-status-chip.dwn .value,
-         .milan-identity-cockpit .storage"
+        ".milan-identity-status-chip.dwn .value, .milan-identity-cockpit .storage"
       ).forEach(el => {
         el.textContent = "Connected";
       });
