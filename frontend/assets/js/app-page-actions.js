@@ -387,6 +387,7 @@
         localStorage.removeItem("milan_token");
         localStorage.removeItem("milanToken");
         localStorage.removeItem("milanBootCache");
+        localStorage.removeItem("milanAvatar");
           sessionStorage.clear();
       } finally {
         window.location.replace("/");
