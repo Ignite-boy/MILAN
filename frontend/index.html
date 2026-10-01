@@ -87,8 +87,18 @@
   -webkit-text-fill-color: #eef1f8 !important;
 }
 </style>
+
+  <!-- MILAN Login Pro - additive presentation layer, loaded last so it wins the cascade.
+       Scoped under body.mlp: remove that class to roll back instantly.
+       Deliberately NOT ?v=-versioned: frontend/sw.js serves ?v= JS/CSS cache-first
+       forever, which would strand returning PWA users on a stale design. Without
+       the query these are network-first, so edits always reach users.
+       Complements the placeholder-visibility block above: that one fixes the
+       placeholder COLOUR, this layer also fixes its PADDING (the text used to
+       run underneath the leading icon - see milan-login-pro.css). -->
+  <link rel="stylesheet" href="/milan-login-pro.css">
 </head>
-<body>
+<body class="mlp">
 
 <!-- SEO crawlable content (visually hidden, served to crawlers without JS) -->
 <noscript>
@@ -211,6 +221,11 @@ window.addEventListener("DOMContentLoaded", function () {
 
 <script src="/assets/login.js" defer></script>
 <script src="/assets/js/login-actions.js" defer></script>
+
+<!-- MILAN Login Pro — interactions. Deferred and last, so assets/login.js has
+     already wired authentication before this layer touches anything.
+     Not ?v=-versioned — see the note on the stylesheet link above. -->
+<script src="/milan-login-pro.js" defer></script>
 
 </body>
 </html>

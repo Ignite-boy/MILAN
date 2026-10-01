@@ -1,0 +1,1150 @@
+/* ============================================================================
+   MILAN — Login Pro layer  (v1.1)
+   ----------------------------------------------------------------------------
+   Additive, presentation-only layer for the login page (frontend/index.html).
+
+   DESIGN CONTRACT
+   • Loaded LAST, so it wins the cascade over assets/css/login.css.
+   • Everything is scoped under `body.mlp` — remove that class and the page
+     falls back to the previous look instantly. Zero-downtime rollback.
+   • No auth behaviour is touched. No element IDs, no form structure, no event
+     handlers are changed. Form submission stays 100% owned by
+     assets/login.js.
+   • Decorations are injected by milan-login-pro.js into containers defined
+     here. If the JS never runs, the page still renders correctly.
+   • `prefers-reduced-motion: reduce` disables every animation and transition.
+   • Target: desktop Chrome.
+
+   v1.1 changes (after reviewing a 1920x1080 Chrome render):
+     · The two panels are full-height; their content was top-aligned, so the
+       hero showed ~55% dead space and the card ~30%. Content is now
+       vertically centred inside each panel, and the hero type/card scale was
+       raised so the panels read as composed rather than half-empty.
+     · The value strip (.auth-value) is now a left-aligned eyebrow above the
+       headline instead of a full-width banner with centred text.
+     · The logo's 0.58 zoom (a compaction hack from the base layer) is
+       released, so the brand mark is legible again.
+     · Tightened layout for short desktop viewports.
+   ========================================================================== */
+
+/* ── animatable custom properties (Chrome supports @property) ─────────────── */
+@property --mlp-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+/* ── tokens ──────────────────────────────────────────────────────────────── */
+body.mlp {
+  --mlp-gold: #f59e0b;
+  --mlp-gold-l: #fbbf24;
+  --mlp-magenta: #d946ef;
+  --mlp-magenta-l: #e879f9;
+  --mlp-cyan: #22d3ee;
+  --mlp-ink: #050e2b;
+  --mlp-ink-2: #0a1a3e;
+  --mlp-text: #f0e6ff;
+  --mlp-muted: #8ba4d4;
+  --mlp-ease: cubic-bezier(.16, .84, .44, 1);
+  --mlp-ease-out: cubic-bezier(.22, 1, .36, 1);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   1. ANIMATED BACKGROUND  (#mlp-bg)
+   Fixed behind #root. Because the login card is frosted glass, the aurora
+   and the cursor spotlight show *through* it, blurred — which keeps text
+   contrast intact while still looking alive.
+   ══════════════════════════════════════════════════════════════════════════ */
+body.mlp #mlp-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+}
+
+body.mlp #root {
+  position: relative;
+  z-index: 1;
+}
+
+/* drifting aurora blobs */
+body.mlp #mlp-bg .mlp-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: .55;
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+body.mlp #mlp-bg .mlp-blob--a {
+  width: 62vw;
+  height: 62vw;
+  top: -22vw;
+  left: -14vw;
+  background: radial-gradient(circle at 35% 35%, rgba(20, 100, 184, .85), rgba(20, 100, 184, 0) 68%);
+  animation: mlp-drift-a 26s var(--mlp-ease-out) infinite alternate;
+}
+
+body.mlp #mlp-bg .mlp-blob--b {
+  width: 54vw;
+  height: 54vw;
+  top: -10vw;
+  right: -12vw;
+  background: radial-gradient(circle at 60% 40%, rgba(217, 70, 239, .72), rgba(217, 70, 239, 0) 68%);
+  animation: mlp-drift-b 32s var(--mlp-ease-out) infinite alternate;
+}
+
+body.mlp #mlp-bg .mlp-blob--c {
+  width: 58vw;
+  height: 58vw;
+  bottom: -26vw;
+  left: 22vw;
+  background: radial-gradient(circle at 50% 50%, rgba(245, 158, 11, .5), rgba(245, 158, 11, 0) 68%);
+  animation: mlp-drift-c 38s var(--mlp-ease-out) infinite alternate;
+}
+
+@keyframes mlp-drift-a {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(9vw, 6vh, 0) scale(1.14); }
+}
+@keyframes mlp-drift-b {
+  from { transform: translate3d(0, 0, 0) scale(1.06); }
+  to   { transform: translate3d(-8vw, 9vh, 0) scale(.94); }
+}
+@keyframes mlp-drift-c {
+  from { transform: translate3d(0, 0, 0) scale(.96); }
+  to   { transform: translate3d(6vw, -7vh, 0) scale(1.12); }
+}
+
+/* faint perspective grid, faded at the edges */
+body.mlp #mlp-bg .mlp-grid {
+  position: absolute;
+  inset: -20% -10% -10% -10%;
+  background-image:
+    linear-gradient(rgba(139, 164, 212, .09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(139, 164, 212, .09) 1px, transparent 1px);
+  background-size: 68px 68px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, #000 10%, transparent 78%);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, #000 10%, transparent 78%);
+  animation: mlp-grid-pan 40s linear infinite;
+}
+
+@keyframes mlp-grid-pan {
+  from { background-position: 0 0, 0 0; }
+  to   { background-position: 68px 68px, 68px 68px; }
+}
+
+/* starfield canvas */
+body.mlp #mlp-bg canvas#mlp-stars {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* cursor spotlight — JS keeps this sized/positioned exactly over the card */
+body.mlp #mlp-bg .mlp-spot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 28px;
+  opacity: 0;
+  transition: opacity .45s ease;
+  background: radial-gradient(
+    340px circle at var(--mlp-sx, 50%) var(--mlp-sy, 50%),
+    rgba(255, 255, 255, .22),
+    rgba(251, 191, 36, .13) 32%,
+    transparent 66%
+  );
+  will-change: transform, opacity;
+}
+
+body.mlp #mlp-bg .mlp-spot.is-on { opacity: 1; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   2. HERO PANEL — composition + content scale
+   ══════════════════════════════════════════════════════════════════════════ */
+body.mlp .hero-panel {
+  position: relative;
+  isolation: isolate;
+  display: flex !important;
+  flex-direction: column !important;
+  /* let the page aurora read *through* the panel instead of only around it —
+     same frosted treatment the login card uses. Alpha stays high enough to
+     keep body text well above 4.5:1. */
+  background: linear-gradient(150deg, rgba(11, 25, 58, .70) 0%, rgba(6, 14, 36, .80) 100%) !important;
+  backdrop-filter: blur(18px) saturate(130%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(130%) !important;
+}
+
+/* centre the whole hero composition (headline → features → security pill).
+   The base layer's order:-1 keeps .auth-value above the headline. */
+body.mlp .hero-panel {
+  justify-content: center !important;
+  gap: 26px !important;
+}
+
+body.mlp .hero-panel > div:first-child {
+  gap: 22px !important;
+  margin: 0 !important;
+}
+
+body.mlp .hero-panel > .security-footer {
+  margin: 0 !important;
+}
+
+body.mlp .hero-title {
+  font-size: clamp(2.05rem, 3.05vw, 3.55rem) !important;
+  line-height: 1.1 !important;
+  margin: 0 0 4px !important;
+  background: linear-gradient(
+    100deg,
+    #ffffff 0%, var(--mlp-gold-l) 22%, var(--mlp-magenta-l) 44%,
+    var(--mlp-cyan) 62%, #ffffff 84%, var(--mlp-gold-l) 100%
+  );
+  background-size: 260% 100%;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  color: transparent !important;
+  animation: mlp-title-shimmer 9s linear infinite;
+  letter-spacing: -.015em;
+}
+
+body.mlp .hero-title span {
+  -webkit-text-fill-color: transparent !important;
+  opacity: .94;
+}
+
+@keyframes mlp-title-shimmer {
+  from { background-position: 0% 50%; }
+  to   { background-position: 260% 50%; }
+}
+
+body.mlp .hero-title::after {
+  content: "";
+  display: block;
+  width: 132px;
+  height: 3px;
+  margin-top: 24px;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--mlp-gold), var(--mlp-magenta), var(--mlp-cyan));
+  box-shadow: 0 0 18px rgba(245, 158, 11, .55);
+  transform-origin: left center;
+  animation: mlp-rule-grow .9s var(--mlp-ease-out) both .25s;
+}
+
+@keyframes mlp-rule-grow {
+  from { transform: scaleX(0); opacity: 0; }
+  to   { transform: scaleX(1); opacity: 1; }
+}
+
+/* value proposition — left-aligned eyebrow above the headline
+   (the base layer forces order:-1 on this element, which is what makes it
+   sit above the h1; we keep that and just restyle it) */
+body.mlp .auth-value {
+  position: relative;
+  align-self: flex-start !important;
+  max-width: 620px !important;
+  margin: 0 0 6px !important;
+  padding: 14px 20px 14px 24px !important;
+  border-radius: 16px !important;
+  text-align: left !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, .015)) !important;
+  border: 1px solid rgba(139, 164, 212, .18) !important;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 12px 34px -18px rgba(0, 0, 0, .7);
+  animation: mlp-rise .7s var(--mlp-ease-out) both .1s;
+}
+
+body.mlp .auth-value strong {
+  display: block;
+  font-size: 15px !important;
+  letter-spacing: .01em;
+  margin-bottom: 4px;
+}
+
+body.mlp .auth-value span {
+  display: block;
+  font-size: 13px !important;
+  line-height: 1.55;
+  color: rgba(214, 226, 255, .75) !important;
+}
+
+body.mlp .auth-value::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 16%;
+  bottom: 16%;
+  width: 3px;
+  border-radius: 99px;
+  background: linear-gradient(180deg, var(--mlp-gold), var(--mlp-magenta));
+  box-shadow: 0 0 14px rgba(245, 158, 11, .6);
+}
+
+/* feature cards */
+body.mlp .feature-grid {
+  perspective: 1100px;
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 16px !important;
+  margin-top: 6px;
+  transition: transform .4s var(--mlp-ease-out);
+  will-change: transform;
+}
+
+body.mlp .feature-item {
+  position: relative;
+  display: flex !important;
+  gap: 15px !important;
+  align-items: flex-start;
+  padding: 19px 20px !important;
+  border-radius: 18px !important;
+  margin: 0 !important;
+  background: linear-gradient(150deg, rgba(255, 255, 255, .055), rgba(255, 255, 255, .012)) !important;
+  border: 1px solid rgba(139, 164, 212, .15) !important;
+  box-shadow: 0 14px 38px -22px rgba(0, 0, 0, .85);
+  transform-style: preserve-3d;
+  transition:
+    transform .45s var(--mlp-ease-out),
+    border-color .35s ease,
+    box-shadow .35s ease,
+    background .35s ease;
+  animation: mlp-rise .7s var(--mlp-ease-out) both;
+}
+
+body.mlp .feature-item:nth-child(1) { animation-delay: .18s; }
+body.mlp .feature-item:nth-child(2) { animation-delay: .28s; }
+body.mlp .feature-item:nth-child(3) { animation-delay: .38s; }
+
+body.mlp .feature-item:hover {
+  border-color: rgba(245, 158, 11, .42) !important;
+  background: linear-gradient(150deg, rgba(245, 158, 11, .09), rgba(217, 70, 239, .05)) !important;
+  box-shadow:
+    0 26px 50px -24px rgba(0, 0, 0, .9),
+    0 0 34px -10px rgba(245, 158, 11, .38);
+}
+
+/* cursor-tracked sheen inside each card */
+body.mlp .feature-item::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .35s ease;
+  background: radial-gradient(
+    200px circle at var(--mlp-fx, 50%) var(--mlp-fy, 50%),
+    rgba(255, 255, 255, .13),
+    transparent 62%
+  );
+}
+
+body.mlp .feature-item:hover::after { opacity: 1; }
+
+body.mlp .feature-icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  font-size: 23px;
+  background: linear-gradient(150deg, rgba(245, 158, 11, .2), rgba(217, 70, 239, .14));
+  border: 1px solid rgba(245, 158, 11, .3);
+  box-shadow: 0 8px 22px -10px rgba(245, 158, 11, .7), inset 0 1px 0 rgba(255, 255, 255, .14);
+  transition: transform .4s var(--mlp-ease-out), box-shadow .4s ease;
+}
+
+body.mlp .feature-item:hover .feature-icon {
+  transform: translateZ(26px) scale(1.1) rotate(-4deg);
+  box-shadow: 0 14px 30px -10px rgba(245, 158, 11, .85), inset 0 1px 0 rgba(255, 255, 255, .2);
+}
+
+body.mlp .feature-text h4 {
+  font-size: 15px !important;
+  letter-spacing: .01em;
+  margin: 0 0 5px !important;
+}
+
+body.mlp .feature-text p {
+  font-size: 12.5px !important;
+  line-height: 1.5 !important;
+  color: rgba(205, 219, 248, .80) !important;
+  margin: 0 !important;
+}
+
+/* security footer pill */
+body.mlp .security-footer {
+  position: relative;
+  align-items: center !important;
+  gap: 16px !important;
+  padding: 16px 22px !important;
+  border-radius: 16px !important;
+  border: 1px solid rgba(16, 185, 129, .22) !important;
+  background: linear-gradient(135deg, rgba(16, 185, 129, .085), rgba(255, 255, 255, .015)) !important;
+  overflow: hidden;
+  animation: mlp-rise .7s var(--mlp-ease-out) both .46s;
+}
+
+body.mlp .security-footer > div:first-child {
+  position: relative;
+  font-size: 22px;
+  animation: mlp-shield-pulse 3.4s ease-in-out infinite;
+}
+
+body.mlp .security-footer > div:last-child {
+  font-size: 13.5px !important;
+  line-height: 1.6;
+  color: rgba(214, 228, 255, .80) !important;
+}
+
+body.mlp .security-footer strong {
+  color: #eaf2ff !important;
+  font-weight: 700;
+}
+
+@keyframes mlp-shield-pulse {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 6px rgba(16, 185, 129, .4)); }
+  50%      { transform: scale(1.12); filter: drop-shadow(0 0 16px rgba(16, 185, 129, .85)); }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   3. LOGIN CARD
+   ══════════════════════════════════════════════════════════════════════════ */
+body.mlp .login-card {
+  position: relative;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;   /* fallback if `safe center` is unsupported */
+  justify-content: safe center !important;
+  gap: 12px !important;
+  padding: 30px 32px !important;
+  max-height: 100% !important;
+  overflow-y: auto !important;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(245, 158, 11, .4) transparent;
+  border: 1px solid transparent !important;
+  border-radius: 26px !important;
+  background:
+    linear-gradient(158deg, rgba(12, 27, 62, .90) 0%, rgba(7, 16, 40, .95) 100%) padding-box,
+    conic-gradient(
+      from var(--mlp-angle),
+      rgba(245, 158, 11, .55) 0deg,
+      rgba(217, 70, 239, .50) 90deg,
+      rgba(34, 211, 238, .38) 180deg,
+      rgba(139, 164, 212, .18) 260deg,
+      rgba(245, 158, 11, .55) 360deg
+    ) border-box !important;
+  backdrop-filter: blur(22px) saturate(145%) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(145%) !important;
+  box-shadow:
+    0 40px 90px -30px rgba(0, 0, 0, .9),
+    0 0 0 1px rgba(255, 255, 255, .035) inset,
+    0 1px 0 rgba(255, 255, 255, .07) inset,
+    0 0 70px -22px rgba(217, 70, 239, .45) !important;
+  animation:
+    mlp-card-in .85s var(--mlp-ease-out) both .05s,
+    mlp-border-spin 14s linear infinite 1s;
+}
+
+@keyframes mlp-border-spin {
+  from { --mlp-angle: 0deg; }
+  to   { --mlp-angle: 360deg; }
+}
+
+@keyframes mlp-card-in {
+  from { opacity: 0; transform: translateY(26px) scale(.975); filter: blur(6px); }
+  to   { opacity: 1; transform: none; filter: blur(0); }
+}
+
+/* logo — release the base layer's 0.58 compaction zoom */
+body.mlp .logo-center {
+  zoom: 1 !important;
+  margin: 0 0 4px !important;
+}
+
+body.mlp .logo-center img {
+  width: 76px !important;
+  height: 76px !important;
+  border-radius: 24px !important;
+  box-shadow:
+    0 12px 34px rgba(245, 158, 11, .34),
+    0 0 0 1px rgba(245, 158, 11, .28),
+    0 0 46px -14px rgba(217, 70, 239, .7) !important;
+  animation: mlp-logo-float 6s ease-in-out infinite;
+  transition: transform .5s var(--mlp-ease-out), box-shadow .5s ease;
+}
+
+body.mlp .logo-center img:hover {
+  transform: scale(1.08) rotate(-4deg);
+  box-shadow:
+    0 18px 44px rgba(245, 158, 11, .5),
+    0 0 0 1px rgba(245, 158, 11, .4),
+    0 0 60px -12px rgba(217, 70, 239, .85) !important;
+}
+
+@keyframes mlp-logo-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-5px); }
+}
+
+body.mlp .logo-center h2 {
+  font-size: 15px !important;
+  margin: 8px 0 0 !important;
+  background: linear-gradient(135deg, #ffffff 0%, var(--mlp-gold-l) 45%, var(--mlp-magenta-l) 100%);
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  color: transparent !important;
+  letter-spacing: .22em !important;
+  text-indent: .22em;
+}
+
+body.mlp .card-header {
+  margin: 4px 0 2px !important;
+  text-align: center;
+}
+
+body.mlp .card-header h3 {
+  font-size: 19px !important;
+  margin: 0 0 5px !important;
+}
+
+body.mlp .card-header p {
+  font-size: 12.5px !important;
+  color: rgba(196, 212, 245, .66) !important;
+  margin: 0 !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   4. TABS — sliding pill (geometry measured by milan-login-pro.js)
+   ══════════════════════════════════════════════════════════════════════════ */
+body.mlp .tabs {
+  position: relative !important;
+  display: flex !important;
+  gap: 4px !important;
+  margin: 4px 0 6px !important;
+  padding: 4px !important;
+  border-radius: 999px !important;
+  background: rgba(4, 11, 30, .62) !important;
+  border: 1px solid rgba(139, 164, 212, .14) !important;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, .55);
+}
+
+body.mlp .tabs .tab {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 0 !important;
+  width: auto !important;
+  border: 0 !important;
+  background: transparent !important;
+  border-radius: 999px !important;
+  padding: 10px 12px !important;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: .02em;
+  color: var(--mlp-muted) !important;
+  transition: color .3s ease, transform .3s var(--mlp-ease);
+}
+
+body.mlp .tabs .tab.active {
+  color: #0b1220 !important;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, .28);
+}
+
+body.mlp .tabs .tab:not(.active):hover { color: #dbe6ff !important; }
+body.mlp .tabs .tab:active { transform: scale(.97); }
+
+body.mlp .tabs .mlp-pill {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  height: calc(100% - 8px);
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--mlp-gold-l) 0%, var(--mlp-gold) 45%, var(--mlp-magenta) 100%);
+  box-shadow:
+    0 8px 22px -8px rgba(245, 158, 11, .85),
+    inset 0 1px 0 rgba(255, 255, 255, .4);
+  pointer-events: none;
+  z-index: 0;
+  transition:
+    transform .48s var(--mlp-ease-out),
+    width .48s var(--mlp-ease-out);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   5. INPUTS
+   ══════════════════════════════════════════════════════════════════════════ */
+/* NOTE: :not(.hidden) is load-bearing. assets/login.js switches between the two
+   forms by toggling the `hidden` class, so writing a bare `display:flex
+   !important` here would defeat the switch and render both forms at once. */
+body.mlp #loginBox:not(.hidden),
+body.mlp #registerBox:not(.hidden) {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 14px !important;
+}
+
+body.mlp .login-card .input-label {
+  display: block;
+  margin-bottom: 7px !important;
+  color: #b9c8ea !important;
+  font-weight: 600 !important;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  font-size: 10px !important;
+  transition: color .3s ease;
+}
+
+body.mlp .input-group {
+  margin: 0 !important;
+}
+
+body.mlp .input-group:focus-within .input-label {
+  color: var(--mlp-gold-l) !important;
+}
+
+body.mlp .input-wrapper {
+  position: relative;
+}
+
+/* animated focus underline */
+body.mlp .input-wrapper::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 0;
+  height: 2px;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--mlp-gold), var(--mlp-magenta), var(--mlp-cyan));
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform .45s var(--mlp-ease-out);
+  pointer-events: none;
+}
+
+body.mlp .input-group:focus-within .input-wrapper::after { transform: scaleX(1); }
+
+body.mlp .input-wrapper .input-field {
+  height: 48px !important;
+  /* BUGFIX: only #loginEmail carries an inline padding-left in index.html, so
+     every other field's text/placeholder ran underneath the leading icon.
+     Applied here for all of them (56px matches the existing inline value). */
+  padding-left: 56px !important;
+  border-radius: 14px !important;
+  background: rgba(4, 11, 30, .58) !important;
+  border: 1px solid rgba(139, 164, 212, .18) !important;
+  color: var(--mlp-text) !important;
+  font-size: 13.5px !important;
+  transition:
+    border-color .3s ease,
+    box-shadow .35s ease,
+    background .3s ease !important;
+}
+
+/* keep text clear of the password reveal button */
+body.mlp .input-wrapper:has(.eye-btn) .input-field {
+  padding-right: 52px !important;
+}
+
+body.mlp .input-wrapper .input-field::placeholder {
+  color: rgba(139, 164, 212, .68) !important;
+  /* the -webkit alias is what actually wins on desktop Chrome when a theme
+     layer sets text-fill-color on inputs (see the inline
+     milan-login-placeholder-visibility-fix block in index.html) */
+  -webkit-text-fill-color: rgba(139, 164, 212, .68) !important;
+  opacity: 1 !important;
+  transition: opacity .25s ease;
+}
+
+body.mlp .input-wrapper .input-field:focus::placeholder { opacity: .45; }
+
+body.mlp .input-group:focus-within .input-wrapper .input-field {
+  border-color: rgba(245, 158, 11, .5) !important;
+  background: rgba(6, 15, 38, .78) !important;
+  box-shadow:
+    0 0 0 3px rgba(245, 158, 11, .13),
+    0 10px 28px -16px rgba(245, 158, 11, .8) !important;
+}
+
+body.mlp .input-icon {
+  transition: color .3s ease, transform .35s var(--mlp-ease-out), filter .3s ease;
+}
+
+body.mlp .input-group:focus-within .input-icon {
+  color: var(--mlp-gold-l) !important;
+  transform: scale(1.14);
+  filter: drop-shadow(0 0 8px rgba(251, 191, 36, .8));
+}
+
+/* kill Chrome's yellow autofill wash */
+body.mlp .input-field:-webkit-autofill,
+body.mlp .input-field:-webkit-autofill:hover,
+body.mlp .input-field:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--mlp-text) !important;
+  -webkit-box-shadow: 0 0 0 1000px rgba(6, 15, 38, .96) inset !important;
+  caret-color: var(--mlp-text);
+  transition: background-color 9999s ease-out 0s;
+}
+
+/* password eye */
+body.mlp .input-wrapper .eye-btn {
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  transition: transform .3s var(--mlp-ease-out), background .3s ease, box-shadow .3s ease;
+}
+
+body.mlp .input-wrapper .eye-btn:hover {
+  transform: scale(1.12);
+  background: rgba(245, 158, 11, .14);
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, .3);
+}
+
+/* password strength metre (injected) */
+body.mlp .mlp-strength {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 9px 2px 0;
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: opacity .3s ease, max-height .3s ease;
+}
+
+body.mlp .mlp-strength.is-on {
+  opacity: 1;
+  max-height: 28px;
+}
+
+body.mlp .mlp-strength__track {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 4px;
+  border-radius: 99px;
+  background: rgba(139, 164, 212, .18);
+  overflow: hidden;
+}
+
+body.mlp .mlp-strength__bar {
+  display: block;
+  height: 100%;
+  width: 0%;
+  border-radius: 99px;
+  /* solid per-level colour set by JS (a full red→green gradient on the bar
+     itself reads as a spectrum rather than a level) */
+  background: var(--mlp-level-color, #ef4444);
+  box-shadow: 0 0 10px -2px var(--mlp-level-color, #ef4444);
+  transition:
+    width .4s var(--mlp-ease-out),
+    background .3s ease,
+    box-shadow .3s ease;
+}
+
+body.mlp .mlp-strength__label {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--mlp-muted);
+  min-width: 54px;
+  text-align: right;
+}
+
+/* options row */
+body.mlp .options-row {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 2px 0 0 !important;
+  font-size: 12.5px !important;
+}
+
+body.mlp .options-row .checkbox {
+  transition: color .25s ease;
+}
+
+/* the base layer leaves the native checkbox blue; pull it into the palette */
+body.mlp input[type="checkbox"],
+body.mlp input[type="radio"] {
+  accent-color: var(--mlp-gold) !important;
+  width: 15px;
+  height: 15px;
+  margin-right: 7px;
+  vertical-align: -2px;
+  cursor: pointer;
+}
+
+body.mlp .options-row .checkbox:hover { color: #dbe6ff; }
+
+body.mlp .forgot-link {
+  position: relative;
+  transition: color .25s ease;
+}
+
+body.mlp .forgot-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: right center;
+  transition: transform .35s var(--mlp-ease-out);
+}
+
+body.mlp .forgot-link:hover::after {
+  transform: scaleX(1);
+  transform-origin: left center;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   6. BUTTONS
+   ══════════════════════════════════════════════════════════════════════════ */
+body.mlp .login-button {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  height: 50px !important;
+  margin-top: 4px;
+  border-radius: 15px !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  letter-spacing: .02em;
+  box-shadow:
+    0 14px 34px -14px rgba(245, 158, 11, .9),
+    inset 0 1px 0 rgba(255, 255, 255, .28) !important;
+  transition:
+    transform .16s var(--mlp-ease),
+    box-shadow .3s ease,
+    filter .3s ease !important;
+}
+
+body.mlp #loginBtn {
+  background: linear-gradient(135deg, var(--mlp-gold-l) 0%, var(--mlp-gold) 42%, var(--mlp-magenta) 100%) !important;
+}
+
+body.mlp #registerBtn {
+  background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 45%, #d946ef 100%) !important;
+}
+
+body.mlp .login-button:hover:not(:disabled) {
+  filter: saturate(115%) brightness(1.05);
+  box-shadow:
+    0 22px 46px -16px rgba(245, 158, 11, 1),
+    0 0 40px -10px rgba(217, 70, 239, .7),
+    inset 0 1px 0 rgba(255, 255, 255, .34) !important;
+}
+
+body.mlp .login-button:disabled {
+  filter: grayscale(.35) brightness(.9);
+  cursor: progress;
+}
+
+/* sweeping highlight */
+body.mlp .login-button::after {
+  content: "";
+  position: absolute;
+  top: -60%;
+  bottom: -60%;
+  left: -140%;
+  width: 55%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .5), transparent);
+  transform: skewX(-20deg);
+  pointer-events: none;
+  z-index: 1;
+  transition: left .75s var(--mlp-ease-out);
+}
+
+body.mlp .login-button:hover:not(:disabled)::after { left: 165%; }
+
+/* ripple */
+body.mlp .login-button .mlp-ripple {
+  position: absolute;
+  border-radius: 50%;
+  transform: scale(0);
+  background: rgba(255, 255, 255, .5);
+  pointer-events: none;
+  z-index: 2;
+  animation: mlp-ripple .62s var(--mlp-ease-out) forwards;
+}
+
+@keyframes mlp-ripple {
+  to { transform: scale(2.6); opacity: 0; }
+}
+
+/* inline spinner while the request is in flight */
+body.mlp .login-button .mlp-spinner {
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  margin-right: 9px;
+  vertical-align: -2px;
+  border-radius: 50%;
+  border: 2px solid rgba(11, 18, 32, .28);
+  border-top-color: #0b1220;
+  animation: mlp-spin .7s linear infinite;
+}
+
+@keyframes mlp-spin { to { transform: rotate(360deg); } }
+
+body.mlp .login-button.is-loading {
+  cursor: progress;
+  filter: saturate(.85);
+}
+
+/* DID button */
+body.mlp .did-button {
+  position: relative;
+  overflow: hidden;
+  height: 48px !important;
+  border-radius: 15px !important;
+  font-size: 13.5px !important;
+  border: 1px solid rgba(34, 211, 238, .28) !important;
+  background: linear-gradient(135deg, rgba(34, 211, 238, .10), rgba(139, 92, 246, .10)) !important;
+  transition:
+    transform .18s var(--mlp-ease),
+    border-color .3s ease,
+    box-shadow .3s ease,
+    background .3s ease !important;
+}
+
+body.mlp .did-button:hover {
+  border-color: rgba(34, 211, 238, .6) !important;
+  background: linear-gradient(135deg, rgba(34, 211, 238, .18), rgba(139, 92, 246, .16)) !important;
+  box-shadow: 0 16px 36px -18px rgba(34, 211, 238, .9), 0 0 30px -12px rgba(34, 211, 238, .7) !important;
+}
+
+body.mlp .did-button .did-badge {
+  animation: mlp-badge-glow 3s ease-in-out infinite;
+}
+
+@keyframes mlp-badge-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 211, 238, .55); }
+  50%      { box-shadow: 0 0 0 6px rgba(34, 211, 238, 0); }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   7. AUTH MESSAGE → animated toast
+   ══════════════════════════════════════════════════════════════════════════ */
+body.mlp #authMsg {
+  border-radius: 12px !important;
+  overflow: hidden;
+  max-height: 0;
+  padding: 0 12px !important;
+  margin: 0 !important;
+  opacity: 0;
+  border: 1px solid transparent;
+  transform: translateY(-6px);
+  transition:
+    max-height .35s var(--mlp-ease-out),
+    padding .35s var(--mlp-ease-out),
+    opacity .3s ease,
+    transform .35s var(--mlp-ease-out),
+    background .3s ease,
+    border-color .3s ease;
+}
+
+/* visible state — JS adds .mlp-on once the element actually has text */
+body.mlp #authMsg.mlp-on {
+  max-height: 130px;
+  padding: 10px 13px !important;
+  opacity: 1;
+  transform: none;
+  font-size: 12.5px !important;
+  line-height: 1.45;
+  font-weight: 600;
+}
+
+body.mlp #authMsg.mlp-flash {
+  animation: mlp-toast-pop .45s var(--mlp-ease-out);
+}
+
+@keyframes mlp-toast-pop {
+  0%   { transform: translateY(-8px) scale(.97); }
+  60%  { transform: translateY(1px) scale(1.012); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+/* error / success states keyed off the inline colour login-actions.js sets */
+body.mlp #authMsg[data-mlp-kind="error"] {
+  background: linear-gradient(135deg, rgba(239, 68, 68, .13), rgba(239, 68, 68, .05));
+  border-color: rgba(239, 68, 68, .38);
+}
+
+body.mlp #authMsg[data-mlp-kind="success"] {
+  background: linear-gradient(135deg, rgba(16, 185, 129, .13), rgba(16, 185, 129, .05));
+  border-color: rgba(16, 185, 129, .38);
+}
+
+/* divider */
+body.mlp .divider {
+  position: relative;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  margin: 2px 0 !important;
+  font-size: 10.5px !important;
+  letter-spacing: .18em;
+  color: rgba(139, 164, 212, .7) !important;
+}
+
+body.mlp .divider::before,
+body.mlp .divider::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 36%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(139, 164, 212, .45), transparent);
+}
+
+body.mlp .divider::before { left: 0; }
+body.mlp .divider::after  { right: 0; }
+
+body.mlp .register-link {
+  text-align: center;
+  font-size: 12.5px !important;
+  color: rgba(196, 212, 245, .7) !important;
+}
+
+body.mlp .register-link a {
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--mlp-gold-l), var(--mlp-magenta-l));
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  transition: filter .3s ease;
+}
+
+body.mlp .register-link a:hover {
+  filter: brightness(1.25) drop-shadow(0 0 10px rgba(217, 70, 239, .7));
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   8. ENTRANCE CHOREOGRAPHY + A11Y
+   ══════════════════════════════════════════════════════════════════════════ */
+@keyframes mlp-rise {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+body.mlp .card-header,
+body.mlp .tabs,
+body.mlp #loginBox,
+body.mlp #registerBox,
+body.mlp .did-button,
+body.mlp .register-link {
+  animation: mlp-rise .6s var(--mlp-ease-out) both;
+}
+
+body.mlp .card-header    { animation-delay: .14s; }
+body.mlp .tabs           { animation-delay: .20s; }
+body.mlp #loginBox       { animation-delay: .26s; }
+body.mlp #registerBox    { animation-delay: .26s; }
+body.mlp .did-button     { animation-delay: .34s; }
+body.mlp .register-link  { animation-delay: .40s; }
+
+body.mlp :focus-visible {
+  outline: 2px solid rgba(251, 191, 36, .85) !important;
+  outline-offset: 3px !important;
+  border-radius: 8px;
+}
+
+body.mlp .input-field:focus-visible { outline: none !important; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   9. RESPECT USER MOTION PREFERENCES
+   ══════════════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  body.mlp #mlp-bg .mlp-blob,
+  body.mlp #mlp-bg .mlp-grid,
+  body.mlp .hero-title,
+  body.mlp .hero-title::after,
+  body.mlp .logo-center img,
+  body.mlp .security-footer > div:first-child,
+  body.mlp .did-button .did-badge,
+  body.mlp .login-card,
+  body.mlp .login-button .mlp-spinner {
+    animation: none !important;
+  }
+
+  body.mlp .login-card {
+    animation: none !important;
+    border-color: rgba(245, 158, 11, .3) !important;
+  }
+
+  body.mlp #mlp-bg .mlp-spot { display: none !important; }
+  body.mlp #mlp-bg canvas#mlp-stars { display: none !important; }
+
+  body.mlp *,
+  body.mlp *::before,
+  body.mlp *::after {
+    transition-duration: .001ms !important;
+    animation-duration: .001ms !important;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   10. ADAPTIVE
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* short desktop viewports (laptops at 100% browser zoom) */
+@media (min-width: 781px) and (max-height: 900px) {
+  body.mlp .login-card { padding: 22px 26px !important; gap: 9px !important; }
+  body.mlp .hero-title { font-size: clamp(1.8rem, 2.5vw, 2.9rem) !important; }
+  body.mlp .feature-item { padding: 15px 16px !important; }
+  body.mlp .feature-icon { width: 44px; height: 44px; font-size: 20px; border-radius: 14px; }
+  body.mlp .logo-center img { width: 64px !important; height: 64px !important; }
+  body.mlp .input-wrapper .input-field { height: 44px !important; }
+  body.mlp .login-button { height: 46px !important; }
+  body.mlp .did-button { height: 44px !important; }
+}
+
+/* very short desktop viewports (e.g. 1024x768) — squeeze a little further so
+   the card never needs an internal scrollbar */
+@media (min-width: 781px) and (max-height: 800px) {
+  body.mlp .login-card { padding: 18px 22px !important; gap: 7px !important; }
+  body.mlp .logo-center img { width: 54px !important; height: 54px !important; }
+  body.mlp .logo-center h2 { font-size: 13px !important; margin-top: 6px !important; }
+  body.mlp .card-header h3 { font-size: 17px !important; }
+  body.mlp .input-wrapper .input-field { height: 42px !important; }
+  body.mlp .login-button { height: 44px !important; }
+  body.mlp .did-button { height: 42px !important; }
+  body.mlp .input-group { margin: 0 !important; }
+  body.mlp #loginBox:not(.hidden),
+  body.mlp #registerBox:not(.hidden) { gap: 10px !important; }
+}
+
+@media (min-width: 781px) and (max-width: 1100px) {
+  body.mlp .login-card { border-radius: 22px !important; }
+  body.mlp #mlp-bg .mlp-spot { border-radius: 22px !important; }
+  body.mlp .feature-grid { grid-template-columns: 1fr !important; }
+}
+
+@media (max-width: 780px) {
+  /* mobile experience is left to the base layer — only soften the glass.
+     The display:none below is REQUIRED: the `display:flex !important` up in
+     section 2 has higher specificity than the base layer's
+     `@media (max-width:780px){.hero-panel{display:none!important}}`, so
+     without this the hero panel would reappear on phones. */
+  body.mlp .hero-panel { display: none !important; }
+  body.mlp .login-card {
+    backdrop-filter: blur(14px) saturate(130%) !important;
+    -webkit-backdrop-filter: blur(14px) saturate(130%) !important;
+  }
+  body.mlp #mlp-bg .mlp-blob { opacity: .38; }
+}
