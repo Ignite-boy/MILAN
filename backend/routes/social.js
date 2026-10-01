@@ -156,7 +156,7 @@ router.get('/people', auth, async (req, res) => {
       };
       const row = connectionRow(me.user.did, account.did);
       const status = connectionStatus(me.user.did, account.did);
-      return {
+      const person = {
         ...profileFor(merged),
         name: merged.profile?.display_name || account.name || account.email?.split('@')[0] || 'MILAN User',
         connectionStatus: status,
@@ -164,6 +164,13 @@ router.get('/people', auth, async (req, res) => {
         connectionDirection: !row ? 'none' : (row.fromDid === me.user.did ? 'outgoing' : 'incoming'),
         connectionUpdatedAt: row?.updatedAt || ''
       };
+
+      // This directory is readable by every signed-in user. A display name and
+      // a DID are meant to be shared; an email address is not. It is still read
+      // above to key the local-user merge, but it must not leave the server.
+      delete person.email;
+
+      return person;
     })
     .filter(p => !q || JSON.stringify(p).toLowerCase().includes(q))
     .sort((a,b) => (a.connectionStatus === 'friends' ? -1 : 0) - (b.connectionStatus === 'friends' ? -1 : 0) || a.name.localeCompare(b.name));

@@ -292,7 +292,7 @@
       btn.disabled = true;
       btn.classList.add("is-busy");
 
-      fetch("/api/profile/avatar", {
+      timedFetch("/api/profile/avatar", {
         method: "DELETE",
         headers: {
           Authorization: "Bearer " + getToken(),
@@ -421,6 +421,222 @@
   }
 
   /* ══════════════════════════════════════════════════════════════════════
+     8. People directory (right rail "People to connect")
+        The backend already returns every other registered user from Supabase
+        with their name, DID and connection status (routes/social.js:132-172),
+        and inline-05.js's loadPeople() already knows how to render it. In
+        practice the rail is often left showing its static "Loading people..."
+        placeholder, so this repairs the container when the app's own pass did
+        not land — it never replaces a list the app rendered itself.
+     ══════════════════════════════════════════════════════════════════════ */
+  function escHtml(v) {
+    return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function shortDid(did) {
+    var s = String(did || "");
+    if (s.length <= 30) return s;
+    return s.slice(0, 20) + "…" + s.slice(-6);
+  }
+
+  /* The app's own api() helper passes no timeout for /social/people, so a
+     stalled request can leave the rail on "Loading people..." indefinitely —
+     which is exactly the symptom this repairs. Always bound our own calls. */
+  function timedFetch(url, opts, ms) {
+    var options = opts || {};
+    if (!("AbortController" in window)) return fetch(url, options);
+
+    var ctrl = new AbortController();
+    var timer = window.setTimeout(function () { ctrl.abort(); }, ms || 12000);
+    options = Object.assign({}, options, { signal: ctrl.signal });
+
+    return fetch(url, options).then(
+      function (r) { window.clearTimeout(timer); return r; },
+      function (e) { window.clearTimeout(timer); throw e; }
+    );
+  }
+
+  function bindPeopleDirectory() {
+    var box = document.getElementById("peopleConnectList");
+    if (!box) return;
+
+    var inflight = false;
+
+    // True when the rail already holds a real list — ours OR the app's — or
+    // any other content. Only the static placeholder / an empty box counts as
+    // "needs repair". Getting this wrong means re-rendering on a timer and
+    // wiping the button state the user just changed.
+    function alreadyPopulated() {
+      if (box.querySelector(".map-person")) return true;
+      if (box.querySelector(".person")) return true;
+      var text = String(box.textContent || "").trim();
+      if (!text) return false;
+      if (/^loading people/i.test(text)) return false;
+      return true;
+    }
+
+    function statusLabel(status) {
+      if (status === "friends") return "Friends";
+      if (status === "sent") return "Requested";
+      if (status === "received") return "Respond";
+      if (status === "rejected") return "Add friend";
+      return "Add friend";
+    }
+
+    function render(rows) {
+      box.innerHTML = "";
+      var wrap = document.createElement("div");
+      wrap.className = "map-people";
+
+      rows.forEach(function (p) {
+        var name = String(p.name || "MILAN User").trim();
+        var did = String(p.did || "").trim();
+        var status = String(p.connectionStatus || "none");
+        var initial = name.charAt(0).toUpperCase() || "M";
+
+        var row = document.createElement("div");
+        row.className = "map-person";
+
+        var av = document.createElement("div");
+        av.className = "map-person__avatar";
+        if (p.avatar && /^(data:image\/|https?:)/.test(String(p.avatar))) {
+          var img = document.createElement("img");
+          img.src = String(p.avatar);
+          img.alt = "";
+          img.loading = "lazy";
+          av.appendChild(img);
+        } else {
+          av.textContent = initial;
+        }
+
+        var body = document.createElement("div");
+        body.className = "map-person__body";
+
+        var nm = document.createElement("b");
+        nm.className = "map-person__name";
+        nm.textContent = name;
+        nm.title = name;
+
+        var dd = document.createElement("span");
+        dd.className = "map-person__did";
+        dd.textContent = did ? shortDid(did) : "DID pending";
+        if (did) {
+          dd.title = did + "  (click to copy)";
+          dd.addEventListener("click", function () {
+            try {
+              navigator.clipboard.writeText(did);
+              if (typeof window.toast === "function") window.toast("DID copied");
+            } catch (e) {}
+          });
+        }
+
+        body.appendChild(nm);
+        body.appendChild(dd);
+
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "map-person__add";
+        btn.textContent = statusLabel(status);
+
+        if (status === "friends") {
+          btn.classList.add("is-friends");
+          btn.disabled = true;
+        } else if (status === "sent") {
+          btn.classList.add("is-sent");
+          btn.disabled = true;
+        } else {
+          btn.addEventListener("click", function () {
+            addFriend(btn, did);
+          });
+        }
+
+        row.appendChild(av);
+        row.appendChild(body);
+        row.appendChild(btn);
+        wrap.appendChild(row);
+      });
+
+      box.appendChild(wrap);
+    }
+
+    function addFriend(btn, did) {
+      if (!did || btn.disabled) return;
+      btn.disabled = true;
+      btn.classList.add("is-busy");
+
+      timedFetch("/api/connections", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + getToken(),
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          toDid: did,
+          message: "I would like to connect with you on MILAN.",
+        }),
+      })
+        .then(function (r) {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.json().catch(function () { return {}; });
+        })        .then(function () {
+          btn.classList.remove("is-busy");
+          btn.classList.add("is-sent");
+          btn.textContent = "Requested";
+          if (typeof window.toast === "function") {
+            window.toast("Connection request sent");
+          }
+        })
+        .catch(function (err) {
+          btn.disabled = false;
+          btn.classList.remove("is-busy");
+          btn.textContent = "Add friend";
+          if (typeof window.toast === "function") {
+            window.toast("Could not send request: " + err.message);
+          }
+        });
+    }
+
+    function fill() {
+      if (inflight || alreadyPopulated()) return;
+      inflight = true;
+
+      timedFetch("/api/social/people", {
+        headers: { Authorization: "Bearer " + getToken(), Accept: "application/json" },
+      })
+        .then(function (r) {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        })
+        .then(function (rows) {
+          if (!Array.isArray(rows)) throw new Error("Unexpected people payload");
+          if (alreadyPopulated()) return; // the app rendered its own list meanwhile
+          render(rows);
+        })
+        .catch(function (err) {
+          box.innerHTML =
+            '<div class="empty">' + escHtml(err.message || "Directory unavailable") + "</div>";
+        })
+        .then(function () {
+          inflight = false;
+        });
+    }
+
+    // Several repair attempts catch whichever boot pass loses the race. The
+    // alreadyPopulated() guard makes every later attempt a no-op, so the extra
+    // calls cannot clobber button state.
+    window.setTimeout(fill, 900);
+    window.setTimeout(fill, 2200);
+    window.setTimeout(fill, 4000);
+    window.setTimeout(fill, 7000);
+    window.setInterval(fill, 15000);
+    window.addEventListener("focus", fill);
+    window.__milanRefreshPeople = fill;
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════
      boot
      ══════════════════════════════════════════════════════════════════════ */
   function init() {
@@ -431,6 +647,7 @@
     try { bindFeedEntrance(); } catch (e) {}
     try { bindAvatarIdentity(); } catch (e) {}
     try { bindSetNameHint(); } catch (e) {}
+    try { bindPeopleDirectory(); } catch (e) {}
   }
 
   if (document.readyState === "loading") {

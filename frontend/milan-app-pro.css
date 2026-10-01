@@ -1095,7 +1095,150 @@ body.map .rightRail::-webkit-scrollbar-thumb {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   14. MOTION PREFERENCES
+   14. PEOPLE DIRECTORY — every registered user, name + DID + Add friend
+   Only rendered when the app left the rail on its "Loading people..."
+   placeholder, so the two renderers never fight.
+   ══════════════════════════════════════════════════════════════════════════ */
+body.map .map-people {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* The base layer styles #peopleConnectList as a centred grid with 24px/18px
+   padding. That made the rows wider than the box (measured 316px of content
+   inside a 249px client box) and the overflow was clipped, cutting the avatar
+   and the start of every name off. Neutralise it — .right-card already
+   supplies the padding. */
+body.map #peopleConnectList {
+  display: block !important;
+  padding: 0 !important;
+  text-align: left !important;
+  /* with overflow-y:auto in play, `visible` computes to `auto` and a stray
+     horizontal scrollbar can appear; the content now fits, so hide it */
+  overflow-x: hidden !important;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+body.map .map-person {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .035);
+  border: 1px solid rgba(139, 164, 212, .11);
+  transition:
+    transform .3s var(--map-ease-out),
+    border-color .3s ease,
+    background .3s ease !important;
+}
+
+body.map .map-person:hover {
+  transform: translateY(-2px);
+  background: rgba(245, 158, 11, .08);
+  border-color: rgba(245, 158, 11, .32);
+}
+
+body.map .map-person__avatar {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(150deg, rgba(245, 158, 11, .3), rgba(217, 70, 239, .26));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14);
+}
+
+body.map .map-person__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+body.map .map-person__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+body.map .map-person__name {
+  font-size: 12.5px;
+  line-height: 1.25;
+  color: #eef1f8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.map .map-person__did {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 9.5px;
+  line-height: 1.3;
+  color: #8ba4d4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: color .25s ease;
+}
+
+body.map .map-person__did:hover {
+  color: var(--map-gold-l);
+}
+
+body.map .map-person__add {
+  flex: 0 0 auto;
+  padding: 5px 10px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .03em;
+  white-space: nowrap;
+  color: var(--map-gold-l);
+  background: rgba(245, 158, 11, .13);
+  border: 1px solid rgba(245, 158, 11, .42);
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    transform .25s var(--map-ease-out),
+    background .25s ease,
+    box-shadow .25s ease !important;
+}
+
+body.map .map-person__add:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: rgba(245, 158, 11, .24);
+  box-shadow: 0 8px 20px -10px rgba(245, 158, 11, .95);
+}
+
+body.map .map-person__add.is-sent,
+body.map .map-person__add.is-friends {
+  color: #6ee7b7;
+  background: rgba(16, 185, 129, .13);
+  border-color: rgba(16, 185, 129, .4);
+  cursor: default;
+}
+
+body.map .map-person__add.is-busy {
+  opacity: .55;
+  cursor: progress;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   15. MOTION PREFERENCES
    ══════════════════════════════════════════════════════════════════════════ */
 @media (prefers-reduced-motion: reduce) {
   body.map #map-bg .map-blob,
