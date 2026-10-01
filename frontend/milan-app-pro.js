@@ -217,6 +217,210 @@
   }
 
   /* ══════════════════════════════════════════════════════════════════════
+     6. Avatar identity
+        renderMe() replaces #myAvatar and #composerAvatar with outerHTML, so
+        the rendered nodes lose their ids entirely. Anything that later calls
+        getElementById("myAvatar") silently gets null. Re-attach the ids the
+        markup declared, and own the photo-removal affordance.
+     ══════════════════════════════════════════════════════════════════════ */
+  function getToken() {
+    try {
+      return (
+        localStorage.getItem("milan_token") ||
+        localStorage.getItem("milanToken") ||
+        ""
+      );
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function bindAvatarIdentity() {
+    var label = document.querySelector(".milan-avatar-upload");
+
+    function avatarImg() {
+      var sel = [
+        ".milan-avatar-upload .avatar img",
+        ".milan-avatar-upload #myAvatar img",
+        "#editProfilePhotoPreview",
+      ];
+      for (var i = 0; i < sel.length; i++) {
+        var el = document.querySelector(sel[i]);
+        var src = el ? String(el.getAttribute("src") || "").trim() : "";
+        if (src && src !== "null" && src !== "about:blank") return src;
+      }
+      return "";
+    }
+
+    function restoreIds() {
+      var big = document.querySelector(".milan-avatar-upload .avatar");
+      if (big && !big.id) big.id = "myAvatar";
+      // renderMe() swaps the composer avatar for a node carrying only
+      // `.avatar`, which silently drops the base layer's `.mini-avatar`
+      // sizing — the composer avatar then renders as a large square once a
+      // real picture exists. Put the class back, not just the id.
+      var mini =
+        document.querySelector(".composer .mini-avatar") ||
+        document.querySelector(".composer-row > .avatar") ||
+        document.querySelector(".composer .avatar");
+      if (mini) {
+        if (!mini.id) mini.id = "composerAvatar";
+        if (!mini.classList.contains("mini-avatar")) {
+          mini.classList.add("mini-avatar");
+        }
+      }
+    }
+
+    // The app's initials() helper returns up to TWO letters ("NP" for
+    // "Nitesh Pandey"). With no profile picture the design calls for a single
+    // centred initial, so collapse it wherever no image is present.
+    function singleInitial(el) {
+      if (!el || el.querySelector("img")) return;
+      var text = String(el.textContent || "").trim();
+      if (text.length > 1) {
+        el.textContent = text.charAt(0).toUpperCase();
+      }
+    }
+
+    function syncInitials() {
+      singleInitial(document.querySelector(".milan-avatar-upload .avatar"));
+      singleInitial(document.querySelector(".composer .avatar, .composer .mini-avatar"));
+    }
+
+    function removePhoto(btn) {
+      if (!window.confirm("Remove your profile photo permanently?")) return;
+      btn.disabled = true;
+      btn.classList.add("is-busy");
+
+      fetch("/api/profile/avatar", {
+        method: "DELETE",
+        headers: {
+          Authorization: "Bearer " + getToken(),
+          Accept: "application/json",
+        },
+      })
+        .then(function (r) {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.json().catch(function () { return {}; });
+        })
+        .then(function () {
+          try { localStorage.removeItem("milanAvatar"); } catch (e) {}
+          window.__milanPersistentAvatar = "";
+
+          var preview = document.getElementById("editProfilePhotoPreview");
+          if (preview) preview.removeAttribute("src");
+
+          Array.prototype.slice
+            .call(document.querySelectorAll(".milan-avatar-upload .avatar img"))
+            .forEach(function (img) { img.remove(); });
+
+          if (btn.parentNode) btn.parentNode.removeChild(btn);
+
+          if (typeof window.toast === "function") {
+            window.toast("Profile photo removed");
+          }
+          // ask the app to re-read identity so the initial is rebuilt
+          if (typeof window.__milanSyncPersistentIdentity === "function") {
+            try { window.__milanSyncPersistentIdentity(); } catch (e) {}
+          }
+        })
+        .catch(function (err) {
+          btn.disabled = false;
+          btn.classList.remove("is-busy");
+          if (typeof window.toast === "function") {
+            window.toast("Could not remove photo: " + err.message);
+          }
+        });
+    }
+
+    function syncRemoveButton() {
+      if (!label) return;
+      var has = !!avatarImg();
+      var btn = label.querySelector(".map-remove-dp");
+
+      if (has && !btn) {
+        btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "map-remove-dp";
+        btn.title = "Remove profile photo";
+        btn.setAttribute("aria-label", "Remove profile photo");
+        btn.textContent = "✕";
+        btn.addEventListener("click", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          removePhoto(e.currentTarget);
+        });
+        label.appendChild(btn);
+      } else if (!has && btn && btn.parentNode) {
+        btn.parentNode.removeChild(btn);
+      }
+    }
+
+    restoreIds();
+    syncInitials();
+    syncRemoveButton();
+    window.setInterval(function () {
+      restoreIds();
+      syncInitials();
+      syncRemoveButton();
+    }, 1500);
+
+    if (label && window.MutationObserver) {
+      new window.MutationObserver(function () {
+        restoreIds();
+        syncInitials();
+        syncRemoveButton();
+      }).observe(label, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["src"],
+      });
+    }
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     7. "Set your name" — only when the card is falling back to the email
+        prefix because the account has no registered name. Ties the profile
+        card to the existing Edit Profile flow instead of leaving a bare
+        "np7218468" with no explanation.
+     ══════════════════════════════════════════════════════════════════════ */
+  function bindSetNameHint() {
+    var nameEl = document.getElementById("myName");
+    var emailEl = document.getElementById("myEmail");
+    if (!nameEl || !emailEl) return;
+
+    function sync() {
+      var email = String(emailEl.textContent || "").trim();
+      var at = email.indexOf("@");
+      var local = at > 0 ? email.slice(0, at) : "";
+      var name = String(nameEl.textContent || "").trim();
+      var existing = document.getElementById("mapSetNameHint");
+
+      var looksLikeEmail =
+        !!local && !!name && name.toLowerCase() === local.toLowerCase();
+
+      if (looksLikeEmail && !existing) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.id = "mapSetNameHint";
+        b.className = "map-set-name";
+        b.textContent = "Set your name";
+        b.addEventListener("click", function () {
+          var edit = document.getElementById("editProfileBtn");
+          if (edit) edit.click();
+        });
+        nameEl.insertAdjacentElement("afterend", b);
+      } else if (!looksLikeEmail && existing && existing.parentNode) {
+        existing.parentNode.removeChild(existing);
+      }
+    }
+
+    sync();
+    window.setInterval(sync, 1500);
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════
      boot
      ══════════════════════════════════════════════════════════════════════ */
   function init() {
@@ -225,6 +429,8 @@
     try { bindPublish(); } catch (e) {}
     try { bindRefresh(); } catch (e) {}
     try { bindFeedEntrance(); } catch (e) {}
+    try { bindAvatarIdentity(); } catch (e) {}
+    try { bindSetNameHint(); } catch (e) {}
   }
 
   if (document.readyState === "loading") {

@@ -5,7 +5,7 @@ const { uploadToDWN, downloadFromDWN } = require('../utils/dwnStorage');
 const { createClient } = require('@supabase/supabase-js');
 const auth = require('../middleware/auth');
 const { readJson, writeJson, writeJsonAndSync, findUserById, addActivity } = require('../utils/store');
-const { ensureUserDwn, pushRecordToCloudDwn } = require('../services/cloudDwnRegistry');
+const { ensureUserDwn, pushRecordToCloudDwn, deleteRecordFromCloudDwn } = require('../services/cloudDwnRegistry');
 const router = express.Router();
 const uploadDp = multer({
   storage: multer.memoryStorage(),
@@ -496,6 +496,83 @@ router.put('/settings', auth, (req, res) => {
   writeJson(global.usersFile, users);
 
   res.json(found.user.settings);
+});
+
+// DELETE /api/profile/avatar
+//
+// Permanently removes the user's profile picture from every place it lives:
+//
+//   1. The authoritative DWN record. deleteRecordFromCloudDwn() drops the
+//      metadata row from `dwn_records` AND the binary row from
+//      `dwn_record_data` for this record id — for a profile picture the
+//      binary row *is* the stored image, so this is the real deletion, not
+//      just a pointer reset.
+//   2. The durable `profile-avatar-<email>.json` snapshot, rewritten empty so
+//      nothing durable can resurrect the picture later.
+//   3. The local profile fields that GET / uses as its offline fallback.
+//
+// A failed remote delete must not leave the local fallback alive, otherwise
+// the picture reappears on the next GET from the users.json copy — so the
+// local fields are cleared unconditionally and the remote outcome is reported
+// separately in the response.
+router.delete('/avatar', auth, async (req, res) => {
+  const users = readJson(global.usersFile, {});
+  const found = await resolveAccount(req, users);
+
+  if (!found) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  const did = String(found.user.did || '').trim();
+  const recordId = profileRecordId(did);
+
+  let dwnRemoved = false;
+  let dwnError = '';
+
+  if (recordId) {
+    try {
+      const result = await deleteRecordFromCloudDwn(recordId, did);
+      dwnRemoved = !(result && (result.deleted === false || result.ok === false));
+    } catch (error) {
+      dwnError = error.message;
+      console.warn('[profile] avatar DWN delete failed:', error.message);
+    }
+  }
+
+  found.user.profile = {
+    ...(found.user.profile || {}),
+    avatar: '',
+    avatarRecordId: '',
+    avatarMime: '',
+    avatarFileName: '',
+    avatarSync: 'removed',
+    updated_at: new Date().toISOString()
+  };
+
+  users[found.email] = found.user;
+
+  try {
+    writeJson(global.usersFile, users);
+  } catch (error) {
+    console.warn('[profile] avatar delete persistence warning:', error.message);
+  }
+
+  try {
+    await writeDurableProfileAvatar(found.email, '', recordId, did);
+  } catch (error) {
+    console.warn('[profile] avatar snapshot clear warning:', error.message);
+  }
+
+  addActivity(found.user.id, 'profile.avatar_removed', { email: found.email });
+
+  return res.json({
+    ok: true,
+    avatar: '',
+    avatarRecordId: '',
+    avatarSync: 'removed',
+    dwnRemoved,
+    dwnError
+  });
 });
 
 module.exports = router;

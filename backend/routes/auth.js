@@ -217,7 +217,11 @@ router.post('/login', authThrottle(15, 60_000), asyncRoute(async (req, res) => {
     spaceId: user.space_id,
     portableDid: user.portable_did || '',
     dwnQuotaBytes: Number(user.dwn_quota_bytes || 1073741824),
-    profile: {},
+    // display_name is derived from the registered account name. Avatar data
+    // deliberately stays out of auth/me (single source: GET /api/profile), but
+    // the display name must travel here or every client falls back to the
+    // email local-part and shows something like "np7218468".
+    profile: { display_name: String(user.name || '').trim() },
     settings: {},
     emailVerified: true,
     twoFactorEnabled: false
@@ -252,7 +256,9 @@ router.get('/me', auth, asyncRoute(async (req, res) => {
     spaceId: dbUser.space_id,
     portableDid: dbUser.portable_did || '',
     dwnQuotaBytes: Number(dbUser.dwn_quota_bytes || 1073741824),
-    profile: {},
+    // see the note in POST /login - keeps the registered name available to
+    // every client instead of falling back to the email local-part
+    profile: { display_name: String(dbUser.name || '').trim() },
     settings: {},
     emailVerified: true,
     twoFactorEnabled: false

@@ -913,7 +913,189 @@ body.map #postText:focus-visible,
 body.map .search input:focus-visible { outline: none !important; }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   10. MOTION PREFERENCES
+   12. IDENTITY — avatar initial, camera badge, name affordance
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* renderMe() replaces #myAvatar via outerHTML, so the rendered node is just
+   `.avatar` (the id is lost). Style both so the initial is centred either way. */
+body.map .milan-avatar-upload {
+  position: relative;
+  display: inline-block;
+  width: fit-content;
+}
+
+body.map .milan-avatar-upload .avatar,
+body.map .leftRail #myAvatar {
+  display: grid !important;
+  place-items: center !important;
+  text-align: center;
+  line-height: 1 !important;
+  overflow: hidden;
+  font-weight: 800 !important;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  color: #ffffff !important;
+  background: linear-gradient(150deg, rgba(245, 158, 11, .26), rgba(217, 70, 239, .22)) !important;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, .55);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12) !important;
+}
+
+/* when a real picture exists it must fill the circle, not sit next to the initial */
+body.map .milan-avatar-upload .avatar img,
+body.map .milan-avatar-upload #myAvatar img {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+  object-fit: cover;
+  border-radius: inherit;
+}
+
+/* Safety net for the composer avatar. renderMe() swaps it for a node that
+   only carries `.avatar`, losing the base `.mini-avatar` sizing; JS adds the
+   class back, and this keeps the picture a small circle in the meantime. */
+body.map .composer .avatar,
+body.map .composer .mini-avatar,
+body.map .composer-row > .avatar {
+  flex: 0 0 auto;
+  border-radius: 50% !important;
+  overflow: hidden;
+}
+
+body.map .composer .avatar img,
+body.map .composer .mini-avatar img,
+body.map .composer-row > .avatar img {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+/* camera badge: was oversized and overlapping the initial */
+body.map .milan-avatar-upload-icon {
+  position: absolute !important;
+  right: -3px !important;
+  bottom: -3px !important;
+  width: 26px !important;
+  height: 26px !important;
+  display: grid !important;
+  place-items: center;
+  font-size: 11px !important;
+  line-height: 1 !important;
+  border-radius: 50% !important;
+  background: linear-gradient(135deg, var(--map-gold-l), var(--map-magenta)) !important;
+  border: 2px solid rgba(6, 13, 33, .95) !important;
+  box-shadow: 0 6px 16px -6px rgba(245, 158, 11, .95) !important;
+  z-index: 3;
+}
+
+/* "Remove photo" — injected by milan-app-pro.js only when a picture exists */
+body.map .map-remove-dp {
+  position: absolute !important;
+  top: -3px !important;
+  right: -3px !important;
+  width: 24px !important;
+  height: 24px !important;
+  padding: 0 !important;
+  display: grid !important;
+  place-items: center;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  line-height: 1 !important;
+  color: #fff !important;
+  border-radius: 50% !important;
+  border: 2px solid rgba(6, 13, 33, .95) !important;
+  background: linear-gradient(135deg, #ef4444, #b91c1c) !important;
+  box-shadow: 0 6px 16px -6px rgba(239, 68, 68, .95) !important;
+  cursor: pointer;
+  z-index: 4;
+  transition: transform .25s var(--map-ease-out), filter .25s ease !important;
+}
+
+body.map .map-remove-dp:hover {
+  transform: scale(1.14);
+  filter: brightness(1.12);
+}
+
+body.map .map-remove-dp.is-busy {
+  opacity: .6;
+  cursor: progress;
+}
+
+/* "Set your name" — only shown when the card is displaying the email prefix
+   because the account has no registered name yet */body.map .map-set-name {
+  display: inline-block;
+  margin: 6px 0 0;
+  padding: 4px 10px;
+  font-size: 10.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--map-gold-l) !important;
+  background: rgba(245, 158, 11, .1) !important;
+  border: 1px dashed rgba(245, 158, 11, .45) !important;
+  border-radius: 999px !important;
+  cursor: pointer;
+  transition: background .25s ease, transform .25s var(--map-ease-out) !important;
+}
+
+body.map .map-set-name:hover {
+  background: rgba(245, 158, 11, .2) !important;
+  transform: translateY(-1px);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   13. THREE INDEPENDENT SCROLL COLUMNS
+   Left rail, feed column and right rail each get their own scrollbar so
+   scrolling the feed never drags the rails along with it.
+   ══════════════════════════════════════════════════════════════════════════ */
+body.map .layout {
+  min-height: 0 !important;
+}
+
+/* The base layer sizes the left rail with its own viewport math
+   (height: calc(100dvh - 104px), sticky top 88px). Combined with that offset
+   the rail ends up taller than the layout row and pushes a ~30px document
+   scrollbar onto an otherwise viewport-locked page. Pin the rails to the grid
+   row instead and let each one scroll its own content. */
+body.map .leftRail,
+body.map .rightRail {
+  height: 100% !important;
+  max-height: 100% !important;
+}
+
+body.map .leftRail,
+body.map .centerRail,
+body.map .rightRail {
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+/* the rail now scrolls as a whole, so drop the base layer's inner nav-only
+   scrollbar — otherwise the left column gets two nested scroll areas */
+body.map .leftRail .nav {
+  overflow-y: visible !important;
+  overscroll-behavior: auto !important;
+}
+
+body.map .leftRail::-webkit-scrollbar,
+body.map .centerRail::-webkit-scrollbar,
+body.map .rightRail::-webkit-scrollbar {
+  width: 8px;
+}
+
+body.map .leftRail::-webkit-scrollbar-thumb,
+body.map .centerRail::-webkit-scrollbar-thumb,
+body.map .rightRail::-webkit-scrollbar-thumb {
+  border-radius: 99px;
+  background: linear-gradient(180deg, rgba(245, 158, 11, .45), rgba(217, 70, 239, .4));
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   14. MOTION PREFERENCES
    ══════════════════════════════════════════════════════════════════════════ */
 @media (prefers-reduced-motion: reduce) {
   body.map #map-bg .map-blob,
