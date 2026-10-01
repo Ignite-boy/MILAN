@@ -66,7 +66,7 @@ body { background: #0a0e1a; color: #e8edf5; font-family: Inter, system-ui, -appl
 .composer-bottom{display:flex; justify-content:space-between; align-items:center; margin-top:12px; padding-top:12px; border-top:1px solid #1e293b;}
 .composer-tools{display:flex; gap:8px}
 .tool{width:32px; height:32px; border-radius:8px; background:#1e293b; border:none; cursor:pointer}
-.publish{background:#6366f1; color:white; border:none; padding:8px 18px; border-radius:999px; font-weight:600; cursor:pointer}
+.publish{background:#6366f1; color:white; border:none; padding:8px 18px; border-radius:999px; font-weight:600; cursor:pointer; min-height:44px; display:inline-flex; align-items:center; justify-content:center; line-height:1.15}
 .rightbar{display:flex; flex-direction:column; gap:20px; position:sticky; top:78px; height:fit-content}
 .right-card h3{margin:0 0 14px; font-size:14px; letter-spacing:0.5px; text-transform:uppercase; color:#94a3b8}
 .person{display:flex; align-items:center; gap:10px; flex-wrap:nowrap; margin-bottom:14px}
