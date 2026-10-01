@@ -73,6 +73,20 @@
 
 
   <link rel="stylesheet" href="/assets/css/login.css">
+
+<style id="milan-login-placeholder-visibility-fix">
+/* Keep login field guidance visible across desktop browsers despite theme/input overrides. */
+#loginBox .input-field::placeholder,
+#loginBox .input-field::-webkit-input-placeholder {
+  color: rgba(151,162,189,.78) !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: rgba(151,162,189,.78) !important;
+}
+#loginBox .input-field {
+  color: #eef1f8 !important;
+  -webkit-text-fill-color: #eef1f8 !important;
+}
+</style>
 </head>
 <body>
 
