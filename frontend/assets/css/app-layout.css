@@ -18,6 +18,7 @@
 .search input:focus-visible,
 #milanControlFab:focus-visible,
 #milanControlClose:focus-visible,
+.milan-feed-error button:focus-visible,
 .mcc-actions button:focus-visible{
   outline:3px solid rgba(99,102,241,.72);
   outline-offset:3px;
