@@ -637,6 +637,53 @@
   }
 
   /* ══════════════════════════════════════════════════════════════════════
+     9. Hide the floating buttons while the mobile drawer is open
+        milan-creative-bridge.js writes `z-index: 2147483647 !important` onto
+        .mcm-fab as an INLINE style, and inline !important outranks any
+        stylesheet !important — so CSS cannot win this one. This script runs
+        after that module, so an inline declaration from here does win.
+        `visibility` is used rather than `display` because it is trivially
+        reversible: removing our declaration restores whatever the owning
+        module originally set.
+     ══════════════════════════════════════════════════════════════════════ */
+  function bindFabDrawerGuard() {
+    function fabs() {
+      return [
+        document.getElementById("milanControlFab"),
+        document.querySelector(".mcm-fab"),
+      ].filter(Boolean);
+    }
+
+    function apply() {
+      var open = document.body.classList.contains("milan-mobile-menu-open");
+
+      fabs().forEach(function (el) {
+        try {
+          if (open) {
+            el.style.setProperty("visibility", "hidden", "important");
+            el.style.setProperty("pointer-events", "none", "important");
+          } else {
+            el.style.removeProperty("visibility");
+            el.style.removeProperty("pointer-events");
+          }
+        } catch (e) {}
+      });
+    }
+
+    apply();
+
+    if (window.MutationObserver) {
+      new window.MutationObserver(apply).observe(document.body, {
+        attributes: true,
+        attributeFilter: ["class"],
+      });
+    }
+
+    // belt and braces: the owning module can re-assert its inline styles
+    window.setInterval(apply, 1200);
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════
      boot
      ══════════════════════════════════════════════════════════════════════ */
   function init() {
@@ -648,6 +695,7 @@
     try { bindAvatarIdentity(); } catch (e) {}
     try { bindSetNameHint(); } catch (e) {}
     try { bindPeopleDirectory(); } catch (e) {}
+    try { bindFabDrawerGuard(); } catch (e) {}
   }
 
   if (document.readyState === "loading") {
