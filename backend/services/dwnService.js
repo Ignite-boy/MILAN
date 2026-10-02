@@ -873,9 +873,29 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
   list.unshift(record);
   persistRecord(userId, record);
   const ownerUser = userByDid(ownerDid);
-  const mediaSync = await pushMediaToCloudDwn(record, ownerUser, mediaFile);
   record.cloudDwn = record.cloudDwn || {};
+  const mediaSync = {
+    pushed: false,
+    backend: 'supabase',
+    mode: 'background',
+    pending: true,
+    queuedAt: new Date().toISOString()
+  };
   record.cloudDwn.mediaSync = mediaSync;
+
+  // Do not block the publish response on remote media synchronization.
+  // The local/authoritative record is already persisted; Supabase media sync
+  // continues in the background so mobile Publish can return immediately.
+  Promise.resolve()
+    .then(() => pushMediaToCloudDwn(record, ownerUser, mediaFile))
+    .then(mediaSync => {
+      record.cloudDwn = record.cloudDwn || {};
+      record.cloudDwn.mediaSync = mediaSync;
+      persistRecord(userId, record);
+    })
+    .catch(err => {
+      console.error('[Background Supabase media sync failed]', record?.id, err?.message || err);
+    });
   if (isRemoteOnlyMode() && !mediaSync.pushed) {
     try { removeRecordFile(userId, record.id); } catch (_) {}
     try { if (fs.existsSync(mediaFile)) fs.unlinkSync(mediaFile); } catch (_) {}
