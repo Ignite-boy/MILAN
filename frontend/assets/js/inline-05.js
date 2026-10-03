@@ -118,10 +118,16 @@ Promise.allSettled([
   /* Remove posts no longer present. */
   existing.forEach(el=>el.remove());
 
-  /* Keep server order without rebuilding the whole feed. */
-  rows.forEach(record=>{
+  /* Keep server order without moving every post on every refresh.
+     Re-append only when a node is actually out of position; this avoids
+     unnecessary mobile layout/scroll churn after publish and media upload. */
+  rows.forEach((record,index)=>{
     const el=document.getElementById("post-"+String(record.id||""));
-    el&&feedEl.appendChild(el);
+    if(!el)return;
+    const next=feedEl.children[index];
+    if(next!==el){
+      feedEl.insertBefore(el,next||null);
+    }
   });
 
   let more=document.getElementById("nativeLoadMoreBtn");
