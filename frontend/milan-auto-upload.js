@@ -93,6 +93,16 @@
 
   function doPublish() {
     clearTimeout(autoTimer);
+    // Restore mobile scroll after publish (close drawer if open, reset overflow)
+    if (document.body.classList.contains('milan-mobile-menu-open')) {
+      document.body.classList.remove('milan-mobile-menu-open');
+    }
+    var drawer = document.getElementById('milan-drawer-v81');
+    if (drawer) drawer.setAttribute('aria-hidden', 'true');
+    setTimeout(function () {
+      if (typeof recoverMobileScroll === 'function') recoverMobileScroll();
+      scrollToComposer();
+    }, 120);
     // Auto-fill a friendly title from the filename if user left it empty (so a no-caption post still works).
     if (current) {
       var ti = el('postTitle');
