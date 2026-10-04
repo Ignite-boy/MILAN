@@ -921,7 +921,7 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
 
   runBackground(async () => {
       try {
-        await markCloudSync(record, ownerDid);
+        runBackground(() => markCloudSync(record, ownerDid));
       } catch (err) {
         record.cloudDwn = record.cloudDwn || {};
         record.cloudDwn.sync = {
