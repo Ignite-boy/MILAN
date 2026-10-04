@@ -607,7 +607,7 @@ async function createRecord(userId, ownerDid, body = {}) {
         record.id,
         err
       );
-    });
+    }));
 
   return toClient(record, ownerDid);
 }
@@ -920,6 +920,41 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
   persistRecord(userId, record);
 
   runBackground(async () => {
+      try {
+        await markCloudSync(record, ownerDid);
+      } catch (err) {
+        record.cloudDwn = record.cloudDwn || {};
+        record.cloudDwn.sync = {
+          ok: false,
+          status: 'failed',
+          failedAt: new Date().toISOString(),
+          error: String(err?.message || err || 'DWN sync failed').slice(0, 500)
+        };
+        console.error('[Background Supabase record sync failed]', record?.id, err?.message || err);
+      }
+
+      try {
+        const syncedMedia = await pushMediaToCloudDwn(record, ownerUser, mediaFile);
+        record.cloudDwn = record.cloudDwn || {};
+        record.cloudDwn.mediaSync = syncedMedia;
+      } catch (err) {
+        record.cloudDwn = record.cloudDwn || {};
+        record.cloudDwn.mediaSync = {
+          ...mediaSync,
+          pending: false,
+          pushed: false,
+          failedAt: new Date().toISOString(),
+          error: String(err?.message || err || 'Media sync failed').slice(0, 500)
+        };
+        console.error('[Background Supabase media sync failed]', record?.id, err?.message || err);
+      }
+
+      try {
+        persistRecord(userId, record);
+      } catch (persistErr) {
+        console.error('[Background cloud-sync status persist failed]', record?.id, persistErr?.message || persistErr);
+      }
+  });
   if (isRemoteOnlyMode() && !mediaSync.pushed) {
     try { removeRecordFile(userId, record.id); } catch (_) {}
     try { if (fs.existsSync(mediaFile)) fs.unlinkSync(mediaFile); } catch (_) {}
