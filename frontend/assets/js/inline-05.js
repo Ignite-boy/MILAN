@@ -495,6 +495,15 @@ function updateRecordLocal(id,patch){const i=currentFeed.findIndex(r=>r.id===id)
       createdRecord &&
       createdRecord.id
     ){
+      createdRecord.__milanPendingAt = Date.now();
+      window.__milanPendingPosts = window.__milanPendingPosts || [];
+      window.__milanPendingPosts = [
+        createdRecord,
+        ...window.__milanPendingPosts.filter(
+          r => r.id !== createdRecord.id
+        )
+      ];
+
       currentFeed = [
         createdRecord,
         ...currentFeed.filter(
@@ -502,6 +511,7 @@ function updateRecordLocal(id,patch){const i=currentFeed.findIndex(r=>r.id===id)
         )
       ];
 
+      // Paint the new post before any follow-up network refresh.
       renderFeed();
     }
 
@@ -515,7 +525,17 @@ function updateRecordLocal(id,patch){const i=currentFeed.findIndex(r=>r.id===id)
 
     toast("Post published");
     recoverMobileScroll();
-    await loadSummary();
+
+    // Keep Publish non-blocking after the first paint. The pending record keeps
+    // the new post visible even if the background feed request finishes before
+    // remote Supabase/DWN sync has propagated.
+    setTimeout(() => {
+      Promise.resolve(loadFeed()).catch(err => {
+        console.warn("[MILAN] Background feed refresh skipped:", err?.message || err);
+      });
+    }, 150);
+
+    Promise.resolve(loadSummary()).catch(() => {});
 
   }catch(e){
     console.error(
