@@ -13,6 +13,29 @@ const supabaseAuthoritative = createClient(
   process.env.SUPABASE_SERVICE_KEY
 );
 
+// Vercel Functions can keep non-critical work alive after the response.
+// Local/other Node runtimes fall back to a normal background promise.
+let vercelWaitUntil = null;
+try {
+  ({ waitUntil: vercelWaitUntil } = require('@vercel/functions'));
+} catch (_) {}
+
+function runBackground(task) {
+  const promise = Promise.resolve().then(task);
+  if (typeof vercelWaitUntil === 'function') {
+    try {
+      return vercelWaitUntil(
+        promise.catch(err => {
+          console.error('[MILAN background task failed]', err?.message || err);
+        })
+      );
+    } catch (_) {}
+  }
+  return promise.catch(err => {
+    console.error('[MILAN background task failed]', err?.message || err);
+  });
+}
+
 const ACCESS = ['private', 'public', 'shared_did'];
 const MAX_TEXT_BYTES = Number(process.env.MAX_RECORD_TEXT_BYTES || 10 * 1024 * 1024);
 const MAX_MEDIA_BYTES = Number(process.env.MAX_MEDIA_BYTES || 5000 * 1024 * 1024);
@@ -537,7 +560,7 @@ async function createRecord(userId, ownerDid, body = {}) {
   writeIndex(all);
 
   // Return the persisted record immediately; remote Supabase/DWN sync continues in background.
-  markCloudSync(record, ownerDid)
+  runBackground(() => markCloudSync(record, ownerDid)
     .then(() => {
       record.cloudDwn = record.cloudDwn || {};
       record.cloudDwn.sync = {
@@ -896,43 +919,7 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
   record.cloudDwn.mediaSync = mediaSync;
   persistRecord(userId, record);
 
-  Promise.resolve()
-    .then(async () => {
-      try {
-        await markCloudSync(record, ownerDid);
-      } catch (err) {
-        record.cloudDwn = record.cloudDwn || {};
-        record.cloudDwn.sync = {
-          ok: false,
-          status: 'failed',
-          failedAt: new Date().toISOString(),
-          error: String(err?.message || err || 'DWN sync failed').slice(0, 500)
-        };
-        console.error('[Background Supabase record sync failed]', record?.id, err?.message || err);
-      }
-
-      try {
-        const syncedMedia = await pushMediaToCloudDwn(record, ownerUser, mediaFile);
-        record.cloudDwn = record.cloudDwn || {};
-        record.cloudDwn.mediaSync = syncedMedia;
-      } catch (err) {
-        record.cloudDwn = record.cloudDwn || {};
-        record.cloudDwn.mediaSync = {
-          ...mediaSync,
-          pending: false,
-          pushed: false,
-          failedAt: new Date().toISOString(),
-          error: String(err?.message || err || 'Media sync failed').slice(0, 500)
-        };
-        console.error('[Background Supabase media sync failed]', record?.id, err?.message || err);
-      }
-
-      try {
-        persistRecord(userId, record);
-      } catch (persistErr) {
-        console.error('[Background cloud-sync status persist failed]', record?.id, persistErr?.message || persistErr);
-      }
-    });
+  runBackground(async () => {
   if (isRemoteOnlyMode() && !mediaSync.pushed) {
     try { removeRecordFile(userId, record.id); } catch (_) {}
     try { if (fs.existsSync(mediaFile)) fs.unlinkSync(mediaFile); } catch (_) {}
