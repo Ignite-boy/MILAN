@@ -973,7 +973,7 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
     record.mediaAuthoritative = 'production-dwn-node';
     record.mediaCachedOnApp = true;
     record.mediaReadyAt = new Date().toISOString();
-    await markCloudSync(record, ownerDid);
+    runBackground(() => markCloudSync(record, ownerDid));
   } else if (embeddedMediaMode) {
     // Marking it remote-only makes the browser hit an internal/self DWN URL path and was the
     // main reason uploaded WhatsApp MP4 files could show 0:00 / not playable after upload.
