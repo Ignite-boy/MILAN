@@ -121,7 +121,7 @@ async function conversationMessages(meDid, otherDid) {
   })
   .filter(message =>
     message.conversationId === conversationId &&
-    message.sharedWithDids.includes(meDid) &&
+    (message.senderDid === meDid || message.sharedWithDids.includes(meDid)) &&
     (
       (message.senderDid === meDid && message.recipientDid === otherDid) ||
       (message.senderDid === otherDid && message.recipientDid === meDid)
