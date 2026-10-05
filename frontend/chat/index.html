@@ -704,132 +704,356 @@
   </div>
 
   <script>
-    (() => {
-      const shell = document.getElementById("chatShell");
-      const peopleList = document.getElementById("peopleList");
-      const peopleCount = document.getElementById("peopleCount");
-      const search = document.getElementById("peopleSearch");
-      const currentName = document.getElementById("currentName");
-      const currentSub = document.getElementById("currentSub");
-      const currentAvatar = document.getElementById("currentAvatar");
-      const emptyState = document.getElementById("emptyState");
-      const conversation = document.getElementById("conversation");
-      const input = document.getElementById("messageInput");
-      const sendBtn = document.getElementById("sendBtn");
-      let people = [];
-      let selected = null;
+(() => {
+  "use strict";
 
-      const getToken = () => {
-        try {
-          return localStorage.getItem("milan_token") || localStorage.getItem("milanToken") || "";
-        } catch (_) { return ""; }
+  const shell = document.getElementById("chatShell");
+  const peopleList = document.getElementById("peopleList");
+  const peopleCount = document.getElementById("peopleCount");
+  const search = document.getElementById("peopleSearch");
+  const currentName = document.getElementById("currentName");
+  const currentSub = document.getElementById("currentSub");
+  const currentAvatar = document.getElementById("currentAvatar");
+  const emptyState = document.getElementById("emptyState");
+  const conversation = document.getElementById("conversation");
+  const input = document.getElementById("messageInput");
+  const sendBtn = document.getElementById("sendBtn");
+  const composer = document.getElementById("composer");
+
+  let people = [];
+  let selected = null;
+  let myDid = "";
+  let pollingTimer = null;
+  let eventStream = null;
+  let loadingConversation = false;
+  let sending = false;
+
+  const getToken = () => {
+    try {
+      return localStorage.getItem("milan_token") || localStorage.getItem("milanToken") || "";
+    } catch (_) { return ""; }
+  };
+
+  const esc = (value) => String(value ?? "").replace(/[&<>"']/g, ch => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[ch]));
+
+  const initials = (name) =>
+    String(name || "M").trim().split(/\s+/).slice(0,2)
+      .map(x => x[0] || "").join("").toUpperCase() || "M";
+
+  function avatarMarkup(person) {
+    const avatar = String(person?.avatar || "");
+    if (/^(data:image\/|https?:\/\/)/.test(avatar)) {
+      return '<img src="' + esc(avatar) + '" alt="" loading="lazy">';
+    }
+    return esc(initials(person?.name));
+  }
+
+  function statusLabel(person) {
+    switch (person?.connectionStatus) {
+      case "friends": return "Friend";
+      case "received": return "Friend request";
+      case "sent": return "Request sent";
+      default: return "MILAN user";
+    }
+  }
+
+  function renderPeople(rows) {
+    const query = String(search.value || "").trim().toLowerCase();
+    const filtered = rows.filter(p =>
+      !query ||
+      String(p.name || "").toLowerCase().includes(query) ||
+      String(p.did || "").toLowerCase().includes(query)
+    );
+
+    peopleCount.textContent = String(rows.length);
+
+    if (!filtered.length) {
+      peopleList.innerHTML =
+        '<div style="padding:30px 14px;color:#7787ab;text-align:center;font-size:12px;">No people found.</div>';
+      return;
+    }
+
+    peopleList.innerHTML = filtered.map(person => {
+      const active = selected?.did === person.did ? " is-active" : "";
+      return '<button class="chat-person' + active + '" type="button" data-did="' + esc(person.did) + '">'
+        + '<span class="chat-avatar">' + avatarMarkup(person) + '</span>'
+        + '<span class="chat-person-main">'
+        + '<span class="chat-person-name">' + esc(person.name || "MILAN User") + '</span>'
+        + '<span class="chat-person-sub"><span class="chat-dot"></span>' + esc(statusLabel(person)) + '</span>'
+        + '</span>'
+        + '</button>';
+    }).join("");
+
+    peopleList.querySelectorAll(".chat-person").forEach(button => {
+      button.addEventListener("click", () => {
+        selected = people.find(p => p.did === button.dataset.did) || null;
+        renderPeople(people);
+        openConversation(selected, true);
+        shell.classList.remove("people-open");
+      });
+    });
+  }
+
+  function renderMessages(messages) {
+    if (!selected) return;
+
+    if (!Array.isArray(messages) || !messages.length) {
+      conversation.innerHTML =
+        '<div class="chat-system-note">No messages yet. Say hello to ' +
+        esc(selected.name || "this person") + '.</div>';
+      return;
+    }
+
+    conversation.innerHTML = messages.map(message => {
+      const mine = message.senderDid === myDid;
+      const time = message.sentAt ? new Date(message.sentAt).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}) : "";
+      return '<div class="chat-message-row ' + (mine ? "mine" : "") + '">'
+        + '<div class="chat-bubble">'
+        + '<div>' + esc(message.text).replace(/\n/g, "<br>") + '</div>'
+        + '<div class="chat-meta">' + esc(time) + (mine ? " · Sent" : "") + '</div>'
+        + '</div></div>';
+    }).join("");
+  }
+
+  function scrollConversationToBottom(force) {
+    const stage = document.getElementById("chatStage");
+    if (!stage) return;
+    if (force) {
+      stage.scrollTop = stage.scrollHeight;
+      return;
+    }
+    const nearBottom = stage.scrollHeight - stage.scrollTop - stage.clientHeight < 120;
+    if (nearBottom) stage.scrollTop = stage.scrollHeight;
+  }
+
+  async function api(path, options = {}) {
+    const token = getToken();
+    if (!token) throw new Error("Please sign in to use Milan Chat.");
+    const headers = {
+      Authorization: "Bearer " + token,
+      Accept: "application/json",
+      ...(options.body ? {"Content-Type":"application/json"} : {}),
+      ...(options.headers || {})
+    };
+    const response = await fetch(path, {...options, headers, cache:"no-store"});
+    let data = null;
+    try { data = await response.json(); } catch (_) {}
+    if (!response.ok) throw new Error(data?.error || "Chat request failed.");
+    return data;
+  }
+
+  async function loadMe() {
+    const data = await api("/api/auth/me");
+    myDid = String(data.did || "");
+  }
+
+  function setComposerEnabled(enabled) {
+    input.disabled = !enabled;
+    sendBtn.disabled = !enabled || !input.value.trim() || sending;
+    input.placeholder = enabled ? "Write a message…" : "Select a person to start chatting…";
+  }
+
+  function openConversation(person, focusInput = false) {
+    if (!person) return;
+
+    selected = person;
+    emptyState.style.display = "none";
+    conversation.style.display = "flex";
+    currentName.textContent = person.name || "MILAN User";
+    currentSub.textContent = "Private DWN conversation · " +
+      String(person.did || "").slice(0, 34) +
+      (String(person.did || "").length > 34 ? "…" : "");
+    currentAvatar.innerHTML = avatarMarkup(person);
+    setComposerEnabled(true);
+    if (focusInput) input.focus({preventScroll:true});
+
+    loadConversation(false, true).catch(showChatError);
+  }
+
+  async function loadPeople() {
+    try {
+      const rows = await api("/api/social/people");
+      people = Array.isArray(rows) ? rows : [];
+      renderPeople(people);
+    } catch (err) {
+      peopleList.innerHTML =
+        '<div style="padding:28px 14px;color:#ff9a9a;text-align:center;font-size:12px;">' +
+        esc(err.message || "Could not load people.") + '</div>';
+      peopleCount.textContent = "0";
+    }
+  }
+
+  async function loadConversation(silent = true, forceBottom = false) {
+    if (!selected || loadingConversation) return;
+    loadingConversation = true;
+
+    const did = selected.did;
+    try {
+      const data = await api("/api/chat/with/" + encodeURIComponent(did));
+      if (!selected || selected.did !== did) return;
+      renderMessages(data.messages || []);
+      scrollConversationToBottom(forceBottom);
+    } catch (err) {
+      if (!silent) showChatError(err);
+    } finally {
+      loadingConversation = false;
+    }
+  }
+
+  function showChatError(err) {
+    const message = esc(err?.message || "Chat unavailable.");
+    conversation.innerHTML = '<div class="chat-system-note">' + message + '</div>';
+  }
+
+  async function sendMessage() {
+    if (!selected || !input.value.trim() || sending) return;
+
+    const recipientDid = selected.did;
+    const text = input.value.trim();
+    const clientMessageId = (globalThis.crypto?.randomUUID?.() || ("m-" + Date.now() + "-" + Math.random().toString(16).slice(2)));
+
+    sending = true;
+    sendBtn.disabled = true;
+
+    try {
+      const data = await api("/api/chat/with/" + encodeURIComponent(recipientDid) + "/messages", {
+        method: "POST",
+        body: JSON.stringify({ text, clientMessageId })
+      });
+
+      if (!selected || selected.did !== recipientDid) return;
+      input.value = "";
+      input.style.height = "auto";
+      renderMessages([...(Array.isArray(getCurrentMessages()) ? getCurrentMessages() : []), data.message]);
+      scrollConversationToBottom(true);
+      await loadConversation(true, true);
+    } catch (err) {
+      showChatError(err);
+    } finally {
+      sending = false;
+      setComposerEnabled(!!selected);
+    }
+  }
+
+  function getCurrentMessages() {
+    return [...conversation.querySelectorAll(".chat-message-row")].map(row => {
+      const mine = row.classList.contains("mine");
+      return {
+        senderDid: mine ? myDid : "__remote__",
+        text: row.querySelector(".chat-bubble > div")?.innerText || "",
+        sentAt: ""
       };
+    });
+  }
 
-      const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({
-        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
-      }[c]));
+  function connectRealtime() {
+    const token = getToken();
+    if (!token || typeof EventSource === "undefined") return;
 
-      const initials = (name) =>
-        String(name || "M").trim().split(/\s+/).slice(0,2).map(x => x[0] || "").join("").toUpperCase() || "M";
-
-      function avatarMarkup(person) {
-        const avatar = String(person?.avatar || "");
-        if (/^(data:image\/|https?:\/\/)/.test(avatar)) {
-          return '<img src="' + esc(avatar) + '" alt="" loading="lazy">';
-        }
-        return esc(initials(person?.name));
-      }
-
-      function renderPeople(rows) {
-        const query = String(search.value || "").trim().toLowerCase();
-        const filtered = rows.filter(p => !query || String(p.name || "").toLowerCase().includes(query) || String(p.did || "").toLowerCase().includes(query));
-        peopleCount.textContent = String(rows.length);
-
-        if (!filtered.length) {
-          peopleList.innerHTML = '<div style="padding:30px 14px;color:#7787ab;text-align:center;font-size:12px;">No people found.</div>';
-          return;
-        }
-
-        peopleList.innerHTML = filtered.map(person => {
-          const active = selected && selected.did === person.did ? " is-active" : "";
-          const status = person.connectionStatus === "friends" ? "Friend" : person.connectionStatus === "received" ? "Friend request" : "MILAN user";
-          return '<button class="chat-person' + active + '" type="button" data-did="' + esc(person.did) + '">'
-            + '<span class="chat-avatar">' + avatarMarkup(person) + '</span>'
-            + '<span class="chat-person-main">'
-            + '<span class="chat-person-name">' + esc(person.name || "MILAN User") + '</span>'
-            + '<span class="chat-person-sub"><span class="chat-dot"></span>' + esc(status) + '</span>'
-            + '</span></button>';
-        }).join("");
-
-        peopleList.querySelectorAll(".chat-person").forEach(btn => {
-          btn.addEventListener("click", () => {
-            selected = people.find(p => p.did === btn.dataset.did) || null;
-            renderPeople(people);
-            openConversation(selected);
-            shell.classList.remove("people-open");
-          });
-        });
-      }
-
-      function openConversation(person) {
-        if (!person) return;
-        emptyState.style.display = "none";
-        conversation.style.display = "flex";
-        currentName.textContent = person.name || "MILAN User";
-        currentSub.textContent = "DID: " + String(person.did || "").slice(0, 30) + (String(person.did || "").length > 30 ? "…" : "");
-        currentAvatar.innerHTML = avatarMarkup(person);
-        input.disabled = false;
-        sendBtn.disabled = true;
-        input.placeholder = "Write a message…";
-        conversation.innerHTML = '<div class="chat-system-note">Private conversation with ' + esc(person.name || "this person") + '.</div>';
-        input.focus({preventScroll:true});
-      }
-
-      async function loadPeople() {
-        const token = getToken();
-        if (!token) {
-          peopleList.innerHTML = '<div style="padding:28px 14px;color:#7787ab;text-align:center;font-size:12px;">Please sign in to see your MILAN people.</div>';
-          peopleCount.textContent = "0";
-          return;
-        }
-
+    try {
+      eventStream = new EventSource("/api/events?token=" + encodeURIComponent(token));
+      eventStream.onmessage = event => {
         try {
-          const response = await fetch("/api/social/people", {
-            headers: { Authorization: "Bearer " + token, Accept: "application/json" },
-            cache: "no-store"
-          });
-          if (!response.ok) throw new Error("People directory unavailable");
-          const rows = await response.json();
-          people = Array.isArray(rows) ? rows : [];
-          renderPeople(people);
-        } catch (err) {
-          peopleList.innerHTML = '<div style="padding:28px 14px;color:#7787ab;text-align:center;font-size:12px;">' + esc(err.message || "Could not load people.") + '</div>';
-          peopleCount.textContent = "0";
-        }
+          const data = JSON.parse(event.data || "{}");
+          if (String(data.type || "") !== "notify") return;
+          if (String(data.notifType || "") !== "chat_message") return;
+
+          if (
+            selected &&
+            String(data.conversationId || "") ===
+            conversationIdForClient(myDid, selected.did)
+          ) {
+            loadConversation(true, true).catch(() => {});
+          } else {
+            document.title = "New message · Milan Chat";
+            setTimeout(() => { document.title = "Milan Chat"; }, 2400);
+          }
+        } catch (_) {}
+      };
+    } catch (_) {}
+  }
+
+  function conversationIdForClient(a, b) {
+    const bytes = new TextEncoder().encode([String(a || ""), String(b || "")].sort().join("|"));
+    // Client only needs a stable comparison with the server; use the compact hex
+    // hash generated by Web Crypto when available.
+    if (globalThis.crypto?.subtle) {
+      // Async hashes cannot be used inline in onmessage, so compare using a
+      // lightweight deterministic fallback derived from the two DIDs.
+    }
+    let hash = 0;
+    const inputValue = [String(a || ""), String(b || "")].sort().join("|");
+    for (let i = 0; i < inputValue.length; i++) hash = ((hash << 5) - hash + inputValue.charCodeAt(i)) | 0;
+    return String(hash);
+  }
+
+  function startPolling() {
+    if (pollingTimer) clearInterval(pollingTimer);
+    pollingTimer = setInterval(() => {
+      if (document.hidden || !selected) return;
+      loadConversation(true, false).catch(() => {});
+    }, 2000);
+  }
+
+  search.addEventListener("input", () => renderPeople(people));
+
+  input.addEventListener("input", () => {
+    input.style.height = "auto";
+    input.style.height = Math.min(input.scrollHeight, 120) + "px";
+    setComposerEnabled(!!selected);
+  });
+
+  input.addEventListener("keydown", event => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      sendMessage();
+    }
+  });
+
+  composer.addEventListener("submit", event => {
+    event.preventDefault();
+    sendMessage();
+  });
+
+  document.getElementById("peopleBtn")?.addEventListener("click", () => shell.classList.add("people-open"));
+  document.getElementById("peopleBackdrop")?.addEventListener("click", () => shell.classList.remove("people-open"));
+  document.getElementById("refreshPeopleBtn")?.addEventListener("click", loadPeople);
+  document.getElementById("backMilanBtn")?.addEventListener("click", () => { window.location.href = "/app.html"; });
+  document.getElementById("profileBtn")?.addEventListener("click", () => {
+    if (selected?.did) window.location.href = "/app.html";
+  });
+  document.getElementById("moreBtn")?.addEventListener("click", () => {
+    loadConversation(false).catch(showChatError);
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+      loadPeople().catch(() => {});
+      if (selected) loadConversation(true, false).catch(() => {});
+    }
+  });
+
+  (async () => {
+    try {
+      if (!getToken()) {
+        peopleList.innerHTML =
+          '<div style="padding:28px 14px;color:#ffb4b4;text-align:center;font-size:12px;">' +
+          'Please sign in to use Milan Chat.<br><br><a href="/app.html" style="color:#b9c7ff;">Open Milan →</a></div>';
+        return;
       }
-
-      search.addEventListener("input", () => renderPeople(people));
-      input.addEventListener("input", () => {
-        sendBtn.disabled = !selected || !input.value.trim();
-        input.style.height = "auto";
-        input.style.height = Math.min(input.scrollHeight, 120) + "px";
-      });
-
-      document.getElementById("composer").addEventListener("submit", (event) => {
-        event.preventDefault();
-        if (!selected || !input.value.trim()) return;
-        alert("Chat UI is ready. Message transport will be connected next.");
-      });
-
-      document.getElementById("peopleBtn").addEventListener("click", () => shell.classList.add("people-open"));
-      document.getElementById("peopleBackdrop").addEventListener("click", () => shell.classList.remove("people-open"));
-      document.getElementById("refreshPeopleBtn").addEventListener("click", loadPeople);
-      document.getElementById("backMilanBtn").addEventListener("click", () => { window.location.href = "/app.html"; });
-      document.getElementById("profileBtn").addEventListener("click", () => selected && window.alert("Profile view will be connected next."));
-      document.getElementById("moreBtn").addEventListener("click", () => window.alert("Conversation actions will be connected next."));
-
-      loadPeople();
-    })();
-  </script>
+      await loadMe();
+      await loadPeople();
+      connectRealtime();
+      startPolling();
+    } catch (err) {
+      peopleList.innerHTML =
+        '<div style="padding:28px 14px;color:#ff9a9a;text-align:center;font-size:12px;">' +
+        esc(err.message || "Could not start chat.") + '</div>';
+    }
+  })();
+})();
+</script>
 </body>
 </html>
