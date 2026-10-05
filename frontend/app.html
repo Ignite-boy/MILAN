@@ -2949,7 +2949,7 @@ body.map #privacyBar{
   <div class="search"><input id="globalSearch" type="search" placeholder="Search people, posts, tags..."></div>
   <div class="top-actions">
     <button id="logoutBtn" type="button" class="icon-btn" title="Logout">↪</button>
-    <button class="icon-btn" title="Chat">💬</button>
+    <button id="chatTopBtn" class="icon-btn" type="button" title="Open Chat" aria-label="Open Chat">💬</button>
     <button class="icon-btn" title="Music">🎵</button>
     <button class="icon-btn" title="Theme">◐</button>
     <button class="icon-btn" title="Notifications">🔔</button>
@@ -2972,7 +2972,7 @@ body.map #privacyBar{
   </div>
   <nav class="nav">
     <button class="active">🏠 Home Feed</button><button>👤 My Posts</button><button>🌍 Public Feed</button><button>🔖 Saved</button><button onclick="window.location.href='/storage-upgrade.html'">☁️ Upgrade Storage</button>
-    <button>💬 Messages</button><button>🎵 Music</button><button>🔔 Notifications</button>
+    <button id="messagesNavBtn" type="button">💬 Messages</button><button>🎵 Music</button><button>🔔 Notifications</button>
     <button id="editProfileBtn" type="button">⚙ Edit Profile</button><button>🛡 Privacy</button><button class="accent">🤖 MILAN AI</button>
   </nav>
 </aside>
@@ -3458,6 +3458,14 @@ document.addEventListener("DOMContentLoaded", function () {
 }
 </style>
 
+
+<script id="milan-chat-navigation-fix">
+(() => {
+  const openChat = () => { window.location.assign('/chat'); };
+  document.getElementById('chatTopBtn')?.addEventListener('click', openChat);
+  document.getElementById('messagesNavBtn')?.addEventListener('click', openChat);
+})();
+</script>
 </body>
 </html>
 
