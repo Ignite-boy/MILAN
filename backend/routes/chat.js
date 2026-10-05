@@ -58,25 +58,77 @@ function toMessage(record) {
   };
 }
 
-async function conversationMessages(meDid, otherDid) {
-  const id = conversationIdFor(meDid, otherDid);
-  const records = await dwnStore.listVisibleRecords(meDid, { limit: 0 });
+async function decodeStoredData(value) {
+  if (value == null) return {};
+  try {
+    if (Buffer.isBuffer(value)) {
+      const text = value.toString('utf8');
+      return JSON.parse(text);
+    }
+    const raw = String(value);
+    if (raw.startsWith('\\\\x')) return JSON.parse(Buffer.from(raw.slice(2), 'hex').toString('utf8'));
+    if (raw.startsWith('0x')) return JSON.parse(Buffer.from(raw.slice(2), 'hex').toString('utf8'));
+    return JSON.parse(raw);
+  } catch (_) {
+    return {};
+  }
+}
 
-  return records
-    .filter(record =>
-      record.schema === CHAT_SCHEMA &&
-      record.protocol === CHAT_PROTOCOL &&
-      record.protocolPath === CHAT_PATH &&
-      String(record.data?.kind || '') === 'chat_message' &&
-      String(record.data?.conversationId || '') === id
+async function conversationMessages(meDid, otherDid) {
+  const conversationId = conversationIdFor(meDid, otherDid);
+
+  const { data: rows, error } = await supabase
+    .from('dwn_records')
+    .select('record_id,owner_did,recipient,protocol,protocol_path,date_created,date_modified,metadata,deleted')
+    .eq('deleted', false)
+    .eq('protocol', CHAT_PROTOCOL)
+    .eq('protocol_path', CHAT_PATH)
+    .in('owner_did', [meDid, otherDid])
+    .order('date_created', { ascending: true })
+    .limit(MAX_HISTORY);
+
+  if (error) throw error;
+  if (!Array.isArray(rows) || !rows.length) return [];
+
+  const ids = rows.map(row => String(row.record_id || '')).filter(Boolean);
+  const { data: payloads, error: dataError } = await supabase
+    .from('dwn_record_data')
+    .select('record_id,data')
+    .in('record_id', ids);
+
+  if (dataError) throw dataError;
+
+  const dataMap = new Map(
+    (payloads || []).map(row => [String(row.record_id || ''), row.data])
+  );
+
+  return rows.map(row => {
+    let metadata = {};
+    try { metadata = row.metadata ? JSON.parse(String(row.metadata)) : {}; } catch (_) {}
+
+    const data = decodeStoredData(dataMap.get(String(row.record_id || '')));
+    return {
+      id: String(row.record_id || ''),
+      messageId: String(data.messageId || row.record_id || ''),
+      conversationId: String(data.conversationId || ''),
+      senderDid: String(data.senderDid || row.owner_did || ''),
+      recipientDid: String(data.recipientDid || row.recipient || ''),
+      text: String(data.text || ''),
+      sentAt: data.sentAt || row.date_created || row.date_modified || new Date().toISOString(),
+      dateModified: row.date_modified || row.date_created || null,
+      sharedWithDids: Array.isArray(metadata.sharedWithDids) ? metadata.sharedWithDids : []
+    };
+  })
+  .filter(message =>
+    message.conversationId === conversationId &&
+    message.sharedWithDids.includes(meDid) &&
+    (
+      (message.senderDid === meDid && message.recipientDid === otherDid) ||
+      (message.senderDid === otherDid && message.recipientDid === meDid)
     )
-    .map(toMessage)
-    .filter(message =>
-      (message.senderDid === meDid || message.recipientDid === meDid) &&
-      (message.senderDid === otherDid || message.recipientDid === otherDid)
-    )
-    .sort((a, b) => new Date(a.sentAt) - new Date(b.sentAt))
-    .slice(-MAX_HISTORY);
+  )
+  .map(({sharedWithDids, ...message}) => message)
+  .slice(-MAX_HISTORY);
 }
 
 router.get('/health', (_req, res) => {
@@ -137,6 +189,24 @@ router.post('/with/:did/messages', auth, async (req, res) => {
     const now = new Date().toISOString();
     const messageId = clientMessageId || crypto.randomUUID();
     const conversationId = conversationIdFor(meDid, otherDid);
+
+    if (clientMessageId) {
+      const existing = (await conversationMessages(meDid, otherDid))
+        .find(message => message.messageId === clientMessageId);
+      if (existing) {
+        return res.status(200).json({
+          ok: true,
+          duplicate: true,
+          conversationId,
+          message: existing,
+          recipient: {
+            id: recipient.id,
+            name: recipient.name || recipient.email?.split('@')[0] || 'MILAN User',
+            did: recipient.did
+          }
+        });
+      }
+    }
 
     const record = await dwnStore.createRecord(req.userId, meDid, {
       schema: CHAT_SCHEMA,
