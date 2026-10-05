@@ -459,181 +459,23 @@
   }
 
   function bindPeopleDirectory() {
-    var box = document.getElementById("peopleConnectList");
-    if (!box) return;
-
-    var inflight = false;
-
-    // True when the rail already holds a real list — ours OR the app's — or
-    // any other content. Only the static placeholder / an empty box counts as
-    // "needs repair". Getting this wrong means re-rendering on a timer and
-    // wiping the button state the user just changed.
-    function alreadyPopulated() {
-      if (box.querySelector(".map-person")) return true;
-      if (box.querySelector(".person")) return true;
-      var text = String(box.textContent || "").trim();
-      if (!text) return false;
-      if (/^loading people/i.test(text)) return false;
-      return true;
-    }
-
-    function statusLabel(status) {
-      if (status === "friends") return "Friends";
-      if (status === "sent") return "Requested";
-      if (status === "received") return "Respond";
-      if (status === "rejected") return "Add friend";
-      return "Add friend";
-    }
-
-    function render(rows) {
-      box.innerHTML = "";
-      var wrap = document.createElement("div");
-      wrap.className = "map-people";
-
-      rows.forEach(function (p) {
-        var name = String(p.name || "MILAN User").trim();
-        var did = String(p.did || "").trim();
-        var status = String(p.connectionStatus || "none");
-        var initial = name.charAt(0).toUpperCase() || "M";
-
-        var row = document.createElement("div");
-        row.className = "map-person";
-
-        var av = document.createElement("div");
-        av.className = "map-person__avatar";
-        if (p.avatar && /^(data:image\/|https?:)/.test(String(p.avatar))) {
-          var img = document.createElement("img");
-          img.src = String(p.avatar);
-          img.alt = "";
-          img.loading = "lazy";
-          av.appendChild(img);
-        } else {
-          av.textContent = initial;
+    // inline-05.js is the canonical People renderer. It owns the connection
+    // status UI, including incoming-request Accept/Decline controls and the
+    // fast cross-device refresh. Do not maintain a second renderer here:
+    // the old fallback rendered a "Respond" button for received requests and
+    // could mask the real ✓ / ✕ controls.
+    function refresh() {
+      try {
+        if (typeof window.loadPeople === "function") {
+          return Promise.resolve(window.loadPeople()).catch(() => {});
         }
-
-        var body = document.createElement("div");
-        body.className = "map-person__body";
-
-        var nm = document.createElement("b");
-        nm.className = "map-person__name";
-        nm.textContent = name;
-        nm.title = name;
-
-        var dd = document.createElement("span");
-        dd.className = "map-person__did";
-        dd.textContent = did ? shortDid(did) : "DID pending";
-        if (did) {
-          dd.title = did + "  (click to copy)";
-          dd.addEventListener("click", function () {
-            try {
-              navigator.clipboard.writeText(did);
-              if (typeof window.toast === "function") window.toast("DID copied");
-            } catch (e) {}
-          });
-        }
-
-        body.appendChild(nm);
-        body.appendChild(dd);
-
-        var btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "map-person__add";
-        btn.textContent = statusLabel(status);
-
-        if (status === "friends") {
-          btn.classList.add("is-friends");
-          btn.disabled = true;
-        } else if (status === "sent") {
-          btn.classList.add("is-sent");
-          btn.disabled = true;
-        } else {
-          btn.addEventListener("click", function () {
-            addFriend(btn, did);
-          });
-        }
-
-        row.appendChild(av);
-        row.appendChild(body);
-        row.appendChild(btn);
-        wrap.appendChild(row);
-      });
-
-      box.appendChild(wrap);
+      } catch (_) {}
+      return Promise.resolve();
     }
 
-    function addFriend(btn, did) {
-      if (!did || btn.disabled) return;
-      btn.disabled = true;
-      btn.classList.add("is-busy");
-
-      timedFetch("/api/connections", {
-        method: "POST",
-        headers: {
-          Authorization: "Bearer " + getToken(),
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({
-          toDid: did,
-          message: "I would like to connect with you on MILAN.",
-        }),
-      })
-        .then(function (r) {
-          if (!r.ok) throw new Error("HTTP " + r.status);
-          return r.json().catch(function () { return {}; });
-        })        .then(function () {
-          btn.classList.remove("is-busy");
-          btn.classList.add("is-sent");
-          btn.textContent = "Requested";
-          if (typeof window.toast === "function") {
-            window.toast("Connection request sent");
-          }
-        })
-        .catch(function (err) {
-          btn.disabled = false;
-          btn.classList.remove("is-busy");
-          btn.textContent = "Add friend";
-          if (typeof window.toast === "function") {
-            window.toast("Could not send request: " + err.message);
-          }
-        });
-    }
-
-    function fill() {
-      if (inflight || alreadyPopulated()) return;
-      inflight = true;
-
-      timedFetch("/api/social/people", {
-        headers: { Authorization: "Bearer " + getToken(), Accept: "application/json" },
-      })
-        .then(function (r) {
-          if (!r.ok) throw new Error("HTTP " + r.status);
-          return r.json();
-        })
-        .then(function (rows) {
-          if (!Array.isArray(rows)) throw new Error("Unexpected people payload");
-          if (alreadyPopulated()) return; // the app rendered its own list meanwhile
-          render(rows);
-        })
-        .catch(function (err) {
-          box.innerHTML =
-            '<div class="empty">' + escHtml(err.message || "Directory unavailable") + "</div>";
-        })
-        .then(function () {
-          inflight = false;
-        });
-    }
-
-    // Several repair attempts catch whichever boot pass loses the race. The
-    // alreadyPopulated() guard makes every later attempt a no-op, so the extra
-    // calls cannot clobber button state.
-    window.setTimeout(fill, 900);
-    window.setTimeout(fill, 2200);
-    window.setTimeout(fill, 4000);
-    window.setTimeout(fill, 7000);
-    window.setInterval(fill, 15000);
-    window.addEventListener("focus", fill);
-    window.__milanRefreshPeople = fill;
+    window.__milanRefreshPeople = refresh;
+    window.addEventListener("focus", refresh);
+    window.setTimeout(refresh, 1200);
   }
 
   /* ══════════════════════════════════════════════════════════════════════
