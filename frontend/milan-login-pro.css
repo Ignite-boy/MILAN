@@ -1148,3 +1148,88 @@ body.mlp .input-field:focus-visible { outline: none !important; }
   }
   body.mlp #mlp-bg .mlp-blob { opacity: .38; }
 }
+
+
+/* MILAN V2026 — Web5 live motion polish */
+body.mlp .login-card::after{
+  content:"";
+  position:absolute;
+  inset:-1px;
+  pointer-events:none;
+  border-radius:inherit;
+  background:linear-gradient(110deg,transparent 18%,rgba(255,255,255,.08) 42%,transparent 61%);
+  transform:translateX(-120%);
+  animation:mlp-scan 7s cubic-bezier(.16,.84,.44,1) infinite;
+  mix-blend-mode:screen;
+}
+body.mlp .login-card > *{position:relative;z-index:1}
+body.mlp .login-card{
+  animation:mlp-card-enter .9s cubic-bezier(.16,.84,.44,1) both,
+            mlp-card-breathe 7s ease-in-out 1s infinite;
+}
+body.mlp .hero-panel{
+  animation:mlp-hero-enter 1.05s cubic-bezier(.16,.84,.44,1) both;
+}
+body.mlp .hero-title{
+  animation:mlp-title-enter 1.1s cubic-bezier(.16,.84,.44,1) .08s both;
+  background-size:200% auto;
+  animation-name:mlp-title-enter,mlp-title-shimmer;
+  animation-duration:1.1s,8s;
+  animation-delay:.08s,1.2s;
+  animation-iteration-count:1,infinite;
+}
+body.mlp .auth-value{
+  animation:mlp-rise .8s cubic-bezier(.22,1,.36,1) .18s both;
+}
+body.mlp .security-footer{
+  animation:mlp-rise .8s cubic-bezier(.22,1,.36,1) .55s both;
+}
+body.mlp .feature-icon{
+  animation:mlp-icon-float 4.8s ease-in-out infinite;
+}
+body.mlp .feature-item:nth-child(2) .feature-icon{animation-delay:.7s}
+body.mlp .feature-item:nth-child(3) .feature-icon{animation-delay:1.4s}
+body.mlp .login-card button[type="submit"]{
+  position:relative;
+  overflow:hidden;
+  box-shadow:0 10px 30px rgba(245,158,11,.18);
+}
+body.mlp .login-card button[type="submit"]::after{
+  content:"";
+  position:absolute;
+  top:-30%;
+  left:-35%;
+  width:26%;
+  height:160%;
+  transform:skewX(-18deg);
+  background:rgba(255,255,255,.28);
+  animation:mlp-button-glint 4.8s ease-in-out infinite;
+}
+body.mlp input:not(:focus){transition:box-shadow .25s,border-color .25s,transform .25s}
+body.mlp input:focus{
+  transform:translateY(-1px);
+  box-shadow:0 0 0 3px rgba(34,211,238,.08),0 10px 30px rgba(34,211,238,.08)!important;
+}
+@keyframes mlp-scan{0%,62%{transform:translateX(-120%)}76%,100%{transform:translateX(130%)}}
+@keyframes mlp-card-enter{from{opacity:0;transform:translateY(18px) scale(.985);filter:blur(6px)}to{opacity:1;transform:none;filter:none}}
+@keyframes mlp-card-breathe{0%,100%{box-shadow:0 22px 70px rgba(0,0,0,.34),0 0 0 rgba(245,158,11,0)}50%{box-shadow:0 26px 80px rgba(0,0,0,.4),0 0 38px rgba(217,70,239,.05)}}
+@keyframes mlp-hero-enter{from{opacity:0;transform:translateX(-18px)}to{opacity:1;transform:none}}
+@keyframes mlp-title-enter{from{opacity:0;transform:translateY(14px);filter:blur(5px)}to{opacity:1;transform:none;filter:none}}
+@keyframes mlp-title-shimmer{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+@keyframes mlp-icon-float{0%,100%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-4px) rotate(1.5deg)}}
+@keyframes mlp-button-glint{0%,68%{left:-35%;opacity:0}78%{opacity:1}92%,100%{left:130%;opacity:0}}
+@media(prefers-reduced-motion:reduce){
+  body.mlp .login-card,
+  body.mlp .hero-panel,
+  body.mlp .hero-title,
+  body.mlp .auth-value,
+  body.mlp .security-footer,
+  body.mlp .feature-icon,
+  body.mlp .login-card::after,
+  body.mlp .login-card button[type="submit"]::after{animation:none!important}
+  body.mlp input:focus{transform:none}
+}
+@media(max-width:700px){
+  body.mlp .login-card::after{display:none}
+  body.mlp .login-card{animation:mlp-card-enter .75s cubic-bezier(.16,.84,.44,1) both}
+}
