@@ -2,7 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const auth = require('../middleware/auth');
 const dwnStore = require('../services/dwnService');
-const { readJson, writeJson, findUserById, findUserByDid, addActivity } = require('../utils/store');
+const { readJson, writeJson, atomicWriteJson, findUserById, findUserByDid, addActivity } = require('../utils/store');
 const { pullDatabaseSnapshot } = require('../services/cloudDwnRegistry');
 const notify = require('../services/notifyService');
 const { createClient } = require('@supabase/supabase-js');
@@ -33,7 +33,8 @@ async function refreshConnectionsFromCloud(){
       if(Object.keys(remote).length === 0 && Object.keys(local).length > 0){
         return local;
       }
-      writeJson(global.connectionsFile, remote);
+      // Cloud pulls update the local cache only. writeJson() would sync the pulled snapshot back to Supabase and could overwrite a newer cross-device request during a race.
+      atomicWriteJson(global.connectionsFile, remote);
       return remote;
     }
   }catch(_){}
