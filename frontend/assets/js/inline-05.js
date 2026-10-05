@@ -118,10 +118,16 @@ Promise.allSettled([
   /* Remove posts no longer present. */
   existing.forEach(el=>el.remove());
 
-  /* Keep server order without rebuilding the whole feed. */
-  rows.forEach(record=>{
+  /* Keep server order without moving every post on every refresh.
+     Re-append only when a node is actually out of position; this avoids
+     unnecessary mobile layout/scroll churn after publish and media upload. */
+  rows.forEach((record,index)=>{
     const el=document.getElementById("post-"+String(record.id||""));
-    el&&feedEl.appendChild(el);
+    if(!el)return;
+    const next=feedEl.children[index];
+    if(next!==el){
+      feedEl.insertBefore(el,next||null);
+    }
   });
 
   let more=document.getElementById("nativeLoadMoreBtn");
@@ -489,6 +495,15 @@ function updateRecordLocal(id,patch){const i=currentFeed.findIndex(r=>r.id===id)
       createdRecord &&
       createdRecord.id
     ){
+      createdRecord.__milanPendingAt = Date.now();
+      window.__milanPendingPosts = window.__milanPendingPosts || [];
+      window.__milanPendingPosts = [
+        createdRecord,
+        ...window.__milanPendingPosts.filter(
+          r => r.id !== createdRecord.id
+        )
+      ];
+
       currentFeed = [
         createdRecord,
         ...currentFeed.filter(
@@ -496,6 +511,7 @@ function updateRecordLocal(id,patch){const i=currentFeed.findIndex(r=>r.id===id)
         )
       ];
 
+      // Paint the new post before any follow-up network refresh.
       renderFeed();
     }
 
@@ -509,7 +525,17 @@ function updateRecordLocal(id,patch){const i=currentFeed.findIndex(r=>r.id===id)
 
     toast("Post published");
     recoverMobileScroll();
-    await loadSummary();
+
+    // Keep Publish non-blocking after the first paint. The pending record keeps
+    // the new post visible even if the background feed request finishes before
+    // remote Supabase/DWN sync has propagated.
+    setTimeout(() => {
+      Promise.resolve(loadFeed()).catch(err => {
+        console.warn("[MILAN] Background feed refresh skipped:", err?.message || err);
+      });
+    }, 150);
+
+    Promise.resolve(loadSummary()).catch(() => {});
 
   }catch(e){
     console.error(
@@ -524,7 +550,62 @@ function updateRecordLocal(id,patch){const i=currentFeed.findIndex(r=>r.id===id)
   }
 }
 
-function peopleActions(p){const did=esc(p.did||""),id=esc(p.connectionId||"");let primary="";return"none"===p.connectionStatus||"rejected"===p.connectionStatus?primary=`<button onclick="sendConnect('${did}')">➕ Connect</button>`:"sent"===p.connectionStatus?primary='<button class="ghost" disabled>⏳ Sent</button>':"received"===p.connectionStatus?primary=`<div class="actionRow"><button class="ok" onclick="approveConnect('${id}')">✓ Accept</button><button class="danger" onclick="rejectConnect('${id}')">✕ Reject</button></div>`:"friends"===p.connectionStatus&&(primary='<button class="ok" disabled>✓ Connected</button>'),`<div class="personActions">${primary}<div class="actionRow"><button class="ghost" onclick="copyText('${did}')">📋 DID</button><button class="soft" onclick="requestData('${did}')">🔐 Request</button></div></div>`}async function sendConnect(did){try{await api("/connections",{method:"POST",body:JSON.stringify({toDid:did,message:"I would like to connect with you on MILAN."})}),toast("Connection request sent"),await loadPeople(),await loadSummary(),await loadNotifications()}catch(e){toast(e.message)}}async function approveConnect(id){try{await api("/connections/"+id+"/approve",{method:"PATCH"}),toast("Connection accepted"),await loadPeople(),await loadFeed(),await loadSummary(),await loadNotifications()}catch(e){toast(e.message)}}async function rejectConnect(id){try{await api("/connections/"+id+"/reject",{method:"PATCH"}),toast("Connection rejected"),await loadPeople(),await loadSummary(),await loadNotifications()}catch(e){toast(e.message)}}async function requestData(did){try{const message=prompt("What data do you want to request?","Please share selected MILAN data with me.");if(null===message)return;await api("/requests",{method:"POST",body:JSON.stringify({toDid:did,scope:"profile_or_record",message:message})}),toast("Data access request sent"),await loadNotifications(),await loadSummary()}catch(e){toast(e.message)}}async function loadPeople(){try{const q=($("peopleSearch")?.value||$("globalSearch").value||"").trim();const allPeople=await api("/social/people");people=q?await api("/social/people?q="+encodeURIComponent(q)):allPeople;const renderPerson=p=>`<div class="person"><div class="personMain">${avatarHtml(p)}<div class="personInfo"><b>${esc(p.name||"MILAN User")}</b><div class="mini"><span class="personDid" title="${esc(p.did||"")}">${esc(p.did||"")}</span><div class="personMeta"><span class="badge">${esc(p.connectionStatus||"none")}</span></div></div></div></div>${peopleActions(p)}</div>`;const list=$("peopleList");if(list)list.innerHTML=people.length?people.map(renderPerson).join(""):'<div class="empty">No people found.</div>';const connect=$("peopleConnectList");if(connect){connect.innerHTML="";allPeople.forEach(p=>{const el=document.createElement("div");el.innerHTML=renderPerson(p);connect.appendChild(el.firstElementChild);});}}catch(e){$("peopleList")&&($("peopleList").innerHTML='<div class="empty">'+esc(e.message)+"</div>");$("peopleConnectList")&&($("peopleConnectList").innerHTML='<div class="empty">'+esc(e.message)+"</div>")}}async function loadNotifications(){try{lastNotifications=await api("/social/notifications"),$("notifList").innerHTML=lastNotifications.slice(0,8).map(n=>`<div class="bubble"><b>${esc(n.type)}</b><div class="mini">${new Date(n.createdAt).toLocaleString()} • ${esc((n.actorDid||"").slice(0,35))}</div></div>`).join("")||'<div class="mini">No notifications.</div>'}catch(e){}}function savedIds(){try{return JSON.parse(localStorage.getItem("milanSavedIds")||"[]")}catch{return[]}}function setSavedIds(ids){localStorage.setItem("milanSavedIds",JSON.stringify(ids.slice(0,200)))}function toggleSave(id,btn){let ids=savedIds();ids=ids.includes(id)?ids.filter(x=>x!==id):[id,...ids],setSavedIds(ids),btn.textContent=ids.includes(id)?"🔖 Saved":"🔖 Save",renderSaved(),toast(ids.includes(id)?"Saved":"Removed from saved")}function renderSaved(){const ids=savedIds(),rows=currentFeed.filter(r=>ids.includes(r.id)).slice(0,6);$("savedList").innerHTML=rows.length?rows.map(r=>`<div class="bubble"><b>${esc(r.title||"Saved post")}</b><div class="mini">${esc(r.accessMode)}</div></div>`).join(""):'<div class="mini">Save posts to see them here.</div>'}function openProfile(){const p=me.profile||{};$("modalBody").innerHTML=`<h2>Edit Profile</h2><label>Name</label><input id="editName" value="${esc(p.display_name||"")}"><label>Bio</label><textarea id="editBio">${esc(p.bio||"")}</textarea><label>Website</label><input id="editWebsite" value="${esc(p.website||"")}"><label>Profile picture</label><input id="profilePicFile" type="file" accept="image/*"><div class="mini">Upload a small profile picture. It is stored in your profile for this demo.</div><br><button onclick="saveProfile()">Save profile</button>`,$("modalBack").classList.remove("hidden")}function fileToDataUrl(file){return new Promise((res,rej)=>{const r=new FileReader;r.onload=()=>res(r.result),r.onerror=rej,r.readAsDataURL(file)})}async function saveProfile(){try{let avatar=me.profile?.avatar||"";const f=$("profilePicFile").files[0];if(f){if(f.size>9e5)throw new Error("Use profile picture under 900 KB for this free demo.");avatar=await fileToDataUrl(f)}const profile=await api("/profile",{method:"PUT",body:JSON.stringify({display_name:$("editName").value,bio:$("editBio").value,website:$("editWebsite").value,avatar:avatar})});me.profile=profile,closeModal(),renderMe(),loadFeed(),toast("Profile updated")}catch(e){toast(e.message)}}function openPrivacyCenter(){$("modalBody").innerHTML="<h2>Privacy Center</h2><p>MILAN keeps posts private by default. Use Public or Share with DID only when you choose.</p><ul><li>Private: only you</li><li>Public: visible in public feed</li><li>Share with DID: selected people only</li></ul>",$("modalBack").classList.remove("hidden")}function closeModal(){$("modalBack").classList.add("hidden")}function copyText(t){navigator.clipboard.writeText(t||""),toast("Copied")}function startBackgroundUpdates(){
+function peopleActions(p){
+  const did=esc(p.did||"");
+  const id=esc(p.connectionId||"");
+  const name=String(p.name||"this user").replace(/\\/g,"\\\\").replace(/'/g,"\\'");
+  let primary="";
+
+  if(p.connectionStatus==="none"||p.connectionStatus==="rejected"){
+    primary=`<button class="friend-add" type="button" title="Add Friend" aria-label="Add Friend" onclick="sendConnect('${did}')">➕ <span>Add Friend</span></button>`;
+  }else if(p.connectionStatus==="sent"){
+    primary='<button class="friend-pending" type="button" disabled title="Friend request sent" aria-label="Friend request sent">⏳ <span>Request sent</span></button>';
+  }else if(p.connectionStatus==="received"){
+    primary=`<div class="friend-request-box" aria-label="Incoming friend request">
+      <span class="friend-request-label">Friend request</span>
+      <div class="friend-request-actions">
+        <button class="friend-action friend-accept" type="button" title="Accept friend request" aria-label="Accept friend request" onclick="approveConnect('${id}','${name}')">✓</button>
+        <button class="friend-action friend-decline" type="button" title="Decline friend request" aria-label="Decline friend request" onclick="rejectConnect('${id}')">✕</button>
+      </div>
+    </div>`;
+  }else if(p.connectionStatus==="friends"){
+    primary='<span class="friend-connected" aria-label="Friends">✓ Friends</span>';
+  }
+
+  return `<div class="personActions">${primary}<div class="actionRow"><button class="ghost" onclick="copyText('${did}')">📋 DID</button><button class="soft" onclick="requestData('${did}')">🔐 Request</button></div></div>`;
+}
+
+async function sendConnect(did){
+  try{
+    await api("/connections",{method:"POST",body:JSON.stringify({toDid:did,message:"I would like to connect with you on MILAN."})});
+    toast("Friend request sent");
+    await loadPeople();
+    await loadSummary();
+    await loadNotifications();
+  }catch(e){toast(e.message)}
+}
+
+async function approveConnect(id,name="this user"){
+  try{
+    await api("/connections/"+id+"/approve",{method:"PATCH"});
+    await loadPeople();
+    await loadFeed();
+    await loadSummary();
+    await loadNotifications();
+    toast("You are now friends with "+name);
+  }catch(e){toast(e.message)}
+}
+
+async function rejectConnect(id){
+  try{
+    await api("/connections/"+id+"/reject",{method:"PATCH"});
+    await loadPeople();
+    await loadSummary();
+    await loadNotifications();
+    toast("Friend request declined");
+  }catch(e){toast(e.message)}
+}
+async function loadPeople(){try{const q=($("peopleSearch")?.value||$("globalSearch").value||"").trim();const allPeople=await api("/social/people");people=q?await api("/social/people?q="+encodeURIComponent(q)):allPeople;const renderPerson=p=>`<div class="person"><div class="personMain">${avatarHtml(p)}<div class="personInfo"><b>${esc(p.name||"MILAN User")}</b><div class="mini"><span class="personDid" title="${esc(p.did||"")}">${esc(p.did||"")}</span><div class="personMeta"><span class="badge">${esc(p.connectionStatus||"none")}</span></div></div></div></div>${peopleActions(p)}</div>`;const list=$("peopleList");if(list)list.innerHTML=people.length?people.map(renderPerson).join(""):'<div class="empty">No people found.</div>';const connect=$("peopleConnectList");if(connect){connect.innerHTML="";allPeople.forEach(p=>{const el=document.createElement("div");el.innerHTML=renderPerson(p);connect.appendChild(el.firstElementChild);});}}catch(e){$("peopleList")&&($("peopleList").innerHTML='<div class="empty">'+esc(e.message)+"</div>");$("peopleConnectList")&&($("peopleConnectList").innerHTML='<div class="empty">'+esc(e.message)+"</div>")}}async function loadNotifications(){try{lastNotifications=await api("/social/notifications"),$("notifList").innerHTML=lastNotifications.slice(0,8).map(n=>`<div class="bubble"><b>${esc(n.type)}</b><div class="mini">${new Date(n.createdAt).toLocaleString()} • ${esc((n.actorDid||"").slice(0,35))}</div></div>`).join("")||'<div class="mini">No notifications.</div>'}catch(e){}}function savedIds(){try{return JSON.parse(localStorage.getItem("milanSavedIds")||"[]")}catch{return[]}}function setSavedIds(ids){localStorage.setItem("milanSavedIds",JSON.stringify(ids.slice(0,200)))}function toggleSave(id,btn){let ids=savedIds();ids=ids.includes(id)?ids.filter(x=>x!==id):[id,...ids],setSavedIds(ids),btn.textContent=ids.includes(id)?"🔖 Saved":"🔖 Save",renderSaved(),toast(ids.includes(id)?"Saved":"Removed from saved")}function renderSaved(){const ids=savedIds(),rows=currentFeed.filter(r=>ids.includes(r.id)).slice(0,6);$("savedList").innerHTML=rows.length?rows.map(r=>`<div class="bubble"><b>${esc(r.title||"Saved post")}</b><div class="mini">${esc(r.accessMode)}</div></div>`).join(""):'<div class="mini">Save posts to see them here.</div>'}function openProfile(){const p=me.profile||{};$("modalBody").innerHTML=`<h2>Edit Profile</h2><label>Name</label><input id="editName" value="${esc(p.display_name||"")}"><label>Bio</label><textarea id="editBio">${esc(p.bio||"")}</textarea><label>Website</label><input id="editWebsite" value="${esc(p.website||"")}"><label>Profile picture</label><input id="profilePicFile" type="file" accept="image/*"><div class="mini">Upload a small profile picture. It is stored in your profile for this demo.</div><br><button onclick="saveProfile()">Save profile</button>`,$("modalBack").classList.remove("hidden")}function fileToDataUrl(file){return new Promise((res,rej)=>{const r=new FileReader;r.onload=()=>res(r.result),r.onerror=rej,r.readAsDataURL(file)})}async function saveProfile(){try{let avatar=me.profile?.avatar||"";const f=$("profilePicFile").files[0];if(f){if(f.size>9e5)throw new Error("Use profile picture under 900 KB for this free demo.");avatar=await fileToDataUrl(f)}const profile=await api("/profile",{method:"PUT",body:JSON.stringify({display_name:$("editName").value,bio:$("editBio").value,website:$("editWebsite").value,avatar:avatar})});me.profile=profile,closeModal(),renderMe(),loadFeed(),toast("Profile updated")}catch(e){toast(e.message)}}function openPrivacyCenter(){$("modalBody").innerHTML="<h2>Privacy Center</h2><p>MILAN keeps posts private by default. Use Public or Share with DID only when you choose.</p><ul><li>Private: only you</li><li>Public: visible in public feed</li><li>Share with DID: selected people only</li></ul>",$("modalBack").classList.remove("hidden")}function closeModal(){$("modalBack").classList.add("hidden")}function copyText(t){navigator.clipboard.writeText(t||""),toast("Copied")}function startBackgroundUpdates(){
   if(window.__milanTick)return;
 
   const native=document.body.classList.contains("native-apk")||/MilanNativeAudio/i.test(navigator.userAgent);
@@ -541,39 +622,46 @@ function peopleActions(p){const did=esc(p.did||""),id=esc(p.connectionId||"");le
   document.addEventListener("visibilitychange",()=>{
     if(!document.hidden){
       requestAnimationFrame(refresh);
+      loadPeople().catch(()=>{});
+      loadNotifications();
     }
   },{passive:true});
 
-  /* MILAN LIVE CONNECTION EVENTS */
+  // Live social events: Add Friend / Accept / Decline update the open account
+  // immediately on the other device instead of waiting for the polling interval.
   if(!window.__milanEvents && token && typeof EventSource !== "undefined"){
     try{
       const es=new EventSource("/api/events?token="+encodeURIComponent(token));
       window.__milanEvents=es;
+
       es.onmessage=(event)=>{
         try{
           const data=JSON.parse(event.data||"{}");
-          if(String(data.type||"")!=="notify")return;
-          const t=String(data.notifType||"");
+          const type=String(data.type||"");
+          const notifType=String(data.notifType||"");
+          if(type!=="notify")return;
 
-          if(t==="connection_request"){
+          if(notifType==="connection_request"){
             toast("New friend request");
-          }else if(t==="connection_approved"){
+          }else if(notifType==="connection_approved"){
             toast("Friend request accepted");
-          }else if(t==="connection_rejected"){
+          }else if(notifType==="connection_rejected"){
             toast("Friend request declined");
           }
 
-          if(t==="connection_request"||
-             t==="connection_approved"||
-             t==="connection_rejected"){
-            Promise.resolve(loadPeople()).catch(()=>{});
-            Promise.resolve(loadNotifications()).catch(()=>{});
-            Promise.resolve(loadSummary()).catch(()=>{});
-            if(typeof loadFeed==="function")Promise.resolve(loadFeed()).catch(()=>{});
+          Promise.resolve(loadNotifications()).catch(()=>{});
+          Promise.resolve(loadSummary()).catch(()=>{});
+          Promise.resolve(loadPeople()).catch(()=>{});
+          if(typeof loadFeed==="function"){
+            Promise.resolve(loadFeed()).catch(()=>{});
           }
         }catch(_){}
       };
-      es.onerror=()=>{};
+
+      es.onerror=()=>{
+        // Native EventSource automatically reconnects. Keep the reference alive
+        // so repeated errors do not create multiple connections.
+      };
     }catch(_){}
   }
 

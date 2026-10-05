@@ -1053,25 +1053,29 @@ body.map .layout {
   min-height: 0 !important;
 }
 
-/* The base layer sizes the left rail with its own viewport math
-   (height: calc(100dvh - 104px), sticky top 88px). Combined with that offset
-   the rail ends up taller than the layout row and pushes a ~30px document
-   scrollbar onto an otherwise viewport-locked page. Pin the rails to the grid
-   row instead and let each one scroll its own content. */
-body.map .leftRail,
-body.map .rightRail {
-  height: 100% !important;
-  max-height: 100% !important;
-}
+/* Desktop-only rail scrolling. Mobile must use the document as the
+   scroll container so the full feed scrolls naturally with touch. */
+@media (min-width: 1001px) {
+  /* The base layer sizes the left rail with its own viewport math
+     (height: calc(100dvh - 104px), sticky top 88px). Combined with that offset
+     the rail ends up taller than the layout row and pushes a ~30px document
+     scrollbar onto an otherwise viewport-locked page. Pin the rails to the grid
+     row instead and let each one scroll its own content. */
+  body.map .leftRail,
+  body.map .rightRail {
+    height: 100% !important;
+    max-height: 100% !important;
+  }
 
-body.map .leftRail,
-body.map .centerRail,
-body.map .rightRail {
-  min-height: 0 !important;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
+  body.map .leftRail,
+  body.map .centerRail,
+  body.map .rightRail {
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
 }
 
 /* the rail now scrolls as a whole, so drop the base layer's inner nav-only

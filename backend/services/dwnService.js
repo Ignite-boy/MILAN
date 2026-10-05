@@ -13,6 +13,29 @@ const supabaseAuthoritative = createClient(
   process.env.SUPABASE_SERVICE_KEY
 );
 
+// Vercel Functions can keep non-critical work alive after the response.
+// Local/other Node runtimes fall back to a normal background promise.
+let vercelWaitUntil = null;
+try {
+  ({ waitUntil: vercelWaitUntil } = require('@vercel/functions'));
+} catch (_) {}
+
+function runBackground(task) {
+  const promise = Promise.resolve().then(task);
+  if (typeof vercelWaitUntil === 'function') {
+    try {
+      return vercelWaitUntil(
+        promise.catch(err => {
+          console.error('[MILAN background task failed]', err?.message || err);
+        })
+      );
+    } catch (_) {}
+  }
+  return promise.catch(err => {
+    console.error('[MILAN background task failed]', err?.message || err);
+  });
+}
+
 const ACCESS = ['private', 'public', 'shared_did'];
 const MAX_TEXT_BYTES = Number(process.env.MAX_RECORD_TEXT_BYTES || 10 * 1024 * 1024);
 const MAX_MEDIA_BYTES = Number(process.env.MAX_MEDIA_BYTES || 5000 * 1024 * 1024);
@@ -536,7 +559,8 @@ async function createRecord(userId, ownerDid, body = {}) {
   all[userId] = list;
   writeIndex(all);
 
-  await markCloudSync(record, ownerDid)
+  // Return the persisted record immediately; remote Supabase/DWN sync continues in background.
+  runBackground(() => markCloudSync(record, ownerDid)
     .then(() => {
       record.cloudDwn = record.cloudDwn || {};
       record.cloudDwn.sync = {
@@ -583,7 +607,7 @@ async function createRecord(userId, ownerDid, body = {}) {
         record.id,
         err
       );
-    });
+    }));
 
   return toClient(record, ownerDid);
 }
@@ -869,11 +893,22 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
     storagePath: path.relative(path.join(__dirname, '..'), recordFile(userId, id)).replace(/\\/g, '/')
   };
   applyAccess(record, access.mode, access.dids);
-  await markCloudSync(record, ownerDid);
+
+  // Publish critical path: persist locally first. Remote record/media sync must
+  // never delay the HTTP response after the upload has been received.
+  record.cloudDwn = record.cloudDwn || {};
+  record.cloudDwn.sync = {
+    ok: false,
+    status: 'pending',
+    queuedAt: new Date().toISOString()
+  };
+
   list.unshift(record);
   persistRecord(userId, record);
+  all[userId] = list;
+  writeIndex(all);
+
   const ownerUser = userByDid(ownerDid);
-  record.cloudDwn = record.cloudDwn || {};
   const mediaSync = {
     pushed: false,
     backend: 'supabase',
@@ -882,20 +917,44 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
     queuedAt: new Date().toISOString()
   };
   record.cloudDwn.mediaSync = mediaSync;
+  persistRecord(userId, record);
 
-  // Do not block the publish response on remote media synchronization.
-  // The local/authoritative record is already persisted; Supabase media sync
-  // continues in the background so mobile Publish can return immediately.
-  Promise.resolve()
-    .then(() => pushMediaToCloudDwn(record, ownerUser, mediaFile))
-    .then(mediaSync => {
-      record.cloudDwn = record.cloudDwn || {};
-      record.cloudDwn.mediaSync = mediaSync;
-      persistRecord(userId, record);
-    })
-    .catch(err => {
-      console.error('[Background Supabase media sync failed]', record?.id, err?.message || err);
-    });
+  runBackground(async () => {
+      try {
+        runBackground(() => markCloudSync(record, ownerDid));
+      } catch (err) {
+        record.cloudDwn = record.cloudDwn || {};
+        record.cloudDwn.sync = {
+          ok: false,
+          status: 'failed',
+          failedAt: new Date().toISOString(),
+          error: String(err?.message || err || 'DWN sync failed').slice(0, 500)
+        };
+        console.error('[Background Supabase record sync failed]', record?.id, err?.message || err);
+      }
+
+      try {
+        const syncedMedia = await pushMediaToCloudDwn(record, ownerUser, mediaFile);
+        record.cloudDwn = record.cloudDwn || {};
+        record.cloudDwn.mediaSync = syncedMedia;
+      } catch (err) {
+        record.cloudDwn = record.cloudDwn || {};
+        record.cloudDwn.mediaSync = {
+          ...mediaSync,
+          pending: false,
+          pushed: false,
+          failedAt: new Date().toISOString(),
+          error: String(err?.message || err || 'Media sync failed').slice(0, 500)
+        };
+        console.error('[Background Supabase media sync failed]', record?.id, err?.message || err);
+      }
+
+      try {
+        persistRecord(userId, record);
+      } catch (persistErr) {
+        console.error('[Background cloud-sync status persist failed]', record?.id, persistErr?.message || persistErr);
+      }
+  });
   if (isRemoteOnlyMode() && !mediaSync.pushed) {
     try { removeRecordFile(userId, record.id); } catch (_) {}
     try { if (fs.existsSync(mediaFile)) fs.unlinkSync(mediaFile); } catch (_) {}
@@ -914,7 +973,7 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
     record.mediaAuthoritative = 'production-dwn-node';
     record.mediaCachedOnApp = true;
     record.mediaReadyAt = new Date().toISOString();
-    await markCloudSync(record, ownerDid);
+    runBackground(() => markCloudSync(record, ownerDid));
   } else if (embeddedMediaMode) {
     // Marking it remote-only makes the browser hit an internal/self DWN URL path and was the
     // main reason uploaded WhatsApp MP4 files could show 0:00 / not playable after upload.
