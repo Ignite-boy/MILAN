@@ -66,7 +66,7 @@ async function decodeStoredData(value) {
       return JSON.parse(text);
     }
     const raw = String(value);
-    if (raw.startsWith('\\\\x')) return JSON.parse(Buffer.from(raw.slice(2), 'hex').toString('utf8'));
+    if (raw.startsWith('\\x')) return JSON.parse(Buffer.from(raw.slice(2), 'hex').toString('utf8'));
     if (raw.startsWith('0x')) return JSON.parse(Buffer.from(raw.slice(2), 'hex').toString('utf8'));
     return JSON.parse(raw);
   } catch (_) {
