@@ -71,6 +71,26 @@
 @media(max-width:700px){.quickStats{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:7px!important;margin:8px 0 16px!important}.quickStat{padding:13px 3px!important;border-radius:14px!important}.quickStat .k{font-size:8px!important;letter-spacing:.035em!important}.quickStat .v{margin-top:5px!important;font-size:18px!important}}
 @media(max-width:380px){.quickStats{gap:4px!important}.quickStat{padding:11px 2px!important}.quickStat .k{font-size:7px!important;letter-spacing:.02em!important}.quickStat .v{font-size:17px!important}}
 </style>  <link rel="stylesheet" href="/assets/css/milan-frontend-refresh-20260907.css">
+<style id="milan-friend-request-ui">
+.friend-request-box{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin:8px 0 4px}
+.friend-request-label{font-size:11px;font-weight:800;color:var(--m-muted,#94a3c7);letter-spacing:.02em}
+.friend-request-actions{display:flex;gap:8px}
+.friend-action{width:42px;height:42px;min-width:42px;border:0;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;line-height:1;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,opacity .15s ease}
+.friend-action:hover{transform:translateY(-1px)}
+.friend-action:active{transform:scale(.94)}
+.friend-accept{color:#fff;background:#16a34a;box-shadow:0 6px 16px rgba(22,163,74,.28)}
+.friend-decline{color:#fff;background:#dc2626;box-shadow:0 6px 16px rgba(220,38,38,.24)}
+.friend-add,.friend-pending{display:inline-flex;align-items:center;gap:7px;min-height:40px;border-radius:12px;padding:8px 12px;font-weight:800}
+.friend-add{color:#fff;background:linear-gradient(135deg,#2563eb,#7c3aed);border:0;cursor:pointer}
+.friend-pending{border:1px solid rgba(148,163,184,.22);color:#94a3b8;background:rgba(148,163,184,.08)}
+.friend-connected{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:7px 11px;border-radius:999px;color:#16a34a;background:rgba(22,163,74,.10);font-size:12px;font-weight:900}
+@media(max-width:700px){
+  .friend-request-box{justify-content:space-between;width:100%;margin-top:10px}
+  .friend-request-actions{gap:10px}
+  .friend-action{width:46px;height:46px;min-width:46px;font-size:24px}
+  .friend-request-label{font-size:12px}
+}
+</style>
 <meta name="robots" content="noindex,follow,max-image-preview:large">
 
 <style>
