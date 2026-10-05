@@ -923,3 +923,351 @@ footer a:hover,
 }
 
 /* V2026 UI deployment freshness marker — latest universal UX layer */
+
+
+/* ============================================================
+   MILAN V2026 — Motion Studio / Ambient Web5 Animation Layer
+   Safe, additive motion: entrance, depth, hover, focus, ambient glow.
+   No layout dependencies; reduced-motion users get a static surface.
+   ============================================================ */
+
+:root{
+  --milan-motion-fast:.18s;
+  --milan-motion-med:.42s;
+  --milan-motion-slow:8s;
+  --milan-motion-ease:cubic-bezier(.22,1,.36,1);
+}
+
+/* Living interface: subtle ambient light without expensive canvas/WebGL. */
+body{
+  background-color:var(--milan-ui-bg,#050915);
+  background-attachment:fixed;
+}
+
+body::before{
+  content:"";
+  position:fixed;
+  inset:-14%;
+  z-index:-1;
+  pointer-events:none;
+  opacity:.34;
+  background:
+    radial-gradient(34% 26% at 16% 18%,rgba(88,121,255,.13),transparent 70%),
+    radial-gradient(28% 24% at 84% 12%,rgba(223,70,200,.11),transparent 70%),
+    radial-gradient(24% 20% at 55% 86%,rgba(255,156,56,.06),transparent 72%);
+  filter:blur(28px);
+  animation:milanAmbientDrift var(--milan-motion-slow) ease-in-out infinite alternate;
+}
+
+@keyframes milanAmbientDrift{
+  0%{transform:translate3d(-1.5%,-1%,0) scale(1)}
+  50%{transform:translate3d(1.5%,1%,0) scale(1.035)}
+  100%{transform:translate3d(-.5%,1.5%,0) scale(1.015)}
+}
+
+/* Header becomes an active glass surface on scroll/hover. */
+.nav{
+  animation:milanNavIn .56s var(--milan-motion-ease) both;
+}
+
+@keyframes milanNavIn{
+  from{opacity:0;transform:translateY(-10px)}
+  to{opacity:1;transform:none}
+}
+
+.nav::after{
+  content:"";
+  position:absolute;
+  left:8%;
+  right:8%;
+  bottom:-1px;
+  height:1px;
+  opacity:.45;
+  background:linear-gradient(90deg,transparent,rgba(88,121,255,.55),rgba(223,70,200,.45),transparent);
+  transform-origin:left;
+  transform:scaleX(.72);
+  transition:transform .7s var(--milan-motion-ease),opacity .35s ease;
+}
+
+.nav:hover::after{transform:scaleX(1);opacity:.9}
+
+/* Brand presence. */
+.brand img{
+  animation:milanLogoFloat 5.5s ease-in-out infinite;
+}
+
+@keyframes milanLogoFloat{
+  0%,100%{transform:translateY(0) rotate(0)}
+  50%{transform:translateY(-2px) rotate(.6deg)}
+}
+
+/* Hero surfaces: cinematic entrance + light sweep. */
+.hero,
+.page-hero,
+.hero-card,
+.heroPanel{
+  animation:milanHeroIn .72s var(--milan-motion-ease) both;
+  isolation:isolate;
+}
+
+.hero::before,
+.page-hero::before,
+.hero-card::before,
+.heroPanel::before{
+  content:"";
+  position:absolute;
+  inset:-45%;
+  z-index:-1;
+  pointer-events:none;
+  background:linear-gradient(115deg,transparent 42%,rgba(255,255,255,.065) 49%,transparent 56%);
+  transform:translateX(-28%) rotate(8deg);
+  animation:milanHeroSweep 7s ease-in-out infinite;
+}
+
+@keyframes milanHeroIn{
+  from{opacity:0;transform:translateY(16px) scale(.988)}
+  to{opacity:1;transform:none}
+}
+
+@keyframes milanHeroSweep{
+  0%,70%{transform:translateX(-34%) rotate(8deg);opacity:0}
+  82%{opacity:.65}
+  100%{transform:translateX(34%) rotate(8deg);opacity:0}
+}
+
+/* Section/card rhythm: restrained staggered entrance. */
+.section,
+.content-section,
+.article-section,
+.card,
+.panel,
+.feature,
+.info-card,
+.section-card,
+.article-card{
+  animation:milanSurfaceIn .56s var(--milan-motion-ease) both;
+}
+
+main > .section:nth-child(2),
+main > .content-section:nth-child(2),
+main > .article-section:nth-child(2),
+main > .card:nth-child(2){animation-delay:.06s}
+
+main > .section:nth-child(3),
+main > .content-section:nth-child(3),
+main > .article-section:nth-child(3),
+main > .card:nth-child(3){animation-delay:.12s}
+
+main > .section:nth-child(4),
+main > .content-section:nth-child(4),
+main > .article-section:nth-child(4),
+main > .card:nth-child(4){animation-delay:.18s}
+
+@keyframes milanSurfaceIn{
+  from{opacity:0;transform:translateY(12px)}
+  to{opacity:1;transform:none}
+}
+
+/* Hover depth: feels tactile, but only on devices that support true hover. */
+@media (hover:hover) and (pointer:fine){
+  .card,
+  .panel,
+  .feature,
+  .info-card,
+  .section-card,
+  .article-card,
+  .hero,
+  .page-hero,
+  .hero-card,
+  .heroPanel{
+    transition:
+      transform var(--milan-motion-med) var(--milan-motion-ease),
+      border-color .28s ease,
+      box-shadow var(--milan-motion-med) var(--milan-motion-ease),
+      background .28s ease !important;
+    will-change:transform;
+  }
+
+  .card:hover,
+  .panel:hover,
+  .feature:hover,
+  .info-card:hover,
+  .section-card:hover,
+  .article-card:hover{
+    transform:translateY(-4px);
+    box-shadow:
+      0 24px 70px rgba(0,0,0,.24),
+      inset 0 1px 0 rgba(255,255,255,.07);
+  }
+
+  .hero:hover,
+  .page-hero:hover,
+  .hero-card:hover,
+  .heroPanel:hover{
+    transform:translateY(-2px);
+  }
+}
+
+/* Interactive controls get a tiny magnetic lift + focus halo. */
+@media (hover:hover) and (pointer:fine){
+  button:not(:disabled),
+  .btn:not(:disabled),
+  .button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]){
+    position:relative;
+    overflow:hidden;
+  }
+
+  button:not(:disabled)::after,
+  .btn:not(:disabled)::after,
+  .button:not(:disabled)::after,
+  [role="button"]:not([aria-disabled="true"])::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+    background:linear-gradient(110deg,transparent 28%,rgba(255,255,255,.18) 50%,transparent 72%);
+    transform:translateX(-130%);
+    transition:transform .65s var(--milan-motion-ease);
+  }
+
+  button:not(:disabled):hover::after,
+  .btn:not(:disabled):hover::after,
+  .button:not(:disabled):hover::after,
+  [role="button"]:not([aria-disabled="true"]):hover::after{
+    transform:translateX(130%);
+  }
+}
+
+/* Focus response is visible and animated, not just a static outline. */
+input,
+select,
+textarea{
+  transition:
+    transform var(--milan-motion-fast) var(--milan-motion-ease),
+    border-color var(--milan-motion-fast) ease,
+    box-shadow var(--milan-motion-fast) ease,
+    background var(--milan-motion-fast) ease !important;
+}
+
+input:focus,
+select:focus,
+textarea:focus{
+  transform:translateY(-1px);
+}
+
+/* Status pills / badges: low-key pulse to signal live state. */
+.badge,
+.tag,
+.pill,
+.status{
+  animation:milanBadgePulse 3.8s ease-in-out infinite;
+}
+
+@keyframes milanBadgePulse{
+  0%,100%{box-shadow:0 0 0 rgba(88,121,255,0)}
+  50%{box-shadow:0 0 0 4px rgba(88,121,255,.045)}
+}
+
+/* App/social content gets a slightly more alive hover state. */
+@media (hover:hover) and (pointer:fine){
+  .person,
+  .post,
+  .quickStat,
+  .milan-feed-card,
+  .mcc-card,
+  .music-links a,
+  .genre-chips button,
+  .mz-chip{
+    transition:
+      transform .3s var(--milan-motion-ease),
+      box-shadow .3s ease,
+      border-color .25s ease,
+      background-color .25s ease !important;
+  }
+
+  .person:hover,
+  .quickStat:hover,
+  .milan-feed-card:hover,
+  .mcc-card:hover{
+    transform:translateY(-3px) scale(1.003);
+  }
+}
+
+/* Bottom/edge dock controls get a gentle "alive" breathing effect. */
+.ma-fab,
+.mcm-fab,
+.mlz-fab,
+#milan-flow-btn,
+#milan-fab-top,
+#milan-burger{
+  animation:milanDockBreathe 4.8s ease-in-out infinite;
+}
+
+@keyframes milanDockBreathe{
+  0%,100%{filter:brightness(1);box-shadow:0 8px 24px rgba(0,0,0,.35)}
+  50%{filter:brightness(1.045);box-shadow:0 12px 30px rgba(0,0,0,.42)}
+}
+
+/* Mobile drawer feels native: content follows the panel rather than popping in. */
+body.milan-drawer-open #milan-drawer .md-head,
+body.milan-drawer-open #milan-drawer .md-user,
+body.milan-drawer-open #milan-drawer .md-item,
+body.milan-drawer-open #milan-drawer .md-logout{
+  animation:milanDrawerItemIn .38s var(--milan-motion-ease) both;
+}
+
+body.milan-drawer-open #milan-drawer .md-item:nth-of-type(2){animation-delay:.035s}
+body.milan-drawer-open #milan-drawer .md-item:nth-of-type(3){animation-delay:.07s}
+body.milan-drawer-open #milan-drawer .md-item:nth-of-type(4){animation-delay:.105s}
+
+@keyframes milanDrawerItemIn{
+  from{opacity:0;transform:translateX(-10px)}
+  to{opacity:1;transform:none}
+}
+
+/* Back-to-top appears with more physical lift. */
+#milan-fab-top.show{
+  animation:milanFabIn .38s var(--milan-motion-ease) both;
+}
+
+@keyframes milanFabIn{
+  from{opacity:0;transform:translateY(14px) scale(.78) rotate(-8deg)}
+  to{opacity:1;transform:translateY(0) scale(1) rotate(0)}
+}
+
+/* Keep animations off when the user has requested less motion. */
+@media (prefers-reduced-motion:reduce){
+  body::before,
+  .nav,
+  .brand img,
+  .hero,
+  .page-hero,
+  .hero-card,
+  .heroPanel,
+  .hero::before,
+  .page-hero::before,
+  .hero-card::before,
+  .heroPanel::before,
+  .section,
+  .content-section,
+  .article-section,
+  .card,
+  .panel,
+  .feature,
+  .info-card,
+  .section-card,
+  .article-card,
+  .badge,
+  .tag,
+  .pill,
+  .status,
+  .ma-fab,
+  .mcm-fab,
+  .mlz-fab,
+  #milan-flow-btn,
+  #milan-fab-top,
+  #milan-burger{
+    animation:none !important;
+  }
+}
