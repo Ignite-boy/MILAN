@@ -302,6 +302,7 @@ app.use('/api/protocols', require('./routes/protocols'));
 app.use('/api/records', require('./routes/records'));
 app.use('/api/requests', require('./routes/requests'));
 app.use('/api/connections', require('./routes/connections'));
+app.use('/api/chat', require('./routes/chat'));
 app.use('/api/social', require('./routes/social'));
 app.use('/api/crypto', require('./routes/crypto'));
 app.use('/api/activity', require('./routes/activity'));
