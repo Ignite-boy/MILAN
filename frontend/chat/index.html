@@ -2,35 +2,703 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Welcome to Milan Chat</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#071126">
+  <title>Milan Chat</title>
   <link rel="stylesheet" href="/milan-core.css">
   <link rel="stylesheet" href="/milan-ui.css">
   <link rel="stylesheet" href="/premium.css">
+  <link rel="canonical" href="https://milanlife.in/chat">
   <style>
-    :root{--line:rgba(255,255,255,.09);--text:#f7f8ff;--muted:#94a3c7;--orange:#ff9c38;--pink:#df46c8}
+    :root{
+      --chat-bg:#050915;
+      --chat-panel:#0a1430;
+      --chat-panel-2:#0d1938;
+      --chat-line:rgba(148,163,184,.14);
+      --chat-line-strong:rgba(255,255,255,.12);
+      --chat-text:#f7f9ff;
+      --chat-muted:#91a0bf;
+      --chat-accent:#ff9c38;
+      --chat-accent-2:#df46c8;
+      --chat-blue:#5879ff;
+      --chat-green:#34d399;
+      --chat-shadow:0 24px 80px rgba(0,0,0,.34);
+    }
+
     *{box-sizing:border-box}
-    body{margin:0;min-height:100vh;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text);background:radial-gradient(circle at 15% 0%,rgba(94,92,255,.16),transparent 28%),radial-gradient(circle at 90% 8%,rgba(223,70,200,.12),transparent 26%),linear-gradient(180deg,#071126 0%,#0a1430 45%,#090f22 100%)}
-    .wrap{min-height:100vh;display:grid;place-items:center;padding:24px}
-    .card{width:min(760px,100%);padding:52px 34px;border:1px solid var(--line);border-radius:26px;background:linear-gradient(180deg,rgba(18,34,72,.92),rgba(8,19,45,.94));box-shadow:0 24px 70px rgba(0,0,0,.28);text-align:center}
-    .logo{width:72px;height:72px;margin:0 auto 20px;border-radius:20px;display:grid;place-items:center;font-size:34px;background:linear-gradient(135deg,var(--orange),var(--pink));box-shadow:0 14px 32px rgba(223,70,200,.2)}
-    h1{margin:0;font-size:clamp(32px,5vw,50px);letter-spacing:-.035em}
-    .subtitle{margin:14px auto 28px;max-width:600px;color:var(--muted);font-size:16px;line-height:1.7}
-    .status{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border:1px solid var(--line);border-radius:999px;color:#dbe4ff;font-size:13px;font-weight:700;background:rgba(255,255,255,.04)}
-    .dot{width:8px;height:8px;border-radius:50%;background:#42dfb5;box-shadow:0 0 12px rgba(66,223,181,.7)}
-    a{display:inline-block;margin-top:28px;padding:13px 22px;border-radius:14px;background:linear-gradient(135deg,var(--orange),var(--pink));color:#101323;text-decoration:none;font-weight:800}
+    html,body{margin:0;min-height:100%;background:var(--chat-bg);color:var(--chat-text)}
+    body{
+      font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:
+        radial-gradient(900px 560px at 7% -8%,rgba(88,121,255,.14),transparent 62%),
+        radial-gradient(820px 520px at 100% 0%,rgba(223,70,200,.12),transparent 58%),
+        linear-gradient(180deg,#071126 0%,#050915 62%,#040711 100%);
+    }
+    button,input{font:inherit}
+    button{color:inherit}
+
+    .chat-page{
+      min-height:100vh;
+      padding:14px;
+      display:flex;
+      align-items:stretch;
+      justify-content:center;
+    }
+
+    .chat-shell{
+      width:min(1480px,100%);
+      min-height:calc(100vh - 28px);
+      display:grid;
+      grid-template-columns:330px minmax(0,1fr);
+      overflow:hidden;
+      border:1px solid var(--chat-line-strong);
+      border-radius:28px;
+      background:rgba(7,14,31,.88);
+      box-shadow:var(--chat-shadow);
+      backdrop-filter:blur(22px);
+      -webkit-backdrop-filter:blur(22px);
+    }
+
+    .chat-sidebar{
+      display:flex;
+      flex-direction:column;
+      min-width:0;
+      border-right:1px solid var(--chat-line);
+      background:
+        linear-gradient(180deg,rgba(15,27,58,.82),rgba(7,15,32,.94));
+    }
+
+    .chat-brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding:18px 18px 14px;
+    }
+
+    .chat-brand-mark{
+      width:42px;height:42px;flex:0 0 42px;
+      display:grid;place-items:center;
+      border-radius:14px;
+      font-size:22px;
+      background:linear-gradient(135deg,var(--chat-accent),var(--chat-accent-2));
+      box-shadow:0 12px 30px rgba(223,70,200,.2);
+    }
+
+    .chat-brand-copy{min-width:0}
+    .chat-brand-copy strong{
+      display:block;
+      font-size:15px;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+    .chat-brand-copy span{
+      display:block;
+      margin-top:2px;
+      color:var(--chat-muted);
+      font-size:11px;
+    }
+
+    .chat-search{
+      padding:0 14px 12px;
+    }
+    .chat-search-box{position:relative}
+    .chat-search-box svg{
+      position:absolute;left:13px;top:50%;transform:translateY(-50%);
+      width:17px;height:17px;color:#7182a8;pointer-events:none;
+    }
+    .chat-search input{
+      width:100%;
+      height:44px;
+      padding:0 14px 0 40px;
+      border:1px solid var(--chat-line);
+      border-radius:14px;
+      outline:none;
+      color:#fff;
+      background:rgba(255,255,255,.045);
+    }
+    .chat-search input:focus{
+      border-color:rgba(245,158,11,.36);
+      box-shadow:0 0 0 3px rgba(245,158,11,.06);
+    }
+
+    .chat-people-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      padding:4px 18px 10px;
+    }
+    .chat-people-head strong{
+      font-size:11px;
+      text-transform:uppercase;
+      letter-spacing:.1em;
+      color:#9caacd;
+    }
+    .chat-count{
+      min-width:24px;height:22px;
+      padding:0 7px;
+      border-radius:999px;
+      display:grid;place-items:center;
+      background:rgba(255,255,255,.06);
+      color:#dce5ff;
+      font-size:11px;font-weight:800;
+    }
+
+    .chat-people{
+      flex:1;
+      min-height:0;
+      overflow:auto;
+      padding:0 10px 10px;
+    }
+
+    .chat-person{
+      width:100%;
+      display:flex;
+      align-items:center;
+      gap:11px;
+      padding:11px 10px;
+      border:1px solid transparent;
+      border-radius:16px;
+      background:transparent;
+      text-align:left;
+      cursor:pointer;
+      transition:background .18s,border-color .18s,transform .18s;
+    }
+    .chat-person:hover{
+      background:rgba(255,255,255,.045);
+      border-color:var(--chat-line);
+      transform:translateX(1px);
+    }
+    .chat-person.is-active{
+      background:linear-gradient(90deg,rgba(245,158,11,.12),rgba(223,70,200,.06));
+      border-color:rgba(245,158,11,.14);
+    }
+
+    .chat-avatar{
+      width:46px;height:46px;flex:0 0 46px;
+      display:grid;place-items:center;
+      overflow:hidden;
+      border-radius:15px;
+      border:1px solid rgba(255,255,255,.1);
+      background:linear-gradient(145deg,#172744,#0d1b33);
+      color:#e8edff;
+      font-size:14px;font-weight:900;
+    }
+    .chat-avatar img{width:100%;height:100%;display:block;object-fit:cover}
+    .chat-person-main{min-width:0;flex:1}
+    .chat-person-name{
+      display:block;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+      font-size:13px;
+      font-weight:800;
+    }
+    .chat-person-sub{
+      display:flex;
+      align-items:center;
+      gap:7px;
+      margin-top:4px;
+      color:#7787ab;
+      font-size:10px;
+    }
+    .chat-dot{
+      width:7px;height:7px;border-radius:50%;
+      background:#586a8f;
+      flex:0 0 7px;
+    }
+
+    .chat-sidebar-foot{
+      display:flex;
+      gap:8px;
+      padding:10px 14px 14px;
+      border-top:1px solid var(--chat-line);
+    }
+    .chat-foot-btn{
+      flex:1;min-height:38px;
+      border:1px solid var(--chat-line);
+      border-radius:12px;
+      background:rgba(255,255,255,.035);
+      color:#c7d2ea;
+      cursor:pointer;
+      font-size:11px;font-weight:800;
+    }
+    .chat-foot-btn:hover{background:rgba(255,255,255,.06)}
+
+    .chat-main{
+      display:flex;
+      flex-direction:column;
+      min-width:0;
+      min-height:0;
+      background:
+        radial-gradient(600px 360px at 85% 5%,rgba(88,121,255,.05),transparent 62%),
+        linear-gradient(180deg,rgba(7,13,28,.74),rgba(4,8,18,.9));
+    }
+
+    .chat-topbar{
+      min-height:82px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:14px;
+      padding:14px 20px;
+      border-bottom:1px solid var(--chat-line);
+    }
+    .chat-top-left{
+      min-width:0;
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+    .chat-back{
+      display:none;
+      width:38px;height:38px;
+      border:1px solid var(--chat-line);
+      border-radius:12px;
+      background:rgba(255,255,255,.035);
+      cursor:pointer;
+    }
+    .chat-current{
+      min-width:0;
+    }
+    .chat-current-name{
+      display:block;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+      font-size:16px;font-weight:900;
+    }
+    .chat-current-sub{
+      display:block;
+      margin-top:4px;
+      color:var(--chat-muted);
+      font-size:11px;
+    }
+    .chat-top-actions{display:flex;gap:8px}
+    .chat-icon{
+      width:40px;height:40px;
+      display:grid;place-items:center;
+      border:1px solid var(--chat-line);
+      border-radius:12px;
+      background:rgba(255,255,255,.035);
+      cursor:pointer;
+    }
+    .chat-icon:hover{background:rgba(255,255,255,.06)}
+
+    .chat-stage{
+      position:relative;
+      flex:1;
+      min-height:0;
+      overflow:auto;
+      padding:26px clamp(18px,4vw,52px);
+      display:flex;
+      justify-content:center;
+    }
+
+    .chat-empty{
+      width:min(680px,100%);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+    }
+    .chat-empty-inner{max-width:560px}
+    .chat-empty-icon{
+      width:84px;height:84px;
+      margin:0 auto 18px;
+      display:grid;place-items:center;
+      border-radius:26px;
+      font-size:38px;
+      background:linear-gradient(145deg,rgba(88,121,255,.14),rgba(223,70,200,.12));
+      border:1px solid rgba(255,255,255,.08);
+      box-shadow:0 16px 45px rgba(0,0,0,.22);
+    }
+    .chat-empty h1{
+      margin:0;
+      font-size:clamp(27px,4vw,42px);
+      letter-spacing:-.04em;
+    }
+    .chat-empty p{
+      margin:12px auto 0;
+      max-width:500px;
+      color:var(--chat-muted);
+      font-size:14px;
+      line-height:1.7;
+    }
+    .chat-empty-hint{
+      margin-top:20px;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:10px 14px;
+      border:1px solid var(--chat-line);
+      border-radius:999px;
+      background:rgba(255,255,255,.035);
+      color:#d8e1f8;
+      font-size:11px;font-weight:800;
+    }
+
+    .chat-conversation{
+      width:min(820px,100%);
+      display:none;
+      flex-direction:column;
+      justify-content:flex-end;
+      min-height:100%;
+    }
+
+    .chat-system-note{
+      align-self:center;
+      margin:4px 0 24px;
+      padding:8px 12px;
+      border:1px solid var(--chat-line);
+      border-radius:999px;
+      color:#8493b4;
+      background:rgba(255,255,255,.028);
+      font-size:10px;
+      text-align:center;
+    }
+
+    .chat-message-row{display:flex;margin:8px 0}
+    .chat-message-row.mine{justify-content:flex-end}
+    .chat-bubble{
+      max-width:min(72%,520px);
+      padding:11px 14px;
+      border-radius:18px 18px 18px 6px;
+      background:rgba(255,255,255,.06);
+      border:1px solid var(--chat-line);
+      color:#edf2ff;
+      font-size:13px;
+      line-height:1.55;
+    }
+    .chat-message-row.mine .chat-bubble{
+      border-radius:18px 18px 6px 18px;
+      border-color:rgba(245,158,11,.14);
+      background:linear-gradient(135deg,rgba(245,158,11,.16),rgba(223,70,200,.13));
+    }
+    .chat-meta{
+      margin-top:5px;
+      color:#7585a8;
+      font-size:9px;
+    }
+
+    .chat-composer{
+      display:flex;
+      align-items:flex-end;
+      gap:9px;
+      padding:14px 18px 18px;
+      border-top:1px solid var(--chat-line);
+      background:rgba(5,10,22,.72);
+    }
+    .chat-compose-box{
+      flex:1;
+      min-width:0;
+      display:flex;
+      align-items:flex-end;
+      gap:8px;
+      padding:8px 9px;
+      border:1px solid var(--chat-line);
+      border-radius:17px;
+      background:rgba(255,255,255,.035);
+    }
+    .chat-compose-box:focus-within{
+      border-color:rgba(245,158,11,.25);
+      box-shadow:0 0 0 3px rgba(245,158,11,.045);
+    }
+    .chat-attach{
+      width:36px;height:36px;flex:0 0 36px;
+      border:0;border-radius:11px;
+      background:transparent;
+      color:#8a99b9;
+      cursor:pointer;
+    }
+    .chat-compose-box textarea{
+      flex:1;
+      min-width:0;
+      min-height:36px;
+      max-height:120px;
+      border:0;
+      outline:none;
+      resize:none;
+      background:transparent;
+      color:#fff;
+      font:inherit;
+      font-size:13px;
+      line-height:1.45;
+      padding:8px 2px;
+    }
+    .chat-compose-box textarea::placeholder{color:#657493}
+    .chat-send{
+      width:44px;height:44px;flex:0 0 44px;
+      display:grid;place-items:center;
+      border:0;border-radius:14px;
+      background:linear-gradient(135deg,var(--chat-accent),var(--chat-accent-2));
+      color:#121522;
+      font-weight:900;
+      cursor:pointer;
+      box-shadow:0 10px 24px rgba(223,70,200,.18);
+    }
+    .chat-send:disabled{opacity:.42;cursor:not-allowed;box-shadow:none}
+
+    .chat-mobile-backdrop{display:none}
+
+    @media(max-width:900px){
+      .chat-page{padding:0}
+      .chat-shell{
+        min-height:100vh;
+        border:0;
+        border-radius:0;
+        grid-template-columns:1fr;
+      }
+      .chat-sidebar{
+        position:absolute;
+        inset:0 auto 0 0;
+        width:min(88vw,360px);
+        z-index:20;
+        transform:translateX(-102%);
+        transition:transform .22s ease;
+        box-shadow:24px 0 60px rgba(0,0,0,.35);
+      }
+      .chat-shell.people-open .chat-sidebar{transform:translateX(0)}
+      .chat-mobile-backdrop{
+        position:absolute;
+        inset:0;
+        z-index:15;
+        display:block;
+        background:rgba(0,0,0,.45);
+        opacity:0;
+        pointer-events:none;
+        transition:opacity .22s ease;
+      }
+      .chat-shell.people-open .chat-mobile-backdrop{opacity:1;pointer-events:auto}
+      .chat-back{display:grid;place-items:center}
+      .chat-stage{padding:22px 16px}
+    }
+
+    @media(max-width:560px){
+      .chat-topbar{padding:11px 12px;min-height:70px}
+      .chat-current-name{font-size:14px}
+      .chat-top-actions .chat-icon:nth-child(2){display:none}
+      .chat-stage{padding:18px 12px}
+      .chat-empty h1{font-size:28px}
+      .chat-empty p{font-size:13px}
+      .chat-composer{padding:10px 10px 12px}
+      .chat-send{width:42px;height:42px;flex-basis:42px}
+      .chat-bubble{max-width:82%;font-size:12px}
+    }
+
+    @media(prefers-reduced-motion:reduce){
+      *,*::before,*::after{scroll-behavior:auto!important;transition:none!important}
+    }
   </style>
-<link rel="canonical" href="https://milanlife.in/chat">
 </head>
 <body>
-  <main class="wrap">
-    <section class="card">
-      <div class="logo">💬</div>
-      <div class="status"><span class="dot"></span> Milan Chat is live</div>
-      <h1>Welcome to Milan Chat</h1>
-      <p class="subtitle">Private one-to-one communication is coming here. This is the dedicated Milan space for direct conversations between people.</p>
-      <a href="/app.html">Back to Milan</a>
-    </section>
-  </main>
+  <div class="chat-page">
+    <div class="chat-shell" id="chatShell">
+
+      <aside class="chat-sidebar" aria-label="People and conversations">
+        <div class="chat-brand">
+          <div class="chat-brand-mark" aria-hidden="true">💬</div>
+          <div class="chat-brand-copy">
+            <strong>Milan Chat</strong>
+            <span>Private conversations</span>
+          </div>
+        </div>
+
+        <div class="chat-search">
+          <div class="chat-search-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+              <circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path>
+            </svg>
+            <input id="peopleSearch" type="search" placeholder="Search people..." autocomplete="off" aria-label="Search people">
+          </div>
+        </div>
+
+        <div class="chat-people-head">
+          <strong>All people</strong>
+          <span class="chat-count" id="peopleCount">0</span>
+        </div>
+
+        <div class="chat-people" id="peopleList" aria-live="polite">
+          <div style="padding:28px 14px;color:#7787ab;text-align:center;font-size:12px;">Loading people…</div>
+        </div>
+
+        <div class="chat-sidebar-foot">
+          <button class="chat-foot-btn" id="backMilanBtn" type="button">← Milan</button>
+          <button class="chat-foot-btn" id="refreshPeopleBtn" type="button">↻ Refresh</button>
+        </div>
+      </aside>
+
+      <div class="chat-mobile-backdrop" id="peopleBackdrop"></div>
+
+      <main class="chat-main">
+        <header class="chat-topbar">
+          <div class="chat-top-left">
+            <button class="chat-back" id="peopleBtn" type="button" aria-label="Open people list">☰</button>
+            <div class="chat-avatar" id="currentAvatar" aria-hidden="true">M</div>
+            <div class="chat-current">
+              <span class="chat-current-name" id="currentName">Select a person</span>
+              <span class="chat-current-sub" id="currentSub">Choose someone from All people to start.</span>
+            </div>
+          </div>
+          <div class="chat-top-actions">
+            <button class="chat-icon" type="button" id="profileBtn" aria-label="View profile">⌁</button>
+            <button class="chat-icon" type="button" id="moreBtn" aria-label="More conversation actions">⋯</button>
+          </div>
+        </header>
+
+        <section class="chat-stage" id="chatStage">
+          <div class="chat-empty" id="emptyState">
+            <div class="chat-empty-inner">
+              <div class="chat-empty-icon" aria-hidden="true">💬</div>
+              <h1>Your private conversations</h1>
+              <p>Every registered MILAN user can appear here. Pick a person from the left to open a dedicated one-to-one conversation.</p>
+              <div class="chat-empty-hint">🔒 Private by design · Built for direct conversations</div>
+            </div>
+          </div>
+
+          <div class="chat-conversation" id="conversation">
+            <div class="chat-system-note" id="conversationNote">Conversation ready. Messages will appear here.</div>
+          </div>
+        </section>
+
+        <form class="chat-composer" id="composer">
+          <div class="chat-compose-box">
+            <button class="chat-attach" type="button" aria-label="Attach file" title="Attachments">＋</button>
+            <textarea id="messageInput" rows="1" placeholder="Select a person to start chatting…" disabled></textarea>
+          </div>
+          <button class="chat-send" type="submit" id="sendBtn" disabled aria-label="Send message">➤</button>
+        </form>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const shell = document.getElementById("chatShell");
+      const peopleList = document.getElementById("peopleList");
+      const peopleCount = document.getElementById("peopleCount");
+      const search = document.getElementById("peopleSearch");
+      const currentName = document.getElementById("currentName");
+      const currentSub = document.getElementById("currentSub");
+      const currentAvatar = document.getElementById("currentAvatar");
+      const emptyState = document.getElementById("emptyState");
+      const conversation = document.getElementById("conversation");
+      const input = document.getElementById("messageInput");
+      const sendBtn = document.getElementById("sendBtn");
+      let people = [];
+      let selected = null;
+
+      const getToken = () => {
+        try {
+          return localStorage.getItem("milan_token") || localStorage.getItem("milanToken") || "";
+        } catch (_) { return ""; }
+      };
+
+      const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+      }[c]));
+
+      const initials = (name) =>
+        String(name || "M").trim().split(/\s+/).slice(0,2).map(x => x[0] || "").join("").toUpperCase() || "M";
+
+      function avatarMarkup(person) {
+        const avatar = String(person?.avatar || "");
+        if (/^(data:image\/|https?:\/\/)/.test(avatar)) {
+          return '<img src="' + esc(avatar) + '" alt="" loading="lazy">';
+        }
+        return esc(initials(person?.name));
+      }
+
+      function renderPeople(rows) {
+        const query = String(search.value || "").trim().toLowerCase();
+        const filtered = rows.filter(p => !query || String(p.name || "").toLowerCase().includes(query) || String(p.did || "").toLowerCase().includes(query));
+        peopleCount.textContent = String(rows.length);
+
+        if (!filtered.length) {
+          peopleList.innerHTML = '<div style="padding:30px 14px;color:#7787ab;text-align:center;font-size:12px;">No people found.</div>';
+          return;
+        }
+
+        peopleList.innerHTML = filtered.map(person => {
+          const active = selected && selected.did === person.did ? " is-active" : "";
+          const status = person.connectionStatus === "friends" ? "Friend" : person.connectionStatus === "received" ? "Friend request" : "MILAN user";
+          return '<button class="chat-person' + active + '" type="button" data-did="' + esc(person.did) + '">'
+            + '<span class="chat-avatar">' + avatarMarkup(person) + '</span>'
+            + '<span class="chat-person-main">'
+            + '<span class="chat-person-name">' + esc(person.name || "MILAN User") + '</span>'
+            + '<span class="chat-person-sub"><span class="chat-dot"></span>' + esc(status) + '</span>'
+            + '</span></button>';
+        }).join("");
+
+        peopleList.querySelectorAll(".chat-person").forEach(btn => {
+          btn.addEventListener("click", () => {
+            selected = people.find(p => p.did === btn.dataset.did) || null;
+            renderPeople(people);
+            openConversation(selected);
+            shell.classList.remove("people-open");
+          });
+        });
+      }
+
+      function openConversation(person) {
+        if (!person) return;
+        emptyState.style.display = "none";
+        conversation.style.display = "flex";
+        currentName.textContent = person.name || "MILAN User";
+        currentSub.textContent = "DID: " + String(person.did || "").slice(0, 30) + (String(person.did || "").length > 30 ? "…" : "");
+        currentAvatar.innerHTML = avatarMarkup(person);
+        input.disabled = false;
+        sendBtn.disabled = true;
+        input.placeholder = "Write a message…";
+        conversation.innerHTML = '<div class="chat-system-note">Private conversation with ' + esc(person.name || "this person") + '.</div>';
+        input.focus({preventScroll:true});
+      }
+
+      async function loadPeople() {
+        const token = getToken();
+        if (!token) {
+          peopleList.innerHTML = '<div style="padding:28px 14px;color:#7787ab;text-align:center;font-size:12px;">Please sign in to see your MILAN people.</div>';
+          peopleCount.textContent = "0";
+          return;
+        }
+
+        try {
+          const response = await fetch("/api/social/people", {
+            headers: { Authorization: "Bearer " + token, Accept: "application/json" },
+            cache: "no-store"
+          });
+          if (!response.ok) throw new Error("People directory unavailable");
+          const rows = await response.json();
+          people = Array.isArray(rows) ? rows : [];
+          renderPeople(people);
+        } catch (err) {
+          peopleList.innerHTML = '<div style="padding:28px 14px;color:#7787ab;text-align:center;font-size:12px;">' + esc(err.message || "Could not load people.") + '</div>';
+          peopleCount.textContent = "0";
+        }
+      }
+
+      search.addEventListener("input", () => renderPeople(people));
+      input.addEventListener("input", () => {
+        sendBtn.disabled = !selected || !input.value.trim();
+        input.style.height = "auto";
+        input.style.height = Math.min(input.scrollHeight, 120) + "px";
+      });
+
+      document.getElementById("composer").addEventListener("submit", (event) => {
+        event.preventDefault();
+        if (!selected || !input.value.trim()) return;
+        alert("Chat UI is ready. Message transport will be connected next.");
+      });
+
+      document.getElementById("peopleBtn").addEventListener("click", () => shell.classList.add("people-open"));
+      document.getElementById("peopleBackdrop").addEventListener("click", () => shell.classList.remove("people-open"));
+      document.getElementById("refreshPeopleBtn").addEventListener("click", loadPeople);
+      document.getElementById("backMilanBtn").addEventListener("click", () => { window.location.href = "/app.html"; });
+      document.getElementById("profileBtn").addEventListener("click", () => selected && window.alert("Profile view will be connected next."));
+      document.getElementById("moreBtn").addEventListener("click", () => window.alert("Conversation actions will be connected next."));
+
+      loadPeople();
+    })();
+  </script>
 </body>
 </html>
