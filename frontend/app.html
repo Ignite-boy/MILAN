@@ -2814,6 +2814,130 @@ button{
      Not ?v=-versioned on purpose (see index.html) - frontend/sw.js serves
      ?v= JS/CSS cache-first forever. -->
 <link rel="stylesheet" href="/milan-app-pro.css">
+<style id="milan-live-motion-2026">
+/* MILAN V2026 — Web5 live UI motion for the authenticated app */
+body.map{position:relative;isolation:isolate}
+body.map::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:-1;
+  pointer-events:none;
+  background:
+    radial-gradient(520px 320px at 8% 8%,rgba(88,121,255,.10),transparent 68%),
+    radial-gradient(480px 300px at 92% 8%,rgba(223,70,200,.09),transparent 70%),
+    linear-gradient(rgba(99,102,241,.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(99,102,241,.025) 1px,transparent 1px);
+  background-size:auto,auto,72px 72px,72px 72px;
+  animation:milan-web5-drift 30s linear infinite;
+}
+body.map .app{animation:milan-app-enter .8s cubic-bezier(.16,.84,.44,1) both}
+body.map .topbar{
+  animation:milan-topbar-enter .7s cubic-bezier(.22,1,.36,1) both;
+  box-shadow:0 8px 34px rgba(0,0,0,.16);
+}
+body.map .brand-logo{
+  animation:milan-logo-float 5.5s ease-in-out infinite;
+  transform-origin:center;
+}
+body.map .search input{
+  transition:border-color .25s,box-shadow .25s,transform .25s;
+}
+body.map .search input:focus{
+  transform:translateY(-1px);
+  box-shadow:0 0 0 3px rgba(88,121,255,.08),0 12px 30px rgba(0,0,0,.16)!important;
+}
+body.map .profile,
+body.map .composer,
+body.map .advancedStrip,
+body.map .post,
+body.map .right-card,
+body.map .quickStat{
+  animation:milan-surface-in .7s cubic-bezier(.22,1,.36,1) both;
+}
+body.map .profile{animation-delay:.08s}
+body.map .composer{animation-delay:.14s}
+body.map .advancedStrip{animation-delay:.20s}
+body.map .post:nth-child(1){animation-delay:.26s}
+body.map .post:nth-child(2){animation-delay:.33s}
+body.map .post:nth-child(3){animation-delay:.40s}
+body.map .right-card:nth-child(1){animation-delay:.20s}
+body.map .right-card:nth-child(2){animation-delay:.30s}
+body.map .person{
+  transition:transform .18s ease,background .18s ease,border-color .18s ease;
+}
+body.map .person:hover{transform:translateY(-2px)}
+body.map .publish,
+body.map .friend-add,
+body.map .friend-action{
+  position:relative;
+  overflow:hidden;
+}
+body.map .publish::after,
+body.map .friend-add::after,
+body.map .friend-action::after{
+  content:"";
+  position:absolute;
+  width:72px;
+  height:160%;
+  top:-30%;
+  left:-90px;
+  transform:skewX(-18deg);
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.24),transparent);
+  animation:milan-action-glint 5.5s ease-in-out infinite;
+  pointer-events:none;
+}
+body.map .privacy-meter,
+body.map #privacyBar{
+  transition:width 1s cubic-bezier(.22,1,.36,1);
+}
+@keyframes milan-web5-drift{
+  0%{background-position:0 0,0 0,0 0,0 0}
+  50%{background-position:20px 12px,-18px 16px,36px 36px,36px 36px}
+  100%{background-position:0 0,0 0,72px 72px,72px 72px}
+}
+@keyframes milan-app-enter{
+  from{opacity:0;transform:translateY(10px);filter:blur(4px)}
+  to{opacity:1;transform:none;filter:none}
+}
+@keyframes milan-topbar-enter{
+  from{opacity:0;transform:translateY(-8px)}
+  to{opacity:1;transform:none}
+}
+@keyframes milan-surface-in{
+  from{opacity:0;transform:translateY(12px);filter:blur(3px)}
+  to{opacity:1;transform:none;filter:none}
+}
+@keyframes milan-logo-float{
+  0%,100%{transform:translateY(0) rotate(0)}
+  50%{transform:translateY(-2px) rotate(.8deg)}
+}
+@keyframes milan-action-glint{
+  0%,62%{left:-90px;opacity:0}
+  70%{opacity:1}
+  84%,100%{left:130%;opacity:0}
+}
+@media(prefers-reduced-motion:reduce){
+  body.map::before,
+  body.map .app,
+  body.map .topbar,
+  body.map .brand-logo,
+  body.map .profile,
+  body.map .composer,
+  body.map .advancedStrip,
+  body.map .post,
+  body.map .right-card,
+  body.map .quickStat,
+  body.map .publish::after,
+  body.map .friend-add::after,
+  body.map .friend-action::after{
+    animation:none!important;
+  }
+}
+@media(max-width:700px){
+  body.map::before{background-size:auto,auto,56px 56px,56px 56px}
+}
+</style>
 </head>
 <body class="map">
 <div class="app">
