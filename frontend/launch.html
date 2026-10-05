@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/assets/milan-logo-circle.png" />
   <link rel="manifest" href="/manifest.json" />
   <link rel="stylesheet" href="/milan-next-era.css" />
-<link rel="stylesheet" href="/milan-core.css?v=20260627">
+<link rel="stylesheet" href="/milan-core.css?v=20261005-ui1">
 </head><body><div class="wrap"><h1>🚀 MILAN Launch Center</h1><p>Target launch: <b>4 September 2026</b>. Model: <b>One User = One Isolated DWN Space</b>.</p><div id="status" class="card">Loading readiness...</div><div class="grid" id="phases"></div><div class="card"><h2>Quick links</h2><p><a href="/">Open Milan App</a> · <a href="/api/health">API Health</a> · <a href="/api/launch/readiness">Launch Readiness JSON</a> · <a href="/api/security/policy">Security Policy</a></p></div></div><script>async function j(u){return(await fetch(u)).json()}(async()=>{const ready=await j("/api/launch/readiness");document.getElementById("status").innerHTML=`<h2>${ready.ok?"✅ Ready foundation":"⚠️ Check required"}</h2><p>Score: ${ready.score}/${ready.total}</p><div>${Object.entries(ready.checks).map(([k,v])=>`<span class="pill ${v?"ok":"bad"}">${v?"✓":"✕"} ${k}</span>`).join("")}</div>`;const roadmap=await j("/api/launch/roadmap");document.getElementById("phases").innerHTML=roadmap.phases.map(p=>`<div class="card"><h3>Phase ${p.phase}: ${p.name}</h3><p class="ok">${p.status}</p><ul>${p.proof.map(x=>`<li>${x}</li>`).join("")}</ul></div>`).join("")})().catch(e=>document.getElementById("status").innerHTML='<span class="bad">'+e.message+"</span>");</script><script src="/milan-core.js?v=20260627" defer></script>
 <script src="/milan-polish.js?v=20260627" defer></script>
 </body></html>
