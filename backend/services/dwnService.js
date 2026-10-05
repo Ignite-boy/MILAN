@@ -506,6 +506,7 @@ function getStatus() {
 }
 
 async function createRecord(userId, ownerDid, body = {}) {
+  const awaitCloudSync = body.awaitCloudSync === true;
   validatePayload(body);
   const data = body.data;
   if (data === undefined || data === null || String(typeof data === 'object' ? JSON.stringify(data) : data).trim() === '') {
@@ -559,9 +560,19 @@ async function createRecord(userId, ownerDid, body = {}) {
   all[userId] = list;
   writeIndex(all);
 
-  // Return the persisted record immediately; remote Supabase/DWN sync continues in background.
-  runBackground(() => markCloudSync(record, ownerDid)
-    .then(() => {
+  // Chat messages can request synchronous cloud visibility so the recipient
+  // can read the message immediately from another Vercel instance.
+  if (awaitCloudSync) {
+    try {
+      await markCloudSync(record, ownerDid);
+    } catch (err) {
+      console.error('Synchronous cloud sync failed for record', record.id, err.message);
+      throw err;
+    }
+  } else {
+    // Return the persisted record immediately; remote Supabase/DWN sync continues in background.
+    runBackground(() => markCloudSync(record, ownerDid)
+      .then(() => {
       record.cloudDwn = record.cloudDwn || {};
       record.cloudDwn.sync = {
         ok: true,
@@ -608,6 +619,7 @@ async function createRecord(userId, ownerDid, body = {}) {
         err
       );
     }));
+  }
 
   return toClient(record, ownerDid);
 }
