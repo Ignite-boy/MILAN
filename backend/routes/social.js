@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const auth = require('../middleware/auth');
 const dwnStore = require('../services/dwnService');
 const { readJson, writeJson, findUserById, findUserByDid, addActivity } = require('../utils/store');
+const { pullDatabaseSnapshot } = require('../services/cloudDwnRegistry');
 const notify = require('../services/notifyService');
 const { createClient } = require('@supabase/supabase-js');
 const supabaseDb = createClient(
@@ -16,6 +17,29 @@ const now = () => new Date().toISOString();
 function users(){ return readJson(global.usersFile, {}); }
 function current(req){ return findUserById(users(), req.userId); }
 function connections(){ return readJson(global.connectionsFile, {}); }
+
+async function refreshConnectionsFromCloud(){
+  const local = connections();
+  try{
+    const pulled = await pullDatabaseSnapshot('connections.json');
+    if(
+      pulled?.ok &&
+      !pulled?.missing &&
+      pulled?.data &&
+      typeof pulled.data === 'object' &&
+      !Array.isArray(pulled.data)
+    ){
+      const remote = pulled.data;
+      if(Object.keys(remote).length === 0 && Object.keys(local).length > 0){
+        return local;
+      }
+      writeJson(global.connectionsFile, remote);
+      return remote;
+    }
+  }catch(_){}
+  return local;
+}
+
 function reactionFile(){ return global.socialReactionsFile; }
 function commentFile(){ return global.socialCommentsFile; }
 function notifyFile(){ return global.notificationsFile; }
@@ -111,7 +135,8 @@ router.get('/summary', auth, async (req, res) => {
   const me = current(req); if (!me) return res.status(404).json({ error:'User not found' });
   const allUsers = Object.values(users());
   const records = await dwnStore.listVisibleRecords(me.user.did, {});
-  const rows = Object.values(connections()).filter(c => c.fromDid === me.user.did || c.toDid === me.user.did);
+  const connectionSnapshot = await refreshConnectionsFromCloud();
+  const rows = Object.values(connectionSnapshot).filter(c => c.fromDid === me.user.did || c.toDid === me.user.did);
   const notifs = readNotifications()[req.userId] || [];
   res.json({
     ok: true,
@@ -144,6 +169,7 @@ router.get('/people', auth, async (req, res) => {
   }
 
   const localUsers = users();
+  await refreshConnectionsFromCloud();
 
   const rows = (accounts || [])
     .filter(u => u.id !== req.userId)
@@ -181,8 +207,17 @@ router.get('/people', auth, async (req, res) => {
 router.get('/feed', auth, async (req, res) => {
   const me = current(req); if (!me) return res.status(404).json({ error:'User not found' });
   const scope = String(req.query.scope || 'all');
-  const rows = await dwnStore.listVisibleRecords(me.user.did, req.query);
-  const feed = rows.filter(r => allowedForFeed(r, me.user.did, scope)).map(r => decorateRecord(r, me.user.did));
+  await refreshConnectionsFromCloud();
+  const requestedLimit = Math.max(1, Math.min(100, Number(req.query.limit || 10) || 10));
+  const feedQuery = {
+    ...req.query,
+    limit: String(Math.min(100, Math.max(requestedLimit, 50)))
+  };
+  const rows = await dwnStore.listVisibleRecords(me.user.did, feedQuery);
+  const feed = rows
+    .filter(r => allowedForFeed(r, me.user.did, scope))
+    .map(r => decorateRecord(r, me.user.did))
+    .slice(0, requestedLimit);
   res.json(feed);
 });
 
