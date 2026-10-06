@@ -32,14 +32,14 @@
     style.textContent = `
       #milan-burger-v81,#milan-drawer-v81,#milan-drawer-ov-v81{display:none!important}
       @media (max-width:768px){
-        .topbar{position:sticky!important;top:0!important;min-height:60px!important;padding:8px 58px 8px 12px!important;z-index:3000!important}
+        .topbar{position:sticky!important;top:0!important;min-height:calc(60px + env(safe-area-inset-top))!important;padding:calc(8px + env(safe-area-inset-top)) 58px 8px 12px!important;z-index:3000!important}
         .topbar .search,.topbar .top-actions{display:none!important}
         .topbar .brand{min-width:0!important;flex:1 1 auto!important}
         .topbar .brand-text span{display:none!important}
         .sidebar{display:none!important}
         #milan-burger-v81{display:grid!important;position:absolute!important;right:10px!important;top:50%!important;transform:translateY(-50%)!important;width:42px!important;height:42px!important;place-items:center!important;padding:0!important;margin:0!important;border:1px solid rgba(255,255,255,.14)!important;border-radius:12px!important;background:#121b2f!important;color:#fff!important;font:700 21px/1 system-ui,sans-serif!important;z-index:3010!important;cursor:pointer!important}
         #milan-drawer-ov-v81{position:fixed!important;inset:0!important;background:rgba(0,0,0,.68)!important;opacity:0!important;visibility:hidden!important;transition:opacity .18s ease,visibility .18s ease!important;z-index:4000!important}
-        #milan-drawer-v81{position:fixed!important;top:0!important;right:0!important;bottom:0!important;width:min(88vw,360px)!important;display:flex!important;flex-direction:column!important;overflow:auto!important;box-sizing:border-box!important;padding:16px!important;background:#091226!important;border-left:1px solid #263652!important;transform:translateX(105%)!important;transition:transform .22s ease!important;z-index:4010!important;box-shadow:-20px 0 50px rgba(0,0,0,.5)!important}
+        #milan-drawer-v81{position:fixed!important;top:0!important;right:0!important;bottom:0!important;width:min(88vw,360px)!important;display:flex!important;flex-direction:column!important;overflow:auto!important;box-sizing:border-box!important;padding:calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom))!important;background:#091226!important;border-left:1px solid #263652!important;transform:translateX(105%)!important;transition:transform .22s ease!important;z-index:4010!important;box-shadow:-20px 0 50px rgba(0,0,0,.5)!important}
         body.milan-mobile-menu-open #milan-drawer-v81{transform:translateX(0)!important}
         body.milan-mobile-menu-open #milan-drawer-ov-v81{opacity:1!important;visibility:visible!important}
         body.milan-mobile-menu-open{overflow:hidden!important}
