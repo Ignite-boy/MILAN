@@ -12,92 +12,53 @@
     position:fixed;
     top:calc(10px + env(safe-area-inset-top));
     left:50%;
-    width:min(560px,calc(100vw - 20px));
-    transform:translate(-50%,-18px);
+    width:min(520px,calc(100vw - 20px));
     z-index:2147483000;
-    display:flex;
+    display:grid;
+    grid-template-columns:48px minmax(0,1fr) auto;
     align-items:center;
-    gap:11px;
-    padding:10px;
-    border:1px solid rgba(255,255,255,.14);
-    border-radius:18px;
-    background:
-      linear-gradient(135deg,rgba(8,19,45,.97),rgba(31,13,43,.96));
-    box-shadow:
-      0 20px 70px rgba(0,0,0,.42),
-      0 0 0 1px rgba(255,156,56,.04);
-    backdrop-filter:blur(22px) saturate(130%);
-    -webkit-backdrop-filter:blur(22px) saturate(130%);
+    gap:12px;
+    padding:10px 11px;
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:20px;
+    background:linear-gradient(135deg,rgba(7,17,38,.985),rgba(24,12,39,.975));
+    box-shadow:0 18px 60px rgba(0,0,0,.42),0 0 0 1px rgba(255,156,56,.035);
+    backdrop-filter:blur(24px) saturate(135%);
+    -webkit-backdrop-filter:blur(24px) saturate(135%);
     opacity:0;
     visibility:hidden;
     pointer-events:none;
-    transition:opacity .24s ease,transform .24s ease,visibility .24s ease;
+    transform:translate(-50%,-16px) scale(.985);
+    transition:opacity .22s ease,transform .22s ease,visibility .22s ease;
   }
   #milan-pwa-install-v2.is-visible{
     opacity:1;
     visibility:visible;
     pointer-events:auto;
-    transform:translate(-50%,0);
+    transform:translate(-50%,0) scale(1);
   }
   #milan-pwa-install-v2 .pwa2-icon{
-    width:44px;height:44px;flex:0 0 44px;
-    border-radius:13px;
+    width:48px;height:48px;
+    border-radius:15px;
     object-fit:cover;
-    box-shadow:0 8px 22px rgba(245,158,11,.22);
+    display:block;
+    box-shadow:0 10px 26px rgba(223,70,200,.24);
   }
-  #milan-pwa-install-v2 .pwa2-copy{
-    min-width:0;
-    flex:1;
-  }
+  #milan-pwa-install-v2 .pwa2-copy{min-width:0}
   #milan-pwa-install-v2 .pwa2-title{
     display:block;
     color:#fff;
     font-size:13px;
-    font-weight:900;
+    font-weight:950;
     line-height:1.2;
     letter-spacing:.01em;
   }
   #milan-pwa-install-v2 .pwa2-sub{
     display:block;
-    margin-top:3px;
-    color:#a8b4ce;
+    margin-top:4px;
+    color:#a7b5d0;
     font-size:10px;
-    line-height:1.35;
-  }
-  #milan-pwa-install-v2 .pwa2-actions{
-    display:flex;
-    align-items:center;
-    gap:7px;
-    flex:0 0 auto;
-  }
-  #milan-pwa-install-v2 button{
-    font:inherit;
-    cursor:pointer;
-  }
-  #milan-pwa-install-v2 .pwa2-install{
-    min-height:36px;
-    padding:0 13px;
-    border:0;
-    border-radius:11px;
-    color:#17111d;
-    background:linear-gradient(135deg,#ffb04d,#df46c8);
-    box-shadow:0 9px 24px rgba(223,70,200,.20);
-    font-size:10px;
-    font-weight:900;
-    white-space:nowrap;
-  }
-  #milan-pwa-install-v2 .pwa2-close{
-    width:34px;height:34px;
-    border:1px solid rgba(255,255,255,.10);
-    border-radius:11px;
-    color:#aeb9d0;
-    background:rgba(255,255,255,.045);
-    font-size:18px;
-    line-height:1;
-  }
-  #milan-pwa-install-v2 .pwa2-install:active,
-  #milan-pwa-install-v2 .pwa2-close:active{
-    transform:scale(.97);
+    line-height:1.4;
   }
   #milan-pwa-install-v2 .pwa2-manual{
     display:none;
@@ -107,24 +68,62 @@
     line-height:1.35;
   }
   #milan-pwa-install-v2.manual .pwa2-manual{display:block}
+  #milan-pwa-install-v2 .pwa2-actions{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    margin-left:2px;
+  }
+  #milan-pwa-install-v2 button{
+    font:inherit;
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+  }
+  #milan-pwa-install-v2 .pwa2-install{
+    min-width:78px;
+    min-height:38px;
+    padding:0 14px;
+    border:0;
+    border-radius:12px;
+    color:#17111d;
+    background:linear-gradient(135deg,#ffb24f,#df46c8);
+    box-shadow:0 9px 24px rgba(223,70,200,.22);
+    font-size:10px;
+    font-weight:950;
+    white-space:nowrap;
+  }
   #milan-pwa-install-v2.manual .pwa2-install{
-    background:rgba(255,255,255,.08);
     color:#fff;
-    border:1px solid rgba(255,255,255,.11);
+    background:rgba(255,255,255,.07);
+    border:1px solid rgba(255,255,255,.12);
     box-shadow:none;
+  }
+  #milan-pwa-install-v2 .pwa2-close{
+    width:32px;height:32px;
+    border:1px solid rgba(255,255,255,.09);
+    border-radius:10px;
+    color:#aab6cf;
+    background:rgba(255,255,255,.035);
+    font-size:17px;
+    line-height:1;
+  }
+  #milan-pwa-install-v2 .pwa2-install:active,
+  #milan-pwa-install-v2 .pwa2-close:active{
+    transform:scale(.97);
   }
   @media(max-width:560px){
     #milan-pwa-install-v2{
       top:calc(8px + env(safe-area-inset-top));
       width:calc(100vw - 16px);
-      gap:9px;
+      grid-template-columns:44px minmax(0,1fr) auto;
+      gap:10px;
       padding:9px;
-      border-radius:16px;
+      border-radius:18px;
     }
-    #milan-pwa-install-v2 .pwa2-icon{width:40px;height:40px;flex-basis:40px;border-radius:12px}
+    #milan-pwa-install-v2 .pwa2-icon{width:44px;height:44px;border-radius:13px}
     #milan-pwa-install-v2 .pwa2-title{font-size:12px}
     #milan-pwa-install-v2 .pwa2-sub{font-size:9px}
-    #milan-pwa-install-v2 .pwa2-install{min-height:34px;padding:0 11px}
+    #milan-pwa-install-v2 .pwa2-install{min-width:72px;min-height:36px;padding:0 12px}
   }
   @media (display-mode: standalone),(display-mode:fullscreen){
     #milan-pwa-install-v2{display:none!important}
@@ -231,8 +230,8 @@
   <img class="pwa2-icon" src="/assets/icon-192.png" alt="">
   <div class="pwa2-copy">
     <span class="pwa2-title">Install MILAN</span>
-    <span class="pwa2-sub">A faster, app-like way to open your space.</span>
-    <span class="pwa2-manual">Use your browser menu → <strong>Install app</strong> / <strong>Add to Home screen</strong>.</span>
+    <span class="pwa2-sub">Install the MILAN app for a faster, app-like experience.</span>
+    <span class="pwa2-manual">Open your browser menu and choose <strong>Install app</strong> or <strong>Add to Home screen</strong>.</span>
   </div>
   <div class="pwa2-actions">
     <button class="pwa2-install" id="milan-pwa-install-v2-btn" type="button">Install</button>
