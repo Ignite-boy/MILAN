@@ -131,6 +131,126 @@ async function conversationMessages(meDid, otherDid) {
   .slice(-MAX_HISTORY);
 }
 
+async function listConversations(meDid) {
+  const currentDid = didOf(meDid);
+  if (!currentDid) return [];
+
+  const { data: rows, error } = await supabase
+    .from('dwn_records')
+    .select('record_id,owner_did,target_did,recipient,protocol,protocol_path,date_created,date_modified,metadata,deleted')
+    .eq('deleted', false)
+    .eq('protocol', CHAT_PROTOCOL)
+    .eq('protocol_path', CHAT_PATH)
+    .or(`owner_did.eq.${currentDid},recipient.eq.${currentDid}`)
+    .order('date_created', { ascending: false })
+    .limit(MAX_HISTORY * 4);
+
+  if (error) throw error;
+  if (!Array.isArray(rows) || !rows.length) return [];
+
+  const ids = rows.map(row => String(row.record_id || '')).filter(Boolean);
+  const { data: payloads, error: dataError } = await supabase
+    .from('dwn_record_data')
+    .select('record_id,data')
+    .in('record_id', ids);
+
+  if (dataError) throw dataError;
+
+  const dataMap = new Map(
+    (payloads || []).map(row => [String(row.record_id || ''), decodeStoredData(row.data)])
+  );
+
+  const byConversation = new Map();
+  for (const row of rows) {
+    const recordId = String(row.record_id || '');
+    const data = dataMap.get(recordId);
+    if (!data || typeof data !== 'object' || data.kind !== 'chat_message') continue;
+
+    const senderDid = didOf(data.senderDid || row.owner_did);
+    const recipientDid = didOf(data.recipientDid || row.recipient);
+    if (!senderDid || !recipientDid || (senderDid !== currentDid && recipientDid !== currentDid)) continue;
+
+    const otherDid = senderDid === currentDid ? recipientDid : senderDid;
+    if (!otherDid || otherDid === currentDid) continue;
+
+    const conversationId = String(data.conversationId || conversationIdFor(currentDid, otherDid));
+    if (!byConversation.has(conversationId)) {
+      byConversation.set(conversationId, {
+        conversationId,
+        otherDid,
+        lastMessage: String(data.text || '').slice(0, 160),
+        lastMessageAt: data.sentAt || row.date_created || row.date_modified || '',
+        lastMessageId: String(data.messageId || recordId),
+        lastSenderDid: senderDid,
+        messageCount: 0
+      });
+    }
+
+    const item = byConversation.get(conversationId);
+    item.messageCount += 1;
+
+    const candidateTime = Date.parse(data.sentAt || row.date_created || '');
+    const currentTime = Date.parse(item.lastMessageAt || '');
+    if (Number.isFinite(candidateTime) && (!Number.isFinite(currentTime) || candidateTime > currentTime)) {
+      item.lastMessage = String(data.text || '').slice(0, 160);
+      item.lastMessageAt = data.sentAt || row.date_created || row.date_modified || '';
+      item.lastMessageId = String(data.messageId || recordId);
+      item.lastSenderDid = senderDid;
+    }
+  }
+
+  const conversationRows = [...byConversation.values()]
+    .sort((a, b) => new Date(b.lastMessageAt) - new Date(a.lastMessageAt))
+    .slice(0, 100);
+
+  if (!conversationRows.length) return [];
+
+  const dids = [...new Set(conversationRows.map(row => row.otherDid))];
+  const { data: users, error: usersError } = await supabase
+    .from('users')
+    .select('id,email,name,did')
+    .in('did', dids);
+
+  if (usersError) throw usersError;
+
+  const profiles = new Map(
+    (users || []).map(user => [
+      String(user.did),
+      {
+        id: user.id,
+        name: user.name || user.email?.split('@')[0] || 'MILAN User',
+        did: String(user.did)
+      }
+    ])
+  );
+
+  return conversationRows
+    .map(row => ({
+      conversationId: row.conversationId,
+      person: profiles.get(row.otherDid) || { name: 'MILAN User', did: row.otherDid },
+      lastMessage: row.lastMessage,
+      lastMessageAt: row.lastMessageAt,
+      lastMessageId: row.lastMessageId,
+      lastSenderDid: row.lastSenderDid,
+      messageCount: row.messageCount
+    }))
+    .filter(row => row.person?.did && row.person.did !== currentDid);
+}
+
+router.get('/conversations', auth, async (req, res) => {
+  const meDid = didOf(req.did || req.account?.did);
+  if (!meDid) return res.status(401).json({ error: 'Authenticated DID unavailable' });
+
+  try {
+    const conversations = await listConversations(meDid);
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({ ok: true, conversations });
+  } catch (err) {
+    console.error('[chat/conversations]', err);
+    return res.status(500).json({ error: 'Conversations unavailable' });
+  }
+});
+
 router.get('/health', (_req, res) => {
   res.json({
     ok: true,
