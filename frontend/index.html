@@ -407,6 +407,9 @@
 
     window.addEventListener("load", () => {
       navigator.serviceWorker?.register("/sw.js", {scope:"/"}).catch(() => {});
+      window.setTimeout(() => {
+        if (!dismissedThisSession() && !isStandalone()) show("install");
+      }, 120);
     }, {once:true});
   }
 
