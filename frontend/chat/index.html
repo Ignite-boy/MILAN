@@ -6,7 +6,6 @@
   <meta name="theme-color" content="#071126">
   <title>Milan Chat</title>
   <link rel="stylesheet" href="/milan-core.css">
-  <link rel="stylesheet" href="/milan-ui.css">
   <link rel="stylesheet" href="/premium.css">
   <link rel="canonical" href="https://milanlife.in/chat">
   <style>
@@ -465,38 +464,92 @@
     .chat-mobile-backdrop{display:none}
 
     @media(max-width:900px){
-      .chat-page{padding:0;min-height:100dvh}
+      .chat-page{
+        width:100%;
+        height:100dvh;
+        min-height:100dvh;
+        padding:0;
+        overflow:hidden;
+      }
       .chat-shell{
+        width:100%;
         min-height:100dvh;
         height:100dvh;
         border:0;
         border-radius:0;
         grid-template-columns:1fr;
+        overflow:hidden;
       }
+
       .chat-sidebar{
         position:absolute;
-        inset:0 auto 0 0;
-        width:min(88vw,360px);
+        inset:0;
+        width:100%;
+        max-width:none;
+        height:100%;
         z-index:20;
         transform:translateX(-102%);
-        transition:transform .22s ease;
-        box-shadow:24px 0 60px rgba(0,0,0,.35);
+        visibility:hidden;
+        pointer-events:none;
+        opacity:1;
+        border-right:0;
+        box-shadow:none;
+        transition:transform .22s ease,visibility 0s linear .22s;
+        animation:none!important;
       }
-      .chat-shell.people-open .chat-sidebar{transform:translateX(0)}
+      .chat-shell.people-open .chat-sidebar{
+        transform:translateX(0);
+        visibility:visible;
+        pointer-events:auto;
+        box-shadow:18px 0 55px rgba(0,0,0,.36);
+        transition-delay:0s;
+      }
+      .chat-shell.mobile-list .chat-sidebar{
+        position:relative;
+        inset:auto;
+        transform:none;
+        visibility:visible;
+        pointer-events:auto;
+        width:100%;
+        height:100%;
+        z-index:1;
+        box-shadow:none;
+        transition:none;
+      }
+      .chat-shell.mobile-list .chat-main{display:none}
+      .chat-shell.mobile-list .chat-mobile-backdrop{display:none}
+      .chat-shell.mobile-list .chat-brand{padding:22px 18px 16px}
+      .chat-shell.mobile-list .chat-search{padding:0 14px 14px}
+      .chat-shell.mobile-list .chat-people-head{padding:6px 18px 12px}
+      .chat-shell.mobile-list .chat-people{padding:0 10px 10px}
+
       .chat-mobile-backdrop{
         position:absolute;
         inset:0;
         z-index:15;
         display:block;
-        background:rgba(0,0,0,.45);
+        background:rgba(0,0,0,.52);
         opacity:0;
         pointer-events:none;
         transition:opacity .22s ease;
       }
-      .chat-shell.people-open .chat-mobile-backdrop{opacity:1;pointer-events:auto}
+      .chat-shell.people-open .chat-mobile-backdrop{
+        opacity:1;
+        pointer-events:auto;
+      }
       .chat-back{display:grid;place-items:center}
-      .chat-main{min-height:0;height:100dvh}
-      .chat-stage{padding:22px 16px;overscroll-behavior:contain}
+      .chat-main{
+        position:relative;
+        width:100%;
+        min-width:0;
+        min-height:0;
+        height:100dvh;
+      }
+      .chat-stage{
+        padding:18px 14px;
+        overscroll-behavior:contain;
+        -webkit-overflow-scrolling:touch;
+      }
     }
 
     @media(max-width:560px){
@@ -540,8 +593,10 @@
 .chat-brand-mark{
   animation:chat-mark-float 4.8s ease-in-out infinite;
 }
-.chat-sidebar{
-  animation:chat-sidebar-in .8s cubic-bezier(.16,.84,.44,1) .05s both;
+@media(min-width:901px){
+  .chat-sidebar{
+    animation:chat-sidebar-in .8s cubic-bezier(.16,.84,.44,1) .05s both;
+  }
 }
 .chat-topbar{
   animation:chat-top-in .72s cubic-bezier(.22,1,.36,1) .12s both;
@@ -838,6 +893,12 @@
     }
   }
 
+  function syncMobileLayout() {
+    if (!window.matchMedia) return;
+    const isMobile = window.matchMedia("(max-width: 900px)").matches;
+    shell.classList.toggle("mobile-list", isMobile && !selected);
+  }
+
   function renderConversations(rows) {
     setListMode("conversations");
     const query = String(search.value || "").trim().toLowerCase();
@@ -988,6 +1049,8 @@
     if (!person) return;
 
     selected = person;
+    shell.classList.remove("mobile-list");
+    shell.classList.remove("people-open");
     emptyState.style.display = "none";
     conversation.style.display = "flex";
     currentName.textContent = person.name || "MILAN User";
@@ -1126,10 +1189,19 @@
     if (listMode === "people") {
       search.value = "";
       renderConversations(conversations);
+      syncMobileLayout();
+      if (selected && window.matchMedia?.("(max-width: 900px)").matches) {
+        shell.classList.add("people-open");
+      }
       return;
     }
     if (!people.length) await loadPeople();
     renderPeople(people);
+    if (selected && window.matchMedia?.("(max-width: 900px)").matches) {
+      shell.classList.add("people-open");
+    } else {
+      syncMobileLayout();
+    }
     search.focus({preventScroll:true});
   });
 
@@ -1162,6 +1234,8 @@
     loadConversation(false).catch(showChatError);
   });
 
+  window.addEventListener("resize", syncMobileLayout);
+
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) {
       loadConversations().catch(() => {});
@@ -1180,6 +1254,7 @@
       }
       await loadMe();
       await loadConversations();
+      syncMobileLayout();
 
       const requestedDid = String(new URLSearchParams(location.search).get("with") || "").trim();
       if (requestedDid) {
