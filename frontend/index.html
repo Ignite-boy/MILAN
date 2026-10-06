@@ -7,6 +7,132 @@
   <link rel="icon" href="/favicon.ico?v=2" type="image/x-icon" sizes="any">
   <link rel="apple-touch-icon" href="/assets/milan-logo-circle.png?v=2" sizes="180x180">
   <link rel="manifest" href="/manifest.json">
+<style id="milan-pwa-install-v2">
+  #milan-pwa-install-v2{
+    position:fixed;
+    top:calc(10px + env(safe-area-inset-top));
+    left:50%;
+    width:min(560px,calc(100vw - 20px));
+    transform:translate(-50%,-18px);
+    z-index:2147483000;
+    display:flex;
+    align-items:center;
+    gap:11px;
+    padding:10px;
+    border:1px solid rgba(255,255,255,.14);
+    border-radius:18px;
+    background:
+      linear-gradient(135deg,rgba(8,19,45,.97),rgba(31,13,43,.96));
+    box-shadow:
+      0 20px 70px rgba(0,0,0,.42),
+      0 0 0 1px rgba(255,156,56,.04);
+    backdrop-filter:blur(22px) saturate(130%);
+    -webkit-backdrop-filter:blur(22px) saturate(130%);
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+    transition:opacity .24s ease,transform .24s ease,visibility .24s ease;
+  }
+  #milan-pwa-install-v2.is-visible{
+    opacity:1;
+    visibility:visible;
+    pointer-events:auto;
+    transform:translate(-50%,0);
+  }
+  #milan-pwa-install-v2 .pwa2-icon{
+    width:44px;height:44px;flex:0 0 44px;
+    border-radius:13px;
+    object-fit:cover;
+    box-shadow:0 8px 22px rgba(245,158,11,.22);
+  }
+  #milan-pwa-install-v2 .pwa2-copy{
+    min-width:0;
+    flex:1;
+  }
+  #milan-pwa-install-v2 .pwa2-title{
+    display:block;
+    color:#fff;
+    font-size:13px;
+    font-weight:900;
+    line-height:1.2;
+    letter-spacing:.01em;
+  }
+  #milan-pwa-install-v2 .pwa2-sub{
+    display:block;
+    margin-top:3px;
+    color:#a8b4ce;
+    font-size:10px;
+    line-height:1.35;
+  }
+  #milan-pwa-install-v2 .pwa2-actions{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    flex:0 0 auto;
+  }
+  #milan-pwa-install-v2 button{
+    font:inherit;
+    cursor:pointer;
+  }
+  #milan-pwa-install-v2 .pwa2-install{
+    min-height:36px;
+    padding:0 13px;
+    border:0;
+    border-radius:11px;
+    color:#17111d;
+    background:linear-gradient(135deg,#ffb04d,#df46c8);
+    box-shadow:0 9px 24px rgba(223,70,200,.20);
+    font-size:10px;
+    font-weight:900;
+    white-space:nowrap;
+  }
+  #milan-pwa-install-v2 .pwa2-close{
+    width:34px;height:34px;
+    border:1px solid rgba(255,255,255,.10);
+    border-radius:11px;
+    color:#aeb9d0;
+    background:rgba(255,255,255,.045);
+    font-size:18px;
+    line-height:1;
+  }
+  #milan-pwa-install-v2 .pwa2-install:active,
+  #milan-pwa-install-v2 .pwa2-close:active{
+    transform:scale(.97);
+  }
+  #milan-pwa-install-v2 .pwa2-manual{
+    display:none;
+    margin-top:5px;
+    color:#7f8eac;
+    font-size:9px;
+    line-height:1.35;
+  }
+  #milan-pwa-install-v2.manual .pwa2-manual{display:block}
+  #milan-pwa-install-v2.manual .pwa2-install{
+    background:rgba(255,255,255,.08);
+    color:#fff;
+    border:1px solid rgba(255,255,255,.11);
+    box-shadow:none;
+  }
+  @media(max-width:560px){
+    #milan-pwa-install-v2{
+      top:calc(8px + env(safe-area-inset-top));
+      width:calc(100vw - 16px);
+      gap:9px;
+      padding:9px;
+      border-radius:16px;
+    }
+    #milan-pwa-install-v2 .pwa2-icon{width:40px;height:40px;flex-basis:40px;border-radius:12px}
+    #milan-pwa-install-v2 .pwa2-title{font-size:12px}
+    #milan-pwa-install-v2 .pwa2-sub{font-size:9px}
+    #milan-pwa-install-v2 .pwa2-install{min-height:34px;padding:0 11px}
+  }
+  @media (display-mode: standalone),(display-mode:fullscreen){
+    #milan-pwa-install-v2{display:none!important}
+  }
+  @media(prefers-reduced-motion:reduce){
+    #milan-pwa-install-v2{transition:none!important}
+  }
+</style>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Milan — Decentralized Social Media Where You Own Your Data</title>
@@ -101,6 +227,18 @@
   <link rel="stylesheet" href="/milan-login-pro.css?v=20261005-motion1">
 </head>
 <body class="mlp">
+<div id="milan-pwa-install-v2" aria-live="polite">
+  <img class="pwa2-icon" src="/assets/icon-192.png" alt="">
+  <div class="pwa2-copy">
+    <span class="pwa2-title">Install MILAN</span>
+    <span class="pwa2-sub">A faster, app-like way to open your space.</span>
+    <span class="pwa2-manual">Use your browser menu → <strong>Install app</strong> / <strong>Add to Home screen</strong>.</span>
+  </div>
+  <div class="pwa2-actions">
+    <button class="pwa2-install" id="milan-pwa-install-v2-btn" type="button">Install</button>
+    <button class="pwa2-close" id="milan-pwa-install-v2-close" type="button" aria-label="Close">×</button>
+  </div>
+</div>
 
 </div>
 
@@ -214,6 +352,83 @@
 
 
 
+<script id="milan-pwa-install-v2-logic">
+(() => {
+  let deferredPrompt = null;
+  const prompt = () => document.getElementById("milan-pwa-install-v2");
+  const button = () => document.getElementById("milan-pwa-install-v2-btn");
+  const isStandalone = () =>
+    window.matchMedia?.("(display-mode: standalone)").matches ||
+    window.matchMedia?.("(display-mode: fullscreen)").matches ||
+    window.navigator.standalone === true;
+  const isMobile = () => window.matchMedia?.("(max-width: 768px)").matches;
+
+  function show(mode) {
+    const el = prompt();
+    if (!el) return;
+    el.classList.toggle("manual", mode === "manual");
+    const btn = button();
+    if (btn) btn.textContent = mode === "install" ? "Install" : "How to install";
+    requestAnimationFrame(() => el.classList.add("is-visible"));
+  }
+
+  function hide() {
+    prompt()?.classList.remove("is-visible");
+  }
+
+  function dismissedThisSession() {
+    try { return sessionStorage.getItem("milanPwaInstallDismissed") === "1"; } catch (_) { return false; }
+  }
+
+  function dismiss() {
+    hide();
+    try { sessionStorage.setItem("milanPwaInstallDismissed", "1"); } catch (_) {}
+  }
+
+  if (!isStandalone()) {
+    window.addEventListener("beforeinstallprompt", (event) => {
+      event.preventDefault();
+      deferredPrompt = event;
+      if (!dismissedThisSession()) show("install");
+    });
+
+    window.addEventListener("appinstalled", () => {
+      deferredPrompt = null;
+      hide();
+    });
+
+    window.addEventListener("load", () => {
+      navigator.serviceWorker?.register("/sw.js", {scope:"/"}).catch(() => {});
+      window.setTimeout(() => {
+        if (dismissedThisSession() || isStandalone()) return;
+        if (deferredPrompt) show("install");
+        else if (isMobile()) show("manual");
+      }, 1400);
+    }, {once:true});
+  }
+
+  document.addEventListener("click", async (event) => {
+    if (event.target.closest?.("#milan-pwa-install-v2-close")) {
+      dismiss();
+      return;
+    }
+    if (!event.target.closest?.("#milan-pwa-install-v2-btn")) return;
+
+    if (!deferredPrompt) {
+      if (isMobile()) show("manual");
+      return;
+    }
+
+    const installEvent = deferredPrompt;
+    deferredPrompt = null;
+    hide();
+    try {
+      await installEvent.prompt();
+      await installEvent.userChoice;
+    } catch (_) {}
+  });
+})();
+</script>
 <script src="/milan-creative-mode.js" defer></script>
 <script>
 window.addEventListener("DOMContentLoaded", function () {
