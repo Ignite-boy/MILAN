@@ -835,7 +835,6 @@
       chatListTitle.textContent = "Chats";
       chatListAction.textContent = "＋ New chat";
       search.placeholder = "Search chats...";
-      search.value = "";
     }
   }
 
@@ -919,6 +918,8 @@
       button.addEventListener("click", () => {
         const person = people.find(p => p.did === button.dataset.did) || null;
         if (person) openConversation(person, true);
+        setListMode("conversations");
+        loadConversations().catch(() => {});
         shell.classList.remove("people-open");
       });
     });
@@ -1113,7 +1114,6 @@
       if (document.hidden) return;
       loadConversations().catch(() => {});
       if (selected) loadConversation(true, false).catch(() => {});
-      loadConversations().catch(() => {});
     }, 2000);
   }
 
@@ -1124,6 +1124,7 @@
 
   chatListAction.addEventListener("click", async () => {
     if (listMode === "people") {
+      search.value = "";
       renderConversations(conversations);
       return;
     }
