@@ -247,7 +247,7 @@ function provisionIsolatedDwn({ userId = '', did = '', email = '', spaceId: prea
     realDwnProtocol: false,
     sdkReady: true,
     appStoresUserData: false,
-    model: 'production-dwn-node-one-user-one-did-one-isolated-space',
+    model: 'supabase-authoritative-one-user-one-did-one-isolated-space',
     isolation: 'single-user',
     spaceId,
     userId,

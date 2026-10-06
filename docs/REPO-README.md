@@ -1,4 +1,4 @@
-<div align="center">
+> **HISTORICAL DOCUMENT — SUPERSEDED.** This document describes an older MILAN frontend architecture. The current production web application is `frontend/`; do not use the legacy Next.js/web paths below as implementation or deployment instructions.\n\n---\n\n<div align="center">
 
 # MILAN
 

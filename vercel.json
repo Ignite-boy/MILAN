@@ -14,10 +14,6 @@
       "destination": "/api/music/:path*"
     },
     {
-      "source": "/api/auth/login",
-      "destination": "/api/auth/login.js"
-    },
-    {
       "source": "/api/:path*",
       "destination": "/api/index.js"
     },

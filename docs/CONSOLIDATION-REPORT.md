@@ -1,4 +1,4 @@
-# MILAN — Production Consolidation Report
+> **HISTORICAL DOCUMENT — SUPERSEDED.** This document describes an older MILAN frontend architecture. The current production web application is `frontend/`; do not use the legacy Next.js/web paths below as implementation or deployment instructions.\n\n---\n\n# MILAN — Production Consolidation Report
 
 **Date:** 2026-07-07
 **Result folder:** `MILAN_V7_2_PREMIUM_UPDATED/` now contains exactly one project: **`milan-app/`**
@@ -149,7 +149,7 @@ Because of that, generating a ZIP from here would **downgrade** good files (e.g.
 3. **Build:**
    ```
    cd milan-app/web  && npm install && npm run build
-   cd ../backend     && npm install && node --check server.js
+   npm install && node --check backend/server.js
    ```
 4. **Package (ZIP) — only milan-app, no node_modules:**
    ```

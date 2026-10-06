@@ -21,7 +21,6 @@ const pages=[
  ['verify-email.html','Verify Email — MILAN','Verify your email to continue into the MILAN Web5 ecosystem.','Verify your access','A verified account helps you continue into your Web5 experience.'],
  ['settings.html','Settings — MILAN Web5 Space','Manage settings for your MILAN Web5 experience.','Control your experience','Your settings are part of keeping your digital space aligned with your choices.'],
  ['admin-users.html','Milan Administration','Administrative tools for the MILAN application.','Ecosystem administration','Internal administration surface for the MILAN application.'],
- ['debug.html','Milan Diagnostics','Diagnostics for the MILAN application.','System diagnostics','Internal diagnostics surface for the MILAN application.'],
  ['404.html','Page Not Found — MILAN','The requested MILAN page could not be found.','That path does not exist','Return to the MILAN Web5 ecosystem and continue exploring.'],
 ];
 const cities=['bengaluru','chennai','delhi','hyderabad','jaipur','kolkata','mumbai','pune'];

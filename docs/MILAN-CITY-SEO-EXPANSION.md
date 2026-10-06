@@ -90,7 +90,7 @@ Your repo has **three copies** of the app tree:
 `milan-app/` (source), `milan-release/milan-app/`, and a nested
 `MILAN_V7_2_PREMIUM_UPDATED/milan-app/`. These edits were applied to the
 **source `milan-app/`** only. Re-run your release packaging
-(`package-release.mjs` / `redeploy.sh`) to propagate into the release build
+through the standard production deployment flow
 before deploying, so the live server picks up the new routes and files.
 
 ---

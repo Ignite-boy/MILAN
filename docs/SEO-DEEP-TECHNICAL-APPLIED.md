@@ -1,4 +1,4 @@
-# Deep Technical SEO — Applied (from Google Ranking Signals PDF)
+> **HISTORICAL DOCUMENT — SUPERSEDED.** This document describes an older MILAN frontend architecture. The current production web application is `frontend/`; do not use the legacy Next.js/web paths below as implementation or deployment instructions.\n\n---\n\n# Deep Technical SEO — Applied (from Google Ranking Signals PDF)
 
 Applied across all four properties in this repo. Legend: ✅ done now · ✔️ already present (verified) · ⚙️ config/placeholder you should fill.
 

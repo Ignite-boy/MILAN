@@ -123,18 +123,18 @@ global.notificationsFile = migrateLegacyJson('notifications.json', {});
 global.socialSavesFile = migrateLegacyJson('socialSaves.json', {});
 global.feedbackFile = migrateLegacyJson('feedback.json', []);
 global.securityReportsFile = migrateLegacyJson('securityReports.json', []);
-ensureFile(path.join(DATA_DIR, 'DATABASE_MANIFEST.json'), { app: 'MILAN', version: '68.0.0', storage: 'real-cloud-dwn/database', cloud: persistenceInfo(), createdAt: new Date().toISOString() });
+ensureFile(path.join(DATA_DIR, 'DATABASE_MANIFEST.json'), { app: 'MILAN', version: '68.0.0', storage: 'supabase-authoritative/database', cloud: persistenceInfo(), createdAt: new Date().toISOString() });
 
-app.get('/health', (_req, res) => res.json({ ok: true, app: 'MILAN V68 Production DWN', version: '68.0.0', storage: { dwnRoot: DWN_ROOT, databaseDir: DATA_DIR, cloud: persistenceInfo() }, time: new Date().toISOString() }));
+app.get('/health', (_req, res) => res.json({ ok: dwnStore.getStatus().storageOperational === true, app: 'MILAN', version: '68.0.0', storage: { dwnRoot: DWN_ROOT, databaseDir: DATA_DIR, cloud: persistenceInfo() }, time: new Date().toISOString() }));
 
 app.get('/api/health', (_req, res) => res.json({
   ok: true,
   app: 'MILAN - Your Space .Your People',
-  mode: 'production-dwn-node-one-user-one-did-one-isolated-dwn',
+  mode: 'supabase-authoritative-one-user-one-did-isolated-space',
   time: new Date().toISOString(),
   dwn: dwnStore.getStatus(),
-  storage: { dwnRoot: DWN_ROOT, databaseDir: DATA_DIR, cloud: persistenceInfo(), rule: 'all-data-inside-real-cloud-dwn-root' },
-  features: ['Integrated universal video player', 'automatic browser-safe MP4 stream healing', 'MILAN branding', 'DID auth', 'Real remote DWN node per user', 'DWN-backed posts', 'privacy modes', 'DID sharing', 'access requests', 'backup', 'activity', 'crypto helper', 'reel viewer', 'bulk actions', 'analytics dashboard', 'PWA shell', 'streaming uploads', 'video range streaming', 'rate limiting', 'security headers', 'social home feed', 'people discovery', 'friend requests', 'reactions', 'comments', 'notifications', 'Milan-style private social UI with real cloud DWN privacy', 'V3 Avatar Jaadu', 'V3 Gamification Engine', 'V3 XP & Levels', 'V3 Mystery Rewards', 'V3 Badge Wall', 'V3 AI Chips', 'V3 500-Technique Engagement System']
+  storage: { dwnRoot: DWN_ROOT, databaseDir: DATA_DIR, cloud: persistenceInfo(), rule: 'Supabase authoritative; local filesystem is compatibility/cache only' },
+  features: ['Integrated universal video player', 'automatic browser-safe MP4 stream healing', 'MILAN branding', 'DID auth', 'Supabase-isolated user space', 'DWN-backed posts', 'privacy modes', 'DID sharing', 'access requests', 'backup', 'activity', 'crypto helper', 'reel viewer', 'bulk actions', 'analytics dashboard', 'PWA shell', 'streaming uploads', 'video range streaming', 'rate limiting', 'security headers', 'social home feed', 'people discovery', 'friend requests', 'reactions', 'comments', 'notifications', 'Milan-style private social UI with Supabase-authoritative privacy', 'V3 Avatar Jaadu', 'V3 Gamification Engine', 'V3 XP & Levels', 'V3 Mystery Rewards', 'V3 Badge Wall', 'V3 AI Chips', 'V3 500-Technique Engagement System']
 }));
 
 // ── MILAN V3 ENGAGEMENT BACKEND ───────────────────────────────
@@ -219,7 +219,6 @@ app.get('/api/v3/leaderboard', (req, res) => {
 });
 
 // Public status endpoint so you can verify DWN storage without login token.
-app.get('/api/dwn/status', (_req, res) => res.json(dwnStore.getStatus()));
 
 
 app.get('/api/media/doctor', (_req, res) => {
@@ -291,7 +290,6 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/did', require('./routes/did'));
 const cloudDwnRouter = require('./routes/cloudDwn');
 app.use('/api/cloud-dwn', cloudDwnRouter);
-app.use('/api/dwn', cloudDwnRouter);
 app.use('/api/isolated-dwn', require('./routes/isolatedDwn'));
 app.use('/api/storage', require('./routes/storage'));
 app.use('/api/payment', require('./routes/payment'));
@@ -306,14 +304,10 @@ app.use('/api/chat', require('./routes/chat'));
 app.use('/api/social', require('./routes/social'));
 app.use('/api/crypto', require('./routes/crypto'));
 app.use('/api/activity', require('./routes/activity'));
-app.use('/api/backup', require('./routes/backup'));
 app.use('/api/security', require('./routes/security'));
 app.use('/api/launch', require('./routes/launch'));
 app.use('/api/admin', require('./routes/admin'));
 // ── MILAN V2 ADVANCED routes ──
-app.use('/api/v2/collab', require('./routes/v2/collab'));
-app.use('/api/v2/streaks', require('./routes/v2/streaks'));
-app.use('/api/v2/milestones', require('./routes/v2/milestones'));
 // ── MILAN V6 AI routes ──
 app.use('/api/ai', require('./routes/ai'));
 
@@ -732,7 +726,7 @@ app.get('/app', (_req, res) => {
 <body>
 <script>
 (function(){
-  const token = localStorage.getItem('milanToken') || localStorage.getItem('milan_token');
+  const token = localStorage.getItem('milan_token') || localStorage.getItem('milan_token');
   window.location.replace(token ? '/app.html' : '/index.html');
 })();
 </script>
@@ -791,7 +785,7 @@ if (!process.env.VERCEL) {
   const hydrate = await hydrateFilesFromSupabase(filesToHydrate);
   console.log('[STARTUP] hydrate done');
   const usersRepair = repairUsersFile(global.usersFile);
-  console.log('Production DWN database hydrate:', hydrate);
+  console.log('Supabase database hydrate:', hydrate);
   console.log('Milan users database repair:', usersRepair);
   console.log('[STARTUP] initDwn begin');
   const status = await dwnStore.initDwn();

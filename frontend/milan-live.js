@@ -16,7 +16,7 @@
   window.__milanLive = 1;
 
   var token = "";
-  try { token = localStorage.getItem("milanToken") || ""; } catch (_) {}
+  try { token = localStorage.getItem("milan_token") || ""; } catch (_) {}
   if (!token || !/\/app(\.html)?$/.test(location.pathname)) return;
 
   var url = location.origin + "/api/events?token=" + encodeURIComponent(token);

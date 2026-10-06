@@ -6,7 +6,6 @@
 
 [![Production](https://img.shields.io/badge/production-milanlife.in-111827?style=flat-square)](https://milanlife.in)
 [![Next.js](https://img.shields.io/badge/frontend-Next.js-black?style=flat-square&logo=next.js)](https://nextjs.org/)
-[![DWN](https://img.shields.io/badge/storage-Mini--DWN-4f46e5?style=flat-square)](https://dwn.milanlife.in)
 [![Node.js](https://img.shields.io/badge/backend-Node.js-16a34a?style=flat-square)](https://nodejs.org/)
 [![PostgreSQL](https://img.shields.io/badge/database-PostgreSQL-2563eb?style=flat-square)](https://www.postgresql.org/)
 
@@ -16,16 +15,16 @@ MILAN is a modern social platform designed around a simple principle:
 
 > **One User = One DID = One Isolated DWN Space**
 
-The application combines a polished social experience with an ownership-oriented data model. Identity is DID-based, user profile data is persisted through the production DWN node, and Mini-DWN uses PostgreSQL for durable record storage.
+The application combines a polished social experience with an ownership-oriented data model. Identity is DID-based, and Supabase is the authoritative cloud storage backend for user snapshots, records, and media.
 
 ### Frontend Stack
 
-The MILAN frontend migration to **Next.js 16 + React 19** is now part of the application codebase. The existing MILAN UI, static assets, and core application behavior are being carried forward while Next.js becomes the foundation for the modern web application.
+The MILAN production frontend is the `frontend/` web application containing the live HTML, CSS, JavaScript, and static assets.
 
 ### Production
 
 - **Web:** https://milanlife.in
-- **DWN node:** https://dwn.milanlife.in
+- **Storage:** Supabase authoritative cloud storage
 - **DWN health:** `GET /health`
 - **DWN protocol gateway:** `POST /json-rpc`
 
@@ -33,9 +32,9 @@ The MILAN frontend migration to **Next.js 16 + React 19** is now part of the app
 
 ```text
 ┌───────────────────────────────┐
-│        MILAN Next.js App      │
+│        MILAN Frontend        │
 │   Social UI • Profiles • Feed │
-│        React 19 frontend      │
+│     HTML • CSS • JavaScript  │
 └───────────────┬───────────────┘
                 │ HTTPS
                 ▼
@@ -46,18 +45,12 @@ The MILAN frontend migration to **Next.js 16 + React 19** is now part of the app
                 │ JSON-RPC
                 ▼
 ┌───────────────────────────────┐
-│        Mini-DWN Node          │
-│ Records • DID-scoped storage  │
-└───────────────┬───────────────┘
-                │
-                ▼
-┌───────────────────────────────┐
-│          PostgreSQL           │
-│ Durable DWN record persistence│
+│      Supabase Storage         │
+│ Authoritative cloud data      │
 └───────────────────────────────┘
 ```
 
-The application keeps the authoritative profile record on the production DWN node rather than depending solely on browser-local state. This includes profile pictures: upload, read-back, logout, and login restore all use the persisted DWN record path.
+The application keeps authoritative profile data in Supabase-backed storage rather than depending solely on browser-local state. This includes profile pictures: upload, read-back, logout, and login restore all use the persisted cloud record path.
 
 ### Registration reliability
 
@@ -78,7 +71,7 @@ Upload
   ↓
 MILAN API
   ↓
-Mini-DWN JSON-RPC
+Cloud data persistence via Supabase
   ↓
 PostgreSQL-backed DWN storage
   ↓
@@ -130,15 +123,14 @@ These features are designed as product-layer enhancements on top of the identity
 ### Next.js frontend
 
 ```bash
-cd next-app
-npm install
-npm run dev
+The production frontend is served from `frontend/`.
 ```
 
 ### Backend
 
+From the project root:
+
 ```bash
-cd backend
 npm install
 npm start
 ```
@@ -149,70 +141,24 @@ Local application endpoint:
 http://localhost:5000
 ```
 
-### Local Mini-DWN
-
-```bash
-cd mini-dwn
-sudo docker compose -f docker/docker-compose.yml up -d
-```
-
-Verify the node:
-
-```bash
-curl -sS http://localhost:3000/health
-```
-
-Expected shape:
-
-```json
-{
-  "database": true,
-  "ok": true,
-  "service": "mini-dwn",
-  "storage": "postgresql"
-}
-```
-
-### Local JSON-RPC
-
-Mini-DWN exposes the DWN protocol gateway at:
-
-```text
-POST http://localhost:3000/json-rpc
-```
-
 ## Production Deployment
 
-The production application is deployed on Vercel, while the authoritative Mini-DWN node is exposed through the production DWN endpoint.
+The production application is deployed on Vercel, with Supabase serving as the authoritative cloud storage backend.
 
 Production environment configuration should use:
 
 ```text
-MINI_DWN_ENDPOINT=https://dwn.milanlife.in
+SUPABASE_URL=https://<your-project>.supabase.co
 ```
 
-Verify the production node before testing profile persistence:
-
-```bash
-curl -sS https://dwn.milanlife.in/health
-```
-
-And verify the protocol endpoint:
-
-```bash
-curl -sS -X POST https://dwn.milanlife.in/json-rpc \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"dwn.processMessage","params":{"target":"did:milan:test","message":{"descriptor":{"interface":"Records","method":"Query"},"authorization":{"payload":"e30","signatures":[]}}}}'
-```
+Production API and storage are provided through the Vercel deployment and Supabase authoritative storage.
 
 ## Repository Structure
 
 ```text
 milan-app/
-├── next-app/           # Next.js 16 + React 19 frontend
 ├── frontend/           # Existing web application and static assets
 ├── backend/            # Node.js API, auth, profile and social services
-├── mini-dwn/           # Mini-DWN node and PostgreSQL-backed storage
 ├── api/                # Deployment/serverless entry points when applicable
 ├── vercel.json         # Production routing/configuration
 └── README.md           # Project documentation
@@ -225,7 +171,7 @@ MILAN's infrastructure is built with a few non-negotiable principles:
 1. **Persist before trusting the UI.** Client-side cache is treated as convenience, not authoritative storage.
 2. **DID-scoped records.** User-owned records are addressed and isolated by DID.
 3. **HTTPS in production.** Production services communicate over the public HTTPS DWN endpoint.
-4. **Resilient upstream calls.** Transient Mini-DWN failures such as rate limiting or gateway errors should be handled with bounded retry/backoff rather than immediately surfacing as permanent profile failures.
+4. **Resilient cloud sync.** Cloud persistence failures should be handled with bounded retry/backoff without treating local compatibility/cache storage as authoritative.
 5. **Stable fixes stay stable.** Changes should be narrowly scoped and should preserve already-verified functionality.
 
 ## Quick Verification Checklist
@@ -234,8 +180,6 @@ After a production deployment:
 
 ```text
 [ ] https://milanlife.in loads
-[ ] https://dwn.milanlife.in/health returns 200
-[ ] /json-rpc returns JSON
 [ ] Login succeeds with a fresh token
 [ ] Profile read returns avatarRecordId when a DP exists
 [ ] DP upload succeeds

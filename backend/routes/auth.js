@@ -122,8 +122,8 @@ async function persistUsersAuthoritatively(users) {
     result = await syncDatabaseSnapshot('users.json', users);
   } else result = await writeJsonAndSync(global.usersFile, users);
   if (!result || result.ok === false) {
-    let msg = result?.error || 'Production DWN users.json sync failed';
-    if (/404|No compatible route|No compatible route accepted/i.test(msg)) msg = 'Production DWN sync failed; verify the configured remote DWN endpoint. Original: ' + msg;
+    let msg = result?.error || 'Supabase users.json sync failed';
+    if (/404|No compatible route|No compatible route accepted/i.test(msg)) msg = 'Supabase sync failed. Original: ' + msg;
     const err = new Error(msg); err.status = 503; throw err;
   }
   return result;

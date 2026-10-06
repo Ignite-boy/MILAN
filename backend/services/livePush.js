@@ -11,9 +11,9 @@
  * Pushing events lets the frontend skip periodic heavy work — a notification
  * arrives, the client refreshes exactly once, immediately.
  *
- * Single-process safe by design: MILAN runs in pm2 FORK mode (cluster is
+ * Single-process safe by design: MILAN uses one application process (cluster is
  * forbidden — JSON stores + LevelDB lock to one process, see
- * ecosystem.config.js), so an in-memory client map needs no Redis.
+ * not used), so an in-memory client map needs no Redis.
  */
 
 const sseClients = new Map(); // userId -> Set<res>

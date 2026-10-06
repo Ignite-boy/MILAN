@@ -957,7 +957,7 @@ border-color:#8b5cf6;
   let orderPreparing = false;
 
   async function createPaymentOrder() {
-    const authToken = localStorage.getItem("milan_token") || localStorage.getItem("milanToken") || "";
+    const authToken = localStorage.getItem("milan_token") || localStorage.getItem("milan_token") || "";
     if (!authToken) throw new Error("Please login first.");
 
     const amount = plans[selected].amount;
@@ -986,7 +986,7 @@ border-color:#8b5cf6;
   }
 
   async function preparePaymentOrder() {
-    const authToken = localStorage.getItem("milan_token") || localStorage.getItem("milanToken") || "";
+    const authToken = localStorage.getItem("milan_token") || localStorage.getItem("milan_token") || "";
     if (!authToken) return;
 
     const amount = plans[selected].amount;
@@ -1132,7 +1132,7 @@ border-color:#8b5cf6;
   });
 
   submit.addEventListener("click", async () => {
-    const authToken = localStorage.getItem("milan_token") || localStorage.getItem("milanToken") || "";
+    const authToken = localStorage.getItem("milan_token") || localStorage.getItem("milan_token") || "";
     if (!authToken) {
       status.textContent = "Please login first.";
       return;

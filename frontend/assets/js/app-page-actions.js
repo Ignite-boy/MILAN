@@ -13,7 +13,7 @@
     try {
       return (
         localStorage.getItem("milan_token") ||
-        localStorage.getItem("milanToken") ||
+        localStorage.getItem("milan_token") ||
         ""
       );
     } catch {
@@ -385,7 +385,7 @@
     current.addEventListener("click", () => {
       try {
         localStorage.removeItem("milan_token");
-        localStorage.removeItem("milanToken");
+        localStorage.removeItem("milan_token");
         localStorage.removeItem("milanBootCache");
           sessionStorage.clear();
       } finally {

@@ -13,7 +13,7 @@ const phases = [
   { phase: 4, name: 'Production Backend Foundation', status: 'implemented', proof: ['password hashing', 'JWT sessions', 'rate limit', 'security headers', 'upload validation', 'backup export'] },
   { phase: 5, name: 'UI/UX Finalization Foundation', status: 'implemented', proof: ['Milan branding', 'mobile-friendly frontend', 'launch dashboard', 'reels view', 'user-friendly status'] },
   { phase: 6, name: 'Testing and Bug Fixing', status: 'implemented', proof: ['all-phases smoke test', 'phase status endpoints', 'isolation checks'] },
-  { phase: 7, name: 'Deployment Preparation', status: 'implemented', proof: ['production env template', 'PM2 ecosystem', 'nginx sample', 'deployment checklist'] },
+  { phase: 7, name: 'Deployment Preparation', status: 'implemented', proof: ['Vercel production routing', 'Supabase environment configuration', 'Node.js 22 runtime baseline'] },
   { phase: 8, name: 'Soft Launch Readiness', status: 'implemented', proof: ['feedback collection endpoint', 'beta checklist', 'admin feedback view'] },
   { phase: 9, name: 'Final Launch Checklist', status: 'implemented', proof: ['launch readiness endpoint', 'admin overview', 'go-live checklist'] }
 ];
@@ -29,7 +29,7 @@ function readiness() {
   const checks = {
     apiOnline: true,
     dwnStorageOperational: dwn.storageOperational === true,
-    oneUserOneDwnMode: dwn.mode === 'isolated-dwn-per-user',
+    supabaseAuthoritativeStorage: dwn.mode === 'supabase' && dwn.storageOperational === true,
     userRegistrationAvailable: true,
     loginAvailable: true,
     privateByDefault: true,
@@ -40,7 +40,7 @@ function readiness() {
     securityHeadersEnabled: true,
     adminMonitoringAvailable: true,
     feedbackCollectionAvailable: true,
-    deploymentFilesIncluded: true
+    productionRoutingConfigured: true
   };
   const score = Object.values(checks).filter(Boolean).length;
   return {

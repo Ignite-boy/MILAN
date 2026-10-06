@@ -13,7 +13,7 @@ Below is what was actually done, what to install, and what to skip (with reasons
   read + parse, and any write auto-invalidates the cache (no stale data). Returns a deep
   clone so callers can mutate safely. *Verified with 7 unit assertions.* This is the
   biggest backend latency win available without changing the storage architecture.
-- **PM2 fork config** (`backend/ecosystem.config.js`) — production process manager with
+- **Single application process** — the backend runs as part of the deployed application with
   auto-restart, memory guard, and logs.
 
 ## ✅ Already in place (don't re-add)
@@ -26,7 +26,6 @@ Below is what was actually done, what to install, and what to skip (with reasons
 ## 👍 Worth installing (only these few)
 ```bash
 cd backend
-npm i -g pm2            # production process manager (run with ecosystem.config.js)
 npm i lru-cache        # optional: bounded in-memory cache if you add more hot paths
 npm i helmet           # optional: hardened security headers (or keep the manual ones)
 npm i pino pino-pretty # optional: very fast structured logging (replaces console.log)
@@ -35,8 +34,6 @@ npm i -D autocannon    # dev only: load-test the API to find real bottlenecks
 Run in production:
 ```bash
 cd backend
-NODE_ENV=production pm2 start ecosystem.config.js
-pm2 save && pm2 startup
 ```
 
 ## ❌ Skip these (useless or harmful for MILAN)
@@ -50,7 +47,6 @@ pm2 save && pm2 startup
 | `npm install cluster` | **Wrong package.** Node's `cluster` is built-in; the npm "cluster" package is unrelated/outdated. Don't install. |
 | lodash | Vanilla JS already covers it here. |
 
-## ⚠️ Do NOT run `pm2 start -i max` (cluster mode)
 MILAN's data lives in **JSON files + an embedded LevelDB** (`classic-level` /
 `dwn-sdk-js`), which **lock to a single process**. Multiple cluster workers would
 corrupt data or fail to open the DB. The included config uses **fork mode (1 instance)**

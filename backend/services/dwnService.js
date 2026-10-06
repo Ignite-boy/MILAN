@@ -299,7 +299,7 @@ function applyAccess(record, mode, dids) {
     mode,
     readers: record.sharedWithDids,
     updatedAt: new Date().toISOString(),
-    storage: 'isolated-dwn-per-user'
+    storage: 'supabase-isolated-per-user'
   };
 }
 
@@ -465,9 +465,9 @@ async function initDwn() {
   compactExistingIndex();
   repairIndexFromRecordFiles();
 
-  // V49 production DWN: users are assigned a remote production DWN node space.
+  // Users are assigned an isolated Supabase-backed space.
   dwnInstance = {
-    type: 'production-dwn-node-remote-only-cache',
+    type: 'supabase-backed-isolated-space-cache',
     directory: DWN_DIR,
     startedAt: new Date().toISOString()
   };
@@ -538,14 +538,14 @@ async function createRecord(userId, ownerDid, body = {}) {
     favorite: !!body.favorite,
     dateCreated: now,
     dateModified: now,
-    storageEngine: 'Real remote DWN node storage',
+    storageEngine: 'Supabase-authoritative storage',
     dwnSdkReady: dwnInitStatus.sdkReady,
     storagePath: path.relative(path.join(__dirname, '..'), recordFile(userId, id)).replace(/\\/g, '/')
   };
   applyAccess(record, access.mode, access.dids);
 
   /* ---------------------------------------------------------
-     Publish must not be blocked by remote DWN sync latency.
+     Publish must not be blocked by cloud sync latency.
      Persist the record first, then sync to the authoritative
      cloud/DWN store asynchronously.
      --------------------------------------------------------- */
@@ -572,7 +572,7 @@ async function createRecord(userId, ownerDid, body = {}) {
       throw err;
     }
   } else {
-    // Return the persisted record immediately; remote Supabase/DWN sync continues in background.
+    // Return the persisted record immediately; Supabase cloud sync continues in background.
     runBackground(() => markCloudSync(record, ownerDid)
       .then(() => {
       record.cloudDwn = record.cloudDwn || {};
@@ -902,7 +902,7 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
       processingUpdatedAt: fastAcceptVideo ? now : undefined,
       uploadMode: meta.uploadMode || ''
     },
-    storageEngine: 'Real remote DWN node storage',
+    storageEngine: 'Supabase-authoritative storage',
     dwnSdkReady: dwnInitStatus.sdkReady,
     storagePath: path.relative(path.join(__dirname, '..'), recordFile(userId, id)).replace(/\\/g, '/')
   };
@@ -976,7 +976,7 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
     err.status = 502;
     throw err;
   }
-  const embeddedMediaMode = !!(mediaSync && (mediaSync.skipped === 'embedded-self-dwn-media-already-in-isolated-space' || mediaSync.mode === 'embedded-production-dwn-direct'));
+  const embeddedMediaMode = !!(mediaSync && (mediaSync.skipped === 'supabase-backed-media-already-in-isolated-space' || mediaSync.mode === 'supabase-backed-direct'));
   if (isRemoteOnlyMode() && mediaSync.pushed && !embeddedMediaMode) {
     record.mediaRemoteOnly = true;
     record.mediaRemoteUrl = mediaSync.mediaUrl || '';
@@ -984,7 +984,7 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
     record.data.media.mediaUrl = `/api/records/${encodeURIComponent(record.id)}/media`;
     record.data.media.downloadUrl = `/api/records/${encodeURIComponent(record.id)}/media?download=1`;
     record.mediaCachePath = record.mediaStoragePath || relMedia;
-    record.mediaAuthoritative = 'production-dwn-node';
+    record.mediaAuthoritative = 'supabase-authoritative-storage';
     record.mediaCachedOnApp = true;
     record.mediaReadyAt = new Date().toISOString();
     runBackground(() => markCloudSync(record, ownerDid));

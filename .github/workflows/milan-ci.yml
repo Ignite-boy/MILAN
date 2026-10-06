@@ -1,4 +1,4 @@
-name: MILAN • Live UI/UX Pipeline
+name: MILAN • Build & Production Pipeline
 
 on:
   push:
@@ -32,7 +32,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   verify:
-    name: "PASS • UI/UX verification"
+    name: "PASS • Build verification"
     runs-on: ubuntu-latest
     needs: live-source
     steps:
@@ -42,7 +42,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
@@ -62,15 +62,15 @@ jobs:
 
       - name: PASS summary
         run: |
-          echo "✅ PASS — UI/UX verification completed"
+          echo "✅ PASS — Build verification completed"
           {
-            echo "## ✅ PASS — UI/UX verification"
+            echo "## ✅ PASS — Build verification"
             echo ""
             echo "Build and critical frontend file checks completed successfully."
           } >> "$GITHUB_STEP_SUMMARY"
 
   production:
-    name: "LIVE • Production"
+    name: "LIVE • Production smoke"
     runs-on: ubuntu-latest
     needs: verify
     steps:

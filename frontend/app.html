@@ -2718,7 +2718,7 @@ button{
   try {
     const token =
       localStorage.getItem("milan_token") ||
-      localStorage.getItem("milanToken") ||
+      localStorage.getItem("milan_token") ||
       "";
     if (!token) window.location.replace("/index.html");
   } catch (_) {
@@ -3086,7 +3086,7 @@ body.map #privacyBar{
 
     const token =
       localStorage.getItem("milan_token") ||
-      localStorage.getItem("milanToken") ||
+      localStorage.getItem("milan_token") ||
       "";
 
     if (!token) return;
@@ -3268,7 +3268,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     try {
       localStorage.removeItem("milan_token");
-      localStorage.removeItem("milanToken");
+      localStorage.removeItem("milan_token");
       localStorage.removeItem("milanBootCache");
       localStorage.removeItem("milanAvatar");
       localStorage.removeItem("milanID3SetupPending");

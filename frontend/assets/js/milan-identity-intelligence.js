@@ -11,7 +11,7 @@
     try {
       return (
         localStorage.getItem("milan_token") ||
-        localStorage.getItem("milanToken") ||
+        localStorage.getItem("milan_token") ||
         ""
       );
     } catch {

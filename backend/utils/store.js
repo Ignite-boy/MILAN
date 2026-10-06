@@ -143,14 +143,14 @@ function pushDatabaseSnapshotAsync(file, data) {
 
         if (result && result.ok === false && !result.skipped) {
           console.warn(
-            'Production DWN DB sync failed:',
+            'Supabase DB sync failed:',
             name,
             result.error || result
           );
         }
       } catch (err) {
         console.warn(
-          'Production DWN DB sync unavailable:',
+          'Supabase DB sync unavailable:',
           name,
           err.message
         );
@@ -293,8 +293,8 @@ async function hydrateFilesFromSupabase(files = []) {
           wasEmpty: currentEmpty,
           source:
             name === 'APP_RECORD_INDEX.json'
-              ? 'production-dwn-node-merged'
-              : 'production-dwn-node'
+              ? 'supabase-authoritative-merged'
+              : 'supabase-authoritative'
         });
       } else {
         results.push({ name, hydrated: false, reason: normalized.error || 'not-found' });

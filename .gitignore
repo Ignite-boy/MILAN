@@ -49,4 +49,3 @@ backend/dwn/audit/
 backend/RESOLVERCACHE/
 backend/dwn/database/*.json
 .next/
-mini-dwn/
