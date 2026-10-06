@@ -16,41 +16,19 @@
 })();
 </script>
 
-<script id="milan-cache-clean">
-(() => {
-  const run = async () => {
-    try {
-      if ("serviceWorker" in navigator) {
-        const regs = await navigator.serviceWorker.getRegistrations();
-        for (const r of regs) await r.unregister();
-      }
-      if ("caches" in window) {
-        const keys = await caches.keys();
-        for (const k of keys) await caches.delete(k);
-      }
-    } catch (e) {
-      console.warn("[MILAN] deferred cache cleanup skipped:", e);
-    }
-  };
-  const schedule = () => {
-    if ("requestIdleCallback" in window) {
-      requestIdleCallback(run, { timeout: 10000 });
-    } else {
-      setTimeout(run, 10000);
-    }
-  };
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => setTimeout(schedule, 3000), { once: true });
-  } else {
-    setTimeout(schedule, 3000);
-  }
-})();
-</script>
+
 
 
 <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>MILAN — Your Space. Your People.</title>
+  <meta name="theme-color" content="#071126">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MILAN">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/assets/icon-192.png">
   <link rel="stylesheet" href="/milan-core.css">
   <!-- NOTE: the /milan-ui.css link was removed here. That file has never
        existed in this repo, so every app-page load produced a 404 and the
@@ -113,6 +91,19 @@ body{
     radial-gradient(circle at 90% 8%,rgba(223,70,200,.12),transparent 26%),
     linear-gradient(180deg,#071126 0%,#0a1430 45%,#090f22 100%) !important;
 }
+
+/* Installed PWA: behave like a real edge-to-edge app, not a browser page. */
+@media (display-mode: standalone), (display-mode: fullscreen){
+  html{background:#071126}
+  body{min-height:100dvh;overscroll-behavior-y:none}
+}
+@media (display-mode: standalone) and (max-width:768px){
+  .topbar{
+    padding-top:calc(8px + env(safe-area-inset-top)) !important;
+    min-height:calc(60px + env(safe-area-inset-top)) !important;
+  }
+}
+
 
 #appView{
   min-height:100vh;
