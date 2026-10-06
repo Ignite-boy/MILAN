@@ -3024,6 +3024,14 @@ body.map #privacyBar{
 <script src="/assets/js/milan-identity-status.js" defer></script>
 <script src="/assets/js/milan-identity-intelligence.js?v=dwn-always-connected-20260908" defer></script>
 <script src="/assets/js/milan-identity-status-sync.js" defer></script>
+<script id="milan-pwa-register">
+(() => {
+  if (!("serviceWorker" in navigator)) return;
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {});
+  }, { once: true });
+})();
+</script>
 
 <!-- MILAN App Pro interactions. Deferred and last, so every app module has
      already wired its own behaviour before this layer touches anything. -->
