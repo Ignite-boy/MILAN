@@ -125,7 +125,18 @@ function decorateRecord(record, myDid){
     }
   };
 }
+function isChatRecord(record){
+  return String(record?.protocol || '') === 'milan.chat' ||
+    String(record?.protocolPath || '') === 'messages' ||
+    String(record?.schema || '') === 'milan.chat.message' ||
+    String(record?.data?.kind || '') === 'chat_message';
+}
+
 function allowedForFeed(record, myDid, scope){
+  // Private Messenger traffic belongs exclusively to /api/chat. Never expose
+  // chat records through any social-feed scope, even when they are shared with
+  // the current DID at the DWN layer.
+  if (isChatRecord(record)) return false;
   if (scope === 'mine') return record.owner === myDid;
   if (scope === 'friends') return record.owner === myDid || isFriend(myDid, record.owner) || record.sharedWithDids?.includes(myDid);
   if (scope === 'public') return record.accessMode === 'public';
