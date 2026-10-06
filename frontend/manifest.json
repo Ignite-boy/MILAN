@@ -4,7 +4,7 @@
   "description": "MILAN is a privacy-first decentralized social network where you own your data. Built on Decentralized Web Nodes (DWN), Decentralized Identifiers (DID) and Web5. A no-ads, no-tracking alternative to centralized social media.",
   "lang": "en",
   "dir": "ltr",
-  "start_url": "/?source=pwa",
+  "start_url": "/app.html?source=pwa",
   "scope": "/",
   "display": "standalone",
   "display_override": ["standalone", "browser"],
