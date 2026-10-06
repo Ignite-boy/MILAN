@@ -141,9 +141,8 @@ async function listConversations(meDid) {
     .eq('deleted', false)
     .eq('protocol', CHAT_PROTOCOL)
     .eq('protocol_path', CHAT_PATH)
-    .or(`owner_did.eq.${currentDid},recipient.eq.${currentDid}`)
     .order('date_created', { ascending: false })
-    .limit(MAX_HISTORY * 4);
+    .limit(MAX_HISTORY * 8);
 
   if (error) throw error;
   if (!Array.isArray(rows) || !rows.length) return [];
