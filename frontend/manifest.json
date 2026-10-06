@@ -7,10 +7,13 @@
   "start_url": "/app.html?source=pwa",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["standalone", "browser"],
+  "display_override": [
+    "window-controls-overlay",
+    "standalone"
+  ],
   "background_color": "#050e2b",
   "theme_color": "#050e2b",
-  "orientation": "portrait-primary",
+  "orientation": "any",
   "icons": [
     {
       "src": "/assets/favicon-48x48.png",
@@ -52,7 +55,14 @@
       "label": "MILAN decentralized social feed"
     }
   ],
-  "id": "/",
-  "categories": ["social", "communication", "lifestyle"],
-  "prefer_related_applications": false
+  "id": "https://milanlife.in/",
+  "categories": [
+    "social",
+    "communication",
+    "lifestyle"
+  ],
+  "prefer_related_applications": false,
+  "launch_handler": {
+    "client_mode": "focus-existing"
+  }
 }
