@@ -157,7 +157,7 @@ router.get('/summary', auth, async (req, res) => {
       people: Math.max(0, allUsers.length - 1),
       friends: rows.filter(c => c.status === 'approved').length,
       requests: rows.filter(c => c.status === 'pending' && c.toDid === me.user.did).length,
-      visiblePosts: records.length,
+      visiblePosts: records.filter(r => !isChatRecord(r)).length,
       unreadNotifications: notifs.filter(n => !n.read).length,
       savedPosts: (readSaves()[req.userId] || []).length
     },
@@ -298,7 +298,7 @@ router.post('/records/:id/save', auth, async (req, res) => {
 
 router.get('/advanced/insights', auth, async (req, res) => {
   const me = current(req); if (!me) return res.status(404).json({ error:'User not found' });
-  const records = await dwnStore.listVisibleRecords(me.user.did, {});
+  const records = (await dwnStore.listVisibleRecords(me.user.did, {})).filter(r => !isChatRecord(r));
   const mine = records.filter(r => r.owner === me.user.did);
   res.json({
     ok: true,
