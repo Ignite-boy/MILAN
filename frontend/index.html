@@ -25,6 +25,113 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="format-detection" content="telephone=no">
 
+<style id="milan-pwa-install-prompt">
+  #milan-pwa-install{
+    position:fixed;
+    top:calc(12px + env(safe-area-inset-top));
+    left:50%;
+    transform:translate(-50%,-14px);
+    width:min(520px,calc(100vw - 24px));
+    z-index:99999;
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:11px 12px;
+    border:1px solid rgba(255,255,255,.16);
+    border-radius:18px;
+    background:linear-gradient(135deg,rgba(10,20,48,.96),rgba(20,13,43,.96));
+    box-shadow:0 18px 60px rgba(0,0,0,.38),0 0 0 1px rgba(255,156,56,.05);
+    backdrop-filter:blur(20px);
+    -webkit-backdrop-filter:blur(20px);
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+    transition:opacity .24s ease,transform .24s ease,visibility .24s ease;
+  }
+  #milan-pwa-install.is-visible{
+    opacity:1;
+    visibility:visible;
+    pointer-events:auto;
+    transform:translate(-50%,0);
+  }
+  #milan-pwa-install .pwa-icon{
+    width:44px;
+    height:44px;
+    flex:0 0 44px;
+    border-radius:13px;
+    display:block;
+    object-fit:cover;
+    box-shadow:0 8px 22px rgba(245,158,11,.22);
+  }
+  #milan-pwa-install .pwa-copy{
+    min-width:0;
+    flex:1;
+  }
+  #milan-pwa-install .pwa-title{
+    display:block;
+    color:#fff;
+    font-size:13px;
+    font-weight:900;
+    line-height:1.2;
+    letter-spacing:.01em;
+  }
+  #milan-pwa-install .pwa-sub{
+    display:block;
+    margin-top:3px;
+    color:#9eacd0;
+    font-size:10px;
+    line-height:1.35;
+  }
+  #milan-pwa-install .pwa-actions{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    flex:0 0 auto;
+  }
+  #milan-pwa-install .pwa-install-btn,
+  #milan-pwa-install .pwa-dismiss-btn{
+    min-height:36px;
+    border-radius:11px;
+    padding:0 12px;
+    font-size:10px;
+    font-weight:900;
+    cursor:pointer;
+  }
+  #milan-pwa-install .pwa-install-btn{
+    border:0;
+    color:#18131f;
+    background:linear-gradient(135deg,#ffb54d,#df46c8);
+    box-shadow:0 8px 20px rgba(223,70,200,.2);
+  }
+  #milan-pwa-install .pwa-install-btn:active{transform:scale(.97)}
+  #milan-pwa-install .pwa-dismiss-btn{
+    width:34px;
+    padding:0;
+    border:1px solid rgba(255,255,255,.10);
+    color:#a7b4cf;
+    background:rgba(255,255,255,.045);
+  }
+  @media(max-width:560px){
+    #milan-pwa-install{
+      top:calc(8px + env(safe-area-inset-top));
+      width:calc(100vw - 16px);
+      padding:10px;
+      border-radius:16px;
+      gap:10px;
+    }
+    #milan-pwa-install .pwa-icon{width:40px;height:40px;flex-basis:40px;border-radius:12px}
+    #milan-pwa-install .pwa-title{font-size:12px}
+    #milan-pwa-install .pwa-sub{font-size:9px}
+    #milan-pwa-install .pwa-install-btn{min-height:34px;padding:0 11px}
+  }
+  @media (display-mode: standalone),(display-mode: fullscreen){
+    #milan-pwa-install{display:none!important}
+  }
+  @media(prefers-reduced-motion:reduce){
+    #milan-pwa-install{transition:none!important}
+  }
+</style>
+
   <!-- Canonical -->
   <link rel="canonical" href="https://milanlife.in/">
   <link rel="alternate" hreflang="en-US" href="https://milanlife.in/">
@@ -99,6 +206,17 @@
   <link rel="stylesheet" href="/milan-login-pro.css?v=20261005-motion1">
 </head>
 <body class="mlp">
+<div id="milan-pwa-install" role="dialog" aria-label="Install MILAN">
+  <img class="pwa-icon" src="/assets/icon-192.png" alt="">
+  <div class="pwa-copy">
+    <span class="pwa-title">Install MILAN</span>
+    <span class="pwa-sub">Get a faster, app-like experience on your phone.</span>
+  </div>
+  <div class="pwa-actions">
+    <button class="pwa-install-btn" id="milan-pwa-install-btn" type="button">Install</button>
+    <button class="pwa-dismiss-btn" id="milan-pwa-dismiss-btn" type="button" aria-label="Not now">×</button>
+  </div>
+</div>
 
 <!-- SEO crawlable content (visually hidden, served to crawlers without JS) -->
 <noscript>
@@ -209,6 +327,52 @@
 <!-- MILAN V2 ADVANCED — Login Page Enhancements -->
 
 
+<script id="milan-pwa-install-logic">
+(() => {
+  let deferredPrompt = null;
+  const root = () => document.getElementById("milan-pwa-install");
+  const show = () => root()?.classList.add("is-visible");
+  const hide = () => root()?.classList.remove("is-visible");
+  const isStandalone = () =>
+    window.matchMedia?.("(display-mode: standalone)").matches ||
+    window.matchMedia?.("(display-mode: fullscreen)").matches ||
+    window.navigator.standalone === true;
+
+  if (isStandalone()) return;
+
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    deferredPrompt = event;
+    try {
+      if (sessionStorage.getItem("milanPwaInstallDismissed") === "1") return;
+    } catch (_) {}
+    window.setTimeout(show, 450);
+  });
+
+  window.addEventListener("appinstalled", () => {
+    deferredPrompt = null;
+    hide();
+  });
+
+  document.addEventListener("click", async (event) => {
+    const installButton = event.target.closest?.("#milan-pwa-install-btn");
+    const dismissButton = event.target.closest?.("#milan-pwa-dismiss-btn");
+    if (dismissButton) {
+      hide();
+      try { sessionStorage.setItem("milanPwaInstallDismissed","1"); } catch (_) {}
+      return;
+    }
+    if (!installButton || !deferredPrompt) return;
+    const promptEvent = deferredPrompt;
+    deferredPrompt = null;
+    hide();
+    try {
+      await promptEvent.prompt();
+      await promptEvent.userChoice;
+    } catch (_) {}
+  });
+})();
+</script>
 <script src="/milan-creative-mode.js" defer></script>
 <script>
 window.addEventListener("DOMContentLoaded", function () {
