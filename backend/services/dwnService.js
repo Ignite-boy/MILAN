@@ -531,6 +531,8 @@ async function createRecord(userId, ownerDid, body = {}) {
     schema: body.schema || 'web5-vault-record',
     title: String(body.title || 'Untitled record').trim().slice(0, 140),
     dataFormat: body.dataFormat || 'text/plain',
+    protocol: String(body.protocol || '').trim(),
+    protocolPath: String(body.protocolPath || '').trim(),
     data,
     tags: sanitizeTags(body.tags),
     favorite: !!body.favorite,
