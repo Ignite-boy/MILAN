@@ -800,6 +800,14 @@
     </div>
   </div>
 
+  <script id="milan-pwa-register">
+(() => {
+  if (!("serviceWorker" in navigator)) return;
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {});
+  }, { once: true });
+})();
+</script>
   <script>
 (() => {
   "use strict";
