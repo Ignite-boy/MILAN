@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#071126">
   <title>Milan Chat</title>
+  <meta name="theme-color" content="#071126">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MILAN Chat">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/assets/icon-192.png">
   <link rel="stylesheet" href="/milan-core.css">
   <link rel="stylesheet" href="/premium.css">
   <link rel="canonical" href="https://milanlife.in/chat">
@@ -549,6 +556,13 @@
         padding:18px 14px;
         overscroll-behavior:contain;
         -webkit-overflow-scrolling:touch;
+      }
+    }
+
+    @media (display-mode: standalone) and (max-width:900px){
+      .chat-topbar{
+        padding-top:calc(11px + env(safe-area-inset-top));
+        min-height:calc(70px + env(safe-area-inset-top));
       }
     }
 
