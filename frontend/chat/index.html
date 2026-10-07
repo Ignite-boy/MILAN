@@ -765,7 +765,7 @@
             <div class="chat-avatar" id="currentAvatar" aria-hidden="true">M</div>
             <div class="chat-current">
               <span class="chat-current-name" id="currentName">Select a person</span>
-              <span class="chat-current-sub" id="currentSub">Choose someone from All people to start.</span>
+              <span class="chat-current-sub" id="currentSub">Choose a connected friend to start.</span>
             </div>
           </div>
           <div class="chat-top-actions">
@@ -779,7 +779,7 @@
             <div class="chat-empty-inner">
               <div class="chat-empty-icon" aria-hidden="true">💬</div>
               <h1>Your private conversations</h1>
-              <p>Every registered MILAN user can appear here. Pick a person from the left to open a dedicated one-to-one conversation.</p>
+              <p>Connected MILAN friends appear here. Search by name or DID to start a dedicated one-to-one conversation.</p>
               <div class="chat-empty-hint">🔒 Private by design · Built for direct conversations</div>
             </div>
           </div>
@@ -838,6 +838,8 @@
   let currentMessages = [];
   let chatPollBusy = false;
   let conversationPollTick = 0;
+  let peopleSearchTimer = null;
+  let peopleSearchRequestId = 0;
 
   const getToken = () => {
     try {
@@ -905,15 +907,19 @@
   }
 
   function setListMode(mode) {
-    listMode = mode === "people" ? "people" : "conversations";
+    listMode = mode === "people" || mode === "search" ? mode : "conversations";
     if (listMode === "people") {
       chatListTitle.textContent = "New chat";
       chatListAction.textContent = "← Chats";
-      search.placeholder = "Search people...";
+      search.placeholder = "Search friends...";
+    } else if (listMode === "search") {
+      chatListTitle.textContent = "People";
+      chatListAction.textContent = "← Chats";
+      search.placeholder = "Search friends...";
     } else {
       chatListTitle.textContent = "Chats";
       chatListAction.textContent = "＋ New chat";
-      search.placeholder = "Search chats...";
+      search.placeholder = "Search chats or friends...";
     }
   }
 
@@ -971,30 +977,32 @@
     });
   }
 
-  function renderPeople(rows) {
-    setListMode("people");
+  function renderPeople(rows, mode = "people") {
+    setListMode(mode);
     const query = String(search.value || "").trim().toLowerCase();
-    const filtered = rows.filter(p =>
-      !query ||
-      String(p.name || "").toLowerCase().includes(query) ||
-      String(p.did || "").toLowerCase().includes(query)
-    );
+    const filtered = Array.isArray(rows) ? rows : [];
 
-    peopleCount.textContent = String(rows.length);
+    peopleCount.textContent = String(filtered.length);
 
     if (!filtered.length) {
       peopleList.innerHTML =
-        '<div style="padding:30px 14px;color:#7787ab;text-align:center;font-size:12px;">No people found.</div>';
+        '<div style="padding:30px 14px;color:#7787ab;text-align:center;font-size:12px;">' +
+        (query ? "No connected friends match your search." : "No connected friends available yet.") +
+        '</div>';
       return;
     }
 
     peopleList.innerHTML = filtered.map(person => {
       const active = selected?.did === person.did ? " is-active" : "";
+      const existing = conversations.find(item => item.person?.did === person.did);
+      const sub = existing?.lastMessage
+        ? "Friend · " + existing.lastMessage
+        : "Friend · Ready to chat";
       return '<button class="chat-person' + active + '" type="button" data-did="' + esc(person.did) + '">'
         + '<span class="chat-avatar">' + avatarMarkup(person) + '</span>'
         + '<span class="chat-person-main">'
         + '<span class="chat-person-name">' + esc(person.name || "MILAN User") + '</span>'
-        + '<span class="chat-person-sub"><span class="chat-dot"></span>' + esc(statusLabel(person)) + '</span>'
+        + '<span class="chat-person-sub"><span class="chat-dot"></span>' + esc(sub) + '</span>'
         + '</span>'
         + '</button>';
     }).join("");
@@ -1004,6 +1012,7 @@
         const person = people.find(p => p.did === button.dataset.did) || null;
         if (person) openConversation(person, true);
         setListMode("conversations");
+        search.value = "";
         loadConversations().catch(() => {});
         shell.classList.remove("people-open");
       });
@@ -1127,15 +1136,20 @@
     }
   }
 
-  async function loadPeople() {
+  async function loadPeople(query = "", mode = "people") {
+    const requestId = ++peopleSearchRequestId;
     try {
-      const rows = await api("/api/social/people");
+      const term = String(query || "").trim();
+      const path = "/api/chat/people" + (term ? "?q=" + encodeURIComponent(term) : "");
+      const rows = await api(path);
+      if (requestId !== peopleSearchRequestId) return;
       people = Array.isArray(rows) ? rows : [];
-      if (listMode === "people") renderPeople(people);
+      renderPeople(people, mode);
     } catch (err) {
+      if (requestId !== peopleSearchRequestId) return;
       peopleList.innerHTML =
         '<div style="padding:28px 14px;color:#ff9a9a;text-align:center;font-size:12px;">' +
-        esc(err.message || "Could not load people.") + '</div>';
+        esc(err.message || "Could not load friends.") + '</div>';
       peopleCount.textContent = "0";
     }
   }
@@ -1253,10 +1267,11 @@
           if (String(data.type || "") !== "notify") return;
           if (String(data.notifType || "") !== "chat_message") return;
 
+          loadConversations().catch(() => {});
+
           if (!document.hidden && selected) {
             loadConversation(true, false, true).catch(() => {});
-            loadConversations().catch(() => {});
-          } else {
+          } else if (document.hidden || !selected) {
             document.title = "New message · Milan Chat";
             setTimeout(() => { document.title = "Milan Chat"; }, 2400);
           }
@@ -1277,20 +1292,40 @@
         loadConversation(true, false, true).finally(() => { chatPollBusy = false; });
       }
 
-      if (conversationPollTick % 4 === 0) {
+      const listEvery = selected ? 4 : 1;
+      if (conversationPollTick % listEvery === 0) {
         loadConversations().catch(() => {});
       }
     }, 1000);
   }
 
   search.addEventListener("input", () => {
-    if (listMode === "people") renderPeople(people);
-    else renderConversations(conversations);
+    if (peopleSearchTimer) clearTimeout(peopleSearchTimer);
+
+    const query = String(search.value || "").trim();
+    if (!query) {
+      if (listMode === "people") {
+        peopleSearchRequestId += 1;
+        loadPeople("", "people").catch(() => {});
+      } else {
+        peopleSearchRequestId += 1;
+        setListMode("conversations");
+        renderConversations(conversations);
+      }
+      return;
+    }
+
+    const mode = listMode === "people" ? "people" : "search";
+    setListMode(mode);
+    peopleSearchTimer = setTimeout(() => {
+      loadPeople(query, mode).catch(() => {});
+    }, 180);
   });
 
   chatListAction.addEventListener("click", async () => {
-    if (listMode === "people") {
+    if (listMode === "people" || listMode === "search") {
       search.value = "";
+      setListMode("conversations");
       renderConversations(conversations);
       syncMobileLayout();
       if (selected && window.matchMedia?.("(max-width: 900px)").matches) {
@@ -1298,8 +1333,7 @@
       }
       return;
     }
-    if (!people.length) await loadPeople();
-    renderPeople(people);
+    await loadPeople("", "people");
     if (selected && window.matchMedia?.("(max-width: 900px)").matches) {
       shell.classList.add("people-open");
     } else {
@@ -1342,7 +1376,9 @@
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) {
       loadConversations().catch(() => {});
-      if (listMode === "people") loadPeople().catch(() => {});
+      if (listMode === "people" || listMode === "search") {
+        loadPeople(search.value || "", listMode).catch(() => {});
+      }
       if (selected) loadConversation(true, false, false).catch(() => {});
     }
   });
@@ -1361,7 +1397,7 @@
 
       const requestedDid = String(new URLSearchParams(location.search).get("with") || "").trim();
       if (requestedDid) {
-        await loadPeople();
+        await loadPeople("", "people");
         const requestedPerson = people.find(p => p.did === requestedDid);
         if (requestedPerson) {
           openConversation(requestedPerson, false);

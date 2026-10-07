@@ -6,6 +6,8 @@ const auth = require('../middleware/auth');
 const dwnStore = require('../services/dwnService');
 const { createClient } = require('@supabase/supabase-js');
 const livePush = require('../services/livePush');
+const { readJson } = require('../utils/store');
+const { pullDatabaseSnapshot } = require('../services/cloudDwnRegistry');
 
 const router = express.Router();
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
@@ -17,6 +19,59 @@ const MAX_MESSAGE_CHARS = 5000;
 const MAX_HISTORY = 200;
 
 const didOf = value => String(value || '').trim();
+
+function localConnections() {
+  return readJson(global.connectionsFile, {});
+}
+
+async function refreshConnectionsFromCloud() {
+  const local = localConnections();
+  try {
+    const pulled = await pullDatabaseSnapshot('connections.json');
+    if (
+      pulled?.ok &&
+      !pulled?.missing &&
+      pulled?.data &&
+      typeof pulled.data === 'object' &&
+      !Array.isArray(pulled.data)
+    ) {
+      const remote = pulled.data;
+      if (Object.keys(remote).length === 0 && Object.keys(local).length > 0) {
+        return local;
+      }
+      return remote;
+    }
+  } catch (_) {}
+  return local;
+}
+
+async function friendDidsFor(meDid) {
+  const snapshot = await refreshConnectionsFromCloud();
+  const result = new Set();
+
+  for (const row of Object.values(snapshot || {})) {
+    if (row?.status !== 'approved') continue;
+    if (row.fromDid === meDid && row.toDid) result.add(row.toDid);
+    if (row.toDid === meDid && row.fromDid) result.add(row.fromDid);
+  }
+
+  return result;
+}
+
+function peopleSearchScore(person, query) {
+  const q = String(query || '').trim().toLowerCase();
+  if (!q) return 10;
+  const name = String(person.name || '').toLowerCase();
+  const did = String(person.did || '').toLowerCase();
+
+  if (name === q) return 0;
+  if (name.startsWith(q)) return 1;
+  if (did === q) return 2;
+  if (did.startsWith(q)) return 3;
+  if (name.includes(q)) return 4;
+  if (did.includes(q)) return 5;
+  return 9;
+}
 
 function conversationIdFor(a, b) {
   return crypto
@@ -78,14 +133,20 @@ async function conversationMessages(meDid, otherDid, options = {}) {
   const conversationId = conversationIdFor(meDid, otherDid);
   const afterMs = Date.parse(options.after || '');
 
-  const { data: rows, error } = await supabase
+  let recordsQuery = supabase
     .from('dwn_records')
     .select('record_id,owner_did,recipient,protocol,protocol_path,date_created,date_modified,metadata,deleted')
     .eq('deleted', false)
     .eq('protocol', CHAT_PROTOCOL)
     .eq('protocol_path', CHAT_PATH)
-    .in('owner_did', [meDid, otherDid])
-    .order('date_created', { ascending: true })
+    .in('owner_did', [meDid, otherDid]);
+
+  if (Number.isFinite(afterMs)) {
+    recordsQuery = recordsQuery.gte('date_created', new Date(afterMs).toISOString());
+  }
+
+  const { data: rows, error } = await recordsQuery
+    .order('date_created', { ascending: false })
     .limit(MAX_HISTORY);
 
   if (error) throw error;
@@ -130,12 +191,19 @@ async function conversationMessages(meDid, otherDid, options = {}) {
     )
   )
   .map(({sharedWithDids, ...message}) => message)
+  .sort((a, b) => {
+    const aTime = Date.parse(a.sentAt || '') || 0;
+    const bTime = Date.parse(b.sentAt || '') || 0;
+    return aTime - bTime;
+  })
   .slice(-MAX_HISTORY);
 }
 
 async function listConversations(meDid) {
   const currentDid = didOf(meDid);
   if (!currentDid) return [];
+
+  const friendDids = await friendDidsFor(currentDid);
 
   const { data: rows, error } = await supabase
     .from('dwn_records')
@@ -173,6 +241,7 @@ async function listConversations(meDid) {
 
     const otherDid = senderDid === currentDid ? recipientDid : senderDid;
     if (!otherDid || otherDid === currentDid) continue;
+    if (!friendDids.has(otherDid)) continue;
 
     const conversationId = String(data.conversationId || conversationIdFor(currentDid, otherDid));
     if (!byConversation.has(conversationId)) {
@@ -238,6 +307,53 @@ async function listConversations(meDid) {
     .filter(row => row.person?.did && row.person.did !== currentDid);
 }
 
+router.get('/people', auth, async (req, res) => {
+  const meDid = didOf(req.did || req.account?.did);
+  const q = cleanText(req.query.q).toLowerCase().slice(0, 120);
+
+  if (!meDid) return res.status(401).json({ error: 'Authenticated DID unavailable' });
+
+  try {
+    const friendDids = await friendDidsFor(meDid);
+    if (!friendDids.size) {
+      res.setHeader('Cache-Control', 'no-store');
+      return res.json([]);
+    }
+
+    const { data: accounts, error } = await supabase
+      .from('users')
+      .select('id,email,name,did')
+      .in('did', [...friendDids]);
+
+    if (error) throw error;
+
+    const rows = (accounts || [])
+      .filter(account => account.id !== req.userId && friendDids.has(String(account.did || '')))
+      .map(account => ({
+        id: account.id,
+        name: account.name || account.email?.split('@')[0] || 'MILAN User',
+        did: String(account.did || ''),
+        connectionStatus: 'friends'
+      }))
+      .filter(person => {
+        if (!q) return true;
+        return String(person.name).toLowerCase().includes(q) ||
+          String(person.did).toLowerCase().includes(q);
+      })
+      .sort((a, b) =>
+        peopleSearchScore(a, q) - peopleSearchScore(b, q) ||
+        a.name.localeCompare(b.name) ||
+        a.did.localeCompare(b.did)
+      );
+
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json(rows.slice(0, 100));
+  } catch (err) {
+    console.error('[chat/people]', err);
+    return res.status(500).json({ error: 'Chat people search unavailable' });
+  }
+});
+
 router.get('/conversations', auth, async (req, res) => {
   const meDid = didOf(req.did || req.account?.did);
   if (!meDid) return res.status(401).json({ error: 'Authenticated DID unavailable' });
@@ -258,6 +374,7 @@ router.get('/health', (_req, res) => {
     chat: 'ready',
     transport: 'DWN shared record',
     persistence: 'Supabase authoritative DWN',
+    audience: 'Approved MILAN friends only',
     realtime: 'SSE accelerator; cross-instance Supabase sync fallback'
   });
 });
@@ -273,6 +390,11 @@ router.get('/with/:did', auth, async (req, res) => {
   try {
     const recipient = await recipientByDid(otherDid);
     if (!recipient) return res.status(404).json({ error: 'Person not found' });
+
+    const friendDids = await friendDidsFor(meDid);
+    if (!friendDids.has(otherDid)) {
+      return res.status(403).json({ error: 'You can only chat with connected friends' });
+    }
 
     const messages = await conversationMessages(meDid, otherDid);
     res.setHeader('Cache-Control', 'no-store');
@@ -305,6 +427,11 @@ router.get('/with/:did/messages', auth, async (req, res) => {
     const recipient = await recipientByDid(otherDid);
     if (!recipient) return res.status(404).json({ error: 'Person not found' });
 
+    const friendDids = await friendDidsFor(meDid);
+    if (!friendDids.has(otherDid)) {
+      return res.status(403).json({ error: 'You can only sync chat with connected friends' });
+    }
+
     const messages = await conversationMessages(meDid, otherDid, { after });
     res.setHeader('Cache-Control', 'no-store');
     return res.json({
@@ -332,6 +459,11 @@ router.post('/with/:did/messages', auth, async (req, res) => {
   try {
     const recipient = await recipientByDid(otherDid);
     if (!recipient) return res.status(404).json({ error: 'Person not found' });
+
+    const friendDids = await friendDidsFor(meDid);
+    if (!friendDids.has(otherDid)) {
+      return res.status(403).json({ error: 'You can only message connected friends' });
+    }
 
     const now = new Date().toISOString();
     const messageId = clientMessageId || crypto.randomUUID();
