@@ -25,6 +25,7 @@ MILAN states that it is ad-free, does not track users for advertising and does n
 - Home: https://milanlife.in/
 - Decentralized social media: https://milanlife.in/decentralized-social-media
 - Decentralized social network: https://milanlife.in/decentralized-social-network
+- Decentralized Web Node (DWN): https://milanlife.in/decentralized-web-node
 - Private social network: https://milanlife.in/private-social-network
 - Best social media apps: https://milanlife.in/best-social-media-apps
 - What is Web5?: https://milanlife.in/what-is-web5
