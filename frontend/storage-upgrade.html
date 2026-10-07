@@ -11,54 +11,18 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>MILAN Storage Plans — 100 MB Free, 500 MB & 1 GB</title>
-<meta name="description" content="Choose your MILAN storage plan. Get 100 MB free, upgrade to 500 MB for ₹250 or 1 GB for ₹500 with secure Razorpay checkout and automatic server verification.">
+<meta name="description" content="Choose your MILAN storage plan. Get 100 MB free, upgrade to 500 MB for ₹250 or 1 GB for ₹500 with Cashfree Checkout and automatic payment verification.">
 <meta name="robots" content="index,follow,max-image-preview:large">
 <link rel="canonical" href="https://milanlife.in/storage-upgrade.html">
-<script type="application/ld+json">
-{
-  "@context":"https://schema.org",
-  "@graph":[
-    {
-      "@type":"WebPage",
-      "@id":"https://milanlife.in/storage-upgrade.html#page",
-      "url":"https://milanlife.in/storage-upgrade.html",
-      "name":"MILAN Storage Plans — 100 MB Free, 500 MB & 1 GB",
-      "description":"MILAN storage plans with 100 MB free, 500 MB for ₹250 and 1 GB for ₹500.",
-      "isPartOf":{"@id":"https://milanlife.in/#website"}
-    },
-    {
-      "@type":"ItemList",
-      "@id":"https://milanlife.in/storage-upgrade.html#plans",
-      "name":"MILAN Storage Plans",
-      "itemListElement":[
-        {"@type":"ListItem","position":1,"name":"MILAN Free Storage","item":{"@type":"Product","name":"MILAN Free Storage","offers":{"@type":"Offer","price":"0","priceCurrency":"INR","url":"https://milanlife.in/storage-upgrade.html"}}},
-        {"@type":"ListItem","position":2,"name":"MILAN 500 MB Storage","item":{"@type":"Product","name":"MILAN 500 MB Storage","offers":{"@type":"Offer","price":"250","priceCurrency":"INR","url":"https://milanlife.in/storage-upgrade.html"}}},
-        {"@type":"ListItem","position":3,"name":"MILAN 1 GB Storage","item":{"@type":"Product","name":"MILAN 1 GB Storage","offers":{"@type":"Offer","price":"500","priceCurrency":"INR","url":"https://milanlife.in/storage-upgrade.html"}}}
-      ]
-    },
-    {
-      "@type":"FAQPage",
-      "@id":"https://milanlife.in/storage-upgrade.html#faq",
-      "mainEntity":[
-        {"@type":"Question","name":"Does upgrading create a new MILAN account?","acceptedAnswer":{"@type":"Answer","text":"No. The storage quota is attached to the existing MILAN account."}},
-        {"@type":"Question","name":"What is different between 500 MB and 1 GB?","acceptedAnswer":{"@type":"Answer","text":"The main difference is capacity: 500 MB provides five times the Free quota, while 1 GB provides ten times the Free quota."}},
-        {"@type":"Question","name":"Are extra social features included in the paid plans?","acceptedAnswer":{"@type":"Answer","text":"The current plans are storage upgrades. The documented difference between the tiers is storage capacity, not a separate set of social features."}},
-        {"@type":"Question","name":"How is the payment verified?","acceptedAnswer":{"@type":"Answer","text":"Payments are verified server-side using Razorpay's signature and captured-payment status."}},
-        {"@type":"Question","name":"What happens after approval?","acceptedAnswer":{"@type":"Answer","text":"Your account's storage quota is updated to the selected plan."}}
-      ]
-    }
-  ]
-}
-</script>
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Milan">
 <meta property="og:title" content="MILAN Storage Plans — 100 MB Free, 500 MB & 1 GB">
-<meta property="og:description" content="Choose your MILAN storage plan. Get 100 MB free, upgrade to 500 MB for ₹250 or 1 GB for ₹500 with secure Razorpay checkout and automatic server verification.">
+<meta property="og:description" content="Choose your MILAN storage plan. Get 100 MB free, upgrade to 500 MB for ₹250 or 1 GB for ₹500 with Cashfree Checkout and automatic payment verification.">
 <meta property="og:url" content="https://milanlife.in/storage-upgrade.html">
 <meta property="og:image" content="https://milanlife.in/assets/og-cover.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="MILAN Storage Plans — 100 MB Free, 500 MB & 1 GB">
-<meta name="twitter:description" content="Choose your MILAN storage plan. Get 100 MB free, upgrade to 500 MB for ₹250 or 1 GB for ₹500 with secure Razorpay checkout and automatic server verification.">
+<meta name="twitter:description" content="Choose your MILAN storage plan. Get 100 MB free, upgrade to 500 MB for ₹250 or 1 GB for ₹500 with Cashfree Checkout and automatic payment verification.">
 <meta name="twitter:image" content="https://milanlife.in/assets/og-cover.png">
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -652,47 +616,9 @@ text-align:center;
 .amount-input:focus{
 border-color:#8b5cf6;
 }
-
-.gateway-panel{overflow:hidden}
-.gateway-options{
-  display:grid;
-  grid-template-columns:repeat(4,1fr);
-  gap:8px;
-  margin-top:14px;
-}
-.gateway-options span{
-  min-height:38px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  border:1px solid rgba(255,255,255,.08);
-  border-radius:11px;
-  background:rgba(255,255,255,.035);
-  color:#cbd3e8;
-  font-size:10px;
-  font-weight:800;
-}
-.gateway-button{
-  min-height:54px;
-  margin-top:16px;
-  font-size:14px;
-  -webkit-tap-highlight-color:transparent;
-  touch-action:manipulation;
-}
-.gateway-button:disabled{opacity:.55}
-.gateway-note{
-  display:flex;
-  align-items:flex-start;
-  gap:8px;
-  margin-top:12px;
-  color:#8fa0bc;
-  font-size:10px;
-  line-height:1.55;
-}
-.gateway-note span{color:var(--green);font-weight:950}
-
 </style>
   <link rel="stylesheet" href="/milan-core.css?v=20261005-ui1">
+  <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
 </head>
 
 <body>
@@ -727,7 +653,7 @@ border-color:#8b5cf6;
   </div>
 
   <div class="hero-note">
-    Secure Razorpay checkout • Automatic payment verification • Your existing MILAN account remains unchanged
+    Secure Cashfree payment checkout • Automatic server verification • Your existing MILAN account remains unchanged
   </div>
 </section>
 
@@ -766,7 +692,7 @@ border-color:#8b5cf6;
       <ul class="features">
         <li>500 MB personal storage quota</li>
         <li>5× the Free plan capacity</li>
-        <li>Secure Razorpay checkout</li>
+        <li>Cashfree Checkout</li>
         <li>Automatic payment verification</li>
       </ul>
       <button class="plan-button" type="button" onclick="selectPlan('500mb')">Choose 500 MB →</button>
@@ -780,7 +706,7 @@ border-color:#8b5cf6;
       <ul class="features">
         <li>1 GB personal storage quota</li>
         <li>10× the Free plan capacity</li>
-        <li>Secure Razorpay checkout</li>
+        <li>Cashfree Checkout</li>
         <li>Automatic payment verification</li>
       </ul>
       <button class="plan-button" type="button" onclick="selectPlan('1gb')">Choose 1 GB →</button>
@@ -834,8 +760,8 @@ border-color:#8b5cf6;
         <tr>
           <td>Payment</td>
           <td>None</td>
-          <td>₹250 UPI</td>
-          <td>₹500 UPI</td>
+          <td>₹250 Cashfree</td>
+          <td>₹500 Cashfree</td>
         </tr>
         <tr>
           <td>Verification</td>
@@ -849,64 +775,70 @@ border-color:#8b5cf6;
 
   <div class="note-box">
     Storage upgrades change the account quota only. The current testing flow uses
-    Razorpay checkout with server-side signature and captured-payment verification.
+    Cashfree Checkout and manual transaction-reference verification; it is not an automatic bank/payment-gateway verification flow.
   </div>
 </section>
 
 <section class="section" id="payment">
   <div class="section-head">
-    <div class="kicker">Secure payment</div>
-    <h2>Upgrade your storage in a few steps.</h2>
-    <p>Select a paid plan and complete the secure Razorpay checkout. Your storage changes only after server-side payment verification.</p>
+    <div class="kicker">Payment</div>
+    <h2>Upgrade your storage securely.</h2>
+    <p>Choose your plan and continue through Cashfree Checkout.</p>
   </div>
 
   <div class="payment-grid">
     <div class="card">
       <h3>Order summary</h3>
-      <p>Your selected plan and amount are updated automatically.</p>
+      <p>Your plan and amount are controlled by the MILAN server.</p>
+
       <div class="summary">
         <div class="row"><span>Selected plan</span><strong id="summaryPlan">500 MB</strong></div>
         <div class="row"><span>New storage quota</span><strong id="summaryQuota">500 MB</strong></div>
-        <div class="row"><span>Payment method</span><strong>Razorpay</strong></div>
-        <div class="row"><span>Verification</span><strong>Automatic server verification</strong></div>
+        <div class="row"><span>Payment gateway</span><strong>Cashfree</strong></div>
+        <div class="row"><span>Payment methods</span><strong>Available at checkout</strong></div>
         <div class="row"><span>Total</span><strong class="amount" id="summaryAmount">₹250</strong></div>
       </div>
     </div>
 
     <div class="card">
-      <h3>Secure MILAN Checkout</h3>
-      <p>One checkout works across iPhone, iPad, Android phones/tablets and desktop browsers.</p>
+      <h3>Secure checkout</h3>
+      <p>Cashfree will display the payment methods available for the transaction. This can include Indian UPI/QR and supported international payment methods, subject to merchant activation and transaction eligibility.</p>
 
-      <div class="payment-panel gateway-panel">
+      <div class="payment-panel">
         <div class="payment-topline">
           <div>
-            <span class="payment-label">SECURE CHECKOUT</span>
-            <strong>MILAN · RAZORPAY</strong>
+            <span class="payment-label">PAYMENT</span>
+            <strong>MILAN · CASHFREE</strong>
           </div>
-          <span class="pay-amount" id="gatewayAmount">₹250</span>
         </div>
 
         <div class="payment-subline">
-          Razorpay securely handles the customer payment experience. MILAN never receives or stores your card credentials.
+          Payment is confirmed on the MILAN server before storage is upgraded.
         </div>
 
-        <div class="gateway-options" aria-label="Supported payment experience">
-          <span>UPI</span>
-          <span>Cards</span>
-          <span>Netbanking</span>
-          <span>Wallets</span>
-        </div>
+        <label style="display:block;margin-top:16px;">
+          Phone number
+          <input
+            id="customerPhone"
+            type="tel"
+            inputmode="tel"
+            autocomplete="tel"
+            maxlength="20"
+            placeholder="+91 9876543210"
+          >
+          <small style="display:block;margin-top:7px;opacity:.72;">
+            Use the country code for international numbers.
+          </small>
+        </label>
 
-        <button class="submit gateway-button" id="payButton" type="button">
-          Pay securely with Razorpay
-        </button>
-
-        <div class="gateway-note">
-          <span aria-hidden="true">✓</span>
-          Payment confirmation is verified on MILAN's server before your storage quota is updated.
+        <div class="payment-mini-steps" style="margin-top:16px;">
+          <div><b>01</b><span>Choose plan</span></div>
+          <div><b>02</b><span>Open Cashfree</span></div>
+          <div><b>03</b><span>Pay & verify</span></div>
         </div>
       </div>
 
+      <button class="submit" id="payButton" type="button">Pay & Upgrade</button>
       <div class="status" id="status" role="status" aria-live="polite"></div>
     </div>
   </div>
@@ -926,18 +858,18 @@ border-color:#8b5cf6;
     </article>
     <article class="step">
       <div class="step-num">02</div>
-      <h3>Open secure checkout</h3>
-      <p>Tap the payment button on iPhone, iPad, Android or desktop.</p>
+      <h3>Pay with UPI</h3>
+      <p>Use the payment methods presented by Cashfree Checkout.</p>
     </article>
     <article class="step">
       <div class="step-num">03</div>
-      <h3>Complete payment</h3>
-      <p>Use an available Razorpay payment method and finish the checkout.</p>
+      <h3>Enter your UTR</h3>
+      <p>Complete the payment and MILAN will verify it automatically.</p>
     </article>
     <article class="step">
       <div class="step-num">04</div>
-      <h3>Automatic confirmation</h3>
-      <p>MILAN verifies the payment server-side and updates your storage automatically.</p>
+      <h3>Verification</h3>
+      <p>The request is reviewed and the storage quota is updated after approval.</p>
     </article>
   </div>
 </section>
@@ -963,7 +895,7 @@ border-color:#8b5cf6;
     </details>
     <details>
       <summary>How is the payment verified?</summary>
-      <p>Payments are verified server-side using Razorpay's signature and captured-payment status.</p>
+      <p>This testing flow uses Cashfree Checkout with automatic server-side payment verification.</p>
     </details>
     <details>
       <summary>What happens after approval?</summary>
@@ -975,7 +907,7 @@ border-color:#8b5cf6;
 <section class="final">
   <div class="kicker">MILAN STORAGE</div>
   <h2>Ready for more room?</h2>
-  <p>Choose the capacity that fits your MILAN account and complete the secure Razorpay checkout.</p>
+  <p>Choose the capacity that fits your MILAN account and complete payment through Cashfree Checkout.</p>
   <a class="btn primary" href="#plans">Choose a storage plan →</a>
 </section>
 
@@ -988,362 +920,265 @@ border-color:#8b5cf6;
 
 <script>
 (() => {
-  'use strict';
-
-  const plans = {
+  const fallbackPlans = {
     "500mb": { label: "500 MB", quota: "500 MB", amount: 250 },
     "1gb": { label: "1 GB", quota: "1 GB", amount: 500 }
   };
 
-  let selected = new URLSearchParams(location.search).get("plan");
-  if (!plans[selected]) selected = "500mb";
-
   const summaryPlan = document.getElementById("summaryPlan");
   const summaryQuota = document.getElementById("summaryQuota");
   const summaryAmount = document.getElementById("summaryAmount");
-  const gatewayAmount = document.getElementById("gatewayAmount");
+  const customerPhone = document.getElementById("customerPhone");
   const payButton = document.getElementById("payButton");
   const status = document.getElementById("status");
 
-  let gatewayConfig = null;
-  let currentOrder = null;
-  let currentOrderKey = "";
-  let orderRequestVersion = 0;
-  let orderPreparing = false;
-  let sdkPromise = null;
+  let plans = { ...fallbackPlans };
+  let selected = new URLSearchParams(location.search).get("plan");
+  if (!plans[selected]) selected = "500mb";
+
+  let cashfree = null;
   let busy = false;
 
-  function authToken() {
-    try {
-      return String(
-        localStorage.getItem("milan_token") ||
-        localStorage.getItem("milanToken") ||
-        ""
-      ).trim();
-    } catch (_) {
-      return "";
-    }
+  function token() {
+    return localStorage.getItem("milan_token") || "";
   }
 
-  function currentUser() {
-    try {
-      return JSON.parse(localStorage.getItem("milan_user") || "{}");
-    } catch (_) {
-      return {};
-    }
-  }
-
-  function setStatus(message) {
+  function setStatus(message, error = false) {
     status.textContent = message || "";
+    status.classList.toggle("error", !!error);
   }
 
-  function loadRazorpay() {
-    if (window.Razorpay) return Promise.resolve(true);
-    if (sdkPromise) return sdkPromise;
+  function normalizePhone(value) {
+    const digits = String(value || "").replace(/\D/g, "");
+    return digits.length >= 10 && digits.length <= 15 ? digits : "";
+  }
 
-    sdkPromise = new Promise((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.async = true;
-      script.onload = () => resolve(!!window.Razorpay);
-      script.onerror = () => reject(new Error("Secure payment checkout could not load."));
-      document.head.appendChild(script);
-    });
-
-    return sdkPromise;
+  function render() {
+    const plan = plans[selected];
+    summaryPlan.textContent = plan.label;
+    summaryQuota.textContent = plan.quota;
+    summaryAmount.textContent = "₹" + Number(plan.amount).toLocaleString("en-IN");
+    payButton.disabled = busy;
+    payButton.textContent = busy
+      ? "Preparing Secure Checkout..."
+      : (token() ? "Pay & Upgrade" : "Login to Pay");
   }
 
   async function loadConfig() {
     const response = await fetch("/api/payment/config", {
-      method: "GET",
-      headers: { "Accept": "application/json" },
+      headers: { Accept: "application/json" },
       cache: "no-store"
     });
+
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || "Payment configuration unavailable.");
-    gatewayConfig = data;
+
+    if (!response.ok) {
+      throw new Error(data.error || "Payment configuration unavailable.");
+    }
+
+    if (data.plans) {
+      plans = {
+        "500mb": {
+          label: data.plans["500mb"]?.name || "500 MB",
+          quota: "500 MB",
+          amount: Number(data.plans["500mb"]?.amountInr || 250)
+        },
+        "1gb": {
+          label: data.plans["1gb"]?.name || "1 GB",
+          quota: "1 GB",
+          amount: Number(data.plans["1gb"]?.amountInr || 500)
+        }
+      };
+    }
+
+    render();
     return data;
   }
 
-  async function createPaymentOrder() {
-    const token = authToken();
-    if (!token) throw new Error("Please log in to continue.");
+  function initCashfree(environment) {
+    if (typeof window.Cashfree !== "function") {
+      throw new Error("Cashfree Checkout failed to load.");
+    }
 
+    cashfree = window.Cashfree({
+      mode: environment === "production" ? "production" : "sandbox"
+    });
+  }
+
+  async function createOrder(phone) {
     const response = await fetch("/api/payment/create-order", {
       method: "POST",
       headers: {
-        "Accept": "application/json",
+        Accept: "application/json",
         "Content-Type": "application/json",
-        "Authorization": "Bearer " + token
+        Authorization: "Bearer " + token()
       },
-      body: JSON.stringify({ plan: selected }),
+      body: JSON.stringify({
+        plan: selected,
+        customerPhone: phone
+      }),
       cache: "no-store"
     });
 
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || "Could not create the payment order.");
+
+    if (!response.ok) {
+      throw new Error(data.error || "Could not create payment order.");
+    }
+
+    if (!data.orderId || !data.paymentSessionId) {
+      throw new Error("Cashfree payment session was not returned.");
+    }
+
     return data;
   }
 
-  async function preparePaymentOrder() {
-    const token = authToken();
-    if (!token) {
-      currentOrder = null;
-      currentOrderKey = "";
-      render();
-      return;
-    }
-    if (!gatewayConfig?.configured) {
-      render();
-      return;
-    }
-
-    const orderKey = selected + "|" + plans[selected].amount;
-    if (currentOrder && currentOrderKey === orderKey) {
-      render();
-      return;
-    }
-
-    const version = ++orderRequestVersion;
-    orderPreparing = true;
-    setStatus("Preparing secure checkout…");
-    render();
-
-    try {
-      const order = await createPaymentOrder();
-      if (version !== orderRequestVersion) return;
-      currentOrder = order;
-      currentOrderKey = orderKey;
-      setStatus("Secure checkout is ready.");
-    } catch (error) {
-      currentOrder = null;
-      currentOrderKey = "";
-      setStatus(error.message || "Payment setup failed.");
-    } finally {
-      if (version === orderRequestVersion) {
-        orderPreparing = false;
-        render();
-      }
-    }
-  }
-
-  async function verifyPayment(response) {
-    const token = authToken();
-
-    const verifyResponse = await fetch("/api/payment/verify", {
+  async function verifyOrder(orderId) {
+    const response = await fetch("/api/payment/verify", {
       method: "POST",
       headers: {
-        "Accept": "application/json",
+        Accept: "application/json",
         "Content-Type": "application/json",
-        "Authorization": "Bearer " + token
+        Authorization: "Bearer " + token()
       },
-      body: JSON.stringify(response),
+      body: JSON.stringify({ orderId }),
       cache: "no-store"
     });
 
-    const data = await verifyResponse.json().catch(() => ({}));
-    if (!verifyResponse.ok) {
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
       throw new Error(data.error || "Payment verification failed.");
     }
+
     return data;
   }
 
-  async function waitForPaymentStatus(orderId) {
-    const token = authToken();
-    if (!token || !orderId) return null;
+  async function recoverPayment(orderId, attempts = 8) {
+    for (let i = 0; i < attempts; i++) {
+      try {
+        const result = await verifyOrder(orderId);
 
-    for (let attempt = 0; attempt < 6; attempt += 1) {
-      if (attempt > 0) {
-        await new Promise(resolve => setTimeout(resolve, 1800));
+        if (result?.status === "paid") {
+          setStatus("✅ Payment confirmed. Storage upgraded.");
+          payButton.textContent = "Payment Complete ✓";
+          sessionStorage.removeItem("milanPaymentOrderId");
+          return true;
+        }
+
+        if (result?.status === "pending") {
+          setStatus("Payment is processing. Checking securely...");
+        }
+
+        if (result?.status === "failed") {
+          setStatus("Payment was not completed.", true);
+          return false;
+        }
+      } catch (error) {
+        if (i === attempts - 1) {
+          setStatus(error.message || "Unable to verify payment.", true);
+          return false;
+        }
       }
 
-      const response = await fetch(
-        "/api/payment/status?orderId=" + encodeURIComponent(orderId),
-        {
-          headers: {
-            "Accept": "application/json",
-            "Authorization": "Bearer " + token
-          },
-          cache: "no-store"
-        }
-      );
-
-      const data = await response.json().catch(() => ({}));
-      if (response.ok && data.status === "paid") return data;
+      await new Promise(resolve => setTimeout(resolve, 1500));
     }
 
-    return null;
+    setStatus("Payment status is still processing. Please check again shortly.");
+    return false;
   }
 
-  function completeUI() {
-    busy = false;
-    payButton.disabled = false;
-    payButton.textContent = "Payment Complete ✓";
-    setStatus("✅ Payment verified. Your MILAN storage has been upgraded.");
-    if (currentOrder?.orderId) {
-      try { sessionStorage.removeItem("milanPaymentOrderId"); } catch (_) {}
+  async function openCheckout() {
+    if (!token()) {
+      window.location.href = "/login";
+      return;
     }
-    currentOrder = null;
-    currentOrderKey = "";
-  }
 
-  async function handleSuccessfulPayment(response) {
+    const phone = normalizePhone(customerPhone.value);
+
+    if (!phone) {
+      setStatus("Enter a valid phone number, including country code for international numbers.", true);
+      customerPhone.focus();
+      return;
+    }
+
     busy = true;
-    payButton.disabled = true;
-    payButton.textContent = "Verifying payment…";
-    setStatus("Payment received. Verifying securely…");
+    render();
+    setStatus("Creating secure payment order...");
 
     try {
-      await verifyPayment(response);
-      completeUI();
-    } catch (verifyError) {
-      // Mobile networks can drop the browser callback after the payment succeeds.
-      // Fall back to the server-side status/webhook path before telling the user to retry.
-      const fallback = await waitForPaymentStatus(response.razorpay_order_id).catch(() => null);
-      if (fallback?.status === "paid") {
-        completeUI();
-        return;
+      const config = await loadConfig();
+
+      if (!config?.configured) {
+        throw new Error("Cashfree payments are not configured yet.");
       }
 
-      busy = false;
-      payButton.disabled = false;
-      payButton.textContent = "Try payment again";
-      setStatus(verifyError.message || "Payment verification failed.");
-    }
-  }
+      initCashfree(config.environment);
 
-  function openCheckout() {
-    if (busy || orderPreparing) return;
+      const order = await createOrder(phone);
 
-    const token = authToken();
-    if (!token) {
-      setStatus("Please log in to continue.");
-      return;
-    }
+      sessionStorage.setItem("milanPaymentOrderId", order.orderId);
+      setStatus("Opening Cashfree secure checkout...");
 
-    if (!gatewayConfig?.configured || !currentOrder) {
-      setStatus("Secure checkout is still preparing. Please try again in a moment.");
-      preparePaymentOrder();
-      return;
-    }
-
-    if (!window.Razorpay) {
-      setStatus("Secure checkout is still loading. Please try again.");
-      loadRazorpay().catch(error => setStatus(error.message));
-      return;
-    }
-
-    const user = currentUser();
-    const options = {
-      key: currentOrder.keyId || gatewayConfig.keyId,
-      amount: currentOrder.amount,
-      currency: "INR",
-      name: "MILAN",
-      description: plans[selected].label + " Storage Upgrade",
-      order_id: currentOrder.orderId,
-      prefill: {
-        name: String(user.name || user.profile?.display_name || "").trim(),
-        email: String(user.email || "").trim()
-      },
-      notes: {
-        plan: selected,
-        product: "MILAN Storage Upgrade"
-      },
-      theme: {
-        color: "#8b5cf6",
-        backdrop_color: "#070b18"
-      },
-      modal: {
-        confirm_close: true,
-        escape: true,
-        ondismiss: function () {
-          if (!busy) {
-            setStatus("Checkout closed. Your order is still available.");
-            payButton.disabled = false;
-            payButton.textContent = "Pay securely with Razorpay";
-          }
-        }
-      },
-      handler: handleSuccessfulPayment
-    };
-
-    try {
-      const razorpay = new window.Razorpay(options);
-      razorpay.on("payment.failed", function (event) {
-        busy = false;
-        payButton.disabled = false;
-        payButton.textContent = "Try payment again";
-        setStatus(event?.error?.description || "Payment failed. You can try again.");
+      const result = await cashfree.checkout({
+        paymentSessionId: order.paymentSessionId,
+        redirectTarget: "_modal"
       });
-      razorpay.open();
+
+      if (result?.error) {
+        setStatus("Checkout returned an error. Checking payment status...");
+      } else {
+        setStatus("Payment submitted. Verifying securely...");
+      }
+
+      await recoverPayment(order.orderId);
     } catch (error) {
+      setStatus(error.message || "Payment could not be started.", true);
+    } finally {
       busy = false;
-      payButton.disabled = false;
-      payButton.textContent = "Pay securely with Razorpay";
-      setStatus("Could not open secure checkout. Please try again.");
-      console.error("[MILAN payment] checkout open failed:", error);
+      render();
     }
   }
 
   window.selectPlan = function(plan) {
     if (!plans[plan]) return;
+
     selected = plan;
-    history.replaceState({}, "", "/storage-upgrade.html?plan=" + encodeURIComponent(selected));
-    currentOrder = null;
-    currentOrderKey = "";
+    history.replaceState(
+      {},
+      "",
+      "/storage-upgrade.html?plan=" + encodeURIComponent(selected)
+    );
+
     render();
-    preparePaymentOrder();
-    document.getElementById("payment").scrollIntoView({ behavior: "smooth", block: "start" });
+
+    document.getElementById("payment")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
   };
-
-  function render() {
-    const plan = plans[selected];
-    const loggedIn = !!authToken();
-
-    summaryPlan.textContent = plan.label;
-    summaryQuota.textContent = plan.quota;
-    summaryAmount.textContent = "₹" + plan.amount.toLocaleString("en-IN");
-    gatewayAmount.textContent = "₹" + plan.amount.toLocaleString("en-IN");
-
-    if (!loggedIn) {
-      payButton.disabled = true;
-      payButton.textContent = "Log in to pay";
-      if (!status.textContent) setStatus("Please log in to continue.");
-      return;
-    }
-
-    if (!gatewayConfig?.configured) {
-      payButton.disabled = true;
-      payButton.textContent = "Payment gateway unavailable";
-      if (!status.textContent) setStatus("Live payments are not configured yet.");
-      return;
-    }
-
-    const ready = !!currentOrder && !orderPreparing && !busy && !!window.Razorpay;
-    payButton.disabled = !ready;
-    if (!busy) {
-      payButton.textContent = ready ? "Pay securely with Razorpay" : "Preparing secure checkout…";
-    }
-  }
 
   payButton.addEventListener("click", openCheckout);
 
-  // Load the gateway and configuration in parallel. The order is prepared ahead
-  // of the tap so iOS/Android browsers can open Checkout inside the user gesture.
-  Promise.allSettled([loadConfig(), loadRazorpay()]).then(results => {
-    const configResult = results[0];
-    if (configResult.status === "rejected") {
-      setStatus(configResult.reason?.message || "Payment configuration unavailable.");
-    } else if (!configResult.value?.configured) {
-      setStatus("Live payments are not configured yet.");
-    }
-    render();
-    preparePaymentOrder();
-  });
+  async function handleReturn() {
+    const params = new URLSearchParams(location.search);
+    const orderId =
+      params.get("order_id") ||
+      sessionStorage.getItem("milanPaymentOrderId") ||
+      "";
+
+    if (!orderId || params.get("payment") !== "return" || !token()) return;
+
+    setStatus("Checking returned payment securely...");
+    await recoverPayment(orderId);
+  }
 
   render();
+
+  loadConfig()
+    .catch(error => setStatus(error.message || "Payment configuration unavailable.", true))
+    .finally(handleReturn);
 })();
-</script>
 </script>
 </body>
 </html>
