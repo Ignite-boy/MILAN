@@ -9,6 +9,7 @@ const { ensureFile, hydrateFilesFromSupabase, repairUsersFile } = require('./uti
 const dwnStore = require('./services/dwnService');
 const { dwnRoot, databaseRoot, persistenceInfo } = require('./services/cloudDwnRegistry');
 const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || process.env.APP_PUBLIC_URL || process.env.SEO_CANONICAL_URL || 'https://milanlife.in';
+const seoKnowledge = require('./utils/seoKnowledge');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -350,117 +351,9 @@ app.get('/google9928e17b30912a08.html', (_req, res) => {
   res.type('text/html').send('google-site-verification: google9928e17b30912a08.html');
 });
 app.get('/robots.txt', (_req, res) => {
-  res.setHeader('Cache-Control', 'public, max-age=3600');
-  res.setHeader('X-Robots-Tag', 'all');
-  res.type('text/plain').send(`# MILAN — Decentralized Social Media (DWN + DID)
-# https://milanlife.in
-
-User-agent: Googlebot
-Allow: /
-Disallow: /api/
-Disallow: /admin
-Disallow: /admin-users
-
-User-agent: Googlebot-Image
-Allow: /
-Allow: /assets/
-Allow: /media/
-Allow: /uploads/
-
-User-agent: Googlebot-Video
-Allow: /
-Allow: /media/
-Allow: /uploads/
-
-User-agent: Bingbot
-Allow: /
-Disallow: /api/
-Disallow: /admin
-Disallow: /admin-users
-
-User-agent: DuckDuckBot
-Allow: /
-Disallow: /api/
-Disallow: /admin
-Disallow: /admin-users
-
-User-agent: Slurp
-Allow: /
-Disallow: /api/
-
-User-agent: Applebot
-Allow: /
-Disallow: /api/
-
-User-agent: facebookexternalhit
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: LinkedInBot
-Allow: /
-
-User-agent: WhatsApp
-Allow: /
-
-User-agent: Telegrambot
-Allow: /
-
-# AI / LLM crawlers (allow brand discovery)
-User-agent: GPTBot
-Allow: /
-Disallow: /api/
-
-User-agent: OAI-SearchBot
-Allow: /
-
-User-agent: ChatGPT-User
-Allow: /
-
-User-agent: PerplexityBot
-Allow: /
-
-User-agent: ClaudeBot
-Allow: /
-
-User-agent: Claude-Web
-Allow: /
-
-User-agent: anthropic-ai
-Allow: /
-
-User-agent: cohere-ai
-Allow: /
-
-User-agent: Bytespider
-Allow: /
-
-User-agent: Amazonbot
-Allow: /
-
-User-agent: Google-Extended
-Allow: /
-
-User-agent: *
-Allow: /
-Disallow: /api/
-Disallow: /admin
-Disallow: /admin-users
-Disallow: /api/admin/
-Disallow: /settings
-Disallow: /verify-email
-Disallow: /reset-password
-Disallow: /forgot-password
-
-# AI guidance file (GEO): ${PUBLIC_BASE_URL}/llms.txt
-# Topic / keyword index: ${PUBLIC_BASE_URL}/keywords
-Host: ${PUBLIC_BASE_URL.replace(/^https?:\/\//, '')}
-Sitemap: ${PUBLIC_BASE_URL}/sitemap-index.xml
-Sitemap: ${PUBLIC_BASE_URL}/sitemap.xml
-Sitemap: ${PUBLIC_BASE_URL}/sitemap-keywords.xml
-Sitemap: ${PUBLIC_BASE_URL}/sitemap-cities.xml
-`);
+  res.setHeader('Cache-Control','public, max-age=3600');
+  res.setHeader('X-Robots-Tag','all');
+  res.type('text/plain; charset=utf-8').send(seoKnowledge.buildRobots(PUBLIC_BASE_URL));
 });
 app.get('/favicon.ico', (_req, res) => {
   res.type('image/x-icon');
