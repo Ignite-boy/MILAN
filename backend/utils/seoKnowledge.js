@@ -255,6 +255,12 @@ const PAGES = [
     "intent": "informational"
   },
   {
+    "url": "/decentralized-web-node",
+    "name": "Decentralized Web Node (DWN)",
+    "type": "TechArticle",
+    "intent": "informational"
+  },
+  {
     "url": "/private-social-network",
     "name": "Private Social Network",
     "type": "WebPage",
