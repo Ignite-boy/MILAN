@@ -74,8 +74,9 @@ async function decodeStoredData(value) {
   }
 }
 
-async function conversationMessages(meDid, otherDid) {
+async function conversationMessages(meDid, otherDid, options = {}) {
   const conversationId = conversationIdFor(meDid, otherDid);
+  const afterMs = Date.parse(options.after || '');
 
   const { data: rows, error } = await supabase
     .from('dwn_records')
@@ -120,6 +121,7 @@ async function conversationMessages(meDid, otherDid) {
     };
   })
   .filter(message =>
+    (!Number.isFinite(afterMs) || Date.parse(message.sentAt || '') > afterMs) &&
     message.conversationId === conversationId &&
     (message.senderDid === meDid || message.sharedWithDids.includes(meDid)) &&
     (
@@ -256,7 +258,7 @@ router.get('/health', (_req, res) => {
     chat: 'ready',
     transport: 'DWN shared record',
     persistence: 'Supabase authoritative DWN',
-    realtime: 'SSE when co-located; 2s client fallback'
+    realtime: 'SSE accelerator; cross-instance Supabase sync fallback'
   });
 });
 
@@ -287,6 +289,32 @@ router.get('/with/:did', auth, async (req, res) => {
   } catch (err) {
     console.error('[chat/get]', err);
     return res.status(500).json({ error: 'Chat history unavailable' });
+  }
+});
+
+router.get('/with/:did/messages', auth, async (req, res) => {
+  const meDid = didOf(req.did || req.account?.did);
+  const otherDid = didOf(req.params.did);
+  const after = String(req.query.after || '').trim();
+
+  if (!meDid) return res.status(401).json({ error: 'Authenticated DID unavailable' });
+  if (!otherDid) return res.status(400).json({ error: 'Recipient DID required' });
+  if (meDid === otherDid) return res.status(400).json({ error: 'Cannot chat with yourself' });
+
+  try {
+    const recipient = await recipientByDid(otherDid);
+    if (!recipient) return res.status(404).json({ error: 'Person not found' });
+
+    const messages = await conversationMessages(meDid, otherDid, { after });
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({
+      ok: true,
+      conversationId: conversationIdFor(meDid, otherDid),
+      messages
+    });
+  } catch (err) {
+    console.error('[chat/messages]', err);
+    return res.status(500).json({ error: 'Live message sync unavailable' });
   }
 });
 

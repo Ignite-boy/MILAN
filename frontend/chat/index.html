@@ -785,13 +785,12 @@
           </div>
 
           <div class="chat-conversation" id="conversation">
-            <div class="chat-system-note" id="conversationNote">Conversation ready. Messages will appear here.</div>
+            <div class="chat-system-note" id="conversationNote">Live conversation ready. Messages sync automatically.</div>
           </div>
         </section>
 
         <form class="chat-composer" id="composer">
           <div class="chat-compose-box">
-            <button class="chat-attach" type="button" aria-label="Attach file" title="Attachments">＋</button>
             <textarea id="messageInput" rows="1" placeholder="Select a person to start chatting…" disabled></textarea>
           </div>
           <button class="chat-send" type="submit" id="sendBtn" disabled aria-label="Send message">➤</button>
@@ -836,10 +835,13 @@
   let eventStream = null;
   let loadingConversation = false;
   let sending = false;
+  let currentMessages = [];
+  let chatPollBusy = false;
+  let conversationPollTick = 0;
 
   const getToken = () => {
     try {
-      return localStorage.getItem("milan_token") || localStorage.getItem("milan_token") || "";
+      return localStorage.getItem("milan_token") || "";
     } catch (_) { return ""; }
   };
 
@@ -1010,23 +1012,47 @@
 
   function renderMessages(messages) {
     if (!selected) return;
+    currentMessages = Array.isArray(messages) ? [...messages] : [];
 
-    if (!Array.isArray(messages) || !messages.length) {
+    if (!currentMessages.length) {
       conversation.innerHTML =
         '<div class="chat-system-note">No messages yet. Say hello to ' +
         esc(selected.name || "this person") + '.</div>';
       return;
     }
 
-    conversation.innerHTML = messages.map(message => {
+    conversation.innerHTML = currentMessages.map(message => {
       const mine = message.senderDid === myDid;
       const time = message.sentAt ? new Date(message.sentAt).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}) : "";
+      const state = message.status === "sending" ? " · Sending…" : (mine ? " · Sent" : "");
       return '<div class="chat-message-row ' + (mine ? "mine" : "") + '">'
         + '<div class="chat-bubble">'
         + '<div>' + esc(message.text).replace(/\n/g, "<br>") + '</div>'
-        + '<div class="chat-meta">' + esc(time) + (mine ? " · Sent" : "") + '</div>'
+        + '<div class="chat-meta">' + esc(time) + esc(state) + '</div>'
         + '</div></div>';
     }).join("");
+  }
+
+  function mergeMessages(incoming) {
+    if (!Array.isArray(incoming) || !incoming.length) return false;
+
+    const map = new Map();
+    for (const message of currentMessages) {
+      const key = String(message.messageId || message.id || "");
+      if (key) map.set(key, message);
+    }
+    for (const message of incoming) {
+      const key = String(message.messageId || message.id || "");
+      if (!key) continue;
+      map.set(key, message);
+    }
+
+    const merged = [...map.values()]
+      .sort((a, b) => Date.parse(a.sentAt || "") - Date.parse(b.sentAt || ""));
+    const changed = merged.length !== currentMessages.length ||
+      merged.some((message, index) => String(message.messageId || message.id || "") !== String(currentMessages[index]?.messageId || currentMessages[index]?.id || ""));
+    currentMessages = merged;
+    return changed;
   }
 
   function scrollConversationToBottom(force) {
@@ -1076,7 +1102,7 @@
     emptyState.style.display = "none";
     conversation.style.display = "flex";
     currentName.textContent = person.name || "MILAN User";
-    currentSub.textContent = "Private DWN conversation · " +
+    currentSub.textContent = "Live sync · Private conversation · " +
       String(person.did || "").slice(0, 34) +
       (String(person.did || "").length > 34 ? "…" : "");
     currentAvatar.innerHTML = avatarMarkup(person);
@@ -1114,19 +1140,35 @@
     }
   }
 
-  async function loadConversation(silent = true, forceBottom = false) {
+  async function loadConversation(silent = true, forceBottom = false, incremental = false) {
     if (!selected || loadingConversation) return;
     loadingConversation = true;
 
     const did = selected.did;
     try {
-      const data = await api("/api/chat/with/" + encodeURIComponent(did));
+      const last = currentMessages[currentMessages.length - 1];
+      const after = incremental && last?.sentAt ? "&after=" + encodeURIComponent(last.sentAt) : "";
+      const path = incremental
+        ? "/api/chat/with/" + encodeURIComponent(did) + "/messages?after=" + encodeURIComponent(last?.sentAt || "")
+        : "/api/chat/with/" + encodeURIComponent(did);
+
+      const data = await api(path);
       if (!selected || selected.did !== did) return;
-      renderMessages(data.messages || []);
-      const latest = data.messages?.[data.messages.length - 1];
+
+      if (incremental) {
+        const changed = mergeMessages(data.messages || []);
+        if (changed) {
+          renderMessages(currentMessages);
+          scrollConversationToBottom(false);
+        }
+      } else {
+        renderMessages(data.messages || []);
+        scrollConversationToBottom(forceBottom);
+      }
+
+      const latest = currentMessages[currentMessages.length - 1];
       if (latest?.sentAt) markRead(did, latest.sentAt);
-      scrollConversationToBottom(forceBottom);
-      if (listMode === "conversations") loadConversations().catch(() => {});
+      if (!incremental && listMode === "conversations") loadConversations().catch(() => {});
     } catch (err) {
       if (!silent) showChatError(err);
     } finally {
@@ -1145,9 +1187,28 @@
     const recipientDid = selected.did;
     const text = input.value.trim();
     const clientMessageId = (globalThis.crypto?.randomUUID?.() || ("m-" + Date.now() + "-" + Math.random().toString(16).slice(2)));
+    const pendingMessage = {
+      id: "pending-" + clientMessageId,
+      messageId: clientMessageId,
+      conversationId: "",
+      senderDid: myDid,
+      recipientDid,
+      text,
+      sentAt: new Date().toISOString(),
+      status: "sending"
+    };
 
     sending = true;
     sendBtn.disabled = true;
+
+    if (selected?.did === recipientDid) {
+      currentMessages = [...currentMessages, pendingMessage];
+      renderMessages(currentMessages);
+      scrollConversationToBottom(true);
+      input.value = "";
+      input.style.height = "auto";
+      setComposerEnabled(true);
+    }
 
     try {
       const data = await api("/api/chat/with/" + encodeURIComponent(recipientDid) + "/messages", {
@@ -1155,12 +1216,23 @@
         body: JSON.stringify({ text, clientMessageId })
       });
 
-      if (!selected || selected.did !== recipientDid) return;
-      input.value = "";
-      input.style.height = "auto";
-      await loadConversation(true, true);
+      if (selected?.did === recipientDid) {
+        currentMessages = currentMessages.filter(message => String(message.messageId || message.id) !== clientMessageId);
+        currentMessages = [...currentMessages, data.message];
+        renderMessages(currentMessages);
+        scrollConversationToBottom(true);
+        if (data.message?.sentAt) markRead(recipientDid, data.message.sentAt);
+      }
       await loadConversations();
     } catch (err) {
+      if (selected?.did === recipientDid) {
+        currentMessages = currentMessages.filter(message => String(message.messageId || message.id) !== clientMessageId);
+        renderMessages(currentMessages);
+        input.value = text;
+        input.style.height = "auto";
+        setComposerEnabled(true);
+        input.focus({preventScroll:true});
+      }
       showChatError(err);
     } finally {
       sending = false;
@@ -1182,7 +1254,7 @@
           if (String(data.notifType || "") !== "chat_message") return;
 
           if (!document.hidden && selected) {
-            loadConversation(true, false).catch(() => {});
+            loadConversation(true, false, true).catch(() => {});
             loadConversations().catch(() => {});
           } else {
             document.title = "New message · Milan Chat";
@@ -1195,11 +1267,20 @@
 
   function startPolling() {
     if (pollingTimer) clearInterval(pollingTimer);
+    conversationPollTick = 0;
     pollingTimer = setInterval(() => {
       if (document.hidden) return;
-      loadConversations().catch(() => {});
-      if (selected) loadConversation(true, false).catch(() => {});
-    }, 2000);
+      conversationPollTick += 1;
+
+      if (selected && !chatPollBusy) {
+        chatPollBusy = true;
+        loadConversation(true, false, true).finally(() => { chatPollBusy = false; });
+      }
+
+      if (conversationPollTick % 4 === 0) {
+        loadConversations().catch(() => {});
+      }
+    }, 1000);
   }
 
   search.addEventListener("input", () => {
@@ -1262,7 +1343,7 @@
     if (!document.hidden) {
       loadConversations().catch(() => {});
       if (listMode === "people") loadPeople().catch(() => {});
-      if (selected) loadConversation(true, false).catch(() => {});
+      if (selected) loadConversation(true, false, false).catch(() => {});
     }
   });
 
