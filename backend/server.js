@@ -369,145 +369,54 @@ app.get('/favicon.svg', (_req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/favicon.svg'));
 });
 app.get('/sitemap.xml', (_req, res) => {
-  res.setHeader('Cache-Control', 'public, max-age=3600');
-  res.setHeader('X-Robots-Tag', 'all');
-  const today = new Date().toISOString().slice(0, 10);
-  res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
-  <url>
-    <loc>${PUBLIC_BASE_URL}/</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
-    <image:image>
-      <image:loc>${PUBLIC_BASE_URL}/assets/og-cover.png</image:loc>
-      <image:title>MILAN — Decentralized Social Media</image:title>
-      <image:caption>Privacy-first decentralized social network built on DWN and DID.</image:caption>
-    </image:image>
-  </url>
-  <url>
-    <loc>${PUBLIC_BASE_URL}/app</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>${PUBLIC_BASE_URL}/music</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>${PUBLIC_BASE_URL}/decentralized-social-media</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>${PUBLIC_BASE_URL}/private-social-network</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>${PUBLIC_BASE_URL}/best-social-media-apps</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>${PUBLIC_BASE_URL}/what-is-web5</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>${PUBLIC_BASE_URL}/social-media-privacy</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>${PUBLIC_BASE_URL}/about</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>${PUBLIC_BASE_URL}/privacy</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>${PUBLIC_BASE_URL}/terms</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>${PUBLIC_BASE_URL}/disclaimer</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
-  </url>
-  <url>
-    <loc>${PUBLIC_BASE_URL}/cookie-policy</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
-  </url>
-  <url>
-    <loc>${PUBLIC_BASE_URL}/keywords</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>${PUBLIC_BASE_URL}/llms.txt</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>${PUBLIC_BASE_URL}/ai-info</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-</urlset>`);
+  res.setHeader('Cache-Control','public, max-age=3600');
+  res.setHeader('X-Robots-Tag','all');
+  res.type('application/xml; charset=utf-8').send(seoKnowledge.buildSitemap(PUBLIC_BASE_URL));
 });
-app.get(['/keywords', '/keywords.html', '/topics'], (_req, res) => res.sendFile(path.join(__dirname, '../frontend/keywords.html')));
+app.get(['/sitemap-index.xml','/sitemap_index.xml'], (_req, res) => {
+  res.setHeader('Cache-Control','public, max-age=3600');
+  res.setHeader('X-Robots-Tag','all');
+  res.type('application/xml; charset=utf-8').send(seoKnowledge.buildSitemapIndex(PUBLIC_BASE_URL));
+});
+app.get('/sitemap-keywords.xml', (_req, res) => res.status(410).set('X-Robots-Tag','noindex').type('text/plain').send('Gone: use /sitemap.xml'));
+app.get('/sitemap-cities.xml', (_req, res) => res.status(410).set('X-Robots-Tag','noindex').type('text/plain').send('Gone: city pages are not currently published'));
+app.get(['/keywords','/keywords.html','/topics'], (_req, res) => {
+  res.setHeader('Cache-Control','public, max-age=3600');
+  res.setHeader('X-Robots-Tag','noindex, follow');
+  res.type('html; charset=utf-8').send(seoKnowledge.buildKeywordIndexHtml());
+});
 app.get('/keywords.json', (_req, res) => {
-  res.type('application/json');
-  res.setHeader('Cache-Control', 'public, max-age=3600');
-  res.sendFile(path.join(__dirname, '../frontend/keywords.json'));
+  res.setHeader('Cache-Control','public, max-age=3600');
+  res.setHeader('X-Robots-Tag','noindex');
+  res.type('application/json; charset=utf-8').send(JSON.stringify(seoKnowledge.buildKeywords()));
 });
-app.get('/sitemap-keywords.xml', (_req, res) => {
-  res.setHeader('Cache-Control', 'public, max-age=3600');
-  res.setHeader('X-Robots-Tag', 'all');
-  res.type('application/xml').sendFile(path.join(__dirname, '../frontend/sitemap-keywords.xml'));
+app.get('/api/seo/robots.txt', (_req, res) => res.type('text/plain; charset=utf-8').send(seoKnowledge.buildRobots(PUBLIC_BASE_URL)));
+app.get('/api/seo/sitemap.xml', (_req, res) => res.type('application/xml; charset=utf-8').send(seoKnowledge.buildSitemap(PUBLIC_BASE_URL)));
+app.get('/api/seo/sitemap-index.xml', (_req, res) => res.type('application/xml; charset=utf-8').send(seoKnowledge.buildSitemapIndex(PUBLIC_BASE_URL)));
+app.get('/api/seo/llms.txt', (_req, res) => {
+  res.setHeader('Cache-Control','public, max-age=3600');
+  res.setHeader('X-Robots-Tag','noindex');
+  res.type('text/plain; charset=utf-8').send(seoKnowledge.buildLlms());
 });
-app.get(['/sitemap-index.xml', '/sitemap_index.xml'], (_req, res) => {
-  res.setHeader('Cache-Control', 'public, max-age=3600');
-  res.setHeader('X-Robots-Tag', 'all');
-  const today = new Date().toISOString().slice(0, 10);
-  res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>
-<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <sitemap>
-    <loc>${PUBLIC_BASE_URL}/sitemap.xml</loc>
-    <lastmod>${today}</lastmod>
-  </sitemap>
-  <sitemap>
-    <loc>${PUBLIC_BASE_URL}/sitemap-keywords.xml</loc>
-    <lastmod>${today}</lastmod>
-  </sitemap>
-  <sitemap>
-    <loc>${PUBLIC_BASE_URL}/sitemap-cities.xml</loc>
-    <lastmod>${today}</lastmod>
-  </sitemap>
-</sitemapindex>`);
+app.get('/api/seo/keywords.json', (_req, res) => {
+  res.setHeader('Cache-Control','public, max-age=3600');
+  res.setHeader('X-Robots-Tag','noindex');
+  res.type('application/json; charset=utf-8').send(JSON.stringify(seoKnowledge.buildKeywords()));
+});
+app.get('/api/seo/ai-info', (_req, res) => {
+  res.setHeader('Cache-Control','public, max-age=3600');
+  res.setHeader('X-Robots-Tag','noindex');
+  res.json(seoKnowledge.buildAiInfo());
+});
+app.get('/api/seo/keywords', (_req, res) => {
+  res.setHeader('Cache-Control','public, max-age=3600');
+  res.setHeader('X-Robots-Tag','noindex, follow');
+  res.type('html; charset=utf-8').send(seoKnowledge.buildKeywordIndexHtml());
+});
+app.get('/api/seo/status', (_req, res) => {
+  const keywords = seoKnowledge.buildKeywords();
+  const ai = seoKnowledge.buildAiInfo();
+  res.json({ok:true,target:'100% SEO + RSEO + GEO + RAG',technicalSEO:{canonicalHost:true,robots:true,sitemap:true,indexablePageSet:seoKnowledge.PAGES.length},rseo:{curatedKeywords:keywords.totalKeywords,syntheticKeywordGeneration:false},geo:{entityModel:true,llmsTxt:true,aiInfo:true,canonicalPages:seoKnowledge.PAGES.length},rag:{chunkingGuidance:true,metadataFields:ai.retrieval.metadataFields.length,entityRelationships:seoKnowledge.RELATIONSHIPS.length},updatedAt:new Date().toISOString()});
 });
 app.get(['/decentralized-social-media', '/decentralized-social-network', '/own-your-data', '/own-your-data-social-media', '/data-ownership-social-network', '/web5-social-network'], (_req, res) => res.sendFile(path.join(__dirname, '../frontend/decentralized-social-media.html')));
 app.get(['/private-social-network', '/whatsapp-alternative', '/instagram-alternative', '/facebook-alternative', '/no-tracking-social-app', '/ad-free-social-network', '/private-social-app-india'], (_req, res) => res.sendFile(path.join(__dirname, '../frontend/private-social-network.html')));
