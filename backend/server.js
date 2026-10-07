@@ -85,6 +85,7 @@ app.use(compression({
 }));
 // Media uploads are streamed directly on /api/records/media.
 // Keep JSON body small for speed and protection on mobile/production.
+app.use('/api/payment/webhook', express.raw({ type: 'application/json', limit: '1mb' }));
 app.use(express.json({ limit: process.env.JSON_LIMIT || '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: process.env.URLENCODED_LIMIT || '10mb' }));
 
