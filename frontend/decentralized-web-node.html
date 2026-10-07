@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Decentralized Web Node (DWN) | How MILAN Uses DWN</title>
+  <meta name="description" content="Learn what a Decentralized Web Node (DWN) is, how DWN relates to DID, and how MILAN uses a user-centered DWN data layer for decentralized social networking.">
+  <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
+  <link rel="canonical" href="https://milanlife.in/decentralized-web-node">
+  <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/assets/milan-logo-circle.png?v=2" sizes="180x180">
+
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="MILAN">
+  <meta property="og:title" content="Decentralized Web Node (DWN) | How MILAN Uses DWN">
+  <meta property="og:description" content="A practical guide to Decentralized Web Nodes, DID identity and the DWN-oriented architecture behind MILAN.">
+  <meta property="og:url" content="https://milanlife.in/decentralized-web-node">
+  <meta property="og:image" content="https://milanlife.in/assets/og-cover.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="MILAN — Decentralized Social Web.">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Decentralized Web Node (DWN) | How MILAN Uses DWN">
+  <meta name="twitter:description" content="Understand DWN, DID and how MILAN uses a user-centered decentralized data layer for social networking.">
+  <meta name="twitter:image" content="https://milanlife.in/assets/og-cover.png">
+
+  <style>
+    :root{
+      --bg:#050a18;
+      --panel:#0b1430;
+      --panel2:#0d1838;
+      --line:rgba(155,177,255,.16);
+      --text:#eef3ff;
+      --muted:#afbdd8;
+      --brand1:#7a8cff;
+      --brand2:#dd4bc9;
+      --accent:#efb11a;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{
+      margin:0;
+      color:var(--text);
+      background:
+        radial-gradient(800px 460px at 10% -5%,rgba(66,99,255,.20),transparent 66%),
+        radial-gradient(760px 500px at 92% 8%,rgba(220,65,201,.13),transparent 64%),
+        var(--bg);
+      font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      line-height:1.75;
+    }
+    a{color:#b6c2ff}
+    .wrap{width:min(1100px,calc(100% - 36px));margin:auto;padding:28px 0 80px}
+    .top{display:flex;justify-content:space-between;align-items:center;gap:18px;margin-bottom:52px}
+    .brand{display:inline-flex;align-items:center;gap:10px;color:#fff;text-decoration:none;font-weight:950;letter-spacing:.16em}
+    .brand img{width:38px;height:38px;border-radius:12px}
+    nav{display:flex;gap:18px;flex-wrap:wrap;justify-content:flex-end}
+    nav a{text-decoration:none;color:var(--muted);font-size:13px;font-weight:800}
+    .crumbs{font-size:13px;color:#8292b8;margin-bottom:20px}
+    .hero{padding:34px 0 46px}
+    .eyebrow{font-size:11px;font-weight:950;letter-spacing:.16em;color:#9caed7;text-transform:uppercase}
+    h1{font-size:clamp(44px,7vw,82px);line-height:.98;letter-spacing:-.055em;max-width:900px;margin:15px 0 24px}
+    h1 span{background:linear-gradient(90deg,#f0b31c,#dd4bc9,#778cff);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .lead{font-size:21px;color:#c9d3e8;max-width:900px}
+    .hero-grid{display:grid;grid-template-columns:1.35fr .65fr;gap:18px;margin-top:30px}
+    .panel{border:1px solid var(--line);border-radius:24px;padding:26px;background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.018));box-shadow:0 24px 60px rgba(0,0,0,.22)}
+    .panel h2{margin:0 0 12px;font-size:29px;line-height:1.15}
+    .chips{display:flex;flex-wrap:wrap;gap:9px;margin-top:20px}
+    .chip{padding:7px 10px;border:1px solid var(--line);border-radius:999px;color:#cdd6ea;background:rgba(255,255,255,.025);font-size:12px;font-weight:800}
+    .signal{display:grid;gap:11px}
+    .signal div{padding:14px 15px;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.025)}
+    .signal b{display:block;font-size:12px;letter-spacing:.05em}
+    .signal span{display:block;color:#8fa0c4;font-size:12px;margin-top:3px}
+    main{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:24px;align-items:start}
+    article{min-width:0}
+    .toc{position:sticky;top:20px}
+    .toc a{display:block;text-decoration:none;color:#9faed0;font-size:13px;padding:7px 0}
+    section{scroll-margin-top:20px}
+    h2{font-size:34px;line-height:1.15;letter-spacing:-.025em;margin:52px 0 12px}
+    h3{font-size:21px;margin:28px 0 8px}
+    p{color:#c3cee4;font-size:16px}
+    .note{border-left:3px solid var(--accent);padding:8px 16px;background:rgba(239,177,26,.055);border-radius:0 12px 12px 0}
+    .compare{overflow:auto;border:1px solid var(--line);border-radius:18px;margin-top:18px}
+    table{width:100%;border-collapse:collapse;min-width:640px}
+    th,td{padding:14px 15px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+    th{font-size:12px;letter-spacing:.08em;color:#97a9cf}
+    td{font-size:14px;color:#cbd5e8}
+    .faq details{border-top:1px solid var(--line);padding:16px 0}
+    .faq details:last-child{border-bottom:1px solid var(--line)}
+    summary{cursor:pointer;font-weight:850;color:#eef3ff}
+    .refs a{word-break:break-word}
+    .cta{margin-top:22px;display:inline-flex;align-items:center;padding:13px 18px;border-radius:14px;background:linear-gradient(135deg,var(--brand1),var(--brand2));color:#fff;text-decoration:none;font-weight:950}
+    footer{margin-top:66px;color:#7787aa;font-size:13px;border-top:1px solid var(--line);padding-top:22px}
+    @media(max-width:800px){
+      .top{align-items:flex-start}.hero-grid,main{grid-template-columns:1fr}.toc{position:static;order:-1}
+    }
+    @media(max-width:560px){
+      .wrap{width:min(100% - 24px,1100px)}.panel{padding:20px}.lead{font-size:18px}h2{font-size:29px}
+      nav{gap:11px}.top{flex-direction:column}
+    }
+  </style>
+
+  <script type="application/ld+json">
+  {
+    "@context":"https://schema.org",
+    "@graph":[
+      {
+        "@type":"TechArticle",
+        "@id":"https://milanlife.in/decentralized-web-node#article",
+        "url":"https://milanlife.in/decentralized-web-node",
+        "headline":"Decentralized Web Node (DWN) | How MILAN Uses DWN",
+        "description":"A practical guide to Decentralized Web Nodes, DID identity and the DWN-oriented architecture behind MILAN.",
+        "image":"https://milanlife.in/assets/og-cover.png",
+        "author":{"@id":"https://milanlife.in/#founder"},
+        "publisher":{"@id":"https://milanlife.in/#org"},
+        "isPartOf":{"@id":"https://milanlife.in/#website"},
+        "mainEntityOfPage":"https://milanlife.in/decentralized-web-node",
+        "about":[
+          {"@type":"Thing","@id":"https://milanlife.in/#dwn","name":"Decentralized Web Node"},
+          {"@type":"Thing","@id":"https://milanlife.in/#did","name":"Decentralized Identifier"}
+        ],
+        "keywords":[
+          "Decentralized Web Node","DWN","DWN explained","DWN and DID",
+          "DWN social network","DWN data ownership","Web5 social network"
+        ],
+        "dateModified":"2026-10-08"
+      },
+      {
+        "@type":"BreadcrumbList",
+        "@id":"https://milanlife.in/decentralized-web-node#breadcrumbs",
+        "itemListElement":[
+          {"@type":"ListItem","position":1,"name":"MILAN","item":"https://milanlife.in/"},
+          {"@type":"ListItem","position":2,"name":"Decentralized Web Node","item":"https://milanlife.in/decentralized-web-node"}
+        ]
+      },
+      {
+        "@type":"FAQPage",
+        "@id":"https://milanlife.in/decentralized-web-node#faq",
+        "mainEntity":[
+          {
+            "@type":"Question",
+            "name":"What is a Decentralized Web Node (DWN)?",
+            "acceptedAnswer":{"@type":"Answer","text":"A Decentralized Web Node is a data storage and message relay mechanism associated with a decentralized identity. In the DIF specification, DWNs are described as a decentralized personal and application data storage and message relay layer."}
+          },
+          {
+            "@type":"Question",
+            "name":"How is a DWN related to a DID?",
+            "acceptedAnswer":{"@type":"Answer","text":"A DID identifies the entity in a decentralized identity system. A DWN provides a data and message layer associated with that identity, so applications can locate, store and access data without making a traditional platform account the only identity anchor."}
+          },
+          {
+            "@type":"Question",
+            "name":"How does MILAN use DWN?",
+            "acceptedAnswer":{"@type":"Answer","text":"MILAN describes its architecture as a privacy-first decentralized social network built around DID identity and a user-centered DWN data layer. The product uses these primitives as part of its model for identity, storage and permission-aware social sharing."}
+          },
+          {
+            "@type":"Question",
+            "name":"Is the DWN specification finished?",
+            "acceptedAnswer":{"@type":"Answer","text":"The current Decentralized Web Node specification published by the Decentralized Identity Foundation is a draft and is under active development."}
+          }
+        ]
+      }
+    ]
+  }
+  </script>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="/" aria-label="MILAN home"><img src="/assets/milan-logo-circle.png" alt="MILAN logo"><span>MILAN</span></a>
+    <nav aria-label="Primary navigation">
+      <a href="/decentralized-social-network">Social network</a>
+      <a href="/what-is-web5">Web5</a>
+      <a href="/social-media-privacy">Privacy</a>
+      <a href="/about">About</a>
+      <a href="/app">Enter MILAN</a>
+    </nav>
+  </header>
+
+  <div class="crumbs"><a href="/">Home</a> › Decentralized Web Node</div>
+
+  <section class="hero">
+    <div class="eyebrow">DWN · DID · WEB5 · USER-CONTROLLED DATA</div>
+    <h1>Decentralized Web Node <span>(DWN)</span></h1>
+    <p class="lead">A practical guide to the data layer behind decentralized applications — and to how MILAN uses DWN concepts in a social network built around user-controlled identity and data.</p>
+
+    <div class="hero-grid">
+      <div class="panel">
+        <h2>The simple model</h2>
+        <p><strong>DID</strong> answers “who is the user?” A <strong>DWN</strong> answers “where can an application interact with that user's decentralized data and messages?” MILAN connects those primitives to a social experience.</p>
+        <div class="chips">
+          <span class="chip">Decentralized identity</span>
+          <span class="chip">User-centered data</span>
+          <span class="chip">Permission-aware sharing</span>
+          <span class="chip">Social application</span>
+        </div>
+      </div>
+      <div class="panel signal">
+        <div><b>01 · DID</b><span>Identity layer</span></div>
+        <div><b>02 · DWN</b><span>Data + message layer</span></div>
+        <div><b>03 · MILAN</b><span>Social experience</span></div>
+      </div>
+    </div>
+  </section>
+
+  <main>
+    <article>
+      <section id="what-is-dwn">
+        <h2>What is a Decentralized Web Node?</h2>
+        <p>A Decentralized Web Node (DWN) is a data storage and message relay mechanism used to locate and exchange public or private permissioned data related to a decentralized identity. The Decentralized Identity Foundation (DIF) publishes the DWN specification as a draft technical specification for this model.</p>
+        <p>The important idea is that a user's data does not have to be defined only by the URL of one company's database. A DWN provides an application-facing interface for data and messages associated with an identity, with authorization rules and protocols describing who can perform which actions.</p>
+        <p class="note"><strong>Specification note:</strong> The DIF DWN specification is currently a draft. This page explains the concept and describes MILAN's product architecture; it is not a replacement for the specification.</p>
+      </section>
+
+      <section id="dwn-vs-database">
+        <h2>DWN vs. a traditional centralized database</h2>
+        <div class="compare">
+          <table>
+            <thead><tr><th>Area</th><th>Traditional social platform</th><th>DWN-oriented model</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Identity</strong></td><td>Usually a platform account is the primary anchor.</td><td>A decentralized identity can be treated as a separate identity layer.</td></tr>
+              <tr><td><strong>Data</strong></td><td>Application data is commonly centered on the platform's database.</td><td>Applications can interact with data associated with a user's decentralized node.</td></tr>
+              <tr><td><strong>Permissions</strong></td><td>Access rules are defined inside the service.</td><td>DWN protocols can describe roles, actions and authorization rules for records.</td></tr>
+              <tr><td><strong>Portability</strong></td><td>Moving data often depends on platform export tools.</td><td>The architecture is designed to separate data and identity from a single application endpoint.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="dwn-did">
+        <h2>DWN and DID: how they fit together</h2>
+        <p>A <a href="https://www.w3.org/TR/did-core/" rel="nofollow">Decentralized Identifier (DID)</a> is an identifier designed for decentralized identity systems. DID Core defines the DID syntax, data model, core properties and resolution model.</p>
+        <p>A DWN works at a different layer: it is about data and message storage/relay. In a decentralized application, the identity layer and data layer can therefore be connected without making them the same thing.</p>
+        <div class="panel">
+          <p><strong>Think of it as:</strong> DID = identity anchor. DWN = data and message layer. Application = the experience that uses both.</p>
+        </div>
+      </section>
+
+      <section id="milan">
+        <h2>How MILAN uses DWN</h2>
+        <p><strong>MILAN</strong> is a privacy-first decentralized social network. Its public product pages describe a model where users have a decentralized identity and a user-centered data layer based on Decentralized Web Nodes.</p>
+        <h3>Identity</h3>
+        <p>MILAN uses decentralized identity concepts, including DID-based identity, as a foundation for user accounts and identity-aware sharing.</p>
+        <h3>Data</h3>
+        <p>MILAN's architecture is designed around a per-user data space rather than treating the social feed as the only home of a user's content. Posts, media and other records are handled according to the access model chosen by the user.</p>
+        <h3>Sharing</h3>
+        <p>MILAN's privacy documentation describes private, public and DID-based sharing modes. The practical product goal is to make access decisions explicit instead of making every social interaction public by default.</p>
+        <p>Read the product's <a href="/privacy">Privacy Policy</a> for the current storage and sharing claims, or explore the <a href="/decentralized-social-network">Decentralized Social Network</a> page for the wider application architecture.</p>
+      </section>
+
+      <section id="why-it-matters">
+        <h2>Why DWN matters for social networking</h2>
+        <p>DWN changes the architectural question from “Which platform stores my social data?” toward “Which applications can interact with data associated with my identity, and under what rules?” That distinction is useful when designing privacy-first social products.</p>
+        <p>For MILAN, this supports a product thesis: social networking can remain familiar to users while the underlying relationship between identity, data and permissions is made more explicit.</p>
+      </section>
+
+      <section id="references" class="refs">
+        <h2>Primary technical references</h2>
+        <p><a href="https://identity.foundation/decentralized-web-node/spec/" rel="nofollow">DIF Decentralized Web Node specification</a> — the current draft specification for DWN.</p>
+        <p><a href="https://identity.foundation/decentralized-web-node/guide/" rel="nofollow">DIF Decentralized Web Node Companion Guide</a> — a non-normative implementation-oriented guide.</p>
+        <p><a href="https://www.w3.org/TR/did-core/" rel="nofollow">W3C DID Core</a> — the W3C specification for Decentralized Identifiers.</p>
+      </section>
+
+      <section id="faq" class="faq">
+        <h2>Frequently asked questions</h2>
+        <details open><summary>What is a Decentralized Web Node?</summary><p>A DWN is a decentralized data storage and message relay layer used with decentralized identity systems.</p></details>
+        <details><summary>How is DWN related to DID?</summary><p>DID provides an identity layer; DWN provides a data and message layer associated with that identity.</p></details>
+        <details><summary>How does MILAN use DWN?</summary><p>MILAN describes its social architecture around DID identity, a user-centered DWN data layer and permission-aware sharing.</p></details>
+        <details><summary>Is the DIF DWN specification final?</summary><p>No. The current DIF DWN specification is published as a draft and is under active development.</p></details>
+      </section>
+
+      <a class="cta" href="/app">Enter MILAN →</a>
+    </article>
+
+    <aside class="toc panel" aria-label="On this page">
+      <strong>On this page</strong>
+      <a href="#what-is-dwn">What is DWN?</a>
+      <a href="#dwn-vs-database">DWN vs database</a>
+      <a href="#dwn-did">DWN + DID</a>
+      <a href="#milan">How MILAN uses DWN</a>
+      <a href="#why-it-matters">Why it matters</a>
+      <a href="#references">Technical references</a>
+      <a href="#faq">FAQ</a>
+    </aside>
+  </main>
+
+  <footer>© 2026 MILAN · Decentralized Social Web · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></footer>
+</div>
+</body>
+</html>
