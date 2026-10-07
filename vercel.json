@@ -98,6 +98,10 @@
       "destination": "/best-social-media-apps.html"
     },
     {
+      "source": "/decentralized-web-node",
+      "destination": "/decentralized-web-node.html"
+    },
+    {
       "source": "/decentralized-social-network",
       "destination": "/decentralized-social-network.html"
     },
