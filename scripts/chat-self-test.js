@@ -52,6 +52,11 @@ assert(frontend.includes('notifType || "") === "chat_typing"'), 'Typing event cl
 assert(frontend.includes('/api/chat/with/" + encodeURIComponent(recipientDid) + "/messages'), 'Message send endpoint missing.');
 assert(frontend.includes('status === "sending"'), 'Optimistic sending state missing.');
 assert(frontend.includes('mergeMessages([incoming])'), 'Instant inbound message render missing.');
+assert(frontend.includes('CHAT_ACTIVE_KEY = "milan_chat_active_did"'), 'Active conversation persistence missing.');
+assert(frontend.includes('CHAT_CACHE_PREFIX = "milan_chat_cache:"'), 'Warm chat history cache missing.');
+assert(frontend.includes('localStorage.setItem(CHAT_CACHE_PREFIX'), 'Chat history cache write missing.');
+assert(frontend.includes('localStorage.getItem(CHAT_CACHE_PREFIX'), 'Chat history cache restore missing.');
+assert(chat.includes('CHAT_QUERY_RECORD_LIMIT = MAX_HISTORY * 2'), 'Mailbox pair query window missing.');
 
 console.log('✅ MILAN chat architecture checks passed.');
 console.log('✅ Backend syntax checks passed.');
