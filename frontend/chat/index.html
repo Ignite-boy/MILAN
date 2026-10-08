@@ -843,6 +843,7 @@
   let typingStopTimer = null;
   let remoteTypingTimer = null;
   let typingActive = false;
+  let readReceiptSignature = "";
 
   const getToken = () => {
     try {
@@ -1092,7 +1093,9 @@
       const time = message.sentAt ? new Date(message.sentAt).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}) : "";
       const state = message.status === "sending"
         ? " · Sending…"
-        : (mine ? (message.deliveryStatus === "delivered" ? " · Delivered" : " · Sent") : "");
+        : (mine
+          ? (message.readAt ? " · Read" : (message.deliveryStatus === "delivered" ? " · Delivered" : " · Sent"))
+          : "");
       return '<div class="chat-message-row ' + (mine ? "mine" : "") + '">'
         + '<div class="chat-bubble">'
         + '<div>' + esc(message.text).replace(/\n/g, "<br>") + '</div>'
@@ -1165,6 +1168,7 @@
     if (!person) return;
 
     selected = person;
+    readReceiptSignature = "";
     shell.classList.remove("mobile-list");
     shell.classList.remove("people-open");
     emptyState.style.display = "none";
@@ -1213,6 +1217,33 @@
     }
   }
 
+  async function syncReadReceipts() {
+    if (!selected || !myDid) return;
+    const incomingIds = currentMessages
+      .filter(message =>
+        message &&
+        message.senderDid === selected.did &&
+        message.recipientDid === myDid &&
+        message.messageId
+      )
+      .map(message => String(message.messageId));
+
+    if (!incomingIds.length) return;
+
+    const signature = incomingIds.join("|");
+    if (signature === readReceiptSignature) return;
+
+    readReceiptSignature = signature;
+    try {
+      await api("/api/chat/with/" + encodeURIComponent(selected.did) + "/read", {
+        method: "POST",
+        body: JSON.stringify({ messageIds: incomingIds })
+      });
+    } catch (_) {
+      if (readReceiptSignature === signature) readReceiptSignature = "";
+    }
+  }
+
   async function loadConversation(silent = true, forceBottom = false, incremental = false) {
     if (!selected || loadingConversation) return;
     loadingConversation = true;
@@ -1238,6 +1269,8 @@
         renderMessages(data.messages || []);
         scrollConversationToBottom(forceBottom);
       }
+
+      await syncReadReceipts();
 
       const latest = currentMessages[currentMessages.length - 1];
       if (latest?.sentAt) markRead(did, latest.sentAt);
@@ -1328,6 +1361,18 @@
 
           if (String(data.notifType || "") === "chat_typing") {
             showRemoteTyping(data.active === true, data.senderDid);
+            return;
+          }
+
+          if (String(data.notifType || "") === "chat_read") {
+            if (selected && String(data.readerDid || "") === String(selected.did || "")) {
+              currentMessages = currentMessages.map(message =>
+                String(message.messageId || "") === String(data.messageId || "")
+                  ? { ...message, readAt: data.readAt || message.readAt || new Date().toISOString() }
+                  : message
+              );
+              renderMessages(currentMessages);
+            }
             return;
           }
 
