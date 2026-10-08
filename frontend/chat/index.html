@@ -887,6 +887,9 @@
   let remoteTypingTimer = null;
   let typingActive = false;
   let readReceiptSignature = "";
+  const CHAT_ACTIVE_KEY = "milan_chat_active_did";
+  const CHAT_CACHE_PREFIX = "milan_chat_cache:";
+  let restoredFromCache = false;
 
   const getToken = () => {
     try {
@@ -1227,6 +1230,7 @@
 
     selected = person;
     readReceiptSignature = "";
+    try { localStorage.setItem(CHAT_ACTIVE_KEY, String(person.did || "")); } catch (_) {}
     shell.classList.remove("mobile-list");
     shell.classList.remove("people-open");
     emptyState.style.display = "none";
@@ -1317,16 +1321,27 @@
       const data = await api(path);
       if (!selected || selected.did !== did) return;
 
+      const serverMessages = Array.isArray(data.messages) ? data.messages : [];
       if (incremental) {
-        const changed = mergeMessages(data.messages || []);
+        const changed = mergeMessages(serverMessages);
         if (changed) {
           renderMessages(currentMessages);
           scrollConversationToBottom(false);
         }
       } else {
-        renderMessages(data.messages || []);
+        // The server/DWN is authoritative. Local cache is only a fast-start
+        // layer so refresh never leaves the conversation looking empty while
+        // the authoritative mailbox is being read.
+        renderMessages(serverMessages);
         scrollConversationToBottom(forceBottom);
       }
+
+      try {
+        localStorage.setItem(CHAT_CACHE_PREFIX + encodeURIComponent(did), JSON.stringify({
+          savedAt: Date.now(),
+          messages: currentMessages.slice(-200)
+        }));
+      } catch (_) {}
 
       await syncReadReceipts();
 
@@ -1617,10 +1632,31 @@
       syncMobileLayout();
 
       const requestedDid = String(new URLSearchParams(location.search).get("with") || "").trim();
-      if (requestedDid) {
+      let restoreDid = requestedDid;
+      if (!restoreDid) {
+        try { restoreDid = String(localStorage.getItem(CHAT_ACTIVE_KEY) || "").trim(); } catch (_) {}
+      }
+
+      if (restoreDid) {
         await loadPeople("", "people");
-        const requestedPerson = people.find(p => p.did === requestedDid);
+        const requestedPerson = people.find(p => p.did === restoreDid) ||
+          conversations.find(item => item.person?.did === restoreDid)?.person || null;
         if (requestedPerson) {
+          try {
+            const raw = localStorage.getItem(CHAT_CACHE_PREFIX + encodeURIComponent(restoreDid));
+            const cached = raw ? JSON.parse(raw) : null;
+            if (Array.isArray(cached?.messages) && cached.messages.length) {
+              selected = requestedPerson;
+              emptyState.style.display = "none";
+              conversation.style.display = "flex";
+              currentName.textContent = requestedPerson.name || "MILAN User";
+              currentAvatar.innerHTML = avatarMarkup(requestedPerson);
+              currentSub.textContent = conversationSubtitle(requestedPerson);
+              renderMessages(cached.messages);
+              scrollConversationToBottom(true);
+              restoredFromCache = true;
+            }
+          } catch (_) {}
           openConversation(requestedPerson, false);
         } else {
           renderPeople(people);
