@@ -15,9 +15,7 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 const CHAT_SCHEMA = 'milan.chat.message';
 const CHAT_PROTOCOL = 'milan.chat';
 const CHAT_PATH = 'messages';
-const CHAT_RECEIPT_SCHEMA = 'milan.chat.receipt';
-const CHAT_RECEIPT_PATH = 'receipts';
-const MAX_MESSAGE_CHARS = 5000;
+unused receipt constantsconst MAX_MESSAGE_CHARS = 5000;
 
 const didOf = value => String(value || '').trim();
 
@@ -133,6 +131,40 @@ function chatMessageRecordOptions(data) {
 
 async function createChatMailboxRecord(userId, ownerDid, data) {
   return dwnStore.createRecord(userId, ownerDid, chatMessageRecordOptions(data));
+}
+
+async function recipientMailboxHasMessage(recipientDid, messageId) {
+  const did = didOf(recipientDid);
+  const key = didOf(messageId);
+  if (!did || !key) return false;
+
+  const { data: rows, error } = await supabase
+    .from('dwn_records')
+    .select('record_id')
+    .eq('deleted', false)
+    .eq('protocol', CHAT_PROTOCOL)
+    .eq('protocol_path', CHAT_PATH)
+    .eq('owner_did', did)
+    .order('date_created', { ascending: false })
+    .limit(MAX_HISTORY * 4);
+
+  if (error) throw error;
+  const ids = (rows || []).map(row => String(row.record_id || '')).filter(Boolean);
+  if (!ids.length) return false;
+
+  const { data: payloads, error: dataError } = await supabase
+    .from('dwn_record_data')
+    .select('record_id,data')
+    .in('record_id', ids);
+
+  if (dataError) throw dataError;
+
+  return (payloads || []).some(row => {
+    const data = decodeStoredData(row.data);
+    return data && typeof data === 'object' &&
+      data.kind === 'chat_message' &&
+      String(data.messageId || '') === key;
+  });
 }
 
 async function decodeStoredData(value) {
@@ -468,8 +500,8 @@ router.get('/health', (_req, res) => {
   res.json({
     ok: true,
     chat: 'ready',
-    transport: 'DWN shared record',
-    persistence: 'Supabase authoritative DWN',
+    transport: 'DWN-to-DWN private mailbox records',
+    persistence: 'Supabase-authoritative isolated DWN spaces',
     audience: 'Approved MILAN friends only',
     realtime: 'SSE accelerator; cross-instance Supabase sync fallback'
   });
@@ -596,13 +628,17 @@ router.post('/with/:did/messages', auth, async (req, res) => {
     };
 
     // One-to-one DWN mailbox model:
-    // 1) a recipient-owned private copy is delivered into the recipient's isolated space;
-    // 2) the sender-owned private copy remains in the sender's isolated space.
-    // Both copies share the same messageId so clients render exactly one message.
-    await createChatMailboxRecord(recipient.id, otherDid, {
-      ...messageData,
-      mailboxRole: 'recipient'
-    });
+    // 1) the recipient-owned private mailbox receives the message;
+    // 2) the sender-owned private mailbox keeps the sender's durable copy.
+    // Both copies share one clientMessageId/messageId so retries are idempotent
+    // and each client renders exactly one message.
+    const recipientAlreadyHasMessage = await recipientMailboxHasMessage(otherDid, messageId);
+    if (!recipientAlreadyHasMessage) {
+      await createChatMailboxRecord(recipient.id, otherDid, {
+        ...messageData,
+        mailboxRole: 'recipient'
+      });
+    }
 
     const senderRecord = await createChatMailboxRecord(req.userId, meDid, {
       ...messageData,
