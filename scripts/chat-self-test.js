@@ -34,6 +34,10 @@ assert(chat.includes("accessMode: 'private'"), 'Chat records must remain private
 assert(chat.includes("clientMessageId"), 'Chat idempotency key missing.');
 assert(chat.includes("router.post('/with/:did/typing'"), 'Typing endpoint missing.');
 assert(chat.includes("notifType: 'chat_typing'"), 'Typing event missing.');
+assert(chat.includes("router.post('/with/:did/read'"), 'Read receipt endpoint missing.');
+assert(chat.includes("CHAT_RECEIPT_SCHEMA = 'milan.chat.receipt'"), 'Read receipt schema missing.');
+assert(chat.includes("CHAT_RECEIPT_PATH = 'receipts'"), 'Read receipt path missing.');
+assert(chat.includes("notifType: 'chat_read'"), 'Read receipt event missing.');
 assert(chat.includes("deliveryStatus: 'delivered'"), 'Delivered state missing.');
 assert(chat.includes("mailboxRole: 'recipient'"), 'Recipient mailbox role missing.');
 assert(chat.includes("mailboxRole: 'sender'"), 'Sender mailbox role missing.');
