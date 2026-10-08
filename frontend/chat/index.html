@@ -840,6 +840,9 @@
   let conversationPollTick = 0;
   let peopleSearchTimer = null;
   let peopleSearchRequestId = 0;
+  let typingStopTimer = null;
+  let remoteTypingTimer = null;
+  let typingActive = false;
 
   const getToken = () => {
     try {
@@ -870,6 +873,60 @@
       case "sent": return "Request sent";
       default: return "MILAN user";
     }
+  }
+
+  function conversationSubtitle(person = selected) {
+    const did = String(person?.did || "");
+    return "Live sync · Private conversation · " +
+      did.slice(0, 34) + (did.length > 34 ? "…" : "");
+  }
+
+  function setConversationSubtitle(text) {
+    currentSub.textContent = String(text || conversationSubtitle(selected));
+  }
+
+  function showRemoteTyping(active, senderDid) {
+    if (!selected || String(senderDid || "") !== String(selected.did || "")) return;
+    if (remoteTypingTimer) clearTimeout(remoteTypingTimer);
+    if (active) {
+      setConversationSubtitle("Typing…");
+      remoteTypingTimer = setTimeout(() => {
+        if (selected) setConversationSubtitle(conversationSubtitle(selected));
+      }, 2500);
+    } else {
+      setConversationSubtitle(conversationSubtitle(selected));
+    }
+  }
+
+  async function sendTyping(active) {
+    if (!selected) return;
+    try {
+      await api("/api/chat/with/" + encodeURIComponent(selected.did) + "/typing", {
+        method: "POST",
+        body: JSON.stringify({ active: !!active })
+      });
+    } catch (_) {}
+  }
+
+  function announceTyping() {
+    if (!selected) return;
+    if (!typingActive) {
+      typingActive = true;
+      sendTyping(true).catch(() => {});
+    }
+    if (typingStopTimer) clearTimeout(typingStopTimer);
+    typingStopTimer = setTimeout(() => {
+      typingActive = false;
+      sendTyping(false).catch(() => {});
+    }, 900);
+  }
+
+  function stopTyping() {
+    if (typingStopTimer) clearTimeout(typingStopTimer);
+    typingStopTimer = null;
+    if (!typingActive) return;
+    typingActive = false;
+    sendTyping(false).catch(() => {});
   }
 
   function formatChatTime(value) {
@@ -1033,7 +1090,9 @@
     conversation.innerHTML = currentMessages.map(message => {
       const mine = message.senderDid === myDid;
       const time = message.sentAt ? new Date(message.sentAt).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}) : "";
-      const state = message.status === "sending" ? " · Sending…" : (mine ? " · Sent" : "");
+      const state = message.status === "sending"
+        ? " · Sending…"
+        : (mine ? (message.deliveryStatus === "delivered" ? " · Delivered" : " · Sent") : "");
       return '<div class="chat-message-row ' + (mine ? "mine" : "") + '">'
         + '<div class="chat-bubble">'
         + '<div>' + esc(message.text).replace(/\n/g, "<br>") + '</div>'
@@ -1111,9 +1170,9 @@
     emptyState.style.display = "none";
     conversation.style.display = "flex";
     currentName.textContent = person.name || "MILAN User";
-    currentSub.textContent = "Live sync · Private conversation · " +
-      String(person.did || "").slice(0, 34) +
-      (String(person.did || "").length > 34 ? "…" : "");
+    if (remoteTypingTimer) clearTimeout(remoteTypingTimer);
+    typingActive = false;
+    currentSub.textContent = conversationSubtitle(person);
     currentAvatar.innerHTML = avatarMarkup(person);
     setComposerEnabled(true);
     if (focusInput) input.focus({preventScroll:true});
@@ -1224,6 +1283,7 @@
       setComposerEnabled(true);
     }
 
+    stopTyping();
     try {
       const data = await api("/api/chat/with/" + encodeURIComponent(recipientDid) + "/messages", {
         method: "POST",
@@ -1265,6 +1325,12 @@
         try {
           const data = JSON.parse(event.data || "{}");
           if (String(data.type || "") !== "notify") return;
+
+          if (String(data.notifType || "") === "chat_typing") {
+            showRemoteTyping(data.active === true, data.senderDid);
+            return;
+          }
+
           if (String(data.notifType || "") !== "chat_message") return;
 
           loadConversations().catch(() => {});
@@ -1346,6 +1412,11 @@
     input.style.height = "auto";
     input.style.height = Math.min(input.scrollHeight, 120) + "px";
     setComposerEnabled(!!selected);
+    if (selected && input.value.trim()) {
+      announceTyping();
+    } else {
+      stopTyping();
+    }
   });
 
   input.addEventListener("keydown", event => {
