@@ -889,6 +889,8 @@
   let readReceiptSignature = "";
   const CHAT_ACTIVE_KEY = "milan_chat_active_did";
   const CHAT_CACHE_PREFIX = "milan_chat_cache:";
+  const CHAT_OUTBOX_KEY = "milan_chat_outbox_v1";
+  const MAX_CLIENT_RETRIES = 3;
 
   const getToken = () => {
     try {
@@ -1233,6 +1235,50 @@
     } catch (_) {}
   }
 
+  function readOutbox() {
+    try {
+      const raw = localStorage.getItem(CHAT_OUTBOX_KEY);
+      const rows = raw ? JSON.parse(raw) : [];
+      return Array.isArray(rows) ? rows.slice(0, 50) : [];
+    } catch (_) { return []; }
+  }
+
+  function writeOutbox(rows) {
+    try { localStorage.setItem(CHAT_OUTBOX_KEY, JSON.stringify((Array.isArray(rows) ? rows : []).slice(0, 50))); } catch (_) {}
+  }
+
+  function upsertOutbox(item) {
+    const rows = readOutbox().filter(row => row.clientMessageId !== item.clientMessageId);
+    rows.unshift(item);
+    writeOutbox(rows);
+  }
+
+  function removeOutbox(clientMessageId) {
+    writeOutbox(readOutbox().filter(row => row.clientMessageId !== clientMessageId));
+  }
+
+  function retryDelay(attempt) {
+    return Math.min(4000, 500 * Math.pow(2, Math.max(0, attempt - 1)));
+  }
+
+  async function sendMessageRequest(recipientDid, text, clientMessageId) {
+    let lastError = null;
+    for (let attempt = 1; attempt <= MAX_CLIENT_RETRIES; attempt += 1) {
+      try {
+        return await api("/api/chat/with/" + encodeURIComponent(recipientDid) + "/messages", {
+          method: "POST",
+          body: JSON.stringify({ text, clientMessageId })
+        });
+      } catch (err) {
+        lastError = err;
+        if (attempt < MAX_CLIENT_RETRIES) {
+          await new Promise(resolve => setTimeout(resolve, retryDelay(attempt)));
+        }
+      }
+    }
+    throw lastError || new Error("Message could not be sent.");
+  }
+
   function openConversation(person, focusInput = false) {
     if (!person) return;
 
@@ -1383,10 +1429,17 @@
 
     sending = true;
     sendBtn.disabled = true;
+    upsertOutbox({
+      clientMessageId,
+      recipientDid,
+      text,
+      createdAt: Date.now()
+    });
 
     if (selected?.did === recipientDid) {
       currentMessages = [...currentMessages, pendingMessage];
       renderMessages(currentMessages);
+      saveChatCache(recipientDid, currentMessages);
       scrollConversationToBottom(true);
       input.value = "";
       input.style.height = "auto";
@@ -1395,11 +1448,9 @@
 
     stopTyping();
     try {
-      const data = await api("/api/chat/with/" + encodeURIComponent(recipientDid) + "/messages", {
-        method: "POST",
-        body: JSON.stringify({ text, clientMessageId })
-      });
+      const data = await sendMessageRequest(recipientDid, text, clientMessageId);
 
+      removeOutbox(clientMessageId);
       if (selected?.did === recipientDid) {
         currentMessages = currentMessages.filter(message => String(message.messageId || message.id) !== clientMessageId);
         currentMessages = [...currentMessages, data.message];
@@ -1411,7 +1462,11 @@
       await loadConversations();
     } catch (err) {
       if (selected?.did === recipientDid) {
-        currentMessages = currentMessages.filter(message => String(message.messageId || message.id) !== clientMessageId);
+        currentMessages = currentMessages.map(message =>
+          String(message.messageId || message.id) === clientMessageId
+            ? {...message, status: "failed"}
+            : message
+        );
         renderMessages(currentMessages);
         input.value = text;
         input.style.height = "auto";
@@ -1425,6 +1480,25 @@
     }
   }
 
+
+  async function processOutbox() {
+    const rows = readOutbox();
+    if (!rows.length) return;
+    for (const item of rows) {
+      if (!item?.clientMessageId || !item?.recipientDid || !item?.text) continue;
+      try {
+        const data = await sendMessageRequest(item.recipientDid, item.text, item.clientMessageId);
+        removeOutbox(item.clientMessageId);
+        if (selected?.did === item.recipientDid && data?.message) {
+          currentMessages = currentMessages.filter(message => String(message.messageId || message.id) !== item.clientMessageId);
+          currentMessages = [...currentMessages, data.message];
+          renderMessages(currentMessages);
+          saveChatCache(item.recipientDid, currentMessages);
+          scrollConversationToBottom(true);
+        }
+      } catch (_) {}
+    }
+  }
 
   function connectRealtime() {
     const token = getToken();
@@ -1633,6 +1707,7 @@
         return;
       }
       await loadMe();
+      await processOutbox();
       await loadConversations();
       syncMobileLayout();
 
