@@ -15,6 +15,8 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 const CHAT_SCHEMA = 'milan.chat.message';
 const CHAT_PROTOCOL = 'milan.chat';
 const CHAT_PATH = 'messages';
+const CHAT_RECEIPT_SCHEMA = 'milan.chat.receipt';
+const CHAT_RECEIPT_PATH = 'receipts';
 const MAX_MESSAGE_CHARS = 5000;
 const MAX_HISTORY = 200;
 
@@ -168,6 +170,66 @@ async function recipientMailboxHasMessage(recipientDid, messageId) {
   });
 }
 
+async function recipientMailboxHasReceipt(ownerDid, messageId, readerDid) {
+  const owner = didOf(ownerDid);
+  const key = didOf(messageId);
+  const reader = didOf(readerDid);
+  if (!owner || !key || !reader) return false;
+
+  const { data: rows, error } = await supabase
+    .from('dwn_records')
+    .select('record_id')
+    .eq('deleted', false)
+    .eq('protocol', CHAT_PROTOCOL)
+    .eq('protocol_path', CHAT_RECEIPT_PATH)
+    .eq('owner_did', owner)
+    .order('date_created', { ascending: false })
+    .limit(MAX_HISTORY * 4);
+
+  if (error) throw error;
+
+  const ids = (rows || [])
+    .map(row => String(row.record_id || ''))
+    .filter(Boolean);
+
+  if (!ids.length) return false;
+
+  const { data: payloads, error: dataError } = await supabase
+    .from('dwn_record_data')
+    .select('record_id,data')
+    .in('record_id', ids);
+
+  if (dataError) throw dataError;
+
+  return (payloads || []).some(row => {
+    const data = decodeStoredData(row.data);
+    return data &&
+      typeof data === 'object' &&
+      data.kind === 'chat_receipt' &&
+      data.state === 'read' &&
+      String(data.messageId || '') === key &&
+      String(data.readerDid || '') === reader;
+  });
+}
+
+function chatReceiptRecordOptions(data) {
+  return {
+    schema: CHAT_RECEIPT_SCHEMA,
+    title: 'MILAN Chat Read Receipt',
+    dataFormat: 'application/json',
+    protocol: CHAT_PROTOCOL,
+    protocolPath: CHAT_RECEIPT_PATH,
+    accessMode: 'private',
+    sharedWithDids: [],
+    awaitCloudSync: true,
+    data
+  };
+}
+
+async function createChatReceiptRecord(userId, ownerDid, data) {
+  return dwnStore.createRecord(userId, ownerDid, chatReceiptRecordOptions(data));
+}
+
 async function decodeStoredData(value) {
   if (value == null) return {};
   try {
@@ -219,6 +281,49 @@ async function conversationMessages(meDid, otherDid, options = {}) {
     (payloads || []).map(row => [String(row.record_id || ''), row.data])
   );
 
+  const { data: receiptRows, error: receiptError } = await supabase
+    .from('dwn_records')
+    .select('record_id')
+    .eq('deleted', false)
+    .eq('protocol', CHAT_PROTOCOL)
+    .eq('protocol_path', CHAT_RECEIPT_PATH)
+    .in('owner_did', [meDid, otherDid])
+    .order('date_created', { ascending: false })
+    .limit(MAX_HISTORY * 4);
+
+  if (receiptError) throw receiptError;
+
+  const receiptIds = (receiptRows || [])
+    .map(row => String(row.record_id || ''))
+    .filter(Boolean);
+
+  let receiptPayloads = [];
+  if (receiptIds.length) {
+    const { data: payloads, error: receiptDataError } = await supabase
+      .from('dwn_record_data')
+      .select('record_id,data')
+      .in('record_id', receiptIds);
+
+    if (receiptDataError) throw receiptDataError;
+    receiptPayloads = payloads || [];
+  }
+
+  const readAtByMessageId = new Map();
+  for (const row of receiptPayloads) {
+    const data = decodeStoredData(row.data);
+    if (!data || typeof data !== 'object' || data.kind !== 'chat_receipt' || data.state !== 'read') continue;
+    if (String(data.readerDid || '') !== meDid && String(data.readerDid || '') !== otherDid) continue;
+
+    const messageKey = String(data.messageId || '');
+    const readAt = data.readAt || null;
+    if (!messageKey || !readAt) continue;
+
+    const previous = readAtByMessageId.get(messageKey);
+    if (!previous || (Date.parse(readAt) || 0) > (Date.parse(previous) || 0)) {
+      readAtByMessageId.set(messageKey, readAt);
+    }
+  }
+
   const visible = rows.map(row => {
     let metadata = {};
     try { metadata = row.metadata ? JSON.parse(String(row.metadata)) : {}; } catch (_) {}
@@ -235,7 +340,7 @@ async function conversationMessages(meDid, otherDid, options = {}) {
       dateModified: row.date_modified || row.date_created || null,
       deliveryStatus: String(data.deliveryStatus || 'sent'),
       deliveredAt: data.deliveredAt || null,
-      readAt: data.readAt || null,
+      readAt: data.readAt || readAtByMessageId.get(String(data.messageId || row.record_id || '')) || null,
       ownerDid: String(row.owner_did || ''),
       sharedWithDids: Array.isArray(metadata.sharedWithDids) ? metadata.sharedWithDids : []
     };
@@ -461,6 +566,80 @@ router.get('/conversations', auth, async (req, res) => {
   } catch (err) {
     console.error('[chat/conversations]', err);
     return res.status(500).json({ error: 'Conversations unavailable' });
+  }
+});
+
+router.post('/with/:did/read', auth, async (req, res) => {
+  const meDid = didOf(req.did || req.account?.did);
+  const otherDid = didOf(req.params.did);
+  const messageIds = Array.isArray(req.body?.messageIds)
+    ? [...new Set(req.body.messageIds.map(didOf).filter(Boolean))].slice(0, MAX_HISTORY)
+    : [];
+
+  if (!meDid) return res.status(401).json({ error: 'Authenticated DID unavailable' });
+  if (!otherDid) return res.status(400).json({ error: 'Recipient DID required' });
+  if (meDid === otherDid) return res.status(400).json({ error: 'Cannot mark your own messages as read' });
+  if (!messageIds.length) return res.json({ ok: true, read: 0 });
+
+  try {
+    const other = await recipientByDid(otherDid);
+    if (!other) return res.status(404).json({ error: 'Person not found' });
+
+    const friendDids = await friendDidsFor(meDid);
+    if (!friendDids.has(otherDid)) {
+      return res.status(403).json({ error: 'You can only mark connected friends as read' });
+    }
+
+    const conversation = await conversationMessages(meDid, otherDid);
+    const incoming = conversation.filter(message =>
+      message.senderDid === otherDid &&
+      message.recipientDid === meDid &&
+      messageIds.includes(String(message.messageId || ''))
+    );
+
+    const readAt = new Date().toISOString();
+    let created = 0;
+
+    for (const message of incoming) {
+      const receiptData = {
+        kind: 'chat_receipt',
+        state: 'read',
+        messageId: String(message.messageId),
+        conversationId: conversationIdFor(meDid, otherDid),
+        senderDid: otherDid,
+        readerDid: meDid,
+        readAt
+      };
+
+      if (!(await recipientMailboxHasReceipt(meDid, message.messageId, meDid))) {
+        await createChatReceiptRecord(req.userId, meDid, {
+          ...receiptData,
+          mailboxRole: 'reader'
+        });
+        created += 1;
+      }
+
+      if (!(await recipientMailboxHasReceipt(otherDid, message.messageId, meDid))) {
+        await createChatReceiptRecord(other.id, otherDid, {
+          ...receiptData,
+          mailboxRole: 'sender'
+        });
+      }
+
+      livePush.push(other.id, 'notify', {
+        notifType: 'chat_read',
+        conversationId: conversationIdFor(meDid, otherDid),
+        readerDid: meDid,
+        messageId: String(message.messageId),
+        readAt
+      });
+    }
+
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({ ok: true, read: created, readAt });
+  } catch (err) {
+    console.error('[chat/read]', err);
+    return res.status(500).json({ error: 'Read receipt sync unavailable' });
   }
 });
 
