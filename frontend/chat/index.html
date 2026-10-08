@@ -599,7 +599,9 @@
     .chat-message-row.mine + .chat-message-row.mine .chat-bubble{border-top-right-radius:7px}
     .chat-message-row:not(.mine) + .chat-message-row:not(.mine) .chat-bubble{border-top-left-radius:7px}
     .chat-meta{display:flex;justify-content:flex-end;gap:4px;align-items:center;margin-top:4px}
-    .chat-status-icon{font-size:9px;color:#8ca0d2}
+    .chat-status-icon{font-size:9px;color:#8ca0d2}\n    .chat-retry-btn{border:0;background:transparent;color:#ffb27a;font-size:9px;font-weight:900;cursor:pointer;padding:0 0 0 3px}
+    .chat-retry-btn:hover{text-decoration:underline}
+
     .chat-message-row.mine .chat-status-icon{color:#8db6ff}
     .chat-composer{padding:10px 18px 16px;gap:8px}
     .chat-compose-box{border-radius:20px;padding:7px 8px}
@@ -1156,11 +1158,18 @@
       }
       const grouped = previousMine === mine;
       const time = message.sentAt ? new Date(message.sentAt).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}) : "";
-      const state = message.status === "sending" ? "Sending…" : (mine ? (message.readAt ? "Read" : (message.deliveryStatus === "delivered" ? "Delivered" : "Sent")) : "");
+      const state = message.status === "sending"
+        ? "Sending…"
+        : (message.status === "failed"
+          ? "Failed · Retry"
+          : (mine ? (message.readAt ? "Read" : (message.deliveryStatus === "delivered" ? "Delivered" : "Sent")) : ""));
+      const retry = message.status === "failed" && message.messageId
+        ? ' <button class="chat-retry-btn" type="button" data-retry-id="' + esc(message.messageId) + '">Retry</button>'
+        : "";
       const avatar = !mine ? '<span class="chat-in-avatar">' + avatarMarkup(selected) + '</span>' : '<span class="chat-message-spacer"></span>';
       html += '<div class="chat-message-row ' + (mine ? "mine" : "") + (grouped ? "" : " group-gap") + '">' + avatar
         + '<div class="chat-bubble"><div>' + esc(message.text).replace(/\n/g, "<br>")
-        + '</div><div class="chat-meta">' + esc(time) + (state ? ' <span class="chat-status-icon">' + esc(state) + '</span>' : '')
+        + '</div><div class="chat-meta">' + esc(time) + (state ? ' <span class="chat-status-icon">' + esc(state) + '</span>' : '') + retry
         + '</div></div></div>';
       previousMine = mine;
       return html;
@@ -1387,7 +1396,9 @@
         // The server/DWN is authoritative. Local cache is only a fast-start
         // layer so refresh never leaves the conversation looking empty while
         // the authoritative mailbox is being read.
-        renderMessages(serverMessages);
+        currentMessages = serverMessages;
+        mergeOutboxForConversation(did);
+        if (!currentMessages.length) renderMessages(serverMessages);
         scrollConversationToBottom(forceBottom);
       }
 
@@ -1480,6 +1491,50 @@
     }
   }
 
+
+  async function retryOutboxMessage(clientMessageId) {
+    const item = readOutbox().find(row => row.clientMessageId === clientMessageId);
+    if (!item) return;
+    if (selected?.did !== item.recipientDid) return;
+    currentMessages = currentMessages.map(message =>
+      String(message.messageId || message.id) === clientMessageId ? {...message, status:"sending"} : message
+    );
+    renderMessages(currentMessages);
+    try {
+      const data = await sendMessageRequest(item.recipientDid, item.text, item.clientMessageId);
+      removeOutbox(clientMessageId);
+      currentMessages = currentMessages.filter(message => String(message.messageId || message.id) !== clientMessageId);
+      currentMessages = [...currentMessages, data.message];
+      renderMessages(currentMessages);
+      saveChatCache(item.recipientDid, currentMessages);
+      scrollConversationToBottom(true);
+      await loadConversations();
+    } catch (_) {
+      currentMessages = currentMessages.map(message =>
+        String(message.messageId || message.id) === clientMessageId ? {...message, status:"failed"} : message
+      );
+      renderMessages(currentMessages);
+    }
+  }
+
+  function mergeOutboxForConversation(did) {
+    const pending = readOutbox()
+      .filter(item => item.recipientDid === did && item.clientMessageId && item.text)
+      .map(item => ({
+        id: "pending-" + item.clientMessageId,
+        messageId: item.clientMessageId,
+        conversationId: "",
+        senderDid: myDid,
+        recipientDid: did,
+        text: item.text,
+        sentAt: new Date(item.createdAt || Date.now()).toISOString(),
+        status: "failed"
+      }));
+    if (!pending.length) return false;
+    const changed = mergeMessages(pending);
+    renderMessages(currentMessages);
+    return changed;
+  }
 
   async function processOutbox() {
     const rows = readOutbox();
