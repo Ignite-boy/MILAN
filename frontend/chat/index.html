@@ -1397,8 +1397,8 @@
         // layer so refresh never leaves the conversation looking empty while
         // the authoritative mailbox is being read.
         currentMessages = serverMessages;
+        renderMessages(currentMessages);
         mergeOutboxForConversation(did);
-        if (!currentMessages.length) renderMessages(serverMessages);
         scrollConversationToBottom(forceBottom);
       }
 
