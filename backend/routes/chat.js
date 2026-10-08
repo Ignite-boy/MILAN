@@ -134,8 +134,19 @@ function chatMessageRecordOptions(data) {
   };
 }
 
+function mailboxRecordId(conversationId, messageId, role) {
+  return crypto.createHash('sha256')
+    .update(['milan-chat-mailbox-v1', conversationId, messageId, role].join('|'))
+    .digest('hex')
+    .slice(0, 64);
+}
+
 async function createChatMailboxRecord(userId, ownerDid, data) {
-  return dwnStore.createRecord(userId, ownerDid, chatMessageRecordOptions(data));
+  const role = String(data?.mailboxRole || '').trim() || 'mailbox';
+  return dwnStore.createRecord(userId, ownerDid, {
+    ...chatMessageRecordOptions(data),
+    recordId: mailboxRecordId(data.conversationId, data.messageId, role)
+  });
 }
 
 async function recipientMailboxHasMessage(recipientDid, messageId) {
@@ -228,8 +239,18 @@ function chatReceiptRecordOptions(data) {
   };
 }
 
+function receiptRecordId(conversationId, messageId, readerDid, ownerDid) {
+  return crypto.createHash('sha256')
+    .update(['milan-chat-receipt-v1', conversationId, messageId, readerDid, ownerDid].join('|'))
+    .digest('hex')
+    .slice(0, 64);
+}
+
 async function createChatReceiptRecord(userId, ownerDid, data) {
-  return dwnStore.createRecord(userId, ownerDid, chatReceiptRecordOptions(data));
+  return dwnStore.createRecord(userId, ownerDid, {
+    ...chatReceiptRecordOptions(data),
+    recordId: receiptRecordId(data.conversationId, data.messageId, data.readerDid, ownerDid)
+  });
 }
 
 async function decodeStoredData(value) {
@@ -348,7 +369,7 @@ async function conversationMessages(meDid, otherDid, options = {}) {
     };
   })
   .filter(message =>
-    (!Number.isFinite(afterMs) || Date.parse(message.sentAt || '') > afterMs) &&
+    (!Number.isFinite(afterMs) || Date.parse(message.sentAt || '') >= afterMs) &&
     message.conversationId === conversationId &&
     (
       message.ownerDid === meDid ||
