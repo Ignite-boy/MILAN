@@ -1271,3 +1271,268 @@ body.milan-drawer-open #milan-drawer .md-item:nth-of-type(4){animation-delay:.10
     animation:none !important;
   }
 }
+
+
+/* ============================================================
+   MILAN V2026.10 — Universal HTML UI/UX + data visibility layer
+   Applies to public/content/utility pages that load milan-core.css.
+   Additive: does not change API/data behavior or hide content.
+   ============================================================ */
+
+:root{
+  --milan-data-bg:rgba(255,255,255,.035);
+  --milan-data-bg-strong:rgba(255,255,255,.055);
+  --milan-data-line:rgba(148,163,184,.16);
+  --milan-data-text:#f5f7ff;
+  --milan-data-muted:#9aa8c2;
+  --milan-data-green:#34d399;
+}
+
+main, .page, .wrap, .container, .content, .content-wrap{
+  min-width:0;
+}
+
+main > h1:first-child,
+.page > h1:first-child,
+.wrap > h1:first-child{
+  margin-top:28px;
+}
+
+main > p,
+.page > p,
+.wrap > p{
+  max-width:900px;
+  line-height:1.8;
+  color:var(--milan-data-muted);
+}
+
+/* Data/metric surfaces */
+.stats, .stats-grid, .metrics, .metrics-grid, .data-grid, .kpi-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:12px;
+  margin:18px 0;
+}
+.stat, .metric, .kpi, .data-point, .stat-card{
+  min-width:0;
+  padding:16px;
+  border:1px solid var(--milan-data-line);
+  border-radius:18px;
+  background:linear-gradient(145deg,rgba(18,31,64,.78),rgba(7,14,30,.82));
+  box-shadow:0 12px 35px rgba(0,0,0,.10);
+}
+.stat b, .metric b, .kpi b, .stat-card b{
+  display:block;
+  font-size:clamp(20px,3vw,30px);
+  line-height:1.05;
+  color:var(--milan-data-text);
+}
+.stat span, .metric span, .kpi span, .stat-card span,
+.stat small, .metric small, .kpi small, .stat-card small{
+  display:block;
+  margin-top:6px;
+  color:var(--milan-data-muted);
+  font-size:11px;
+  line-height:1.5;
+}
+
+/* Reusable content grids */
+.grid2, .grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.grid3, .grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.cards, .card-grid, .feature-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.cards > *, .card-grid > *, .feature-grid > *, .grid2 > *, .grid3 > *{min-width:0}
+
+/* Tables: data remains readable instead of becoming clipped */
+table{
+  width:100%;
+  border-collapse:separate;
+  border-spacing:0;
+  margin:18px 0;
+  overflow:hidden;
+  border:1px solid var(--milan-data-line);
+  border-radius:16px;
+  background:rgba(7,14,30,.58);
+}
+thead th{
+  text-align:left;
+  padding:12px 14px;
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+  color:#c9d3e7;
+  background:rgba(255,255,255,.045);
+  border-bottom:1px solid var(--milan-data-line);
+}
+tbody td{
+  padding:12px 14px;
+  vertical-align:top;
+  color:#dfe6f3;
+  border-bottom:1px solid rgba(148,163,184,.09);
+}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover td{background:rgba(255,255,255,.025)}
+
+/* Lists/details used by dashboards and informational pages */
+dl.data-list, .details-grid, .info-list{
+  display:grid;
+  gap:10px;
+}
+dl.data-list > div, .details-grid > div, .info-list > div{
+  display:grid;
+  grid-template-columns:minmax(130px,.7fr) minmax(0,1.3fr);
+  gap:12px;
+  padding:11px 13px;
+  border:1px solid rgba(148,163,184,.10);
+  border-radius:13px;
+  background:var(--milan-data-bg);
+}
+dl.data-list dt, .details-grid strong{font-weight:800;color:#cbd5e1}
+dl.data-list dd, .details-grid span{margin:0;color:#aebbd0;overflow-wrap:anywhere}
+
+/* Real controls */
+.field, .form-field{display:grid;gap:7px}
+.field label, .form-field label{margin:0;color:#dfe7f5;font-size:12px;font-weight:800}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.form-grid > .full{grid-column:1/-1}
+
+fieldset{
+  min-width:0;
+  margin:16px 0;
+  padding:16px;
+  border:1px solid var(--milan-data-line);
+  border-radius:18px;
+  background:rgba(255,255,255,.018);
+}
+legend{
+  padding:0 8px;
+  color:#dfe7f5;
+  font-size:12px;
+  font-weight:900;
+}
+
+details{
+  margin:12px 0;
+  border:1px solid var(--milan-data-line);
+  border-radius:15px;
+  background:rgba(255,255,255,.025);
+  overflow:hidden;
+}
+details > summary{
+  cursor:pointer;
+  padding:13px 15px;
+  font-weight:800;
+  color:#e6edf8;
+}
+details > :not(summary){padding-inline:15px}
+
+/* Status / state chips */
+.status, .badge, .pill, .tag, .chip{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  min-height:30px;
+  padding:5px 10px;
+  border:1px solid rgba(148,163,184,.16);
+  border-radius:999px;
+  background:rgba(255,255,255,.045);
+  color:#dce5f4;
+  font-size:11px;
+  font-weight:800;
+  line-height:1.2;
+}
+
+/* Article/readability */
+article, .prose, .article, .reading-content{
+  max-width:900px;
+  margin-inline:auto;
+}
+article h2, .prose h2, .article h2, .reading-content h2{
+  margin-top:32px;
+  color:#f7f9ff;
+}
+article p, .prose p, .article p, .reading-content p{
+  line-height:1.85;
+  color:#b4bfd2;
+}
+article li, .prose li, .article li, .reading-content li{
+  line-height:1.75;
+  color:#b4bfd2;
+}
+blockquote{
+  margin:18px 0;
+  padding:14px 16px;
+  border-left:3px solid var(--milan-ui-accent,#ff9c38);
+  border-radius:0 14px 14px 0;
+  background:rgba(255,255,255,.035);
+  color:#dbe4f3;
+}
+pre{
+  max-width:100%;
+  overflow:auto;
+  padding:15px;
+  border:1px solid var(--milan-data-line);
+  border-radius:16px;
+  background:#030712;
+  color:#dbe7f7;
+  line-height:1.6;
+}
+code{color:#dbe7f7}
+
+/* Empty/loading states should look intentional */
+.empty, .empty-state, .loading, .loading-state{
+  min-height:120px;
+  display:grid;
+  place-items:center;
+  padding:24px;
+  text-align:center;
+  border:1px dashed var(--milan-data-line);
+  border-radius:18px;
+  background:rgba(255,255,255,.018);
+  color:var(--milan-data-muted);
+}
+
+/* Images/media and embeds keep their aspect ratio */
+figure{margin:18px 0}
+figure img, .content img, article img, .article img{
+  height:auto;
+  border-radius:16px;
+}
+figcaption{
+  margin-top:7px;
+  color:#7887a2;
+  font-size:11px;
+  line-height:1.5;
+}
+
+/* Wide content scrolls cleanly on small devices */
+.table-wrap, .data-table-wrap, .overflow-x-auto{
+  width:100%;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+}
+.table-wrap table, .data-table-wrap table, .overflow-x-auto table{min-width:620px}
+
+@media (max-width:900px){
+  .stats, .stats-grid, .metrics, .metrics-grid, .data-grid, .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cards, .card-grid, .feature-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:680px){
+  body{font-size:14px}
+  .stats, .stats-grid, .metrics, .metrics-grid, .data-grid, .kpi-grid,
+  .cards, .card-grid, .feature-grid, .grid2, .grid-2, .grid3, .grid-3, .form-grid{
+    grid-template-columns:1fr;
+  }
+  .form-grid > .full{grid-column:auto}
+  dl.data-list > div, .details-grid > div, .info-list > div{
+    grid-template-columns:1fr;
+    gap:5px;
+  }
+  table{font-size:12px}
+  thead th, tbody td{padding:10px 11px}
+  .hero, .page-hero, .hero-card, .heroPanel{
+    margin-top:16px;
+    padding:22px 18px;
+    border-radius:20px;
+  }
+}
