@@ -41,6 +41,11 @@ const DEFAULTS = {
     pushComments: true,
     pushReactions: true,
     pushMessages: true
+  },
+  travelLocation: {
+    scope: 'blocked',
+    duration: '15m',
+    updatedAt: null
   }
 };
 
@@ -62,6 +67,7 @@ function mergeSettings(user) {
     account: { ...DEFAULTS.account, ...(s.account || {}) },
     privacy: { ...DEFAULTS.privacy, ...(s.privacy || {}) },
     notifications: { ...DEFAULTS.notifications, ...(s.notifications || {}) },
+    travelLocation: { ...DEFAULTS.travelLocation, ...(s.travelLocation || {}) },
     blocked: Array.isArray(s.blocked) ? s.blocked : [],
     status: user.status || 'active'
   };
@@ -73,6 +79,7 @@ function publicSettings(user) {
     account: { ...s.account, username: user.username || '', email: user.email, did: user.did },
     privacy: s.privacy,
     notifications: s.notifications,
+    travelLocation: s.travelLocation,
     security: {
       twoFactorEnabled: !!(user.security && user.security.twoFactorEnabled),
       twoFactorPending: !!(user.security && user.security.pendingSecret),
@@ -145,6 +152,36 @@ router.put('/privacy', auth, asyncRoute(async (req, res) => {
   const r = await saveUsers(users);
   addActivity(user.id, 'settings.privacy_updated');
   res.json({ ok: true, synced: r.synced, privacy: p });
+}));
+
+/* ── Travel Location Policy ───────────────────────────────────────── */
+router.put('/travel-location', auth, asyncRoute(async (req, res) => {
+  const { users, email, user } = locate(req);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const cur = mergeSettings(user);
+  const allowedScope = ['blocked', 'city', 'coarse', 'approximate', 'precise'];
+  const allowedDuration = ['15m', '1h', 'trip'];
+
+  const next = { ...cur.travelLocation };
+  if (req.body?.scope != null && allowedScope.includes(String(req.body.scope))) {
+    next.scope = String(req.body.scope);
+  }
+  if (req.body?.duration != null && allowedDuration.includes(String(req.body.duration))) {
+    next.duration = String(req.body.duration);
+  }
+  next.updatedAt = new Date().toISOString();
+
+  user.settings = { ...cur, travelLocation: next };
+  users[email] = user;
+
+  const r = await saveUsers(users);
+  addActivity(user.id, 'settings.travel_location_updated', {
+    scope: next.scope,
+    duration: next.duration
+  });
+
+  res.json({ ok: true, synced: r.synced, travelLocation: next });
 }));
 
 /* ── Notifications ───────────────────────────────────────────────── */
