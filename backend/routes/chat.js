@@ -19,6 +19,8 @@ const CHAT_RECEIPT_SCHEMA = 'milan.chat.receipt';
 const CHAT_RECEIPT_PATH = 'receipts';
 const MAX_MESSAGE_CHARS = 5000;
 const MAX_HISTORY = 200;
+const CHAT_QUERY_RECORD_LIMIT = MAX_HISTORY * 2;
+const CHAT_GLOBAL_RECORD_LIMIT = MAX_HISTORY * 20;
 
 const didOf = value => String(value || '').trim();
 
@@ -264,7 +266,7 @@ async function conversationMessages(meDid, otherDid, options = {}) {
 
   const { data: rows, error } = await recordsQuery
     .order('date_created', { ascending: false })
-    .limit(MAX_HISTORY);
+     .limit(CHAT_QUERY_RECORD_LIMIT);
 
   if (error) throw error;
   if (!Array.isArray(rows) || !rows.length) return [];
@@ -388,7 +390,7 @@ async function listConversations(meDid) {
     .eq('protocol', CHAT_PROTOCOL)
     .eq('protocol_path', CHAT_PATH)
     .order('date_created', { ascending: false })
-    .limit(MAX_HISTORY * 8);
+    .limit(CHAT_GLOBAL_RECORD_LIMIT);
 
   if (error) throw error;
   if (!Array.isArray(rows) || !rows.length) return [];
