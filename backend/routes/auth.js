@@ -17,6 +17,25 @@ const supabaseDb = createClient(
   process.env.SUPABASE_SERVICE_KEY
 );
 
+function deriveUserSpaceId(userId = '', email = '') {
+  const seed = String(userId) + '|' + String(email);
+  const hash = crypto.createHash('sha256').update(seed).digest('hex');
+  return 'milan-' + (userId || hash).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 40) + '-' + hash.slice(0, 8);
+}
+
+function isMissingOptionalUserColumn(error) {
+  const code = String(error?.code || '').trim().toUpperCase();
+  const message = String(error?.message || '').trim();
+  return (
+    /space_id|portable_did|dwn_quota_bytes/i.test(message) &&
+    (
+      code === 'PGRST204' ||
+      code === '42703' ||
+      /column .* does not exist|could not find the .* column .* in the schema cache|schema cache/i.test(message)
+    )
+  );
+}
+
 const router = express.Router();
 
 const JWT_SECRET = require('../utils/jwtSecret');
@@ -158,18 +177,36 @@ router.post('/register', authThrottle(10, 60_000), asyncRoute(async (req, res) =
 
   const passwordHash = await passwordHashPromise;
 
-  const { error: insertError } = await supabaseDb
+  const fullInsert = {
+    id,
+    email,
+    password_hash: passwordHash,
+    name: displayName,
+    did,
+    space_id: spaceId,
+    portable_did: portableDid || null,
+    dwn_quota_bytes: 1073741824
+  };
+
+  // Some existing MILAN Supabase projects may still have the older core-only
+  // users schema. Try the complete mapping first, then safely fall back to the
+  // core account fields when one of the optional DWN columns is unavailable.
+  let { error: insertError } = await supabaseDb
     .from('users')
-    .insert({
-      id,
-      email,
-      password_hash: passwordHash,
-      name: displayName,
-      did,
-      space_id: spaceId,
-      portable_did: portableDid || null,
-      dwn_quota_bytes: 1073741824
-    });
+    .insert(fullInsert);
+
+  if (insertError && isMissingOptionalUserColumn(insertError)) {
+    console.warn('[auth] Optional DWN user columns are unavailable; using core registration schema.');
+    ({ error: insertError } = await supabaseDb
+      .from('users')
+      .insert({
+        id,
+        email,
+        password_hash: passwordHash,
+        name: displayName,
+        did
+      }));
+  }
 
   if (insertError) {
     if (insertError.code === '23505') {
@@ -178,9 +215,7 @@ router.post('/register', authThrottle(10, 60_000), asyncRoute(async (req, res) =
 
     console.error('[auth] Supabase users insert failed:', insertError);
     return res.status(500).json({
-      error: 'Account database registration failed',
-      details: insertError.message,
-      code: insertError.code
+      error: 'Account database registration failed'
     });
   }
 
@@ -202,25 +237,45 @@ router.post('/register', authThrottle(10, 60_000), asyncRoute(async (req, res) =
 router.post('/login', authThrottle(15, 60_000), asyncRoute(async (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase(); const password = String(req.body.password || '');
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
-  const { data: user, error: lookupError } = await supabaseDb.from('users').select('id,email,password_hash,name,did,space_id,portable_did,dwn_quota_bytes').eq('email', email).maybeSingle();
-  if (lookupError) return res.status(500).json({ error: 'Account database unavailable', details: lookupError.message, code: lookupError.code });
+  // Select the full row so registration remains compatible with both the
+  // current DWN-aware schema and older core-only users tables.
+  const { data: user, error: lookupError } = await supabaseDb
+    .from('users')
+    .select('*')
+    .eq('email', email)
+    .maybeSingle();
+
+  if (lookupError) {
+    return res.status(500).json({
+      error: 'Account database unavailable',
+      details: lookupError.message,
+      code: lookupError.code
+    });
+  }
   if (!user) return res.status(401).json({ error: 'Invalid credentials' });
   if (!user.password_hash) return res.status(401).json({ error: 'Invalid credentials' });
   if (!(await bcrypt.compare(password, user.password_hash))) return res.status(401).json({ error: 'Invalid credentials' });
-  const token = jwt.sign({ userId: user.id, email: user.email }, secret(), { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
+
+  const token = jwt.sign(
+    { userId: user.id, email: user.email },
+    secret(),
+    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+  );
+
+  const spaceId = String(
+    user.space_id ||
+    deriveUserSpaceId(user.id, user.email)
+  ).trim();
+
   return res.json({
     token,
     id: user.id,
     email: user.email,
     name: user.name,
     did: user.did,
-    spaceId: user.space_id,
+    spaceId,
     portableDid: user.portable_did || '',
     dwnQuotaBytes: Number(user.dwn_quota_bytes || 1073741824),
-    // display_name is derived from the registered account name. Avatar data
-    // deliberately stays out of auth/me (single source: GET /api/profile), but
-    // the display name must travel here or every client falls back to the
-    // email local-part and shows something like "np7218468".
     profile: { display_name: String(user.name || '').trim() },
     settings: {},
     emailVerified: true,
@@ -231,7 +286,7 @@ router.post('/login', authThrottle(15, 60_000), asyncRoute(async (req, res) => {
 router.get('/me', auth, asyncRoute(async (req, res) => {
   const { data: dbUser, error } = await supabaseDb
     .from('users')
-    .select('id,email,name,did,space_id,portable_did,dwn_quota_bytes')
+    .select('*')
     .eq('id', req.userId)
     .maybeSingle();
 
@@ -253,7 +308,10 @@ router.get('/me', auth, asyncRoute(async (req, res) => {
     email: dbUser.email,
     name: dbUser.name,
     did: dbUser.did,
-    spaceId: dbUser.space_id,
+    spaceId: String(
+      dbUser.space_id ||
+      deriveUserSpaceId(dbUser.id, dbUser.email)
+    ).trim(),
     portableDid: dbUser.portable_did || '',
     dwnQuotaBytes: Number(dbUser.dwn_quota_bytes || 1073741824),
     // see the note in POST /login - keeps the registered name available to
