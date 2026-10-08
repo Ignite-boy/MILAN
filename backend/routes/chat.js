@@ -828,11 +828,18 @@ router.post('/with/:did/messages', auth, async (req, res) => {
     const message = toMessage(senderRecord);
 
     try {
+      // Push the fully formed message after the recipient DWN mailbox is
+      // durably written. The recipient UI can render it immediately without
+      // waiting for a second network read; polling remains a safety fallback.
       livePush.push(recipient.id, 'notify', {
         notifType: 'chat_message',
         conversationId,
         senderDid: meDid,
-        messageId
+        messageId,
+        message: {
+          ...message,
+          status: 'delivered'
+        }
       });
     } catch (_) {}
 
