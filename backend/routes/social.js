@@ -126,10 +126,25 @@ function decorateRecord(record, myDid){
   };
 }
 function isChatRecord(record){
-  return String(record?.protocol || '') === 'milan.chat' ||
-    String(record?.protocolPath || '') === 'messages' ||
-    String(record?.schema || '') === 'milan.chat.message' ||
-    String(record?.data?.kind || '') === 'chat_message';
+  const data = record?.data && typeof record.data === 'object' ? record.data : {};
+  const protocol = String(record?.protocol || '').trim().toLowerCase();
+  const protocolPath = String(record?.protocolPath || '').trim().toLowerCase();
+  const schema = String(record?.schema || '').trim().toLowerCase();
+  const title = String(record?.title || '').trim().toLowerCase();
+
+  return (
+    protocol === 'milan.chat' ||
+    protocolPath === 'messages' ||
+    schema === 'milan.chat.message' ||
+    title === 'milan chat message' ||
+    String(data.kind || '').trim().toLowerCase() === 'chat_message' ||
+    Boolean(
+      data.messageId &&
+      data.conversationId &&
+      data.senderDid &&
+      data.recipientDid
+    )
+  );
 }
 
 function allowedForFeed(record, myDid, scope){
