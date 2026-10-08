@@ -39,6 +39,7 @@ assert(chat.includes("CHAT_RECEIPT_SCHEMA = 'milan.chat.receipt'"), 'Read receip
 assert(chat.includes("CHAT_RECEIPT_PATH = 'receipts'"), 'Read receipt path missing.');
 assert(chat.includes("notifType: 'chat_read'"), 'Read receipt event missing.');
 assert(chat.includes("deliveryStatus: 'delivered'"), 'Delivered state missing.');
+assert(chat.includes("message: {"), 'Realtime message payload missing.');
 assert(chat.includes("mailboxRole: 'recipient'"), 'Recipient mailbox role missing.');
 assert(chat.includes("mailboxRole: 'sender'"), 'Sender mailbox role missing.');
 
@@ -50,6 +51,7 @@ assert(frontend.includes('/api/chat/with/" + encodeURIComponent(selected.did) + 
 assert(frontend.includes('notifType || "") === "chat_typing"'), 'Typing event client handler missing.');
 assert(frontend.includes('/api/chat/with/" + encodeURIComponent(recipientDid) + "/messages'), 'Message send endpoint missing.');
 assert(frontend.includes('status === "sending"'), 'Optimistic sending state missing.');
+assert(frontend.includes('mergeMessages([incoming])'), 'Instant inbound message render missing.');
 
 console.log('✅ MILAN chat architecture checks passed.');
 console.log('✅ Backend syntax checks passed.');
