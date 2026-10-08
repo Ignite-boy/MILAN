@@ -1436,13 +1436,36 @@
 
           if (String(data.notifType || "") !== "chat_message") return;
 
+          // Messenger-style instant delivery: the sender-side server has
+          // already persisted the recipient's private DWN mailbox record before
+          // broadcasting this event, so render the payload immediately.
+          const incoming = data.message;
+          if (incoming && incoming.messageId && incoming.senderDid && incoming.recipientDid) {
+            const isForOpenConversation =
+              selected &&
+              String(selected.did || "") === String(incoming.senderDid || "") &&
+              String(incoming.recipientDid || "") === String(myDid || "");
+
+            if (isForOpenConversation) {
+              const changed = mergeMessages([incoming]);
+              if (changed) {
+                renderMessages(currentMessages);
+                scrollConversationToBottom(false);
+              }
+              syncReadReceipts().catch(() => {});
+            } else {
+              document.title = "New message · Milan Chat";
+              setTimeout(() => { document.title = "Milan Chat"; }, 2400);
+            }
+          }
+
           loadConversations().catch(() => {});
 
-          if (!document.hidden && selected) {
+          // Re-read the mailbox as a consistency check. This is deliberately
+          // separate from the immediate render so a slow DB read never delays
+          // the message appearing in the UI.
+          if (selected) {
             loadConversation(true, false, true).catch(() => {});
-          } else if (document.hidden || !selected) {
-            document.title = "New message · Milan Chat";
-            setTimeout(() => { document.title = "Milan Chat"; }, 2400);
           }
         } catch (_) {}
       };
