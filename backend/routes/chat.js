@@ -15,8 +15,9 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 const CHAT_SCHEMA = 'milan.chat.message';
 const CHAT_PROTOCOL = 'milan.chat';
 const CHAT_PATH = 'messages';
+const CHAT_RECEIPT_SCHEMA = 'milan.chat.receipt';
+const CHAT_RECEIPT_PATH = 'receipts';
 const MAX_MESSAGE_CHARS = 5000;
-const MAX_HISTORY = 200;
 
 const didOf = value => String(value || '').trim();
 
@@ -109,8 +110,29 @@ function toMessage(record) {
     recipientDid: String(data.recipientDid || ''),
     text: String(data.text || ''),
     sentAt: data.sentAt || record?.dateCreated || record?.dateModified || new Date().toISOString(),
-    dateModified: record?.dateModified || record?.dateCreated || null
+    dateModified: record?.dateModified || record?.dateCreated || null,
+    deliveryStatus: String(data.deliveryStatus || 'sent'),
+    deliveredAt: data.deliveredAt || null,
+    readAt: data.readAt || null
   };
+}
+
+function chatMessageRecordOptions(data) {
+  return {
+    schema: CHAT_SCHEMA,
+    title: 'MILAN Chat Message',
+    dataFormat: 'application/json',
+    protocol: CHAT_PROTOCOL,
+    protocolPath: CHAT_PATH,
+    accessMode: 'private',
+    sharedWithDids: [],
+    awaitCloudSync: true,
+    data
+  };
+}
+
+async function createChatMailboxRecord(userId, ownerDid, data) {
+  return dwnStore.createRecord(userId, ownerDid, chatMessageRecordOptions(data));
 }
 
 async function decodeStoredData(value) {
@@ -164,7 +186,7 @@ async function conversationMessages(meDid, otherDid, options = {}) {
     (payloads || []).map(row => [String(row.record_id || ''), row.data])
   );
 
-  return rows.map(row => {
+  const visible = rows.map(row => {
     let metadata = {};
     try { metadata = row.metadata ? JSON.parse(String(row.metadata)) : {}; } catch (_) {}
 
@@ -178,25 +200,41 @@ async function conversationMessages(meDid, otherDid, options = {}) {
       text: String(data.text || ''),
       sentAt: data.sentAt || row.date_created || row.date_modified || new Date().toISOString(),
       dateModified: row.date_modified || row.date_created || null,
+      deliveryStatus: String(data.deliveryStatus || 'sent'),
+      deliveredAt: data.deliveredAt || null,
+      readAt: data.readAt || null,
+      ownerDid: String(row.owner_did || ''),
       sharedWithDids: Array.isArray(metadata.sharedWithDids) ? metadata.sharedWithDids : []
     };
   })
   .filter(message =>
     (!Number.isFinite(afterMs) || Date.parse(message.sentAt || '') > afterMs) &&
     message.conversationId === conversationId &&
-    (message.senderDid === meDid || message.sharedWithDids.includes(meDid)) &&
+    (
+      message.ownerDid === meDid ||
+      (message.senderDid === otherDid && message.sharedWithDids.includes(meDid))
+    ) &&
     (
       (message.senderDid === meDid && message.recipientDid === otherDid) ||
       (message.senderDid === otherDid && message.recipientDid === meDid)
     )
-  )
-  .map(({sharedWithDids, ...message}) => message)
-  .sort((a, b) => {
-    const aTime = Date.parse(a.sentAt || '') || 0;
-    const bTime = Date.parse(b.sentAt || '') || 0;
-    return aTime - bTime;
-  })
-  .slice(-MAX_HISTORY);
+  );
+
+  const byMessageId = new Map();
+  for (const message of visible) {
+    const key = message.messageId || message.id;
+    const previous = byMessageId.get(key);
+    if (!previous || message.ownerDid === meDid) byMessageId.set(key, message);
+  }
+
+  return [...byMessageId.values()]
+    .map(({ownerDid, sharedWithDids, ...message}) => message)
+    .sort((a, b) => {
+      const aTime = Date.parse(a.sentAt || '') || 0;
+      const bTime = Date.parse(b.sentAt || '') || 0;
+      return aTime - bTime;
+    })
+    .slice(-MAX_HISTORY);
 }
 
 async function listConversations(meDid) {
@@ -229,11 +267,19 @@ async function listConversations(meDid) {
     (payloads || []).map(row => [String(row.record_id || ''), decodeStoredData(row.data)])
   );
 
-  const byConversation = new Map();
+  const uniqueMessages = new Map();
+
   for (const row of rows) {
     const recordId = String(row.record_id || '');
     const data = dataMap.get(recordId);
     if (!data || typeof data !== 'object' || data.kind !== 'chat_message') continue;
+
+    let metadata = {};
+    try { metadata = row.metadata ? JSON.parse(String(row.metadata)) : {}; } catch (_) {}
+
+    const ownerDid = didOf(row.owner_did);
+    const sharedWithDids = Array.isArray(metadata.sharedWithDids) ? metadata.sharedWithDids : [];
+    if (ownerDid !== currentDid && !sharedWithDids.includes(currentDid)) continue;
 
     const senderDid = didOf(data.senderDid || row.owner_did);
     const recipientDid = didOf(data.recipientDid || row.recipient);
@@ -244,29 +290,46 @@ async function listConversations(meDid) {
     if (!friendDids.has(otherDid)) continue;
 
     const conversationId = String(data.conversationId || conversationIdFor(currentDid, otherDid));
-    if (!byConversation.has(conversationId)) {
-      byConversation.set(conversationId, {
-        conversationId,
-        otherDid,
-        lastMessage: String(data.text || '').slice(0, 160),
-        lastMessageAt: data.sentAt || row.date_created || row.date_modified || '',
-        lastMessageId: String(data.messageId || recordId),
-        lastSenderDid: senderDid,
-        messageCount: 0
-      });
-    }
+    const messageId = String(data.messageId || recordId);
+    const candidate = {
+      recordId,
+      messageId,
+      ownerDid,
+      conversationId,
+      otherDid,
+      senderDid,
+      text: String(data.text || '').slice(0, 160),
+      sentAt: data.sentAt || row.date_created || row.date_modified || '',
+    };
 
-    const item = byConversation.get(conversationId);
+    const previous = uniqueMessages.get(messageId);
+    if (!previous || candidate.ownerDid === currentDid) {
+      uniqueMessages.set(messageId, candidate);
+    }
+  }
+
+  const byConversation = new Map();
+  for (const message of uniqueMessages.values()) {
+    const item = byConversation.get(message.conversationId) || {
+      conversationId: message.conversationId,
+      otherDid: message.otherDid,
+      lastMessage: message.text,
+      lastMessageAt: message.sentAt,
+      lastMessageId: message.messageId,
+      lastSenderDid: message.senderDid,
+      messageCount: 0
+    };
     item.messageCount += 1;
 
-    const candidateTime = Date.parse(data.sentAt || row.date_created || '');
-    const currentTime = Date.parse(item.lastMessageAt || '');
-    if (Number.isFinite(candidateTime) && (!Number.isFinite(currentTime) || candidateTime > currentTime)) {
-      item.lastMessage = String(data.text || '').slice(0, 160);
-      item.lastMessageAt = data.sentAt || row.date_created || row.date_modified || '';
-      item.lastMessageId = String(data.messageId || recordId);
-      item.lastSenderDid = senderDid;
+    const candidateTime = Date.parse(message.sentAt || '') || 0;
+    const currentTime = Date.parse(item.lastMessageAt || '') || 0;
+    if (candidateTime >= currentTime) {
+      item.lastMessage = message.text;
+      item.lastMessageAt = message.sentAt;
+      item.lastMessageId = message.messageId;
+      item.lastSenderDid = message.senderDid;
     }
+    byConversation.set(message.conversationId, item);
   }
 
   const conversationRows = [...byConversation.values()]
@@ -365,6 +428,39 @@ router.get('/conversations', auth, async (req, res) => {
   } catch (err) {
     console.error('[chat/conversations]', err);
     return res.status(500).json({ error: 'Conversations unavailable' });
+  }
+});
+
+router.post('/with/:did/typing', auth, async (req, res) => {
+  const meDid = didOf(req.did || req.account?.did);
+  const otherDid = didOf(req.params.did);
+  const active = req.body?.active === true;
+
+  if (!meDid) return res.status(401).json({ error: 'Authenticated DID unavailable' });
+  if (!otherDid) return res.status(400).json({ error: 'Recipient DID required' });
+  if (meDid === otherDid) return res.status(400).json({ error: 'Cannot type to yourself' });
+
+  try {
+    const recipient = await recipientByDid(otherDid);
+    if (!recipient) return res.status(404).json({ error: 'Person not found' });
+
+    const friendDids = await friendDidsFor(meDid);
+    if (!friendDids.has(otherDid)) {
+      return res.status(403).json({ error: 'You can only type to connected friends' });
+    }
+
+    livePush.push(recipient.id, 'notify', {
+      notifType: 'chat_typing',
+      conversationId: conversationIdFor(meDid, otherDid),
+      senderDid: meDid,
+      active
+    });
+
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('[chat/typing]', err);
+    return res.status(500).json({ error: 'Typing status unavailable' });
   }
 });
 
@@ -487,27 +583,33 @@ router.post('/with/:did/messages', auth, async (req, res) => {
       }
     }
 
-    const record = await dwnStore.createRecord(req.userId, meDid, {
-      schema: CHAT_SCHEMA,
-      title: 'MILAN Chat Message',
-      dataFormat: 'application/json',
-      protocol: CHAT_PROTOCOL,
-      protocolPath: CHAT_PATH,
-      accessMode: 'shared_did',
-      sharedWithDids: [otherDid],
-      awaitCloudSync: true,
-      data: {
-        kind: 'chat_message',
-        messageId,
-        conversationId,
-        senderDid: meDid,
-        recipientDid: otherDid,
-        text,
-        sentAt: now
-      }
+    const messageData = {
+      kind: 'chat_message',
+      messageId,
+      conversationId,
+      senderDid: meDid,
+      recipientDid: otherDid,
+      text,
+      sentAt: now,
+      deliveryStatus: 'delivered',
+      deliveredAt: now
+    };
+
+    // One-to-one DWN mailbox model:
+    // 1) a recipient-owned private copy is delivered into the recipient's isolated space;
+    // 2) the sender-owned private copy remains in the sender's isolated space.
+    // Both copies share the same messageId so clients render exactly one message.
+    await createChatMailboxRecord(recipient.id, otherDid, {
+      ...messageData,
+      mailboxRole: 'recipient'
     });
 
-    const message = toMessage(record);
+    const senderRecord = await createChatMailboxRecord(req.userId, meDid, {
+      ...messageData,
+      mailboxRole: 'sender'
+    });
+
+    const message = toMessage(senderRecord);
 
     try {
       livePush.push(recipient.id, 'notify', {
