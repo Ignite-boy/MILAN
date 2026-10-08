@@ -1,0 +1,10 @@
+<resources>
+    <style name="Theme.Milan" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">@color/milan_navy</item>
+        <item name="android:navigationBarColor">@color/milan_navy</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:colorAccent">#DF46C8</item>
+    </style>
+</resources>
