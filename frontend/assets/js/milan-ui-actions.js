@@ -1559,6 +1559,11 @@
                     minute: "2-digit"
                 });
 
+        const timelineLabel =
+            record?.__milanOptimistic === true
+                ? "Publishing…"
+                : when;
+
         const name =
             state.profileName ||
             document
@@ -1672,7 +1677,7 @@
                         <strong class="milan-feed-name">
                             ${escapeHtml(name)}
                         </strong>
-                        <span>${escapeHtml(when)}</span>
+                        <span>${escapeHtml(timelineLabel)}</span>
                     </div>
                 </div>
 
@@ -2064,6 +2069,59 @@
 
         const originalText = button.textContent;
 
+        const optimisticId =
+            !file
+                ? "local-" +
+                  (window.crypto?.randomUUID
+                      ? window.crypto.randomUUID()
+                      : Date.now() + "-" + Math.random().toString(36).slice(2))
+                : "";
+
+        const optimisticAt = new Date().toISOString();
+        const optimisticRecord =
+            optimisticId
+                ? {
+                    id: optimisticId,
+                    title: "MILAN Quote",
+                    data: {
+                        kind: "quote",
+                        text,
+                        createdAt: optimisticAt
+                    },
+                    dataFormat: "application/json",
+                    accessMode: privacyMode,
+                    sharedWithDids: [],
+                    tags: ["quote"],
+                    dateCreated: optimisticAt,
+                    dateModified: optimisticAt,
+                    __milanOptimistic: true
+                }
+                : null;
+
+        if (optimisticRecord) {
+            state.pendingPosts.set(
+                optimisticId,
+                optimisticRecord
+            );
+
+            const currentRecords =
+                Array.from(state.feedRecords.values());
+
+            /*
+             * Paint the post immediately. The network request below is
+             * reconciliation, not the first visible render.
+             */
+            renderFeed(
+                mergeRecords([
+                    optimisticRecord,
+                    ...currentRecords
+                ])
+            );
+
+            textarea.value = "";
+            showPublishStatus("Publishing…");
+        }
+
         const privacyButton =
             document.querySelectorAll(".composer-tools .tool")[3];
 
@@ -2077,7 +2135,7 @@
 
         try {
             button.disabled = true;
-            button.textContent = originalText;
+            button.textContent = "Published ✓";
             $("milanPublishStatus")?.remove();
 
             let saved = null;
@@ -2194,6 +2252,7 @@
                         "Accept": "application/json"
                     },
                     body: JSON.stringify({
+                        recordId: optimisticId || undefined,
                         title: "MILAN Quote",
                         data: {
                             kind: "quote",
@@ -2226,23 +2285,28 @@
             const savedId =
                 getRecordId(saved);
 
-            /*
-             * IMPORTANT:
-             * Put the actual server/DWN response into the
-             * pending collection BEFORE rendering.
-             */
-            if (savedId) {
+            if (optimisticRecord && savedId) {
+                /*
+                 * The backend reuses the same client recordId, so replace
+                 * the optimistic row with the authoritative record.
+                 */
+                state.pendingPosts.delete(optimisticId);
+                state.feedRecords.set(savedId, {
+                    ...saved,
+                    __milanOptimistic: false
+                });
+            } else if (savedId) {
                 state.pendingPosts.set(
                     savedId,
                     saved
                 );
             }
 
-            textarea.value = "";
             if (mediaInput) mediaInput.value = "";
 
             /*
-             * Immediately render the real saved record.
+             * Re-render the real saved record without forcing a full feed
+             * reload or making the user wait for another network request.
              */
             const currentRecords =
                 Array.from(
@@ -2267,7 +2331,7 @@
                 loadFeed({
                     keepExisting: true
                 });
-            }, 1500);
+            }, 700);
 
             setTimeout(() => {
                 button.textContent =
@@ -2277,7 +2341,7 @@
 
                 $("milanPublishStatus")?.remove();
                 showVideoUploadProgress(null);
-            }, 1400);
+            }, 650);
 
         } catch (error) {
             console.error(
@@ -2292,6 +2356,19 @@
 
             $("milanPublishStatus")?.remove();
             showVideoUploadProgress(null);
+
+            /*
+             * Roll back only the optimistic text row when the authoritative
+             * write fails. Restore the draft so the user never loses it.
+             */
+            if (optimisticRecord) {
+                state.pendingPosts.delete(optimisticId);
+                state.feedRecords.delete(optimisticId);
+                textarea.value = text;
+                renderFeed(
+                    Array.from(state.feedRecords.values())
+                );
+            }
         }
     }
 
