@@ -387,7 +387,10 @@
   function build() {
     addStyle();
 
-    var nav = document.querySelector('.leftRail .nav');
+    // Desktop keeps the nav inside .leftRail; mobile moves it into #milan-drawer-v81 .m8-nav.
+    var nav = document.querySelector('.leftRail .nav')
+      || document.querySelector('#milan-drawer-v81 .m8-nav');
+
     if (nav && !document.getElementById('milanTravelBtn')) {
       var btn = document.createElement('button');
       btn.id = 'milanTravelBtn';
