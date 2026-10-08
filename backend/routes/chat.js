@@ -15,7 +15,8 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 const CHAT_SCHEMA = 'milan.chat.message';
 const CHAT_PROTOCOL = 'milan.chat';
 const CHAT_PATH = 'messages';
-unused receipt constantsconst MAX_MESSAGE_CHARS = 5000;
+const MAX_MESSAGE_CHARS = 5000;
+const MAX_HISTORY = 200;
 
 const didOf = value => String(value || '').trim();
 
