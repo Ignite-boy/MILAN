@@ -4,7 +4,7 @@
    login patches from returning). We DO precache a small offline fallback + icons
    so failed navigations show a proper page instead of a browser error. */
 
-var CACHE_NAME = 'milan-v101-offline-shell';
+var CACHE_NAME = 'milan-v102-universal-uiux';
 var OFFLINE_URL = '/offline.html';
 var PRECACHE = [OFFLINE_URL, '/favicon.svg', '/assets/icon-192.png', '/manifest.json'];
 
