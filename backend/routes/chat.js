@@ -15,6 +15,8 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 const CHAT_SCHEMA = 'milan.chat.message';
 const CHAT_PROTOCOL = 'milan.chat';
 const CHAT_PATH = 'messages';
+const CHAT_RECEIPT_SCHEMA = 'milan.chat.receipt';
+const CHAT_RECEIPT_PATH = 'receipts';
 const MAX_MESSAGE_CHARS = 5000;
 const MAX_HISTORY = 200;
 
@@ -109,8 +111,123 @@ function toMessage(record) {
     recipientDid: String(data.recipientDid || ''),
     text: String(data.text || ''),
     sentAt: data.sentAt || record?.dateCreated || record?.dateModified || new Date().toISOString(),
-    dateModified: record?.dateModified || record?.dateCreated || null
+    dateModified: record?.dateModified || record?.dateCreated || null,
+    deliveryStatus: String(data.deliveryStatus || 'sent'),
+    deliveredAt: data.deliveredAt || null,
+    readAt: data.readAt || null
   };
+}
+
+function chatMessageRecordOptions(data) {
+  return {
+    schema: CHAT_SCHEMA,
+    title: 'MILAN Chat Message',
+    dataFormat: 'application/json',
+    protocol: CHAT_PROTOCOL,
+    protocolPath: CHAT_PATH,
+    accessMode: 'private',
+    sharedWithDids: [],
+    awaitCloudSync: true,
+    data
+  };
+}
+
+async function createChatMailboxRecord(userId, ownerDid, data) {
+  return dwnStore.createRecord(userId, ownerDid, chatMessageRecordOptions(data));
+}
+
+async function recipientMailboxHasMessage(recipientDid, messageId) {
+  const did = didOf(recipientDid);
+  const key = didOf(messageId);
+  if (!did || !key) return false;
+
+  const { data: rows, error } = await supabase
+    .from('dwn_records')
+    .select('record_id')
+    .eq('deleted', false)
+    .eq('protocol', CHAT_PROTOCOL)
+    .eq('protocol_path', CHAT_PATH)
+    .eq('owner_did', did)
+    .order('date_created', { ascending: false })
+    .limit(MAX_HISTORY * 4);
+
+  if (error) throw error;
+  const ids = (rows || []).map(row => String(row.record_id || '')).filter(Boolean);
+  if (!ids.length) return false;
+
+  const { data: payloads, error: dataError } = await supabase
+    .from('dwn_record_data')
+    .select('record_id,data')
+    .in('record_id', ids);
+
+  if (dataError) throw dataError;
+
+  return (payloads || []).some(row => {
+    const data = decodeStoredData(row.data);
+    return data && typeof data === 'object' &&
+      data.kind === 'chat_message' &&
+      String(data.messageId || '') === key;
+  });
+}
+
+async function recipientMailboxHasReceipt(ownerDid, messageId, readerDid) {
+  const owner = didOf(ownerDid);
+  const key = didOf(messageId);
+  const reader = didOf(readerDid);
+  if (!owner || !key || !reader) return false;
+
+  const { data: rows, error } = await supabase
+    .from('dwn_records')
+    .select('record_id')
+    .eq('deleted', false)
+    .eq('protocol', CHAT_PROTOCOL)
+    .eq('protocol_path', CHAT_RECEIPT_PATH)
+    .eq('owner_did', owner)
+    .order('date_created', { ascending: false })
+    .limit(MAX_HISTORY * 4);
+
+  if (error) throw error;
+
+  const ids = (rows || [])
+    .map(row => String(row.record_id || ''))
+    .filter(Boolean);
+
+  if (!ids.length) return false;
+
+  const { data: payloads, error: dataError } = await supabase
+    .from('dwn_record_data')
+    .select('record_id,data')
+    .in('record_id', ids);
+
+  if (dataError) throw dataError;
+
+  return (payloads || []).some(row => {
+    const data = decodeStoredData(row.data);
+    return data &&
+      typeof data === 'object' &&
+      data.kind === 'chat_receipt' &&
+      data.state === 'read' &&
+      String(data.messageId || '') === key &&
+      String(data.readerDid || '') === reader;
+  });
+}
+
+function chatReceiptRecordOptions(data) {
+  return {
+    schema: CHAT_RECEIPT_SCHEMA,
+    title: 'MILAN Chat Read Receipt',
+    dataFormat: 'application/json',
+    protocol: CHAT_PROTOCOL,
+    protocolPath: CHAT_RECEIPT_PATH,
+    accessMode: 'private',
+    sharedWithDids: [],
+    awaitCloudSync: true,
+    data
+  };
+}
+
+async function createChatReceiptRecord(userId, ownerDid, data) {
+  return dwnStore.createRecord(userId, ownerDid, chatReceiptRecordOptions(data));
 }
 
 async function decodeStoredData(value) {
@@ -164,7 +281,50 @@ async function conversationMessages(meDid, otherDid, options = {}) {
     (payloads || []).map(row => [String(row.record_id || ''), row.data])
   );
 
-  return rows.map(row => {
+  const { data: receiptRows, error: receiptError } = await supabase
+    .from('dwn_records')
+    .select('record_id')
+    .eq('deleted', false)
+    .eq('protocol', CHAT_PROTOCOL)
+    .eq('protocol_path', CHAT_RECEIPT_PATH)
+    .in('owner_did', [meDid, otherDid])
+    .order('date_created', { ascending: false })
+    .limit(MAX_HISTORY * 4);
+
+  if (receiptError) throw receiptError;
+
+  const receiptIds = (receiptRows || [])
+    .map(row => String(row.record_id || ''))
+    .filter(Boolean);
+
+  let receiptPayloads = [];
+  if (receiptIds.length) {
+    const { data: payloads, error: receiptDataError } = await supabase
+      .from('dwn_record_data')
+      .select('record_id,data')
+      .in('record_id', receiptIds);
+
+    if (receiptDataError) throw receiptDataError;
+    receiptPayloads = payloads || [];
+  }
+
+  const readAtByMessageId = new Map();
+  for (const row of receiptPayloads) {
+    const data = decodeStoredData(row.data);
+    if (!data || typeof data !== 'object' || data.kind !== 'chat_receipt' || data.state !== 'read') continue;
+    if (String(data.readerDid || '') !== meDid && String(data.readerDid || '') !== otherDid) continue;
+
+    const messageKey = String(data.messageId || '');
+    const readAt = data.readAt || null;
+    if (!messageKey || !readAt) continue;
+
+    const previous = readAtByMessageId.get(messageKey);
+    if (!previous || (Date.parse(readAt) || 0) > (Date.parse(previous) || 0)) {
+      readAtByMessageId.set(messageKey, readAt);
+    }
+  }
+
+  const visible = rows.map(row => {
     let metadata = {};
     try { metadata = row.metadata ? JSON.parse(String(row.metadata)) : {}; } catch (_) {}
 
@@ -178,25 +338,41 @@ async function conversationMessages(meDid, otherDid, options = {}) {
       text: String(data.text || ''),
       sentAt: data.sentAt || row.date_created || row.date_modified || new Date().toISOString(),
       dateModified: row.date_modified || row.date_created || null,
+      deliveryStatus: String(data.deliveryStatus || 'sent'),
+      deliveredAt: data.deliveredAt || null,
+      readAt: data.readAt || readAtByMessageId.get(String(data.messageId || row.record_id || '')) || null,
+      ownerDid: String(row.owner_did || ''),
       sharedWithDids: Array.isArray(metadata.sharedWithDids) ? metadata.sharedWithDids : []
     };
   })
   .filter(message =>
     (!Number.isFinite(afterMs) || Date.parse(message.sentAt || '') > afterMs) &&
     message.conversationId === conversationId &&
-    (message.senderDid === meDid || message.sharedWithDids.includes(meDid)) &&
+    (
+      message.ownerDid === meDid ||
+      (message.senderDid === otherDid && message.sharedWithDids.includes(meDid))
+    ) &&
     (
       (message.senderDid === meDid && message.recipientDid === otherDid) ||
       (message.senderDid === otherDid && message.recipientDid === meDid)
     )
-  )
-  .map(({sharedWithDids, ...message}) => message)
-  .sort((a, b) => {
-    const aTime = Date.parse(a.sentAt || '') || 0;
-    const bTime = Date.parse(b.sentAt || '') || 0;
-    return aTime - bTime;
-  })
-  .slice(-MAX_HISTORY);
+  );
+
+  const byMessageId = new Map();
+  for (const message of visible) {
+    const key = message.messageId || message.id;
+    const previous = byMessageId.get(key);
+    if (!previous || message.ownerDid === meDid) byMessageId.set(key, message);
+  }
+
+  return [...byMessageId.values()]
+    .map(({ownerDid, sharedWithDids, ...message}) => message)
+    .sort((a, b) => {
+      const aTime = Date.parse(a.sentAt || '') || 0;
+      const bTime = Date.parse(b.sentAt || '') || 0;
+      return aTime - bTime;
+    })
+    .slice(-MAX_HISTORY);
 }
 
 async function listConversations(meDid) {
@@ -229,11 +405,19 @@ async function listConversations(meDid) {
     (payloads || []).map(row => [String(row.record_id || ''), decodeStoredData(row.data)])
   );
 
-  const byConversation = new Map();
+  const uniqueMessages = new Map();
+
   for (const row of rows) {
     const recordId = String(row.record_id || '');
     const data = dataMap.get(recordId);
     if (!data || typeof data !== 'object' || data.kind !== 'chat_message') continue;
+
+    let metadata = {};
+    try { metadata = row.metadata ? JSON.parse(String(row.metadata)) : {}; } catch (_) {}
+
+    const ownerDid = didOf(row.owner_did);
+    const sharedWithDids = Array.isArray(metadata.sharedWithDids) ? metadata.sharedWithDids : [];
+    if (ownerDid !== currentDid && !sharedWithDids.includes(currentDid)) continue;
 
     const senderDid = didOf(data.senderDid || row.owner_did);
     const recipientDid = didOf(data.recipientDid || row.recipient);
@@ -244,29 +428,46 @@ async function listConversations(meDid) {
     if (!friendDids.has(otherDid)) continue;
 
     const conversationId = String(data.conversationId || conversationIdFor(currentDid, otherDid));
-    if (!byConversation.has(conversationId)) {
-      byConversation.set(conversationId, {
-        conversationId,
-        otherDid,
-        lastMessage: String(data.text || '').slice(0, 160),
-        lastMessageAt: data.sentAt || row.date_created || row.date_modified || '',
-        lastMessageId: String(data.messageId || recordId),
-        lastSenderDid: senderDid,
-        messageCount: 0
-      });
-    }
+    const messageId = String(data.messageId || recordId);
+    const candidate = {
+      recordId,
+      messageId,
+      ownerDid,
+      conversationId,
+      otherDid,
+      senderDid,
+      text: String(data.text || '').slice(0, 160),
+      sentAt: data.sentAt || row.date_created || row.date_modified || '',
+    };
 
-    const item = byConversation.get(conversationId);
+    const previous = uniqueMessages.get(messageId);
+    if (!previous || candidate.ownerDid === currentDid) {
+      uniqueMessages.set(messageId, candidate);
+    }
+  }
+
+  const byConversation = new Map();
+  for (const message of uniqueMessages.values()) {
+    const item = byConversation.get(message.conversationId) || {
+      conversationId: message.conversationId,
+      otherDid: message.otherDid,
+      lastMessage: message.text,
+      lastMessageAt: message.sentAt,
+      lastMessageId: message.messageId,
+      lastSenderDid: message.senderDid,
+      messageCount: 0
+    };
     item.messageCount += 1;
 
-    const candidateTime = Date.parse(data.sentAt || row.date_created || '');
-    const currentTime = Date.parse(item.lastMessageAt || '');
-    if (Number.isFinite(candidateTime) && (!Number.isFinite(currentTime) || candidateTime > currentTime)) {
-      item.lastMessage = String(data.text || '').slice(0, 160);
-      item.lastMessageAt = data.sentAt || row.date_created || row.date_modified || '';
-      item.lastMessageId = String(data.messageId || recordId);
-      item.lastSenderDid = senderDid;
+    const candidateTime = Date.parse(message.sentAt || '') || 0;
+    const currentTime = Date.parse(item.lastMessageAt || '') || 0;
+    if (candidateTime >= currentTime) {
+      item.lastMessage = message.text;
+      item.lastMessageAt = message.sentAt;
+      item.lastMessageId = message.messageId;
+      item.lastSenderDid = message.senderDid;
     }
+    byConversation.set(message.conversationId, item);
   }
 
   const conversationRows = [...byConversation.values()]
@@ -368,12 +569,119 @@ router.get('/conversations', auth, async (req, res) => {
   }
 });
 
+router.post('/with/:did/read', auth, async (req, res) => {
+  const meDid = didOf(req.did || req.account?.did);
+  const otherDid = didOf(req.params.did);
+  const messageIds = Array.isArray(req.body?.messageIds)
+    ? [...new Set(req.body.messageIds.map(didOf).filter(Boolean))].slice(0, MAX_HISTORY)
+    : [];
+
+  if (!meDid) return res.status(401).json({ error: 'Authenticated DID unavailable' });
+  if (!otherDid) return res.status(400).json({ error: 'Recipient DID required' });
+  if (meDid === otherDid) return res.status(400).json({ error: 'Cannot mark your own messages as read' });
+  if (!messageIds.length) return res.json({ ok: true, read: 0 });
+
+  try {
+    const other = await recipientByDid(otherDid);
+    if (!other) return res.status(404).json({ error: 'Person not found' });
+
+    const friendDids = await friendDidsFor(meDid);
+    if (!friendDids.has(otherDid)) {
+      return res.status(403).json({ error: 'You can only mark connected friends as read' });
+    }
+
+    const conversation = await conversationMessages(meDid, otherDid);
+    const incoming = conversation.filter(message =>
+      message.senderDid === otherDid &&
+      message.recipientDid === meDid &&
+      messageIds.includes(String(message.messageId || ''))
+    );
+
+    const readAt = new Date().toISOString();
+    let created = 0;
+
+    for (const message of incoming) {
+      const receiptData = {
+        kind: 'chat_receipt',
+        state: 'read',
+        messageId: String(message.messageId),
+        conversationId: conversationIdFor(meDid, otherDid),
+        senderDid: otherDid,
+        readerDid: meDid,
+        readAt
+      };
+
+      if (!(await recipientMailboxHasReceipt(meDid, message.messageId, meDid))) {
+        await createChatReceiptRecord(req.userId, meDid, {
+          ...receiptData,
+          mailboxRole: 'reader'
+        });
+        created += 1;
+      }
+
+      if (!(await recipientMailboxHasReceipt(otherDid, message.messageId, meDid))) {
+        await createChatReceiptRecord(other.id, otherDid, {
+          ...receiptData,
+          mailboxRole: 'sender'
+        });
+      }
+
+      livePush.push(other.id, 'notify', {
+        notifType: 'chat_read',
+        conversationId: conversationIdFor(meDid, otherDid),
+        readerDid: meDid,
+        messageId: String(message.messageId),
+        readAt
+      });
+    }
+
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({ ok: true, read: created, readAt });
+  } catch (err) {
+    console.error('[chat/read]', err);
+    return res.status(500).json({ error: 'Read receipt sync unavailable' });
+  }
+});
+
+router.post('/with/:did/typing', auth, async (req, res) => {
+  const meDid = didOf(req.did || req.account?.did);
+  const otherDid = didOf(req.params.did);
+  const active = req.body?.active === true;
+
+  if (!meDid) return res.status(401).json({ error: 'Authenticated DID unavailable' });
+  if (!otherDid) return res.status(400).json({ error: 'Recipient DID required' });
+  if (meDid === otherDid) return res.status(400).json({ error: 'Cannot type to yourself' });
+
+  try {
+    const recipient = await recipientByDid(otherDid);
+    if (!recipient) return res.status(404).json({ error: 'Person not found' });
+
+    const friendDids = await friendDidsFor(meDid);
+    if (!friendDids.has(otherDid)) {
+      return res.status(403).json({ error: 'You can only type to connected friends' });
+    }
+
+    livePush.push(recipient.id, 'notify', {
+      notifType: 'chat_typing',
+      conversationId: conversationIdFor(meDid, otherDid),
+      senderDid: meDid,
+      active
+    });
+
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('[chat/typing]', err);
+    return res.status(500).json({ error: 'Typing status unavailable' });
+  }
+});
+
 router.get('/health', (_req, res) => {
   res.json({
     ok: true,
     chat: 'ready',
-    transport: 'DWN shared record',
-    persistence: 'Supabase authoritative DWN',
+    transport: 'DWN-to-DWN private mailbox records',
+    persistence: 'Supabase-authoritative isolated DWN spaces',
     audience: 'Approved MILAN friends only',
     realtime: 'SSE accelerator; cross-instance Supabase sync fallback'
   });
@@ -487,27 +795,37 @@ router.post('/with/:did/messages', auth, async (req, res) => {
       }
     }
 
-    const record = await dwnStore.createRecord(req.userId, meDid, {
-      schema: CHAT_SCHEMA,
-      title: 'MILAN Chat Message',
-      dataFormat: 'application/json',
-      protocol: CHAT_PROTOCOL,
-      protocolPath: CHAT_PATH,
-      accessMode: 'shared_did',
-      sharedWithDids: [otherDid],
-      awaitCloudSync: true,
-      data: {
-        kind: 'chat_message',
-        messageId,
-        conversationId,
-        senderDid: meDid,
-        recipientDid: otherDid,
-        text,
-        sentAt: now
-      }
+    const messageData = {
+      kind: 'chat_message',
+      messageId,
+      conversationId,
+      senderDid: meDid,
+      recipientDid: otherDid,
+      text,
+      sentAt: now,
+      deliveryStatus: 'delivered',
+      deliveredAt: now
+    };
+
+    // One-to-one DWN mailbox model:
+    // 1) the recipient-owned private mailbox receives the message;
+    // 2) the sender-owned private mailbox keeps the sender's durable copy.
+    // Both copies share one clientMessageId/messageId so retries are idempotent
+    // and each client renders exactly one message.
+    const recipientAlreadyHasMessage = await recipientMailboxHasMessage(otherDid, messageId);
+    if (!recipientAlreadyHasMessage) {
+      await createChatMailboxRecord(recipient.id, otherDid, {
+        ...messageData,
+        mailboxRole: 'recipient'
+      });
+    }
+
+    const senderRecord = await createChatMailboxRecord(req.userId, meDid, {
+      ...messageData,
+      mailboxRole: 'sender'
     });
 
-    const message = toMessage(record);
+    const message = toMessage(senderRecord);
 
     try {
       livePush.push(recipient.id, 'notify', {

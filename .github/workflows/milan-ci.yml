@@ -51,6 +51,9 @@ jobs:
       - name: Run project build check
         run: npm run build
 
+      - name: Verify chat architecture
+        run: npm run test:chat
+
       - name: Verify critical frontend files
         run: |
           test -s frontend/app.html
