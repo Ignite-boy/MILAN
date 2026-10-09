@@ -3231,22 +3231,55 @@ body.map #privacyBar{
 </script>
 
 <script>
-document.addEventListener("DOMContentLoaded", function () {
-  const input = document.getElementById("mediaFile");
-  const name = document.getElementById("selectedFileName");
-  if (!input || !name) return;
+(() => {
+  function bindSelectedFileName() {
+    const input = document.getElementById("mediaFile");
+    const name = document.getElementById("selectedFileName");
+    if (!input || !name || input.dataset.filenameBound === "1") return;
+    input.dataset.filenameBound = "1";
 
-  input.addEventListener("change", function () {
-    const file = input.files && input.files[0];
-    if (!file) {
-      name.style.display = "none";
-      return;
+    function updateSelectedFile() {
+      const file = input.files && input.files[0];
+      name.replaceChildren();
+
+      if (!file) {
+        name.style.display = "none";
+        name.removeAttribute("title");
+        return;
+      }
+
+      const check = document.createElement("span");
+      check.textContent = "✓";
+      check.style.cssText = "color:#22c55e;font-size:18px;font-weight:900;flex-shrink:0;";
+
+      const label = document.createElement("span");
+      label.textContent = file.name;
+      label.style.cssText = "margin-left:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;";
+
+      const size = file.size < 1024
+        ? file.size + " B"
+        : file.size < 1024 * 1024
+          ? Math.round(file.size / 1024) + " KB"
+          : (file.size / (1024 * 1024)).toFixed(1) + " MB";
+
+      name.append(check, label);
+      name.title = [file.name, file.type || "Unknown file type", size].join(" • ");
+      name.style.display = "inline-flex";
+      name.style.alignItems = "center";
+      name.style.maxWidth = "220px";
+      name.style.minWidth = "0";
     }
-    name.innerHTML = '<span style="color:#22c55e;font-size:18px;font-weight:900;">✓</span>';
-    name.title = "File ready";
-    name.style.display = "inline-block";
-  });
-});
+
+    input.addEventListener("change", updateSelectedFile);
+    updateSelectedFile();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bindSelectedFileName, { once: true });
+  } else {
+    bindSelectedFileName();
+  }
+})();
 </script>
 
 

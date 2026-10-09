@@ -436,8 +436,6 @@
                 );
             }
 
-            if (onProgress) onProgress(100);
-
             return record;
         } catch (error) {
             await removeUpload();
@@ -2044,8 +2042,10 @@
         const mediaInput = $("mediaFile");
 
         if (!button || !textarea) return;
+        if (button.dataset.publishing === "1") return;
 
-        const text = String(textarea.value || "").trim();
+        const originalDraft = String(textarea.value || "");
+        const text = originalDraft.trim();
         const file = mediaInput?.files?.[0] || null;
 
         if (!text && !file) {
@@ -2066,6 +2066,14 @@
             );
             return;
         }
+
+        const privacyButton =
+            document.querySelectorAll(".composer-tools .tool")[3];
+
+        const privacyMode =
+            privacyButton?.dataset?.privacy === "public"
+                ? "public"
+                : "private";
 
         const originalText = button.textContent;
 
@@ -2118,26 +2126,19 @@
                 ])
             );
 
-            textarea.value = "";
-            showPublishStatus("Publishing…");
+            showPublishStatus("Publishing your post…");
         }
-
-        const privacyButton =
-            document.querySelectorAll(".composer-tools .tool")[3];
-
-        const privacyMode =
-            privacyButton?.dataset?.privacy === "public"
-                ? "public"
-                : "private";
 
         const b64 = value =>
             btoa(unescape(encodeURIComponent(String(value || ""))));
 
         try {
             button.disabled = true;
-            button.textContent = "Published ✓";
-            $("milanPublishStatus")?.remove();
+            button.dataset.publishing = "1";
+            button.textContent = file ? "Uploading…" : "Publishing…";
+            showPublishStatus(file ? "Uploading your media…" : "Publishing your post…");
 
+            let response = null;
             let saved = null;
 
             const videoExtensions = new Set([
@@ -2175,8 +2176,6 @@
                     }
                 );
 
-                showVideoUploadProgress(100);
-                playVideoUploadTing();
             } else if (file) {
                 showVideoUploadProgress(0);
 
@@ -2213,8 +2212,6 @@
                         } catch (_) {}
 
                         if (xhr.status >= 200 && xhr.status < 300) {
-                            showVideoUploadProgress(100);
-                            playVideoUploadTing();
                             resolve({
                                 ok: true,
                                 json: async () => data
@@ -2282,8 +2279,17 @@
                 }
             }
 
-            const savedId =
-                getRecordId(saved);
+            const savedId = getRecordId(saved);
+            if (!savedId) {
+                throw new Error(
+                    "The server did not confirm the saved post. Your draft is still available; please retry."
+                );
+            }
+
+            if (file) {
+                showVideoUploadProgress(100);
+                playVideoUploadTing();
+            }
 
             if (optimisticRecord && savedId) {
                 /*
@@ -2291,6 +2297,7 @@
                  * the optimistic row with the authoritative record.
                  */
                 state.pendingPosts.delete(optimisticId);
+                state.feedRecords.delete(optimisticId);
                 state.feedRecords.set(savedId, {
                     ...saved,
                     __milanOptimistic: false
@@ -2302,7 +2309,15 @@
                 );
             }
 
-            if (mediaInput) mediaInput.value = "";
+            if (textarea.value === originalDraft) {
+                textarea.value = "";
+            }
+            if (file && mediaInput?.files?.[0] === file) {
+                mediaInput.value = "";
+                mediaInput.dispatchEvent(
+                    new Event("change", { bubbles: true })
+                );
+            }
 
             /*
              * Re-render the real saved record without forcing a full feed
@@ -2320,8 +2335,9 @@
 
             renderFeed(mergedNow);
 
-            button.textContent = originalText;
-            $("milanPublishStatus")?.remove();
+            button.textContent = "Published ✓";
+            const successMessage = "Post published successfully.";
+            showPublishStatus(successMessage);
 
             /*
              * Background sync is allowed, but it uses mergeRecords().
@@ -2334,14 +2350,14 @@
             }, 700);
 
             setTimeout(() => {
-                button.textContent =
-                    originalText;
-
+                button.textContent = originalText;
                 button.disabled = false;
+                delete button.dataset.publishing;
 
-                $("milanPublishStatus")?.remove();
+                const status = $("milanPublishStatus");
+                if (status?.textContent === successMessage) status.remove();
                 showVideoUploadProgress(null);
-            }, 650);
+            }, 2200);
 
         } catch (error) {
             console.error(
@@ -2354,7 +2370,6 @@
 
             button.disabled = false;
 
-            $("milanPublishStatus")?.remove();
             showVideoUploadProgress(null);
 
             /*
@@ -2364,11 +2379,17 @@
             if (optimisticRecord) {
                 state.pendingPosts.delete(optimisticId);
                 state.feedRecords.delete(optimisticId);
-                textarea.value = text;
                 renderFeed(
                     Array.from(state.feedRecords.values())
                 );
             }
+
+            showPublishStatus(
+                (error?.message || "Post could not be published.") +
+                    " Your draft and any newly selected file remain available.",
+                true
+            );
+            delete button.dataset.publishing;
         }
     }
 
