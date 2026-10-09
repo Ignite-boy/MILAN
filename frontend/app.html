@@ -2929,6 +2929,76 @@ body.map #privacyBar{
   body.map::before{background-size:auto,auto,56px 56px,56px 56px}
 }
 </style>
+<style id="milan-publish-control-stays-visible">
+/* Keep the selected-media state and Publish action visible at every width. */
+.composer-bottom {
+  display: flex !important;
+  flex-flow: row wrap !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+.composer-tools {
+  display: flex !important;
+  flex: 1 1 220px !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 7px !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+#selectedFileName {
+  flex: 1 1 120px !important;
+  min-width: 0 !important;
+  max-width: min(220px, 100%) !important;
+  box-sizing: border-box !important;
+}
+#publishBtn,
+.composer-bottom > .publish {
+  display: inline-flex !important;
+  visibility: visible !important;
+  flex: 0 0 auto !important;
+  flex-shrink: 0 !important;
+  min-width: 108px !important;
+  min-height: 42px !important;
+  white-space: nowrap !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: relative !important;
+  z-index: 2 !important;
+}
+#publishBtn:disabled {
+  display: inline-flex !important;
+  visibility: visible !important;
+  opacity: .88 !important;
+  cursor: wait !important;
+  filter: none !important;
+}
+@media (max-width: 520px) {
+  .composer-bottom {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  .composer-tools {
+    width: 100% !important;
+    flex: 1 1 auto !important;
+  }
+  #publishBtn,
+  .composer-bottom > .publish {
+    width: 100% !important;
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+  }
+  #selectedFileName {
+    flex: 1 1 100px !important;
+    max-width: 100% !important;
+  }
+}
+</style>
+
 </head>
 <body class="map">
 <div class="app">
