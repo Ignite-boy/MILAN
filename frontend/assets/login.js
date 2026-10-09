@@ -23,11 +23,10 @@ function showMessage(message, isError = true) {
 }
 
 function setActiveTab(mode) {
-  document.querySelectorAll('.tab[role="tab"][data-auth]').forEach(tab => {
-    const active = tab.dataset.auth === mode;
-    tab.classList.toggle("active", active);
-    tab.setAttribute("aria-selected", String(active));
-    tab.tabIndex = active ? 0 : -1;
+  document.querySelectorAll(".tab").forEach(tab => {
+    tab.dataset.auth === mode
+      ? tab.classList.add("active")
+      : tab.classList.remove("active");
   });
   document.getElementById("loginBox")?.classList.toggle("hidden", mode !== "login");
   document.getElementById("registerBox")?.classList.toggle("hidden", mode !== "register");
@@ -144,24 +143,10 @@ function loadSimpleWebAuthnBrowser() {
 }
 
 function bind() {
-  document.querySelectorAll('.tab[role="tab"][data-auth]').forEach(tab => {
+  document.querySelectorAll(".tab").forEach(tab => {
     if (tab.dataset.milanAuthBound) return;
     tab.dataset.milanAuthBound = "1";
     tab.addEventListener("click", () => setActiveTab(tab.dataset.auth));
-    tab.addEventListener("keydown", event => {
-      if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-      event.preventDefault();
-      const tabs = Array.from(document.querySelectorAll('.tab[role="tab"][data-auth]'));
-      const current = tabs.indexOf(tab);
-      const nextIndex = event.key === "Home" ? 0 :
-        event.key === "End" ? tabs.length - 1 :
-        (current + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
-      const next = tabs[nextIndex];
-      if (next) {
-        setActiveTab(next.dataset.auth);
-        next.focus();
-      }
-    });
   });
 
   const switchLink = document.getElementById("switchToRegister");

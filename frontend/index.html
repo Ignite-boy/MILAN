@@ -229,7 +229,7 @@
        Complements the placeholder-visibility block above: that one fixes the
        placeholder COLOUR, this layer also fixes its PADDING (the text used to
        run underneath the leading icon - see milan-login-pro.css). -->
-  <link rel="stylesheet" href="/milan-login-pro.css?v=20261009-login-ux2">
+  <link rel="stylesheet" href="/milan-login-pro.css?v=20261005-motion1">
 </head>
 <body class="mlp">
 <div id="milan-pwa-install-v2" aria-live="polite">
@@ -245,6 +245,8 @@
   </div>
 </div>
 
+</div>
+
 <!-- SEO crawlable content (visually hidden, served to crawlers without JS) -->
 <noscript>
   <div style="max-width:760px;margin:40px auto;font-family:system-ui,Arial,sans-serif;color:#0f172a;padding:20px">
@@ -253,7 +255,6 @@
   </div>
 </noscript>
 
-<a class="mlp-skip-link" href="#loginBox">Skip to sign in</a>
 <div id="root">
 <div class="milan-container">
   <!-- LEFT HERO (exactly as per image) -->
@@ -289,22 +290,22 @@
     <div class="logo-center"><img src="/assets/milan-logo-circle.png" alt="MILAN logo" width="72" height="72" style="width:72px;height:72px;border-radius:20px;margin:0 auto 8px;display:block;box-shadow:0 8px 28px rgba(245,158,11,.35),0 0 0 1px rgba(245,158,11,.25);"><h2>MILAN</h2></div>
     <div class="card-header"><h3>Login to your account</h3><p>Enter your credentials to continue</p></div>
 
-    <div class="tabs" role="tablist" aria-label="Account access">
-      <button type="button" class="tab active" id="loginTab" role="tab" aria-controls="loginBox" aria-selected="true" data-auth="login">Login</button>
-      <button type="button" class="tab" id="registerTab" role="tab" aria-controls="registerBox" aria-selected="false" data-auth="register">Register</button>
+    <div class="tabs">
+      <button class="tab active" data-auth="login">Login</button>
+      <button class="tab" data-auth="register">Register</button>
     </div>
 
     <!-- LOGIN FORM -->
-    <div id="loginBox" role="tabpanel" aria-labelledby="loginTab" tabindex="0">
+    <div id="loginBox">
       <div class="input-group">
-        <label class="input-label" for="loginEmail">Email</label>
+        <label class="input-label">Email</label>
         <div class="input-wrapper">
           <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 8l10 7 10-7"/></svg>
-          <input type="email" class="input-field" id="loginEmail" placeholder="Enter your email" autocomplete="email">
+          <label for="loginEmail" class="sr-only">Email address</label><input type="email" class="input-field" id="loginEmail" style="padding-left: 56px !important" placeholder="Enter your email" autocomplete="email">
         </div>
       </div>
       <div class="input-group">
-        <label class="input-label" for="loginPass">Password</label>
+        <label class="input-label">Password</label>
         <div class="input-wrapper">
           <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           <input type="password" class="input-field" id="loginPass" placeholder="Enter your password" autocomplete="current-password">
@@ -315,38 +316,38 @@
         <label class="checkbox"><input type="checkbox" checked id="rememberMeCheckbox"> Remember me</label>
         <a href="/reset-password" class="forgot-link" id="forgotPasswordLink">Forgot password?</a>
       </div>
-      <button type="button" class="login-button" id="loginBtn">Login →</button>
+      <button class="login-button" id="loginBtn">Login →</button>
     </div>
 
     <!-- REGISTER FORM -->
-    <div id="registerBox" class="hidden" role="tabpanel" aria-labelledby="registerTab" tabindex="0">
+    <div id="registerBox" class="hidden">
       <div class="input-group">
-        <label class="input-label" for="regName">Full Name</label>
+        <label class="input-label">Full Name</label>
         <div class="input-wrapper">
           <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-          <input type="text" class="input-field" id="regName" placeholder="Your full name" autocomplete="name">
+          <label for="regName" class="sr-only">Full name</label><input type="text" class="input-field" id="regName" placeholder="Your full name">
         </div>
       </div>
       <div class="input-group">
-        <label class="input-label" for="regEmail">Email</label>
+        <label class="input-label">Email</label>
         <div class="input-wrapper">
           <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 8l10 7 10-7"/></svg>
-          <input type="email" class="input-field" id="regEmail" placeholder="Your email address" autocomplete="email">
+          <label for="regEmail" class="sr-only">Email address</label><input type="email" class="input-field" id="regEmail" placeholder="Your email address">
         </div>
       </div>
       <div class="input-group">
-        <label class="input-label" for="regPass">Password</label>
+        <label class="input-label">Password</label>
         <div class="input-wrapper">
           <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          <input type="password" class="input-field" id="regPass" placeholder="Create a strong password" autocomplete="new-password">
+          <input type="password" class="input-field" id="regPass" placeholder="Create a strong password">
         </div>
       </div>
-      <button type="button" class="login-button" id="registerBtn" style="background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 50%, #d946ef 100%);">Create my MILAN space</button>
+      <button class="login-button" id="registerBtn" style="background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 50%, #d946ef 100%);">Create my MILAN space</button>
     </div>
 
-    <div id="authMsg" class="auth-msg" role="status" aria-live="polite" aria-atomic="true"></div>
+    <div id="authMsg" class="auth-msg"></div>
     <div class="divider">OR</div>
-    <button type="button" class="did-button" id="didLoginBtn"><span class="did-badge">did</span> Sign with ID3</button>
+    <button class="did-button" id="didLoginBtn"><span class="did-badge">did</span> Sign with ID3</button>
     <div class="register-link">Don't have an account? <a id="switchToRegister" href="#">Register</a></div>
   </div>
 </div>
