@@ -14,8 +14,17 @@
     const password = document.getElementById("loginPass");
     if (toggleBtn && password && !toggleBtn.dataset.bound) {
       toggleBtn.dataset.bound = "1";
-      toggleBtn.addEventListener("click", function () {
-        password.type = password.type === "password" ? "text" : "password";
+      const togglePassword = function () {
+        const visible = password.type === "password";
+        password.type = visible ? "text" : "password";
+        toggleBtn.setAttribute("aria-pressed", String(visible));
+        toggleBtn.setAttribute("aria-label", visible ? "Hide password" : "Show password");
+      };
+      toggleBtn.addEventListener("click", togglePassword);
+      toggleBtn.addEventListener("keydown", function (event) {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        togglePassword();
       });
     }
 
