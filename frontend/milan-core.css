@@ -1536,3 +1536,151 @@ figcaption{
     border-radius:20px;
   }
 }
+
+/* ============================================================
+   MILAN GLOBAL UX QUALITY LAYER — shared by every page
+   Guardrails: responsive layout, accessible interactions, readable
+   controls, keyboard focus and device-safe spacing.
+   ============================================================ */
+:root {
+  --milan-ux-focus: #9ab7ff;
+  --milan-ux-focus-ring: rgba(125, 160, 255, .24);
+  --milan-ux-hit-area: 42px;
+}
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scroll-padding-top: 92px;
+}
+body {
+  min-width: 320px;
+  max-width: 100%;
+  overflow-x: clip;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+:where(main, header, footer, section, article, aside, nav, form, fieldset,
+       figure, .container, .wrap, .shell, .layout, .layout-main, .main,
+       .main-content, .page-container, .page-wrap, .page-content,
+       .content-wrap, .content-container, .app-content, .settings-content,
+       .admin-content) {
+  min-width: 0;
+}
+:where(img, picture, video, canvas, iframe) {
+  max-width: 100%;
+}
+:where(img, video) {
+  height: auto;
+}
+:where(input, textarea, select, button) {
+  max-width: 100%;
+}
+:where(pre, code, kbd, samp) {
+  overflow-wrap: anywhere;
+}
+:where([id]) {
+  scroll-margin-top: 92px;
+}
+:where(a, button, summary, [role="button"], input[type="button"],
+       input[type="submit"], input[type="reset"]) {
+  touch-action: manipulation;
+}
+:where(a, button, input, select, textarea, summary, [role="button"],
+       [tabindex]):focus-visible {
+  outline: 2px solid var(--milan-ux-focus);
+  outline-offset: 3px;
+}
+:where(button, input[type="button"], input[type="submit"],
+       input[type="reset"], [role="button"]) {
+  -webkit-tap-highlight-color: transparent;
+}
+:where(.nav-links a, .nav-in > a, .navbar a, .navbar-inner a,
+       .topbar a, .topbar-inner a, header nav a) {
+  scroll-margin-top: 92px;
+}
+:where(.skip-link, .milan-skip-link, .terms-skip-link) {
+  position: absolute;
+  z-index: 99999;
+  left: 12px;
+  top: -70px;
+  padding: 11px 15px;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #0b1020;
+  font-weight: 700;
+  box-shadow: 0 8px 28px rgba(0,0,0,.28);
+}
+:where(.skip-link, .milan-skip-link, .terms-skip-link):focus {
+  top: 12px;
+}
+::selection {
+  background: rgba(91, 130, 242, .32);
+  color: #fff;
+}
+@media (hover: hover) and (pointer: fine) {
+  :where(a, button, [role="button"]) {
+    transition-property: color, background-color, border-color, box-shadow;
+    transition-duration: .16s;
+  }
+}
+@media (max-width: 900px) {
+  :where(.row, .flex-row, .page-toolbar, .section-toolbar,
+         .settings-toolbar, .admin-toolbar, .form-actions) {
+    min-width: 0;
+  }
+}
+@media (max-width: 680px) {
+  html { scroll-padding-top: 82px; }
+  :where(.nav-in, .navbar-inner, .header-inner, .topbar-inner) {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .nav-links {
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+  .nav-links::-webkit-scrollbar { display: none; }
+  .nav-links a { flex: 0 0 auto; min-height: var(--milan-ux-hit-area); }
+  :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="hidden"]),
+         textarea, select) {
+    font-size: 16px;
+    min-width: 0;
+    max-width: 100%;
+  }
+  :where(button:not(.icon-button):not(.iconBtn):not(.close-btn):not(.closeBtn):not([data-icon-only]),
+         input[type="button"], input[type="submit"], input[type="reset"]) {
+    min-height: var(--milan-ux-hit-area);
+  }
+  :where(.table-wrap, .data-table-wrap, .overflow-x-auto, .table-responsive) {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  :where(.form-grid, .grid-4, .grid4, .columns-4) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 420px) {
+  :where(.form-grid, .grid-4, .grid4, .columns-4,
+         .grid-3, .grid3, .columns-3) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  :where(.page-toolbar, .section-toolbar, .settings-toolbar,
+         .admin-toolbar, .form-actions) {
+    flex-wrap: wrap;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
