@@ -108,6 +108,10 @@ async function cashfreeRequest(path, options = {}) {
     const error = new Error(String(message));
     error.status = response.status;
     error.details = data;
+    error.requestId =
+      response.headers.get('x-request-id') ||
+      response.headers.get('x-cf-request-id') ||
+      '';
     throw error;
   }
 
@@ -402,13 +406,42 @@ router.post('/create-order', auth, async (req, res) => {
       clientId: clientId()
     });
   } catch (err) {
-    console.error(
-      '[payment] Cashfree create-order failed:',
-      err.message
-    );
+    const providerStatus = Number(err.status || 0);
+    const providerMessage = String(err.message || '').trim().slice(0, 240);
+    const requestId = String(err.requestId || '').slice(0, 120);
 
-    res.status(err.status && err.status >= 400 && err.status < 500 ? 502 : 502).json({
-      error: 'Could not create the Cashfree payment order.'
+    // Preserve the actionable gateway reason without ever returning request
+    // headers, App IDs, secrets, or the raw provider payload to the browser.
+    let publicMessage = 'Cashfree could not create the payment order.';
+    if (providerStatus === 401 || providerStatus === 403) {
+      publicMessage =
+        'Cashfree rejected the configured credentials or environment. ' +
+        'Check CASHFREE_CLIENT_ID, CASHFREE_CLIENT_SECRET, and CASHFREE_ENVIRONMENT in Vercel.';
+    } else if (providerStatus === 400) {
+      publicMessage = providerMessage
+        ? 'Cashfree rejected the order details: ' + providerMessage
+        : 'Cashfree rejected the order details.';
+    } else if (providerStatus === 429) {
+      publicMessage = 'Cashfree is rate-limiting payment orders. Please retry shortly.';
+    } else if (providerStatus >= 500) {
+      publicMessage = 'Cashfree is temporarily unavailable. Please retry shortly.';
+    } else if (providerMessage && /fetch failed|network|timeout|socket/i.test(providerMessage)) {
+      publicMessage = 'MILAN could not reach Cashfree. Check the server network and retry.';
+    }
+
+    console.error('[payment] Cashfree create-order failed:', {
+      environment: CASHFREE_ENVIRONMENT,
+      status: providerStatus || null,
+      message: providerMessage || 'Unknown provider error',
+      requestId: requestId || null,
+      code: err.details?.code || null
+    });
+
+    res.status(502).json({
+      error: publicMessage,
+      code: 'cashfree_order_creation_failed',
+      providerStatus: providerStatus || null,
+      requestId: requestId || null
     });
   }
 });

@@ -1125,13 +1125,33 @@ border-color:#8b5cf6;
         redirectTarget: "_modal"
       });
 
-      if (result?.error) {
-        setStatus("Checkout returned an error. Checking payment status...");
+      const checkoutError = result?.error
+        ? String(
+            result.error.message ||
+            result.error.type ||
+            "Cashfree reported an error or the checkout was closed."
+          ).slice(0, 240)
+        : "";
+
+      if (checkoutError) {
+        setStatus("Cashfree checkout: " + checkoutError + " Checking payment status...");
+      } else if (result?.redirect) {
+        setStatus("Cashfree is redirecting to complete payment. Your order will be verified on return.");
+      } else if (result?.paymentDetails) {
+        setStatus("Payment response received. Verifying with Cashfree securely...");
       } else {
         setStatus("Payment submitted. Verifying securely...");
       }
 
-      await recoverPayment(order.orderId);
+      const verified = await recoverPayment(order.orderId);
+      if (!verified && checkoutError) {
+        setStatus(
+          "Checkout did not confirm a successful payment: " + checkoutError +
+          " If your bank has already deducted money, do not pay again; contact support with order " +
+          order.orderId + ".",
+          true
+        );
+      }
     } catch (error) {
       setStatus(error.message || "Payment could not be started.", true);
     } finally {
