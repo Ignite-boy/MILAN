@@ -25,7 +25,9 @@ This file documents names and minimum intent. It contains no production secrets.
 
 ### Travel Agent
 
-The current source accepts caller-provided `user_id` and `session_id` for memory namespacing, and the route source reviewed during consolidation did not contain a verified authentication dependency. Do not expose that route as a secure multi-user memory service until server-verified identity is enforced and tested. The Render service discovered during review still points to the old pre-consolidation repository; a commit to this monorepo does not deploy that external service until its binding is corrected.
+`/chat` now requires an HTTP Bearer token and asks the primary MILAN identity endpoint (`MILAN_AUTH_URL`, default `https://milanlife.in/api/auth/me`) to verify it. The chat handler derives its user ID from the verified response, rejects a conflicting body `user_id`, and namespaces graph thread IDs under that account. Missing/invalid credentials are rejected; identity-service outages return 503 rather than silently trusting the caller. The default Render blueprint includes this URL, and `Travel-Agent/tests/test_auth.py` covers valid/invalid tokens, verifier outages, HTTPS enforcement and cross-account ID rejection.
+
+**Deployment caveat:** the current Render service still points to the old pre-consolidation repository. Rebind it to `Ignite-boy/MILAN` with root directory `Travel-Agent` and redeploy before treating this new source behavior as live.
 
 ### C++ DWN component
 
