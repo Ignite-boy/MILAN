@@ -66,6 +66,18 @@ jobs:
           test -s frontend/milan-login-pro.css
           echo "✅ Critical MILAN frontend files present"
 
+      - name: Set up Python for identity-security tests
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install focused Python test dependencies
+        run: python -m pip install --disable-pip-version-check pytest fastapi requests
+
+      - name: Test Travel Agent identity boundary
+        working-directory: Travel-Agent
+        run: python -m pytest -q tests/test_auth.py
+
       - name: PASS summary
         run: |
           echo "✅ PASS — Build verification completed"
