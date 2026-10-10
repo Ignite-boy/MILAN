@@ -2,7 +2,7 @@ from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.agent.graph import SYSTEM_PROMPT, get_graph
-from app.auth import require_identity
+from app.auth import require_identity, resolve_user_scope
 from app.agent.intent import extract_intent
 from app.agent.planner import plan_trip
 from app.config import settings
@@ -38,10 +38,7 @@ def chat(
     identity: dict = Depends(require_identity),
 ):
     # Never use a caller-provided user_id as the authenticated principal.
-    effective_user_id = str(identity["user_id"])
-    asserted_user_id = str(req.user_id or "").strip()
-    if asserted_user_id and asserted_user_id != effective_user_id:
-        raise HTTPException(status_code=403, detail="Request user_id does not match the authenticated MILAN account.")
+    effective_user_id = resolve_user_scope(identity, req.user_id)
 
     graph = get_graph()
     # Thread IDs are scoped to the verified user to prevent cross-account memory collisions.
