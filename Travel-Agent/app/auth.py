@@ -12,7 +12,7 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 _bearer = HTTPBearer(auto_error=False)
-_DEFAULT_MILAN_AUTH_URL = "https://milan-api-4n3n.onrender.com/api/auth/me"
+_DEFAULT_MILAN_AUTH_URL = "https://milanlife.in/api/auth/me"
 
 
 def require_identity(
