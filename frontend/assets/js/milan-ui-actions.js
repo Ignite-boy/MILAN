@@ -504,7 +504,11 @@
         if (pct) pct.textContent = Math.round(safePct) + "%";
         if (label) {
             label.textContent =
-                safePct >= 100 ? "Upload complete" : "Uploading…";
+                safePct >= 100
+                    ? "Upload complete"
+                    : safePct >= 98
+                        ? "Finalizing upload and confirming post…"
+                        : "Uploading media…";
         }
     }
 
