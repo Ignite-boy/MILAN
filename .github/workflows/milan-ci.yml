@@ -115,14 +115,17 @@ jobs:
               && curl -fsSL --max-time 15 -o /dev/null https://milanlife.in/sitemap_index.xml \
               && curl -fsSL --max-time 15 -o /dev/null https://milanlife.in/keywords \
               && curl -fsSL --max-time 15 -o /dev/null https://milanlife.in/topics; then
-              echo "🟢 LIVE — public UI and canonical SEO routes are reachable"
+              health_payload="$(curl -fsSL --max-time 15 https://milanlife.in/api/health)"
+              printf '%s' "$health_payload" | node -e 'let raw="";process.stdin.on("data",c=>raw+=c);process.stdin.on("end",()=>{try{const p=JSON.parse(raw);if(p.healthSemantics?.level!=="liveness"||typeof p.healthSemantics?.realDwnProtocol!=="boolean")process.exit(1)}catch(_){process.exit(1)}})'
+              echo "🟢 LIVE — public UI, SEO routes and explicit health semantics are reachable"
               {
                 echo "## 🟢 LIVE — Production"
                 echo ""
                 echo "Production smoke checks passed:"
                 echo "- / and /chat/"
                 echo "- /robots.txt, /sitemap.xml, /sitemap-index.xml"
-                echo "- /llms.txt, /keywords.json, /ai-info"
+                echo "- /llms.txt, /keywords.json, /ai-info and aliases"
+                echo "- /api/health reports liveness separately from DWN protocol readiness"
               } >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
