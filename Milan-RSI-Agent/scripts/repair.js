@@ -71,7 +71,7 @@ async function main() {
   const branch = `rsi/repair-${Date.now()}`;
   sh(`git checkout -b ${branch}`, worktree);
   sh('git add -A && git commit -m "RSI: automatic repair from Sentinel failure"', worktree);
-  if (process.env.RSI_AUTO_PUSH !== 'false') sh(`git push -u origin ${branch}`, worktree);
+  if (process.env.RSI_AUTO_PUSH === 'true') sh(`git push -u origin ${branch}`, worktree);
 
   const evidenceDir = path.join(root, 'evidence');
   fs.mkdirSync(evidenceDir, { recursive: true });
