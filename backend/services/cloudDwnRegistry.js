@@ -222,7 +222,7 @@ function persistenceInfo() {
     usingRuntimeFallback: false,
     fallbackUsed: selected.fallbackUsed,
     appStoresUserData: false,
-    remoteWriteEnabled: !!supabaseUrl,
+    remoteWriteEnabled: !!supabaseUrl && !!process.env.SUPABASE_SERVICE_KEY,
     realDwnProtocol: false,
     sdkReady: false,
     realDwnEnginePresent: false,
@@ -279,7 +279,7 @@ function provisionIsolatedDwn({ userId = '', did = '', email = '', spaceId: prea
     endpoint: endpointForSpace(spaceId),
     mode: p.mode,
     realDwnConfigured: false,
-    realCloudConfigured: true,
+    realCloudConfigured: !!p.remoteWriteEnabled && !!p.apiKeyConfigured,
     assignedAt: existing.assignedAt || existing.createdAt || new Date().toISOString(),
     didServiceId: '#dwn',
     isolation: 'single-user',
@@ -330,13 +330,13 @@ function ensureUserDwn(user, email = '') {
 
 function getDwnInfo(user) {
   const dwn = user?.dwn || {};
-  const p = dwn.cloud || persistenceInfo();
+  const p = persistenceInfo();
   return {
     endpoint: user?.dwnEndpoint || dwn.endpoint || '',
     mode: dwn.mode || user?.settings?.dwnMode || p.mode,
     // Protocol readiness must come from the actual engine capability, never from Supabase configuration.
     realDwnConfigured: p.realDwnProtocol === true && dwn.realDwnConfigured === true,
-    realCloudConfigured: dwn.realCloudConfigured ?? user?.settings?.realCloudDwnConfigured ?? !!p.remoteWriteEnabled,
+    realCloudConfigured: !!p.remoteWriteEnabled && !!p.apiKeyConfigured,
     assignedAt: dwn.assignedAt || null,
     didServiceId: dwn.didServiceId || '#dwn',
     isolation: dwn.isolation || user?.settings?.dwnIsolation || 'single-user',
