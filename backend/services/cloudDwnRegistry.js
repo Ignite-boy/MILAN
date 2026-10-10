@@ -224,12 +224,13 @@ function persistenceInfo() {
     appStoresUserData: false,
     remoteWriteEnabled: !!supabaseUrl,
     realDwnProtocol: false,
-    sdkReady: true,
+    sdkReady: false,
+    realDwnEnginePresent: false,
     selectedBy: 'supabase-authoritative-storage',
     candidateAttempts: selected.attempts,
     permanentExpected: true,
     requiresCloudDwn: false,
-    warning: ''
+    warning: 'Supabase persistence is configured separately from DWN protocol execution; the main API has no integrated signed DWN protocol engine.'
   };
 }
 
@@ -245,7 +246,8 @@ function provisionIsolatedDwn({ userId = '', did = '', email = '', spaceId: prea
     app: 'MILAN',
     version: '49.0.0',
     realDwnProtocol: false,
-    sdkReady: true,
+    sdkReady: false,
+    protocolEngineReady: false,
     appStoresUserData: false,
     model: 'supabase-authoritative-one-user-one-did-one-isolated-space',
     isolation: 'single-user',
@@ -332,8 +334,9 @@ function getDwnInfo(user) {
   return {
     endpoint: user?.dwnEndpoint || dwn.endpoint || '',
     mode: dwn.mode || user?.settings?.dwnMode || p.mode,
-    realDwnConfigured: dwn.realCloudConfigured ?? user?.settings?.realCloudDwnConfigured ?? true,
-    realCloudConfigured: dwn.realCloudConfigured ?? user?.settings?.realCloudDwnConfigured ?? true,
+    // Protocol readiness must come from the actual engine capability, never from Supabase configuration.
+    realDwnConfigured: p.realDwnProtocol === true && dwn.realDwnConfigured === true,
+    realCloudConfigured: dwn.realCloudConfigured ?? user?.settings?.realCloudDwnConfigured ?? !!p.remoteWriteEnabled,
     assignedAt: dwn.assignedAt || null,
     didServiceId: dwn.didServiceId || '#dwn',
     isolation: dwn.isolation || user?.settings?.dwnIsolation || 'single-user',
@@ -748,7 +751,20 @@ async function pullDatabaseSnapshot(name) {
 
 async function realUserDwnNodeStatus(user) {
   const info = getDwnInfo(user);
-  if (!info.spaceId) return { ok: false, reason: 'no-space-id' };
+  const checkedAt = new Date().toISOString();
+  if (!info.spaceId) {
+    return {
+      ok: false,
+      backend: 'supabase',
+      mode: 'supabase',
+      storageReady: false,
+      tenantConfigured: false,
+      nodeReady: false,
+      protocolReady: false,
+      reason: 'no-space-id',
+      checkedAt
+    };
+  }
 
   try {
     const { data: tenant, error } = await supabase
@@ -756,30 +772,38 @@ async function realUserDwnNodeStatus(user) {
       .select('did,created_at')
       .eq('did', user?.did || '')
       .maybeSingle();
-
     if (error) throw error;
 
     return {
-      ok: true,
+      // A tenant row proves logical cloud namespace configuration only.
+      // It does not mean a DWN protocol node is running.
+      ok: false,
       backend: 'supabase',
       mode: 'supabase',
-      nodeReady: true,
+      storageReady: !!tenant,
       tenantConfigured: !!tenant,
+      nodeReady: false,
+      protocolReady: false,
       did: user?.did || '',
       spaceId: info.spaceId,
-      endpoint: info.endpoint || process.env.SUPABASE_URL || '',
+      endpoint: info.endpoint || '',
       createdAt: tenant?.created_at || null,
-      checkedAt: new Date().toISOString()
+      reason: tenant ? 'real-dwn-protocol-not-integrated' : 'tenant-not-configured',
+      message: 'Supabase storage/tenant configuration is separate from signed DWN protocol execution; the main API protocol engine is not integrated.',
+      checkedAt
     };
   } catch (err) {
     return {
       ok: false,
       backend: 'supabase',
       mode: 'supabase',
+      storageReady: false,
+      nodeReady: false,
+      protocolReady: false,
       did: user?.did || '',
       spaceId: info.spaceId,
       reason: err.message,
-      checkedAt: new Date().toISOString()
+      checkedAt
     };
   }
 }
