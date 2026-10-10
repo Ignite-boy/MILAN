@@ -4,6 +4,7 @@ const cors = require('cors');
 const compression = require('compression');
 const path = require('path');
 const fs = require('fs');
+const APP_VERSION = require('../package.json').version;
 const { saveUsersHybrid } = require('./services/userStoreHybrid');
 const { ensureFile, hydrateFilesFromSupabase, repairUsersFile } = require('./utils/store');
 const dwnStore = require('./services/dwnService');
@@ -70,7 +71,23 @@ app.use((req, _res, next) => {
   }
   next();
 });
-app.use(cors({ origin: process.env.CORS_ORIGIN || true, credentials: false }));
+const configuredCorsOrigins = String(process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean);
+const defaultCorsOrigins = ['https://milanlife.in', 'https://www.milanlife.in'];
+if (process.env.NODE_ENV !== 'production') {
+  defaultCorsOrigins.push('http://localhost:3000', 'http://localhost:5000', 'http://127.0.0.1:5000');
+}
+const allowedCorsOrigins = new Set(configuredCorsOrigins.length ? configuredCorsOrigins : defaultCorsOrigins);
+app.use(cors({
+  origin: (origin, callback) => {
+    // Non-browser/server-to-server requests have no Origin header.
+    if (!origin || allowedCorsOrigins.has(origin)) return callback(null, true);
+    return callback(null, false);
+  },
+  credentials: false
+}));
 // Compress text-based responses (HTML/CSS/JS/JSON) for faster loads. Skip
 // already-compressed media streams so byte-range video/audio playback and
 // upload throughput are unaffected — this only reduces transfer size, it
@@ -130,9 +147,9 @@ global.notificationsFile = migrateLegacyJson('notifications.json', {});
 global.socialSavesFile = migrateLegacyJson('socialSaves.json', {});
 global.feedbackFile = migrateLegacyJson('feedback.json', []);
 global.securityReportsFile = migrateLegacyJson('securityReports.json', []);
-ensureFile(path.join(DATA_DIR, 'DATABASE_MANIFEST.json'), { app: 'MILAN', version: '68.0.0', storage: 'supabase-authoritative/database', cloud: persistenceInfo(), createdAt: new Date().toISOString() });
+ensureFile(path.join(DATA_DIR, 'DATABASE_MANIFEST.json'), { app: 'MILAN', version: APP_VERSION, storage: 'supabase-authoritative/database', cloud: persistenceInfo(), createdAt: new Date().toISOString() });
 
-app.get('/health', (_req, res) => res.json({ ok: dwnStore.getStatus().storageOperational === true, app: 'MILAN', version: '68.0.0', storage: { dwnRoot: DWN_ROOT, databaseDir: DATA_DIR, cloud: persistenceInfo() }, time: new Date().toISOString() }));
+app.get('/health', (_req, res) => res.json({ ok: dwnStore.getStatus().storageOperational === true, app: 'MILAN', version: APP_VERSION, storage: { dwnRoot: DWN_ROOT, databaseDir: DATA_DIR, cloud: persistenceInfo() }, time: new Date().toISOString() }));
 
 app.get('/api/health', (_req, res) => res.json({
   ok: true,
@@ -233,7 +250,7 @@ app.get('/api/media/doctor', (_req, res) => {
     const mediaCompat = require('./utils/mediaCompat');
     res.json({
       ok: true,
-      version: '68.0.0',
+      version: APP_VERSION,
       ffmpeg: mediaCompat.findFfmpeg() || '',
       ffprobe: mediaCompat.findFfprobe() || '',
       transcodeVideo: String(process.env.MILAN_TRANSCODE_VIDEO || 'true'),
