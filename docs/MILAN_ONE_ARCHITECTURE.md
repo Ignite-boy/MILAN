@@ -14,7 +14,7 @@
 | DWN C++ experiment | `DWN/` | C++20 target, LevelDB linked, PostgreSQL source excluded from canonical build | That main API invokes its protocol/server |
 | Sentinel | `Milan-Sentinel/` | 10M theoretical Cartesian product; subset adapters only | 10M end-to-end executed tests |
 | RSI | `Milan-RSI-Agent/` | Repair-analysis and patch-generation scripts | Safe autonomous production code mutation without isolation/review |
-| Travel agent | `Travel-Agent/` | FastAPI/LangGraph, client-supplied user and session fields in the source before authorization is configured | Secure multi-user deployment or live flight/hotel prices (the tool contains mock fallbacks) |
+| Travel agent | `Travel-Agent/` | FastAPI/LangGraph source now verifies MILAN Bearer tokens through the MILAN identity endpoint and scopes graph/memory IDs by verified user | Deployed enforcement is not verified: Render's current service binding still points to the pre-consolidation repository; live flight/hotel prices also are not guaranteed (the tool contains mock fallbacks) |
 | Wallet | `DWN-Wallet/` | Prototype, including in-memory store code | Durable wallet state or connected production transfer routes |
 | UI updater | `Live-UI-Update/` | AI/helper scripts, SEO tooling and workflow source | A second canonical copy of the production UI |
 
