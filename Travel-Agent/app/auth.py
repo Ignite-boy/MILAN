@@ -15,6 +15,17 @@ _bearer = HTTPBearer(auto_error=False)
 _DEFAULT_MILAN_AUTH_URL = "https://milanlife.in/api/auth/me"
 
 
+
+def resolve_user_scope(identity: dict, asserted_user_id: Optional[str] = None) -> str:
+    """Return the verified principal, rejecting a conflicting body user_id."""
+    user_id = str(identity.get("user_id") or "").strip()
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Verified MILAN identity has no user ID.")
+    asserted = str(asserted_user_id or "").strip()
+    if asserted and asserted != user_id:
+        raise HTTPException(status_code=403, detail="Request user_id does not match the authenticated MILAN account.")
+    return user_id
+
 def require_identity(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer),
 ) -> dict:
