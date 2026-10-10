@@ -1,7 +1,8 @@
-from fastapi import BackgroundTasks, FastAPI
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.agent.graph import SYSTEM_PROMPT, get_graph
+from app.auth import require_identity
 from app.agent.intent import extract_intent
 from app.agent.planner import plan_trip
 from app.config import settings
@@ -31,9 +32,21 @@ def health():
 
 
 @app.post("/chat", response_model=ChatResponse)
-def chat(req: ChatRequest, background_tasks: BackgroundTasks):
+def chat(
+    req: ChatRequest,
+    background_tasks: BackgroundTasks,
+    identity: dict = Depends(require_identity),
+):
+    # Never use a caller-provided user_id as the authenticated principal.
+    effective_user_id = str(identity["user_id"])
+    asserted_user_id = str(req.user_id or "").strip()
+    if asserted_user_id and asserted_user_id != effective_user_id:
+        raise HTTPException(status_code=403, detail="Request user_id does not match the authenticated MILAN account.")
+
     graph = get_graph()
-    config = {"configurable": {"thread_id": req.session_id}}
+    # Thread IDs are scoped to the verified user to prevent cross-account memory collisions.
+    thread_id = f"{effective_user_id}:{req.session_id}"
+    config = {"configurable": {"thread_id": thread_id}}
 
     # Pull prior turns from the checkpointer (short-term memory) so the
     # intent extractor has context, and so we know whether this is a brand
@@ -56,7 +69,7 @@ def chat(req: ChatRequest, background_tasks: BackgroundTasks):
 
     # Long-term memory: pull anything we already know about this user for
     # this kind of trip, so the agent doesn't have to ask again.
-    preferences = get_preferences(req.user_id, query=f"preferences for {intent['city']} trip")
+    preferences = get_preferences(effective_user_id, query=f"preferences for {intent['city']} trip")
     preferences_block = (
         "\n".join(f"- {p}" for p in preferences) if preferences else "(none recorded yet)"
     )
@@ -101,7 +114,7 @@ def chat(req: ChatRequest, background_tasks: BackgroundTasks):
     if settings.ENABLE_AUTO_PREFERENCE_EXTRACTION:
         background_tasks.add_task(
             extract_and_save_preferences,
-            req.user_id,
+            effective_user_id,
             f"User: {req.message}\nAssistant: {answer}",
             llm,
         )
