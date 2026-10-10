@@ -162,6 +162,12 @@ async function run(caseDef) {
         let parsed;
         try { parsed = JSON.parse(response.body); } catch { parsed = null; }
         assert(parsed && (parsed.ok === true || parsed.status === 'ok'), `${name}: health response body did not report healthy status`);
+        if (name === 'health-control') {
+          assert(parsed.healthSemantics?.level === 'liveness',
+            'API health response must distinguish process liveness from deep provider readiness');
+          assert(typeof parsed.healthSemantics?.realDwnProtocol === 'boolean',
+            'API health response must expose an explicit DWN protocol readiness flag');
+        }
       }
       if (name === 'travel-request') {
         let parsed;
