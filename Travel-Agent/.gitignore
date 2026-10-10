@@ -1,0 +1,8 @@
+venv/
+__pycache__/
+*.pyc
+.env
+data/faiss_index/*.index
+data/faiss_index/*.json
+!data/attractions.json
+.pytest_cache/

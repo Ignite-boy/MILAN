@@ -1,0 +1,1 @@
+(async()=>{for(const [id,url] of [["health","/health"],["metrics","/metrics"]]){try{const r=await fetch(url,{cache:"no-store"});document.getElementById(id).textContent=JSON.stringify(await r.json(),null,2)}catch(e){document.getElementById(id).textContent=String(e)}}})();

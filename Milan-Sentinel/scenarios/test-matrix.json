@@ -1,0 +1,25 @@
+{
+  "caseCount": 10000000,
+  "dimensions": {
+    "environment": [
+      "milan-prod","milan-api","mini-dwn-prod","dwn-public","travel-agent-prod","wallet-prod","live-ui-prod","inventory-prod","github-ci","local-staging"
+    ],
+    "scenario": [
+      {"id":"SC001","category":"favicon","name":"favicon-http-status"},{"id":"SC002","category":"favicon","name":"favicon-content-type"},{"id":"SC003","category":"favicon","name":"favicon-square-dimensions"},{"id":"SC004","category":"favicon","name":"favicon-html-reference"},{"id":"SC005","category":"favicon","name":"apple-touch-icon"},
+      {"id":"SC006","category":"assets","name":"logo-http-status"},{"id":"SC007","category":"assets","name":"broken-image-detection"},{"id":"SC008","category":"assets","name":"css-load"},{"id":"SC009","category":"assets","name":"javascript-load"},{"id":"SC010","category":"assets","name":"font-load"},
+      {"id":"SC011","category":"browser","name":"page-render"},{"id":"SC012","category":"browser","name":"console-errors"},{"id":"SC013","category":"browser","name":"network-failures"},{"id":"SC014","category":"browser","name":"responsive-layout"},{"id":"SC015","category":"browser","name":"mobile-navigation"},
+      {"id":"SC016","category":"auth","name":"login"},{"id":"SC017","category":"auth","name":"logout"},{"id":"SC018","category":"auth","name":"session-persistence"},{"id":"SC019","category":"auth","name":"expired-session"},{"id":"SC020","category":"auth","name":"protected-route"},
+      {"id":"SC021","category":"social","name":"publish-post"},{"id":"SC022","category":"social","name":"edit-post"},{"id":"SC023","category":"social","name":"delete-post"},{"id":"SC024","category":"social","name":"like-post"},{"id":"SC025","category":"social","name":"save-post"},{"id":"SC026","category":"social","name":"comment-post"},{"id":"SC027","category":"social","name":"notifications"},{"id":"SC028","category":"social","name":"messaging"},
+      {"id":"SC029","category":"profile","name":"profile-load"},{"id":"SC030","category":"profile","name":"profile-edit"},
+      {"id":"SC031","category":"control-center","name":"control-center-load"},{"id":"SC032","category":"control-center","name":"health-control"},{"id":"SC033","category":"control-center","name":"privacy-control"},{"id":"SC034","category":"control-center","name":"connection-control"},{"id":"SC035","category":"control-center","name":"activity-control"},
+      {"id":"SC036","category":"dwn","name":"dwn-health"},{"id":"SC037","category":"dwn","name":"dwn-record-write"},{"id":"SC038","category":"dwn","name":"dwn-record-read"},{"id":"SC039","category":"dwn","name":"dwn-permission"},{"id":"SC040","category":"database","name":"postgres-connectivity"},
+      {"id":"SC041","category":"travel-agent","name":"travel-health"},{"id":"SC042","category":"travel-agent","name":"travel-request"},
+      {"id":"SC043","category":"wallet","name":"wallet-health"},{"id":"SC044","category":"wallet","name":"wallet-account"},{"id":"SC045","category":"wallet","name":"wallet-transfer"},
+      {"id":"SC046","category":"seo","name":"robots"},{"id":"SC047","category":"seo","name":"sitemap"},{"id":"SC048","category":"seo","name":"canonical"},{"id":"SC049","category":"seo","name":"structured-data"},{"id":"SC050","category":"ai-rag","name":"retrieval-source-grounding"}
+    ],
+    "action": ["status","headers","body","navigation","click","input","submit","upload","download","render","console","network","timeout","redirect","auth","permission","schema","persistence","recovery","e2e"],
+    "device": ["desktop-1440","desktop-1280","desktop-1024","laptop-1366","tablet-1024","tablet-768","mobile-430","mobile-390","mobile-375","mobile-320"],
+    "state": ["fresh","authenticated","logged-out","expired-session","empty-data","seeded-data","slow-network","offline-retry","error-recovery","cache-warm"],
+    "locale": ["en-IN","en-US","en-GB","hi-IN","de-DE","fr-FR","es-ES","ja-JP","pt-BR","x-default"]
+  }
+}

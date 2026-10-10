@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: DWN
+    env: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    autoDeployTrigger: checksPass
+    healthCheckPath: /health
+    envVars:
+      - key: DWN_HOST
+        value: 0.0.0.0
+      - key: DWN_PORT
+        value: 10000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: DWN-db
+          property: connectionString

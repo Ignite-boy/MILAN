@@ -1,0 +1,47 @@
+{
+  "brand": ["MILAN", "Milan App", "Milan decentralized social media"],
+  "decentralized_social": [
+    "decentralized social media",
+    "decentralized social network",
+    "privacy-first social network",
+    "user-owned social media",
+    "social media where you own your data",
+    "private social network",
+    "Web5 social network",
+    "DWN social media",
+    "DID social media"
+  ],
+  "technology": [
+    "Decentralized Web Node",
+    "DWN",
+    "Decentralized Identifier",
+    "DID",
+    "self-sovereign identity",
+    "user-owned data",
+    "decentralized storage",
+    "decentralized identity"
+  ],
+  "privacy": [
+    "social media privacy",
+    "no tracking social media",
+    "no ads social network",
+    "data ownership social media",
+    "privacy-focused social media"
+  ],
+  "comparisons": [
+    "private social media alternative",
+    "decentralized alternative to Instagram",
+    "decentralized alternative to WhatsApp",
+    "social media alternatives",
+    "best privacy social network"
+  ],
+  "content_strategy": {
+    "rule": "Create a page only when it provides substantial, original value for the user and matches a real product capability.",
+    "avoid": [
+      "keyword-stuffed doorway pages",
+      "near-duplicate city pages",
+      "mass AI-generated pages with little unique value",
+      "claims of guaranteed Google rankings"
+    ]
+  }
+}

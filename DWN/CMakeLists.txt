@@ -1,0 +1,73 @@
+cmake_minimum_required(VERSION 3.20)
+project(DWN VERSION 0.1.0 LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Options
+option(BUILD_TESTS "Build tests" ON)
+option(ENABLE_TLS "Enable TLS support via OpenSSL" ON)
+
+# Dependencies - use find_package, fallback to pkg-config hints
+find_package(Boost 1.74 REQUIRED COMPONENTS system thread)
+find_package(OpenSSL REQUIRED)
+find_package(Threads REQUIRED)
+
+# nlohmann/json - header-only, try find_package else FetchContent
+find_package(nlohmann_json 3.10 QUIET)
+if(NOT nlohmann_json_FOUND)
+    include(FetchContent)
+    FetchContent_Declare(
+        nlohmann_json
+        URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+    )
+    FetchContent_MakeAvailable(nlohmann_json)
+endif()
+
+find_path(LEVELDB_INCLUDE_DIR leveldb/db.h REQUIRED)
+find_library(LEVELDB_LIBRARY NAMES leveldb REQUIRED)
+
+# libsodium
+find_library(SODIUM_LIB sodium)
+find_path(SODIUM_INCLUDE sodium.h)
+
+# Sources
+file(GLOB_RECURSE LIB_SOURCES src/*.cpp)
+list(REMOVE_ITEM LIB_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/postgres_storage.cpp
+)
+file(GLOB DUPLICATE_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/* (2).cpp")
+list(REMOVE_ITEM LIB_SOURCES ${DUPLICATE_SOURCES})
+
+add_library(dwn_core STATIC ${LIB_SOURCES})
+target_include_directories(dwn_core PUBLIC ${LEVELDB_INCLUDE_DIR})
+target_include_directories(dwn_core PUBLIC include ${SODIUM_INCLUDE})
+target_link_libraries(dwn_core PUBLIC
+    Boost::system
+    Boost::thread
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    nlohmann_json::nlohmann_json
+    Threads::Threads
+    ${SODIUM_LIB}
+    ${LEVELDB_LIBRARY}
+    Threads::Threads
+)
+add_executable(DWN src/main.cpp)
+target_link_libraries(DWN PRIVATE dwn_core)
+
+# Tests
+if(BUILD_TESTS)
+    enable_testing()
+    find_package(GTest REQUIRED)
+    file(GLOB TEST_SOURCES tests/*.cpp)
+    add_executable(dwn_tests ${TEST_SOURCES})
+    target_link_libraries(dwn_tests PRIVATE dwn_core GTest::gtest GTest::gtest_main)
+    include(GoogleTest)
+    gtest_discover_tests(dwn_tests)
+endif()
+
+# Install
+install(TARGETS DWN DESTINATION bin)

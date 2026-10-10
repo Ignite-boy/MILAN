@@ -1,0 +1,43 @@
+server {
+    listen __PORT__;
+    server_name _;
+
+    root /var/www/dwn-ui;
+    index index.html;
+
+    location = /health {
+        proxy_pass http://127.0.0.1:10001;
+        proxy_http_version 1.1;
+    }
+
+    location = /info {
+        proxy_pass http://127.0.0.1:10001;
+        proxy_http_version 1.1;
+    }
+
+    location = /metrics {
+        proxy_pass http://127.0.0.1:10001;
+        proxy_http_version 1.1;
+    }
+
+    location = /version {
+        proxy_pass http://127.0.0.1:10001;
+        proxy_http_version 1.1;
+    }
+
+    location /json-rpc {
+        proxy_pass http://127.0.0.1:10001;
+        proxy_http_version 1.1;
+        proxy_request_buffering off;
+    }
+
+    location /api/dwn/ {
+        proxy_pass http://127.0.0.1:10001;
+        proxy_http_version 1.1;
+        proxy_request_buffering off;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

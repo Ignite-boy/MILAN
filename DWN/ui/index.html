@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DWN — Decentralized Web Node</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">DECENTRALIZED WEB NODE</div>
+        <h1>DWN</h1>
+        <p>C++20 node for secure, user-owned data storage.</p>
+      </div>
+      <div class="status-pill"><span></span> ONLINE</div>
+    </header>
+
+    <section class="hero">
+      <div>
+        <span class="badge">LOCAL STORAGE • LEVELDB</span>
+        <h2>Your data.<br>Your node. Your control.</h2>
+        <p>DWN provides a lightweight foundation for user-owned data, records, binary payloads, events and Web5 applications.</p>
+        <div class="actions">
+          <a href="/health" target="_blank">Health</a>
+          <a href="/info" target="_blank">Node Info</a>
+          <a href="/metrics" target="_blank">Metrics</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <div class="label">SERVICE</div>
+        <div id="service" class="value">DWN</div>
+        <div class="muted">C++20</div>
+      </article>
+
+      <article class="card">
+        <div class="label">STORAGE</div>
+        <div id="storage" class="value">LevelDB</div>
+        <div class="muted">Local persistent backend</div>
+      </article>
+
+      <article class="card">
+        <div class="label">STATUS</div>
+        <div id="health" class="value">Checking…</div>
+        <div class="muted">Live node health</div>
+      </article>
+
+      <article class="card">
+        <div class="label">VERSION</div>
+        <div id="version" class="value">—</div>
+        <div class="muted">Running build</div>
+      </article>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <div class="label">NODE STATUS</div>
+          <h3>Runtime information</h3>
+        </div>
+        <button id="refresh">Refresh</button>
+      </div>
+      <pre id="output">Loading DWN status…</pre>
+    </section>
+
+    <footer>
+      <span>DWN</span>
+      <span>Secure • User-owned • Decentralized</span>
+    </footer>
+  </main>
+
+  <script src="/assets/app.js"></script>
+</body>
+</html>

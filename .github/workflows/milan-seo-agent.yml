@@ -1,0 +1,45 @@
+name: Deep SEO Agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: "Public site URL to audit"
+        required: false
+        default: "https://milanlife.in/"
+  schedule:
+    - cron: "17 3 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  seo-audit:
+    name: Audit public SEO
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Audit live site
+        env:
+          SEO_TARGET_URL: ${{ inputs.target_url || 'https://milanlife.in/' }}
+          SEO_MAX_PAGES: "100"
+          SEO_TIMEOUT: "20"
+        run: |
+          python -m py_compile Live-UI-Update/seo-agent/seo_agent.py
+          python Live-UI-Update/seo-agent/seo_agent.py || echo "SEO findings detected; report generated."
+
+      - name: Upload SEO report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: milan-seo-report
+          path: seo-reports/latest.json
+          if-no-files-found: warn
+          retention-days: 14

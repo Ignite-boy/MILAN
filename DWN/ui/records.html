@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DWN — Records</title>
+  <link rel="stylesheet" href="/ui/assets/styles.css">
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="/"><span class="brand-mark">D</span><span>DWN</span></a><span class="pill ok">REAL DWN</span></header>
+  <main class="shell">
+    <aside class="nav">
+      <a href="/">Dashboard</a><a class="active" href="/records">Records</a><a href="/media">Media</a><a href="/health">Health</a><a href="/developer">Developer</a>
+    </aside>
+    <section class="content">
+      <div class="eyebrow">DATA LAYER</div>
+      <h1>Records</h1>
+      <p class="lead">Records are processed through the DWN JSON-RPC protocol and stored by the production DWN backend.</p>
+      <div class="panel">
+        <h2>JSON-RPC</h2>
+        <code>POST https://dwn.onrender.com/json-rpc</code>
+        <pre>{
+  "jsonrpc": "2.0",
+  "id": "example",
+  "method": "dwn.processMessage",
+  "params": {
+    "target": "&lt;tenantDid&gt;",
+    "message": "&lt;signedDwnMessage&gt;"
+  }
+}</pre>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

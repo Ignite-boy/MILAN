@@ -1,0 +1,18 @@
+{
+  "maxRepairCycles": 20,
+  "intervalMs": 60000,
+  "continuous": true,
+  "testRepository": "Ignite-boy/milan-sentinel",
+  "targets": [
+    "Ignite-boy/milan-app",
+    "Ignite-boy/mini-dwn",
+    "Ignite-boy/travel-agent",
+    "Ignite-boy/natively-dwn-wallet",
+    "Ignite-boy/inventory"
+  ],
+  "requireTestsBeforeDeploy": true,
+  "requireEvidence": true,
+  "rollbackOnFailure": true,
+  "autoRepair": true,
+  "autoPushRepairBranch": true
+}

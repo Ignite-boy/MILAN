@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en-US">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Verify your email · MILAN</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#050e2b">
+<link rel="icon" href="/assets/milan-logo-circle.png" sizes="any" />
+<link rel="icon" type="image/svg+xml" href="/assets/milan-logo-circle.png" />
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/milan-logo-circle.png" />
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/milan-logo-circle.png" />
+<link rel="icon" type="image/png" sizes="96x96" href="/assets/milan-logo-circle.png" />
+<link rel="icon" type="image/png" sizes="192x192" href="/assets/milan-logo-circle.png" />
+<link rel="apple-touch-icon" href="/assets/milan-logo-circle.png" />
+<link rel="manifest" href="/manifest.json" />
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem;color:#f0e6ff;
+  background:radial-gradient(ellipse at 20% 0,rgba(20,100,184,.3) 0,transparent 50%),radial-gradient(ellipse at 80% 10%,rgba(217,70,239,.22) 0,transparent 42%),radial-gradient(ellipse at 50% 100%,rgba(245,158,11,.12) 0,transparent 55%),#050e2b}
+.card{width:100%;max-width:440px;background:linear-gradient(170deg,rgba(10,26,62,.98),rgba(7,18,48,.99) 60%,rgba(13,59,122,.85));border:1px solid rgba(245,158,11,.28);border-radius:24px;padding:34px 30px;box-shadow:0 30px 80px rgba(0,0,0,.55)}
+.logo{font-weight:800;letter-spacing:.28em;font-size:1.6rem;background:linear-gradient(135deg,#f59e0b,#fbbf24,#d946ef);-webkit-background-clip:text;background-clip:text;color:transparent;text-align:center}
+.tag{text-align:center;color:#8ba4d4;font-size:.8rem;margin-top:4px;letter-spacing:.04em}
+h1{font-size:1.4rem;font-weight:700;margin:26px 0 6px;text-align:center}
+p.sub{color:#b8ccee;font-size:.9rem;text-align:center;line-height:1.6;margin-bottom:18px}
+.icon{width:64px;height:64px;border-radius:50%;margin:8px auto 0;display:flex;align-items:center;justify-content:center;font-size:30px}
+.icon.spin{background:rgba(245,158,11,.14)}
+.icon.ok{background:rgba(16,185,129,.16);color:#34d399}
+.icon.err{background:rgba(239,68,68,.16);color:#f87171}
+.spinner{width:34px;height:34px;border:3px solid rgba(245,158,11,.25);border-top-color:#fbbf24;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+label{display:block;font-size:.8rem;font-weight:600;color:#b8ccee;margin:14px 0 6px}
+input{width:100%;background:rgba(5,14,43,.85);border:1px solid rgba(100,160,255,.22);color:#f0e6ff;border-radius:14px;padding:.8rem 1rem;font-size:1rem;letter-spacing:.18em;text-align:center;outline:0}
+input:focus{border-color:rgba(245,158,11,.65);box-shadow:0 0 0 3px rgba(245,158,11,.16)}
+button{width:100%;margin-top:18px;background:linear-gradient(135deg,#f59e0b,#fbbf24 50%,#d946ef);color:#030920;font-weight:900;border:0;border-radius:18px;padding:.8rem;font-size:.95rem;cursor:pointer;transition:.15s}
+button:hover{filter:brightness(1.08)}button:disabled{opacity:.6;cursor:not-allowed}
+.ghost{background:transparent!important;color:#fbbf24!important;border:1px solid rgba(245,158,11,.4)!important;font-weight:700!important;margin-top:10px}
+.msg{font-size:.82rem;text-align:center;margin-top:14px;min-height:1.2rem;line-height:1.5}
+.msg.err{color:#f87171}.msg.ok{color:#34d399}
+.links{text-align:center;margin-top:20px;font-size:.82rem;color:#8ba4d4}
+.links a{color:#fbbf24;text-decoration:none;font-weight:600}
+.hidden{display:none!important}
+</style>
+<link rel="stylesheet" href="/milan-core.css?v=20260627">
+</head>
+<body>
+<div class="card">
+  <img src="/assets/milan-logo-circle.png" alt="MILAN" style="height:66px;width:66px;border-radius:18px;display:block;margin:0 auto 6px;box-shadow:0 8px 24px rgba(0,0,0,.4)">
+  <div class="tag" style="text-align:center">Your Space. Your People.</div>
+
+  <!-- Auto-verifying (token from link) -->
+  <div id="loading">
+    <div class="icon spin"><div class="spinner"></div></div>
+    <h1>Verifying your email…</h1>
+    <p class="sub">One moment while we confirm your address.</p>
+  </div>
+
+  <!-- Manual code entry / resend -->
+  <div id="form" class="hidden">
+    <div class="icon spin">✉️</div>
+    <h1>Confirm your email</h1>
+    <p class="sub">Enter the 6-digit code we emailed you, or open the link from your inbox.</p>
+    <label for="email">Email</label>
+    <input id="email" type="email" placeholder="you@example.com" style="letter-spacing:0;text-align:left">
+    <label for="code">6-digit code</label>
+    <input id="code" inputmode="numeric" maxlength="6" placeholder="••••••">
+    <button id="verifyBtn">Verify email</button>
+    <button class="ghost" id="resendBtn">Resend verification email</button>
+  </div>
+
+  <!-- Success -->
+  <div id="done" class="hidden">
+    <div class="icon ok">✓</div>
+    <h1>Email verified</h1>
+    <p class="sub">Your MILAN account is fully confirmed.</p>
+    <button onclick="location.href='/app'">Open MILAN →</button>
+  </div>
+
+  <div id="msg" class="msg"></div>
+  <div class="links"><a href="/">← Back to sign in</a></div>
+</div>
+
+<script>
+var $=function(id){return document.getElementById(id);};
+function qp(k){return new URLSearchParams(location.search).get(k)||"";}
+function show(id){["loading","form","done"].forEach(function(x){$(x).classList.toggle("hidden",x!==id);});}
+function setMsg(t,ok){var m=$("msg");m.textContent=t||"";m.className="msg"+(t?(ok?" ok":" err"):"");}
+
+var email=qp("email"), token=qp("token");
+
+function verify(body){
+  return fetch("/api/auth/verify-email",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})
+    .then(function(r){return r.json().then(function(d){if(!r.ok)throw new Error(d.error||"Verification failed");return d;});});
+}
+
+function startManual(prefill){
+  show("form"); if(email)$("email").value=email; if(prefill)setMsg(prefill,false);
+}
+
+// If we arrived from an email link, verify automatically.
+if(token && email){
+  verify({email:email,token:token})
+    .then(function(){ show("done"); })
+    .catch(function(e){ startManual(e.message+" — you can enter the code below instead."); });
+} else {
+  startManual();
+}
+
+$("verifyBtn").onclick=function(){
+  var e=$("email").value.trim().toLowerCase(), c=$("code").value.trim();
+  if(!e||!c){setMsg("Enter your email and the 6-digit code.");return;}
+  $("verifyBtn").disabled=true; setMsg("");
+  verify({email:e,code:c})
+    .then(function(){ show("done"); })
+    .catch(function(err){ setMsg(err.message); })
+    .finally(function(){ $("verifyBtn").disabled=false; });
+};
+
+$("resendBtn").onclick=function(){
+  var e=($("email").value||email).trim().toLowerCase();
+  if(!e){setMsg("Enter your email first.");return;}
+  $("resendBtn").disabled=true;
+  fetch("/api/auth/resend-verification",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:e})})
+    .then(function(r){return r.json();})
+    .then(function(d){ setMsg(d.message||"If that account exists, a verification email has been sent.",true); })
+    .catch(function(){ setMsg("Could not resend right now. Try again shortly."); })
+    .finally(function(){ setTimeout(function(){$("resendBtn").disabled=false;},4000); });
+};
+</script>
+<script src="/milan-core.js?v=20260627" defer></script>
+<script src="/milan-polish.js?v=20260627" defer></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+fastapi==0.141.1
+uvicorn[standard]==0.52.0
+python-dotenv==1.2.2
+requests==2.34.2
+pydantic==2.13.4
+
+langgraph==1.2.10
+langchain-core==1.5.3
+langchain-ollama==1.1.0
+langchain-openai==1.4.1
+langchain-google-genai==4.3.2
+
+faiss-cpu==1.14.3
+wikipedia==1.4.0
+tavily-python==0.7.27

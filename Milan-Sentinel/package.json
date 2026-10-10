@@ -1,0 +1,17 @@
+{
+  "name": "milan-sentinel",
+  "version": "2.0.0",
+  "private": true,
+  "description": "MILAN 10-million-case executable QA and regression matrix",
+  "type": "commonjs",
+  "scripts": {
+    "list": "node scripts/run-matrix.js --list",
+    "run": "node scripts/run-matrix.js --run",
+    "smoke": "node scripts/run-matrix.js --smoke",
+    "validate": "node scripts/run-matrix.js --validate",
+    "continuous": "node scripts/run-matrix.js --continuous"
+  },
+  "dependencies": {
+    "playwright": "^1.55.0"
+  }
+}

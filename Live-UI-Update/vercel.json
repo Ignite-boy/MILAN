@@ -1,0 +1,65 @@
+{
+  "outputDirectory": ".",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://milan-api-4n3n.onrender.com/api/:path*"
+    },
+    {
+      "source": "/app",
+      "destination": "/app.html"
+    },
+    {
+      "source": "/music",
+      "destination": "/music.html"
+    },
+    {
+      "source": "/milan-music",
+      "destination": "/music.html"
+    },
+    {
+      "source": "/about",
+      "destination": "/about.html"
+    },
+    {
+      "source": "/privacy",
+      "destination": "/privacy.html"
+    },
+    {
+      "source": "/terms",
+      "destination": "/terms.html"
+    },
+    {
+      "source": "/settings",
+      "destination": "/settings.html"
+    },
+    {
+      "source": "/keywords",
+      "destination": "/keywords.html"
+    },
+    {
+      "source": "/decentralized-social-media",
+      "destination": "/decentralized-social-media.html"
+    },
+    {
+      "source": "/private-social-network",
+      "destination": "/private-social-network.html"
+    },
+    {
+      "source": "/best-social-media-apps",
+      "destination": "/best-social-media-apps.html"
+    },
+    {
+      "source": "/what-is-web5",
+      "destination": "/what-is-web5.html"
+    },
+    {
+      "source": "/social-media-privacy",
+      "destination": "/social-media-privacy.html"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/$1"
+    }
+  ]
+}

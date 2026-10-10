@@ -1,0 +1,51 @@
+name: MILAN RSI Repair Agent
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["MILAN Sentinel"]
+    types: [completed]
+  schedule:
+    - cron: '*/15 * * * *'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  rsi:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Sentinel
+        run: npm ci
+        working-directory: Milan-Sentinel
+      - name: Install RSI agent
+        run: npm install --no-audit --no-fund
+        working-directory: Milan-RSI-Agent
+      - name: Validate test matrix
+        run: npm run validate
+        working-directory: Milan-Sentinel
+      - name: Execute smoke checks
+        run: npm run smoke
+        working-directory: Milan-Sentinel
+      - name: Run repair analysis (no automatic push)
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          MILAN_GH_TOKEN: ${{ secrets.MILAN_GH_TOKEN }}
+          RSI_AUTO_PUSH: 'false'
+          RSI_MODEL: ${{ vars.RSI_MODEL }}
+        run: node scripts/rsi-loop.js
+        working-directory: Milan-RSI-Agent
+      - name: Upload RSI evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rsi-evidence
+          path: Milan-RSI-Agent/evidence/
+          if-no-files-found: ignore

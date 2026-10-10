@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Natively — DWN Wallet</title>
+  <style>
+    body{font-family:system-ui,sans-serif;max-width:760px;margin:40px auto;padding:0 16px;line-height:1.5}
+    .card{border:1px solid #ddd;border-radius:16px;padding:20px;margin:16px 0}
+    input,button{font:inherit;padding:10px 12px;border-radius:10px;border:1px solid #ccc}
+    button{cursor:pointer}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    code{word-break:break-all}
+  </style>
+</head>
+<body>
+  <h1>Natively DWN Wallet</h1>
+  <p>User-owned account prototype. Account and transaction records are represented locally until a real DWN client is connected.</p>
+
+  <section class="card">
+    <h2>Account</h2>
+    <p><strong>DID:</strong> <code id="did">Not created</code></p>
+    <button id="create">Create account</button>
+  </section>
+
+  <section class="card">
+    <h2>Wallet</h2>
+    <p><strong>Balance:</strong> <span id="balance">0.00</span> NATIVE</p>
+    <div class="row">
+      <input id="to" placeholder="Receiver DID or account ID">
+      <input id="amount" type="number" min="0.01" step="0.01" placeholder="Amount">
+      <button id="send">Create transaction</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Transactions</h2>
+    <div id="transactions">No transactions yet.</div>
+  </section>
+
+<script>
+const KEY='nativelyWalletPrototype';
+function load(){
+  try{return JSON.parse(localStorage.getItem(KEY)||'{"did":"","balance":0,"transactions":[]}')}
+  catch{return {did:'',balance:0,transactions:[]}}
+}
+function save(s){localStorage.setItem(KEY,JSON.stringify(s));render(s)}
+function txId(){return 'txn_'+new Date().toISOString().replace(/[-:.TZ]/g,'')+'_'+crypto.randomUUID().slice(0,8)}
+function render(s){
+  document.getElementById('did').textContent=s.did||'Not created';
+  document.getElementById('balance').textContent=Number(s.balance).toFixed(2);
+  const box=document.getElementById('transactions');
+  if(!s.transactions.length){box.textContent='No transactions yet.';return}
+  box.innerHTML=s.transactions.map(t=>`<article><p><strong>${t.id}</strong></p><p>To: <code>${t.to}</code><br>Amount: ${t.amount} NATIVE<br>Status: ${t.status}</p></article>`).join('<hr>');
+}
+let state=load(); render(state);
+document.getElementById('create').onclick=()=>{
+  if(!state.did) state.did='did:natively:'+crypto.randomUUID();
+  save(state);
+};
+document.getElementById('send').onclick=()=>{
+  if(!state.did) return alert('Create the account first.');
+  const to=document.getElementById('to').value.trim();
+  const amount=Number(document.getElementById('amount').value);
+  if(!to || !Number.isFinite(amount) || amount<=0) return alert('Enter receiver and amount.');
+  const tx={id:txId(),from:state.did,to,amount,status:'created',createdAt:new Date().toISOString(),storage:'local-prototype'};
+  state.transactions.unshift(tx);
+  save(state);
+  document.getElementById('to').value='';document.getElementById('amount').value='';
+};
+</script>
+</body>
+</html>

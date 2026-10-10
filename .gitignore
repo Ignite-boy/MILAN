@@ -49,3 +49,14 @@ backend/dwn/audit/
 backend/RESOLVERCACHE/
 backend/dwn/database/*.json
 .next/
+
+**/build/
+
+**/leveldb-data/
+
+**/__pycache__/
+
+*.py[cod]
+
+# Generated Sentinel test evidence
+/Milan-Sentinel/reports/

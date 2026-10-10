@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en-US">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MILAN Admin Dashboard</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0b0f1a">
+<link rel="icon" href="/assets/milan-logo-circle.png" sizes="any" />
+<link rel="icon" type="image/svg+xml" href="/assets/milan-logo-circle.png" />
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/milan-logo-circle.png" />
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/milan-logo-circle.png" />
+<link rel="icon" type="image/png" sizes="96x96" href="/assets/milan-logo-circle.png" />
+<link rel="icon" type="image/png" sizes="192x192" href="/assets/milan-logo-circle.png" />
+<link rel="apple-touch-icon" href="/assets/milan-logo-circle.png" />
+<link rel="manifest" href="/manifest.json" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0f1a;--bg2:#0c111d;--card:#121826;--text:#eef1f8;--muted:#97a2bd;--line:rgba(148,163,196,.14);--brand:#4f7cf6;--brand2:#5b9bd8;--soft:rgba(79,124,246,.1);--ok:#46c08a;--bad:#e5645f}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--text);line-height:1.6;
+  background:radial-gradient(1100px 600px at 50% -10%,rgba(79,124,246,.10),transparent 60%),linear-gradient(180deg,var(--bg),var(--bg2) 60%,var(--bg));min-height:100vh}
+a{color:var(--brand2);text-decoration:none}a:hover{text-decoration:underline}
+.nav{position:sticky;top:0;z-index:10;backdrop-filter:blur(14px);background:rgba(12,16,26,.82);border-bottom:1px solid var(--line)}
+.nav-in{max-width:1180px;margin:auto;display:flex;align-items:center;justify-content:space-between;padding:14px 22px}
+.brand{display:flex;align-items:center;gap:12px;font-weight:700;letter-spacing:.14em}
+.brand img{width:36px;height:36px;border-radius:10px;background:#0e1422;padding:3px;box-shadow:0 0 0 1px var(--line)}
+.brand small{font-weight:600;color:var(--brand2);letter-spacing:.04em}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 22px 70px}
+.gate{max-width:440px;margin:60px auto;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:30px}
+.gate h1{font-size:22px;margin-bottom:6px}.gate p{color:var(--muted);font-size:14px;margin-bottom:18px}
+label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:12px 0 6px}
+input{width:100%;background:#0e1322;border:1px solid var(--line);color:var(--text);border-radius:11px;padding:11px 13px;font-size:14px;outline:0}
+input:focus{border-color:rgba(79,124,246,.6);box-shadow:0 0 0 3px rgba(79,124,246,.16)}
+button{background:var(--brand);color:#fff;border:0;border-radius:11px;padding:11px 18px;font-weight:650;font-size:14px;cursor:pointer;transition:.15s}
+button:hover{background:#3a5fd0}button.ghost{background:transparent;border:1px solid var(--line);color:var(--text)}
+button.ghost:hover{background:rgba(148,163,196,.06);border-color:rgba(148,163,196,.3)}
+.hidden{display:none!important}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin:6px 0 24px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px}
+.stat .v{font-size:28px;font-weight:800;letter-spacing:-.02em}
+.stat .l{font-size:12px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.05em}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.tab{background:rgba(148,163,196,.05);border:1px solid var(--line);color:var(--muted);border-radius:11px;padding:8px 15px;font-size:13px;font-weight:600;cursor:pointer}
+.tab.active{background:var(--soft);color:var(--text);border-color:rgba(79,124,246,.4)}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.toolbar input{max-width:340px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em;position:sticky;top:0;background:var(--card)}
+tr:last-child td{border-bottom:0}
+.did{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--muted);word-break:break-all;max-width:280px}
+.mini{font-size:12px;color:var(--muted)}
+.ok{color:var(--ok);font-weight:700}.bad{color:var(--bad);font-weight:700}
+.copy{background:transparent;border:1px solid var(--line);color:var(--muted);padding:4px 9px;font-size:11px;border-radius:8px;margin-top:6px}
+pre{background:#0d1322;border:1px solid var(--line);border-radius:12px;padding:14px;font-size:12px;overflow:auto;color:#c2cbe0;font-family:ui-monospace,Consolas,monospace}
+.msg{font-size:13px;margin:6px 0}
+</style>
+<link rel="stylesheet" href="/milan-core.css?v=20260627">
+</head>
+<body>
+<nav class="nav"><div class="nav-in">
+  <div class="brand"><img src="/assets/milan-logo-circle.png" alt="MILAN">MILAN <small>Admin</small></div>
+  <div><a href="/app">Back to app</a></div>
+</div></nav>
+
+<div class="wrap">
+  <!-- Gate -->
+  <div id="gate" class="gate">
+    <h1>Admin access</h1>
+    <p>Enter the admin token to view the MILAN dashboard. The token is set via the <code>ADMIN_TOKEN</code> environment variable.</p>
+    <label for="token">Admin token</label>
+    <input id="token" type="password" placeholder="ADMIN_TOKEN" autocomplete="off">
+    <div style="margin-top:16px"><button id="enter">Unlock dashboard</button></div>
+    <div id="gateMsg" class="msg bad"></div>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dash" class="hidden">
+    <div class="cards" id="cards"></div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="users">Users</button>
+      <button class="tab" data-tab="activity">Activity</button>
+      <button class="tab" data-tab="feedback">Feedback</button>
+      <button class="tab" data-tab="security">Security</button>
+      <button class="tab" data-tab="mail">Mail</button>
+    </div>
+
+    <div class="toolbar">
+      <input id="q" placeholder="Search name, email, DID">
+      <button class="ghost" id="refresh">Refresh</button>
+      <button class="ghost" id="csv">Export users CSV</button>
+      <button class="ghost" id="lock">Lock</button>
+      <span id="msg" class="msg"></span>
+    </div>
+
+    <div class="panel" id="panel"></div>
+  </div>
+</div>
+
+<script>
+var $=function(id){return document.getElementById(id);};
+var token="", tab="users", users=[], overview=null;
+try{ token=localStorage.getItem("milanAdminToken")||""; }catch(_){}
+if(token) $("token").value=token;
+
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(m){return({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[m];});}
+function when(t){return t?new Date(t).toLocaleString():"-";}
+function copy(t){navigator.clipboard&&navigator.clipboard.writeText(t||"");$("msg").textContent="Copied";}
+window.__copy=copy;
+
+function api(path){
+  return fetch(path+(path.indexOf("?")>=0?"&":"?")+"adminToken="+encodeURIComponent(token))
+    .then(function(r){return r.json().then(function(d){ if(!r.ok) throw new Error(d.error||("Request failed "+r.status)); return d; });});
+}
+function apiPost(path, body){
+  return fetch(path+(path.indexOf("?")>=0?"&":"?")+"adminToken="+encodeURIComponent(token),
+    {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body||{})})
+    .then(function(r){return r.json().then(function(d){ if(!r.ok) throw new Error(d.error||("Request failed "+r.status)); return d; });});
+}
+
+function unlock(){
+  token=$("token").value.trim();
+  try{ localStorage.setItem("milanAdminToken",token); }catch(_){}
+  $("gateMsg").textContent="Checking...";
+  api("/api/admin/overview").then(function(d){
+    overview=d; $("gateMsg").textContent="";
+    $("gate").classList.add("hidden"); $("dash").classList.remove("hidden");
+    renderCards(); loadTab();
+  }).catch(function(e){ $("gateMsg").textContent=e.message; });
+}
+
+function renderCards(){
+  var c=(overview&&overview.counts)||{};
+  var items=[
+    ["Users", c.users],
+    ["Records", c.records],
+    ["Private", c.privateRecords],
+    ["Public", c.publicRecords],
+    ["Shared", c.sharedRecords],
+    ["Requests", c.accessRequests],
+    ["Pending", c.pendingRequests]
+  ];
+  $("cards").innerHTML=items.map(function(it){
+    return '<div class="stat"><div class="v">'+(it[1]==null?"-":it[1])+'</div><div class="l">'+it[0]+'</div></div>';
+  }).join("");
+}
+
+function loadTab(){
+  $("panel").innerHTML='<div class="mini">Loading...</div>';
+  if(tab==="users"){
+    api("/api/admin/users").then(function(d){ users=(d&&d.users)||[]; renderUsers(); })
+      .catch(function(e){ $("panel").innerHTML='<div class="bad">'+esc(e.message)+'</div>'; });
+  } else if(tab==="activity"){
+    api("/api/admin/activity").then(function(d){ renderJsonList("Activity", d); })
+      .catch(function(e){ $("panel").innerHTML='<div class="bad">'+esc(e.message)+'</div>'; });
+  } else if(tab==="feedback"){
+    api("/api/admin/feedback").then(function(d){ renderJsonList("Feedback", d); })
+      .catch(function(e){ $("panel").innerHTML='<div class="bad">'+esc(e.message)+'</div>'; });
+  } else if(tab==="security"){
+    api("/api/admin/security-reports").then(function(d){ renderJsonList("Security reports", d); })
+      .catch(function(e){ $("panel").innerHTML='<div class="bad">'+esc(e.message)+'</div>'; });
+  } else if(tab==="mail"){
+    api("/api/admin/mail/status").then(function(d){ renderMail(d); })
+      .catch(function(e){ $("panel").innerHTML='<div class="bad">'+esc(e.message)+'</div>'; });
+  }
+}
+
+function renderMail(d){
+  var m=(d&&d.mail)||{}, a=(d&&d.accounts)||{};
+  var ok=m.configured;
+  var statusHtml=ok
+    ? '<span class="ok">Configured</span> via <b>'+esc(m.provider)+'</b>'
+    : '<span class="bad">Not configured</span> — set RESEND_API_KEY, SENDGRID_API_KEY, or SMTP_* and redeploy';
+  var smtp=m.smtp?('<div class="mini">SMTP: '+esc(m.smtp.host||"")+':'+esc(m.smtp.port||"")+' · secure='+esc(String(m.smtp.secure))+' · user='+esc(m.smtp.user||"")+'</div>'):'';
+  $("panel").innerHTML=
+    '<div style="display:grid;gap:14px">'+
+      '<div>'+
+        '<div style="font-size:15px;font-weight:700;margin-bottom:6px">Transactional email</div>'+
+        '<div class="msg">'+statusHtml+'</div>'+
+        '<div class="mini">From: '+esc(m.from||"")+' · Reply-to: '+esc(m.replyTo||"")+'</div>'+
+        '<div class="mini">Login alerts: '+(m.loginAlerts?'on':'off')+' · Require verification: '+(m.requireVerification?'on':'off')+'</div>'+
+        smtp+
+      '</div>'+
+      '<div class="cards" style="margin:0">'+
+        '<div class="stat"><div class="v">'+(a.total==null?"-":a.total)+'</div><div class="l">Accounts</div></div>'+
+        '<div class="stat"><div class="v">'+(a.verified==null?"-":a.verified)+'</div><div class="l">Verified</div></div>'+
+        '<div class="stat"><div class="v">'+(a.unverified==null?"-":a.unverified)+'</div><div class="l">Unverified</div></div>'+
+      '</div>'+
+      '<div>'+
+        '<div style="font-size:15px;font-weight:700;margin-bottom:6px">Send a test email</div>'+
+        '<div class="mini" style="margin-bottom:8px">Confirms delivery from support@milanlife.in.</div>'+
+        '<div class="toolbar" style="margin:0">'+
+          '<input id="mailTo" placeholder="recipient@example.com" style="max-width:340px">'+
+          '<button id="mailSend"'+(ok?'':' disabled')+'>Send test</button>'+
+          '<span id="mailMsg" class="msg"></span>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+  var sendBtn=$("mailSend");
+  if(sendBtn) sendBtn.onclick=function(){
+    var to=($("mailTo").value||"").trim();
+    if(!to){ $("mailMsg").innerHTML='<span class="bad">Enter a recipient email</span>'; return; }
+    sendBtn.disabled=true; $("mailMsg").textContent="Sending...";
+    apiPost("/api/admin/mail/test",{to:to})
+      .then(function(r){ $("mailMsg").innerHTML='<span class="ok">Sent via '+esc(r.provider)+(r.id?(' · '+esc(r.id)):'')+'</span>'; })
+      .catch(function(e){ $("mailMsg").innerHTML='<span class="bad">'+esc(e.message)+'</span>'; })
+      .finally(function(){ setTimeout(function(){ sendBtn.disabled=!ok?true:false; },1500); });
+  };
+}
+
+function renderUsers(){
+  var q=($("q").value||"").toLowerCase();
+  var rows=users.filter(function(u){ return JSON.stringify(u).toLowerCase().indexOf(q)>=0; });
+  if(!rows.length){ $("panel").innerHTML='<div class="mini">No users found.</div>'; return; }
+  $("panel").innerHTML='<table><thead><tr><th>#</th><th>Name / Email</th><th>DID</th><th>DWN space</th><th>Created</th><th>Last login</th><th>Logins</th></tr></thead><tbody>'+
+    rows.map(function(u,i){
+      return '<tr><td>'+(i+1)+'</td>'+
+        '<td><b>'+esc(u.displayName||"-")+'</b><br><span class="mini">'+esc(u.email||"")+'</span></td>'+
+        '<td><div class="did">'+esc(u.did||"")+'</div><button class="copy" onclick="__copy(\''+esc(u.did||"")+'\')">Copy DID</button></td>'+
+        '<td class="mini">'+esc(u.dwnSpaceId||u.dwnEndpoint||"-")+'</td>'+
+        '<td class="mini">'+when(u.createdAt)+'</td>'+
+        '<td class="mini">'+when(u.lastLoginAt)+'</td>'+
+        '<td>'+(u.loginCount||0)+'</td></tr>';
+    }).join("")+'</tbody></table>';
+  $("msg").innerHTML='<span class="ok">'+rows.length+' users</span>';
+}
+
+function renderJsonList(title, data){
+  var arr=Array.isArray(data)?data:(data&&typeof data==="object"?Object.values(data):[]);
+  var flat=arr.reduce(function(acc,v){ return acc.concat(Array.isArray(v)?v:[v]); },[]);
+  if(!flat.length){ $("panel").innerHTML='<div class="mini">No '+esc(title.toLowerCase())+' yet.</div>'; return; }
+  $("panel").innerHTML='<div class="mini" style="margin-bottom:10px">'+flat.length+' '+esc(title.toLowerCase())+' entries</div>'+
+    '<pre>'+esc(JSON.stringify(flat.slice(0,200),null,2))+'</pre>';
+}
+
+function csv(){
+  if(!users.length){ $("msg").textContent="Load users first"; return; }
+  var header=["displayName","email","did","dwnSpaceId","createdAt","lastLoginAt","loginCount"];
+  var lines=[header.join(",")].concat(users.map(function(u){
+    return header.map(function(k){ return '"'+String(u[k]==null?"":u[k]).replace(/"/g,'""')+'"'; }).join(",");
+  }));
+  var a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([lines.join("\n")],{type:"text/csv"}));
+  a.download="milan-users.csv"; a.click();
+}
+
+$("enter").onclick=unlock;
+$("token").addEventListener("keydown",function(e){ if(e.key==="Enter") unlock(); });
+$("refresh").onclick=function(){ api("/api/admin/overview").then(function(d){overview=d;renderCards();}).catch(function(){}); loadTab(); };
+$("csv").onclick=csv;
+$("q").oninput=function(){ if(tab==="users") renderUsers(); };
+$("lock").onclick=function(){ try{localStorage.removeItem("milanAdminToken");}catch(_){} location.reload(); };
+document.querySelectorAll(".tab").forEach(function(b){
+  b.onclick=function(){
+    document.querySelectorAll(".tab").forEach(function(x){x.classList.remove("active");});
+    b.classList.add("active"); tab=b.dataset.tab; $("msg").textContent=""; loadTab();
+  };
+});
+
+// Auto-unlock if a token is already saved
+if(token) unlock();
+</script>
+<script src="/milan-core.js?v=20260627" defer></script>
+<script src="/milan-polish.js?v=20260627" defer></script>
+</body>
+</html>

@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en-US">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Free Music Player — Listen to Bollywood, Hollywood & Millions of Songs Free | MILAN</title>
+<meta name="description" content="Free music player — search and play millions of songs online free: Bollywood, Hollywood, Punjabi, lo-fi and more. No signup, no ads. Listen now on MILAN.">
+<meta name="theme-color" content="#070a16">
+<link rel="icon" href="/assets/milan-logo-circle.png" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/assets/milan-logo-circle.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/milan-logo-circle.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/milan-logo-circle.png">
+<link rel="icon" type="image/png" sizes="96x96" href="/assets/milan-logo-circle.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/assets/milan-logo-circle.png">
+<link rel="apple-touch-icon" href="/assets/milan-logo-circle.png">
+<link rel="manifest" href="/manifest.json">
+<link rel="stylesheet" href="/assets/css/music.css">
+<link rel="stylesheet" href="/milan-core.css?v=20260627">
+<link rel="preconnect" href="https://www.youtube.com" crossorigin>
+<link rel="preconnect" href="https://i.ytimg.com" crossorigin>
+<script type="application/ld+json">
+{
+  "@context":"https://schema.org",
+  "@type":"WebApplication",
+  "name":"MILAN Music",
+  "url":"https://milanlife.in/music",
+  "applicationCategory":"MultimediaApplication",
+  "operatingSystem":"Web",
+  "description":"Free music player to search and stream millions of songs online — Bollywood, Hollywood and more. No signup, no ads.",
+  "offers":{"@type":"Offer","price":"0","priceCurrency":"INR"},
+  "aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"1280"}
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context":"https://schema.org",
+  "@type":"BreadcrumbList",
+  "itemListElement":[
+    {"@type":"ListItem","position":1,"name":"Home","item":"https://milanlife.in/"},
+    {"@type":"ListItem","position":2,"name":"Free Music","item":"https://milanlife.in/music"}
+  ]
+}
+</script>
+<link rel="canonical" href="https://milanlife.in/music">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="MILAN">
+<meta property="og:title" content="Free Music Player — Bollywood, Hollywood & Millions of Songs Free">
+<meta property="og:description" content="Search and play millions of songs online free on MILAN. No signup, no ads.">
+<meta property="og:url" content="https://milanlife.in/music">
+<meta property="og:image" content="https://milanlife.in/assets/og-cover.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Free Music Player — MILAN">
+<meta name="twitter:description" content="Search and play millions of songs online free. No signup, no ads.">
+<meta name="twitter:image" content="https://milanlife.in/assets/og-cover.png">
+<style id="mz-hide-backfeed">/* music page already has its own Back links (logo + ← arrow); hide the global injected one that overlaps the MILAN Music brand */ .milan-backfeed{display:none!important}</style>
+</head>
+<body>
+<h1 class="sr-only">MILAN Music player</h1>
+<header class="mz-top">
+  <a class="mz-brand" href="/app" title="Back to MILAN"><img class="mz-logo" src="/assets/milan-logo-circle.png" alt="MILAN" style="object-fit:cover"><span>MILAN <b>Music</b></span></a>
+  <div class="mz-search"><span class="ic">🔍</span>
+    <input id="q" type="search" placeholder="Search any song or artist…" autocomplete="off" aria-label="Search music"><div id="mzsug" class="mz-sug"></div></div>
+  <a class="mz-home" href="/app" title="Back to app" aria-label="Back to app">←</a>
+</header>
+
+<main class="mz-wrap">
+  <div id="note" class="mz-note" style="display:none"></div>
+  <div class="mz-chips" id="chips"></div>
+  <div class="mz-h2" id="sectionTitle">Loading… <small id="srcInfo"></small></div>
+  <div class="mz-grid" id="results"></div>
+  <nav class="mz-seo-links" aria-label="More from MILAN" style="margin:28px 12px 90px;font-size:13px;opacity:.75;line-height:1.7">
+    <p>MILAN Music is part of <a href="/decentralized-social-media">MILAN — decentralized social media where you own your data</a>. No ads, no tracking, no signup needed to listen. Learn how to <a href="/social-media-privacy">protect your privacy on social media</a> or compare the <a href="/best-social-media-apps">best social media apps in 2026</a>.</p>
+  </nav>
+</main>
+
+<footer class="mz-player" aria-label="Now playing">
+  <div class="mz-np">
+    <div class="mz-thumb" id="thumb"><img id="npArt" alt="" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E"></div>
+    <div id="ytwrap"><div id="ytplayer"></div></div>
+    <div class="meta"><div class="t" id="npTitle">Pick a track</div><div class="a" id="npArtist">MILAN Music</div></div>
+  </div>
+  <div class="mz-center">
+    <div class="mz-btns">
+      <button id="shuffleBtn" title="Shuffle" aria-label="Shuffle">⤮</button>
+      <button id="prevBtn" title="Previous" aria-label="Previous">⏮</button>
+      <button class="play" id="playBtn" title="Play / Pause" aria-label="Play or pause">▶</button>
+      <button id="nextBtn" title="Next" aria-label="Next">⏭</button>
+      <button id="repeatBtn" title="Repeat" aria-label="Repeat">🔁</button>
+    </div>
+    <div class="mz-seek"><span class="time" id="cur">0:00</span>
+      <div class="mz-bar" id="bar"><div class="fill" id="fill"></div><div class="dot" id="dot"></div></div>
+      <span class="time" id="dur">0:00</span></div>
+  </div>
+  <div class="mz-right"><div class="mz-vol"><span>🔊</span><input id="vol" type="range" min="0" max="100" value="90" aria-label="Volume"></div></div>
+</footer>
+
+<audio id="audio" preload="none"></audio>
+
+<script>
+(function(){
+  "use strict";
+  var $=function(i){return document.getElementById(i);};
+  var APP="MILAN", AUDIUS_HOSTS=["https://discoveryprovider.audius.co","https://audius-discovery-1.altego.net","https://discoveryprovider2.audius.co"];
+  var engine="audius", audiusHost=null, tracks=[], idx=-1, shuffle=false, repeat=false, seeking=false;
+  var audio=$("audio"); audio.volume=0.9;
+  var yt=null, ytReady=false, ytPending=null, poll=null;
+
+  function fmt(s){s=Math.max(0,Math.floor(s||0));return Math.floor(s/60)+":"+String(s%60).padStart(2,"0");}
+  function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(m){return({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[m];});}
+  function decode(s){var t=document.createElement("textarea");t.innerHTML=String(s||"");return t.value;}
+
+  /* ── YouTube IFrame API ───────────────────────────────── */
+  window.onYouTubeIframeAPIReady=function(){
+    yt=new YT.Player("ytplayer",{height:"54",width:"96",playerVars:{controls:0,disablekb:1,modestbranding:1,rel:0,playsinline:1},
+      events:{onReady:function(){ytReady=true; if(ytPending){var p=ytPending;ytPending=null;ytLoad(p);}},
+        onStateChange:function(e){
+          if(e.data===YT.PlayerState.PLAYING){$("playBtn").textContent="⏸"; startPoll();}
+          else if(e.data===YT.PlayerState.PAUSED){$("playBtn").textContent="▶";}
+          else if(e.data===YT.PlayerState.ENDED){ if(repeat){yt.seekTo(0);yt.playVideo();} else next(); }
+        }}});
+  };
+  function loadYTApi(){ if(window.YT&&window.YT.Player){window.onYouTubeIframeAPIReady();return;}
+    var s=document.createElement("script");s.src="https://www.youtube.com/iframe_api";document.head.appendChild(s); }
+  function ytLoad(id){ if(!ytReady){ytPending=id;return;} yt.loadVideoById(id); yt.setVolume(parseInt($("vol").value,10)); }
+  function startPoll(){ clearInterval(poll); poll=setInterval(function(){
+      if(engine!=="youtube"||!yt||!yt.getDuration)return; var d=yt.getDuration(),c=yt.getCurrentTime();
+      if(d){ $("fill").style.width=(c/d*100)+"%"; $("dot").style.left=(c/d*100)+"%"; $("cur").textContent=fmt(c); $("dur").textContent=fmt(d); }
+    },500); }
+
+  /* ── Audius ───────────────────────────────────────────── */
+  function audiusPick(){ if(audiusHost)return Promise.resolve(audiusHost);
+    return fetch("https://api.audius.co").then(function(r){return r.json();}).then(function(j){
+      var l=(j&&j.data&&j.data.length)?j.data:AUDIUS_HOSTS; audiusHost=l[Math.floor(Math.random()*l.length)]; return audiusHost;
+    }).catch(function(){audiusHost=AUDIUS_HOSTS[0];return audiusHost;}); }
+  function audiusApi(path){ return audiusPick().then(function(h){var s=path.indexOf("?")>=0?"&":"?";
+    return fetch(h+path+s+"app_name="+APP).then(function(r){if(!r.ok)throw 0;return r.json();});}); }
+  function audiusArt(t){var a=t&&t.artwork;return(a&&(a["480x480"]||a["150x150"]))||"";}
+
+  /* ── Rendering ────────────────────────────────────────── */
+  function skel(n){var o="";for(var i=0;i<n;i++)o+='<div class="mz-skel"><div class="b" style="aspect-ratio:1/1;border-radius:12px;margin-bottom:10px"></div><div class="b" style="height:12px;width:80%;margin-bottom:7px"></div><div class="b" style="height:11px;width:55%"></div></div>';$("results").innerHTML=o;}
+  function render(list){
+    tracks=list||[];
+    if(!tracks.length){$("results").innerHTML='<div class="mz-empty">No songs found. Try another search.</div>';return;}
+    $("results").innerHTML=tracks.map(function(t,i){
+      return '<div class="mz-card" data-i="'+i+'"><div class="mz-art">'+(t.thumb?'<img loading="lazy" src="'+esc(t.thumb)+'" alt="">':'')+
+        '<button class="mz-play" aria-label="Play">▶</button></div>'+
+        '<div class="mz-title">'+esc(t.title)+'</div><div class="mz-artist">'+esc(t.artist)+'</div></div>';
+    }).join("");
+    Array.prototype.forEach.call(document.querySelectorAll(".mz-card"),function(c){c.addEventListener("click",function(){play(parseInt(c.getAttribute("data-i"),10));});});
+    mark();
+  }
+  function mark(){Array.prototype.forEach.call(document.querySelectorAll(".mz-card"),function(c){c.classList.toggle("playing",parseInt(c.getAttribute("data-i"),10)===idx);});}
+
+  /* ── Unified playback ─────────────────────────────────── */
+  function showEngineUI(){ $("ytwrap").style.display=engine==="youtube"?"block":"none"; $("thumb").style.display=engine==="youtube"?"none":"block"; }
+  function stopYt(){ try{ if(yt&&yt.pauseVideo)yt.pauseVideo(); }catch(e){} }
+  function play(i){
+    if(i<0||i>=tracks.length)return; idx=i; var t=tracks[i];
+    // Every track now plays through the page's own <audio> element — Audius
+    // tracks stream directly, YouTube tracks stream via /api/music/stream/:id
+    // (server-side audio proxy). A page-owned <audio> is the ONLY thing mobile
+    // browsers keep playing when the app is backgrounded or the screen locks;
+    // the YouTube IFrame gets force-paused there and cannot be resumed by JS.
+    // The IFrame player remains as an automatic fallback (see "error" below).
+    engine="audius";
+    $("npTitle").textContent=t.title; $("npArtist").textContent=t.artist;
+    document.title=t.title+" · MILAN Music"; showEngineUI(); stopYt();
+    audio.src = t.stream ? t.stream : ("/api/music/stream/"+t.id);
+    audio.play().catch(function(){});
+    $("npArt").src=t.thumb||"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E";
+    if(t.duration)$("dur").textContent=fmt(t.duration);
+    mark(); setMedia(t);
+  }
+  // Audio proxy failed for a YouTube track -> fall back to the IFrame player.
+  audio.addEventListener("error", function(){
+    var t=tracks[idx];
+    if(!t||t.stream||engine==="youtube")return;
+    if(audio.currentTime>3)return; // mid-play blip: keep the audio engine
+    engine="youtube"; showEngineUI(); ytLoad(t.id); mark(); setMedia(t);
+  });
+  // Lock-screen / background controls. HTML5 audio (Audius) keeps playing when the phone
+  // locks; YouTube embeds may pause on lock (mobile browser policy).
+  function setMedia(t){
+    if(!("mediaSession" in navigator))return;
+    try{
+      navigator.mediaSession.metadata=new MediaMetadata({title:t.title||"MILAN Music",artist:t.artist||"",album:"MILAN Music",
+        artwork: t.thumb ? [{src:t.thumb,sizes:"480x480",type:"image/jpeg"},{src:t.thumb,sizes:"96x96",type:"image/jpeg"}] : [{src:"/assets/milan-logo-circle.png",sizes:"192x192",type:"image/png"}]});
+      navigator.mediaSession.playbackState="playing";
+    }catch(e){}
+  }
+  function isPlaying(){ return engine==="youtube" ? (yt&&yt.getPlayerState&&yt.getPlayerState()===1) : !audio.paused; }
+  function toggle(){
+    if(idx<0){ if(tracks.length)play(0); return; }
+    if(engine==="youtube"){ if(!yt)return; isPlaying()?yt.pauseVideo():yt.playVideo(); }
+    else { audio.paused?audio.play():audio.pause(); }
+  }
+  function next(){ if(!tracks.length)return; play(shuffle?Math.floor(Math.random()*tracks.length):(idx+1)%tracks.length); }
+  function prev(){ if(!tracks.length)return; var c=engine==="youtube"?(yt&&yt.getCurrentTime?yt.getCurrentTime():0):audio.currentTime;
+    if(c>3){ engine==="youtube"?yt.seekTo(0):audio.currentTime=0; return; } play((idx-1+tracks.length)%tracks.length); }
+
+  audio.addEventListener("play",function(){$("playBtn").textContent="⏸"; if("mediaSession" in navigator)navigator.mediaSession.playbackState="playing";});
+  audio.addEventListener("pause",function(){$("playBtn").textContent="▶"; if("mediaSession" in navigator)navigator.mediaSession.playbackState="paused";});
+  audio.addEventListener("ended",function(){ if(repeat){audio.currentTime=0;audio.play();} else next(); });
+  audio.addEventListener("loadedmetadata",function(){ if(isFinite(audio.duration))$("dur").textContent=fmt(audio.duration); });
+  audio.addEventListener("timeupdate",function(){ if(seeking||!audio.duration||engine!=="audius")return;
+    var p=audio.currentTime/audio.duration; $("fill").style.width=(p*100)+"%"; $("dot").style.left=(p*100)+"%"; $("cur").textContent=fmt(audio.currentTime);
+    if("mediaSession" in navigator && navigator.mediaSession.setPositionState){ try{ navigator.mediaSession.setPositionState({duration:audio.duration,position:audio.currentTime,playbackRate:1}); }catch(e){} } });
+
+  $("playBtn").onclick=toggle; $("nextBtn").onclick=next; $("prevBtn").onclick=prev;
+  $("shuffleBtn").onclick=function(){shuffle=!shuffle;this.classList.toggle("on",shuffle);};
+  $("repeatBtn").onclick=function(){repeat=!repeat;this.classList.toggle("on",repeat);};
+  $("vol").oninput=function(){ var v=parseInt(this.value,10); audio.volume=v/100; if(yt&&yt.setVolume)yt.setVolume(v); };
+  function seekEv(e){ var b=$("bar"),r=b.getBoundingClientRect(),x=((e.touches?e.touches[0].clientX:e.clientX)-r.left)/r.width; x=Math.min(1,Math.max(0,x));
+    if(engine==="youtube"){ if(yt&&yt.getDuration){var d=yt.getDuration();yt.seekTo(x*d,true);} }
+    else if(audio.duration){ audio.currentTime=x*audio.duration; }
+    $("fill").style.width=(x*100)+"%"; $("dot").style.left=(x*100)+"%"; }
+  $("bar").addEventListener("mousedown",function(e){seeking=true;seekEv(e);});
+  document.addEventListener("mousemove",function(e){if(seeking)seekEv(e);});
+  document.addEventListener("mouseup",function(){seeking=false;});
+  $("bar").addEventListener("click",seekEv);
+  document.addEventListener("keydown",function(e){ if(/input|textarea/i.test((e.target.tagName||"")))return;
+    if(e.code==="Space"){e.preventDefault();toggle();} else if(e.key==="n")next(); else if(e.key==="p")prev(); });
+
+  /* ── Search / browse ──────────────────────────────────── */
+  function setTitle(t,info){ $("sectionTitle").innerHTML=esc(t)+' <small>'+(info||"")+'</small>'; }
+  function ytSearch(q){ skel(12);
+    var ck="mz_yt_"+q.toLowerCase().replace(/\s+/g," ").trim();
+    try{ var c=JSON.parse(localStorage.getItem(ck)||"null"); if(c&&c.items&&Date.now()-c.at<21600000){ render(c.items); return Promise.resolve(); } }catch(e){}
+    return fetch("/api/music/search?q="+encodeURIComponent(q)).then(function(r){return r.json().then(function(j){if(!r.ok)throw j;return j;});})
+      .then(function(j){ var items=(j.items||[]).map(function(it){return {id:it.id,title:decode(it.title),artist:decode(it.channel),thumb:it.thumb};}); render(items); try{ localStorage.setItem(ck,JSON.stringify({at:Date.now(),items:items})); }catch(e){} })
+      .catch(function(j){
+        // Quota / rate-limit / any YouTube error -> fall back to Audius so search still works.
+        if(j&&j.code==="no_key"){ ytAvailable=false; }
+        setTitle('🔎 "'+q+'"',"via Audius"); audiusSearch(q);
+      });
+  }
+  function audiusSearch(q){ skel(12);
+    audiusApi("/v1/tracks/search?query="+encodeURIComponent(q)).then(function(j){
+      render((j.data||[]).slice(0,30).map(function(t){return {id:t.id,title:t.title,artist:(t.user&&t.user.name)||"Unknown",thumb:audiusArt(t),duration:t.duration,stream:audiusHost+"/v1/tracks/"+t.id+"/stream?app_name="+APP};}));
+    }).catch(function(){$("results").innerHTML='<div class="mz-empty">Search failed.</div>';});
+  }
+  function audiusTrending(){ skel(12); setTitle("🔥 Trending","via Audius · decentralized");
+    audiusApi("/v1/tracks/trending").then(function(j){
+      render((j.data||[]).slice(0,24).map(function(t){return {id:t.id,title:t.title,artist:(t.user&&t.user.name)||"Unknown",thumb:audiusArt(t),duration:t.duration,stream:audiusHost+"/v1/tracks/"+t.id+"/stream?app_name="+APP};}));
+    }).catch(function(){$("results").innerHTML='<div class="mz-empty">Could not reach music network.</div>';});
+  }
+  var searchT, ytAvailable=false;
+  function doSearch(q){ clearTimeout(searchT);
+    if(!q.trim()){ audiusTrending(); return; }   // empty -> free Audius browse
+    searchT=setTimeout(function(){
+      if(ytAvailable){ setTitle('🔎 "'+q+'"',"via YouTube"); ytSearch(q); }   // explicit search uses YouTube
+      else { setTitle('🔎 "'+q+'"',"via Audius"); audiusSearch(q); }
+    },340);
+  }
+  /* ── Real-YouTube-style autocomplete (free suggestions, no quota) ── */
+  var sugT, sugItems=[], sugIdx=-1;
+  function runSearch(q){ q=(q||"").trim(); if(!q){ audiusTrending(); return; }
+    if(ytAvailable){ setTitle('🔎 "'+q+'"',"via YouTube"); ytSearch(q); } else { setTitle('🔎 "'+q+'"',"via Audius"); audiusSearch(q); } }
+  function hideSug(){ $("mzsug").classList.remove("show"); sugIdx=-1; }
+  function hlSug(){ var bs=$("mzsug").querySelectorAll("button"); for(var i=0;i<bs.length;i++){ bs[i].classList.toggle("active",i===sugIdx); } if(sugIdx>=0)$("q").value=sugItems[sugIdx]; }
+  function pickSug(i){ $("q").value=sugItems[i]; hideSug(); runSearch(sugItems[i]); }
+  function renderSug(list){ sugItems=list||[]; sugIdx=-1; var box=$("mzsug");
+    if(!sugItems.length){ hideSug(); return; }
+    box.innerHTML=sugItems.map(function(s){ return '<button type="button"><span class="si">🔍</span>'+esc(s)+'</button>'; }).join("");
+    var bs=box.querySelectorAll("button"); for(var i=0;i<bs.length;i++){ (function(k){ bs[k].addEventListener("click",function(){ pickSug(k); }); })(i); }
+    box.classList.add("show"); }
+  function fetchSug(q){ clearTimeout(sugT); if(!q.trim()){ hideSug(); return; }
+    sugT=setTimeout(function(){ fetch("/api/music/suggest?q="+encodeURIComponent(q)).then(function(r){return r.json();}).then(function(j){ if(document.activeElement===$("q")) renderSug(j.suggestions||[]); }).catch(function(){ hideSug(); }); },110); }
+  $("q").addEventListener("input",function(){ fetchSug(this.value); });
+  $("q").addEventListener("keydown",function(e){
+    if(e.key==="ArrowDown"){ e.preventDefault(); if(sugItems.length){ sugIdx=Math.min(sugItems.length-1,sugIdx+1); hlSug(); } }
+    else if(e.key==="ArrowUp"){ e.preventDefault(); sugIdx=Math.max(-1,sugIdx-1); hlSug(); }
+    else if(e.key==="Enter"){ e.preventDefault(); hideSug(); runSearch(this.value); }
+    else if(e.key==="Escape"){ hideSug(); } });
+  document.addEventListener("click",function(e){ if(!e.target.closest(".mz-search")) hideSug(); });
+
+  function showKeyNote(){ var n=$("note"); n.style.display="block";
+    n.innerHTML='🎵 <b>Bollywood & Hollywood songs:</b> abhi player <b>Audius</b> (free, decentralized) chala raha hai. Saare commercial gaane (Bollywood/Hollywood) ke liye ek free <b>YouTube API key</b> daalo — <code>backend/.env</code> me <code>YOUTUBE_API_KEY</code>. Fir yahi player un sabhi gaano ko search + play karega.'; }
+
+  var YT_CHIPS=["Bollywood Hits","Hollywood Hits","Punjabi","Arijit Singh","90s Bollywood","Top English Songs","Lo-Fi beats","Bhakti Songs","Tamil Hits","Party Mix"];
+  var AUDIUS_CHIPS=["Trending","Electronic","Hip-Hop/Rap","Lo-Fi","R&B/Soul","Pop","Rock","Ambient"];
+  function buildChips(list,onClick){ $("chips").innerHTML=list.map(function(g,i){return '<button class="mz-chip'+(i===0?" on":"")+'" data-g="'+esc(g)+'">'+esc(g)+'</button>';}).join("");
+    Array.prototype.forEach.call(document.querySelectorAll(".mz-chip"),function(ch){ch.addEventListener("click",function(){
+      Array.prototype.forEach.call(document.querySelectorAll(".mz-chip"),function(x){x.classList.remove("on");}); ch.classList.add("on");
+      $("q").value=""; onClick(ch.getAttribute("data-g")); });}); }
+
+  if("mediaSession" in navigator){ try{
+    navigator.mediaSession.setActionHandler("play",function(){ if(engine==="youtube"){yt&&yt.playVideo();}else audio.play(); });
+    navigator.mediaSession.setActionHandler("pause",function(){ if(engine==="youtube"){yt&&yt.pauseVideo();}else audio.pause(); });
+    navigator.mediaSession.setActionHandler("nexttrack",next); navigator.mediaSession.setActionHandler("previoustrack",prev);
+    try{ navigator.mediaSession.setActionHandler("seekbackward",function(d){ var s=(d&&d.seekOffset)||10; if(engine==="youtube"){yt&&yt.seekTo(Math.max(0,yt.getCurrentTime()-s),true);}else audio.currentTime=Math.max(0,audio.currentTime-s); }); }catch(e){}
+    try{ navigator.mediaSession.setActionHandler("seekforward",function(d){ var s=(d&&d.seekOffset)||10; if(engine==="youtube"){yt&&yt.seekTo(yt.getCurrentTime()+s,true);}else audio.currentTime=audio.currentTime+s; }); }catch(e){}
+    try{ navigator.mediaSession.setActionHandler("seekto",function(d){ if(d&&d.seekTime!=null){ if(engine==="youtube"){yt&&yt.seekTo(d.seekTime,true);}else audio.currentTime=d.seekTime; } }); }catch(e){}
+  }catch(e){} }
+
+  /* ── Init: browse on free Audius; YouTube fires only on an explicit search ── */
+  function audiusGenre(g){ if(g==="Trending"){audiusTrending();return;} setTitle("🎧 "+g,"via Audius");
+    audiusApi("/v1/tracks/trending?genre="+encodeURIComponent(g)).then(function(j){ engine="audius"; render((j.data||[]).slice(0,24).map(function(t){return {id:t.id,title:t.title,artist:(t.user&&t.user.name)||"Unknown",thumb:audiusArt(t),duration:t.duration,stream:audiusHost+"/v1/tracks/"+t.id+"/stream?app_name="+APP};})); }); }
+  fetch("/api/music/status").then(function(r){return r.json();}).then(function(s){
+    ytAvailable = !!(s && s.youtube);
+    if(ytAvailable){ loadYTApi(); var n=$("srcInfo"); if(n)n.textContent="· search any song (YouTube)"; }
+    else { showKeyNote(); }
+    buildChips(AUDIUS_CHIPS, audiusGenre);
+    audiusTrending();
+  }).catch(function(){ buildChips(AUDIUS_CHIPS, audiusGenre); audiusTrending(); });
+})();
+</script>
+<script src="/milan-core.js?v=20260627" defer></script>
+<script src="/milan-v100-background-audio.js?v=20260710" defer></script>
+</body>
+</html>

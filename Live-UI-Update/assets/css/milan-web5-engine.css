@@ -1,0 +1,1310 @@
+/* ============================================================
+   MILAN — WEB5 VISUAL ENGINE
+   SAFE LAYER: visual effects only
+   NO grid/layout restructuring
+   ============================================================ */
+
+:root{
+  --web5-blue:#5b7cfa;
+  --web5-violet:#8b5cf6;
+  --web5-green:#39d98a;
+  --web5-text:#eef2ff;
+  --web5-muted:#8192ad;
+  --web5-line:rgba(148,163,184,.11);
+}
+
+/* ------------------------------------------------------------
+   Ambient Web5 atmosphere
+   ------------------------------------------------------------ */
+
+body{
+  background:
+    radial-gradient(
+      850px 460px at 8% -12%,
+      rgba(91,124,250,.085),
+      transparent 62%
+    ),
+    radial-gradient(
+      720px 420px at 100% 0%,
+      rgba(139,92,246,.065),
+      transparent 64%
+    ),
+    #070b14;
+}
+
+/* Decorative spatial grid — no layout impact */
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:-1;
+  opacity:.11;
+  background-image:
+    linear-gradient(
+      rgba(148,163,184,.04) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      rgba(148,163,184,.04) 1px,
+      transparent 1px
+    );
+  background-size:44px 44px;
+  mask-image:linear-gradient(
+    to bottom,
+    rgba(0,0,0,.8),
+    transparent 90%
+  );
+}
+
+/* ------------------------------------------------------------
+   Header — glass / command layer
+   ------------------------------------------------------------ */
+
+.topbar{
+  background:rgba(7,11,20,.78);
+  border-bottom:1px solid var(--web5-line);
+  backdrop-filter:blur(18px) saturate(145%);
+  -webkit-backdrop-filter:blur(18px) saturate(145%);
+  box-shadow:
+    0 8px 30px rgba(0,0,0,.14),
+    inset 0 -1px 0 rgba(255,255,255,.02);
+}
+
+.brand-logo{
+  transition:
+    transform .2s ease,
+    filter .2s ease;
+}
+
+.brand-logo:hover{
+  transform:translateY(-1px) scale(1.025);
+  filter:drop-shadow(
+    0 0 18px rgba(91,124,250,.25)
+  );
+}
+
+.search input{
+  background:rgba(255,255,255,.025);
+  border-color:var(--web5-line);
+  transition:
+    background .2s ease,
+    border-color .2s ease,
+    box-shadow .2s ease;
+}
+
+.search input:focus{
+  background:rgba(15,23,42,.88);
+  border-color:rgba(91,124,250,.38);
+  box-shadow:
+    0 0 0 4px rgba(91,124,250,.065),
+    0 10px 28px rgba(0,0,0,.12);
+}
+
+/* ------------------------------------------------------------
+   Universal glass cards
+   ------------------------------------------------------------ */
+
+.card{
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255,255,255,.028),
+      rgba(255,255,255,.012)
+    ),
+    rgba(15,23,42,.73);
+  border-color:var(--web5-line);
+  box-shadow:
+    0 14px 42px rgba(0,0,0,.16),
+    inset 0 1px 0 rgba(255,255,255,.025);
+}
+
+/* ------------------------------------------------------------
+   Profile / identity — Web5 visual treatment
+   ------------------------------------------------------------ */
+
+.profile{
+  position:relative;
+  overflow:hidden;
+}
+
+.profile::before{
+  content:"";
+  position:absolute;
+  width:230px;
+  height:230px;
+  left:50%;
+  top:-145px;
+  transform:translateX(-50%);
+  border-radius:50%;
+  background:
+    radial-gradient(
+      circle,
+      rgba(91,124,250,.12),
+      rgba(139,92,246,.035) 45%,
+      transparent 72%
+    );
+  pointer-events:none;
+}
+
+.profile > *{
+  position:relative;
+  z-index:1;
+}
+
+.profile .milan-avatar-upload{
+  filter:
+    drop-shadow(
+      0 0 22px rgba(91,124,250,.10)
+    );
+}
+
+.profile .milan-avatar-upload #myAvatar{
+  border-color:rgba(91,124,250,.42);
+  box-shadow:
+    0 0 0 5px rgba(91,124,250,.045),
+    0 14px 32px rgba(0,0,0,.22);
+}
+
+.profile .milan-avatar-upload-icon{
+  background:
+    linear-gradient(
+      135deg,
+      var(--web5-blue),
+      var(--web5-violet)
+    );
+  box-shadow:
+    0 7px 18px rgba(0,0,0,.25),
+    0 0 18px rgba(91,124,250,.16);
+}
+
+.profile h2{
+  color:var(--web5-text);
+  letter-spacing:-.025em;
+}
+
+.profile p{
+  color:#7f91ad;
+}
+
+/* ------------------------------------------------------------
+   Sidebar navigation
+   ------------------------------------------------------------ */
+
+.nav button{
+  transition:
+    transform .17s ease,
+    background .17s ease,
+    border-color .17s ease,
+    color .17s ease;
+  border:1px solid transparent;
+}
+
+.nav button:hover{
+  transform:translateX(2px);
+  background:rgba(255,255,255,.028);
+  border-color:rgba(148,163,184,.065);
+}
+
+.nav button.active{
+  background:
+    linear-gradient(
+      90deg,
+      rgba(91,124,250,.15),
+      rgba(91,124,250,.035)
+    );
+  border-color:rgba(91,124,250,.16);
+  box-shadow:
+    inset 3px 0 0 var(--web5-blue);
+}
+
+.nav button.accent{
+  background:
+    linear-gradient(
+      135deg,
+      rgba(91,124,250,.92),
+      rgba(139,92,246,.92)
+    );
+  border-color:rgba(255,255,255,.07);
+  box-shadow:
+    0 10px 24px rgba(91,124,250,.18);
+}
+
+/* ------------------------------------------------------------
+   Composer — Web5 creation surface
+   ------------------------------------------------------------ */
+
+.composer{
+  position:relative;
+  overflow:hidden;
+  border-color:rgba(91,124,250,.13);
+}
+
+.composer::before{
+  content:"";
+  position:absolute;
+  left:12%;
+  right:12%;
+  top:0;
+  height:1px;
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(91,124,250,.5),
+      rgba(139,92,246,.4),
+      transparent
+    );
+  opacity:.8;
+  pointer-events:none;
+}
+
+.composer textarea{
+  background:rgba(2,6,23,.34);
+  border-color:var(--web5-line);
+}
+
+.composer textarea:focus{
+  background:rgba(2,6,23,.52);
+  border-color:rgba(91,124,250,.34);
+  box-shadow:
+    0 0 0 4px rgba(91,124,250,.055);
+}
+
+.publish{
+  background:
+    linear-gradient(
+      135deg,
+      var(--web5-blue),
+      var(--web5-violet)
+    );
+  box-shadow:
+    0 10px 26px rgba(91,124,250,.18);
+  transition:
+    transform .16s ease,
+    box-shadow .16s ease;
+}
+
+.publish:hover{
+  transform:translateY(-1px);
+  box-shadow:
+    0 14px 30px rgba(91,124,250,.25);
+}
+
+/* ------------------------------------------------------------
+   Feed — depth, not geometry
+   ------------------------------------------------------------ */
+
+.post,
+.milan-feed-card{
+  border-color:var(--web5-line);
+  box-shadow:
+    0 12px 36px rgba(0,0,0,.13),
+    inset 0 1px 0 rgba(255,255,255,.022);
+  transition:
+    transform .2s ease,
+    border-color .2s ease,
+    box-shadow .2s ease;
+}
+
+.post:hover,
+.milan-feed-card:hover{
+  transform:translateY(-1px);
+  border-color:rgba(91,124,250,.16);
+  box-shadow:
+    0 18px 44px rgba(0,0,0,.18),
+    0 0 24px rgba(91,124,250,.035),
+    inset 0 1px 0 rgba(255,255,255,.03);
+}
+
+/* ------------------------------------------------------------
+   Right rail
+   ------------------------------------------------------------ */
+
+.right-card h3{
+  color:#7f91ac;
+  letter-spacing:.07em;
+}
+
+.person{
+  transition:
+    background .17s ease,
+    transform .17s ease;
+}
+
+.person:hover{
+  background:rgba(255,255,255,.025);
+  transform:translateY(-1px);
+}
+
+/* ------------------------------------------------------------
+   Web5 states if present
+   ------------------------------------------------------------ */
+
+#myDid,
+#myDwn{
+  color:#9aaed0;
+}
+
+#myDwn{
+  color:#91d3b0;
+}
+
+/* ------------------------------------------------------------
+   Reduced motion
+   ------------------------------------------------------------ */
+
+@media (prefers-reduced-motion:reduce){
+  *,
+  *::before,
+  *::after{
+    transition-duration:.001ms!important;
+    animation-duration:.001ms!important;
+  }
+}
+
+/* ============================================================
+   MILAN — Web5 Motion Layer
+   Safe: classes/effects only, no layout changes
+   ============================================================ */
+
+.milan-pointer-light{
+  position:fixed;
+  width:280px;
+  height:280px;
+  border-radius:50%;
+  pointer-events:none;
+  z-index:0;
+  transform:translate(-50%,-50%);
+  opacity:0;
+  background:
+    radial-gradient(
+      circle,
+      rgba(91,124,250,.075),
+      rgba(91,124,250,0) 68%
+    );
+  transition:opacity .25s ease;
+  mix-blend-mode:screen;
+}
+
+.milan-reveal{
+  opacity:0;
+  transform:translateY(10px);
+  transition:
+    opacity .45s cubic-bezier(.2,.8,.2,1),
+    transform .45s cubic-bezier(.2,.8,.2,1);
+}
+
+.milan-reveal.milan-visible{
+  opacity:1;
+  transform:none;
+}
+
+.milan-press{
+  transform:scale(.965)!important;
+}
+
+.milan-card-focus{
+  border-color:rgba(91,124,250,.20)!important;
+  box-shadow:
+    0 18px 42px rgba(0,0,0,.20),
+    0 0 22px rgba(91,124,250,.045),
+    inset 0 1px 0 rgba(255,255,255,.03)!important;
+}
+
+.topbar.milan-scrolled{
+  background:rgba(7,11,20,.88);
+  box-shadow:
+    0 14px 36px rgba(0,0,0,.22),
+    inset 0 -1px 0 rgba(255,255,255,.03);
+}
+
+.milan-live-state{
+  position:relative;
+}
+
+.milan-live-state::after{
+  content:"";
+  position:absolute;
+  width:6px;
+  height:6px;
+  top:5px;
+  right:5px;
+  border-radius:50%;
+  background:#39d98a;
+  box-shadow:
+    0 0 0 0 rgba(57,217,138,.35);
+  animation:milanLivePulse 2s ease-out infinite;
+}
+
+@keyframes milanLivePulse{
+  0%{
+    box-shadow:0 0 0 0 rgba(57,217,138,.35);
+  }
+  70%{
+    box-shadow:0 0 0 8px rgba(57,217,138,0);
+  }
+  100%{
+    box-shadow:0 0 0 0 rgba(57,217,138,0);
+  }
+}
+
+@media (prefers-reduced-motion:reduce){
+  .milan-pointer-light{
+    display:none!important;
+  }
+
+  .milan-reveal{
+    opacity:1!important;
+    transform:none!important;
+    transition:none!important;
+  }
+
+  .milan-live-state::after{
+    animation:none!important;
+  }
+}
+
+/* ============================================================
+   MILAN — DID Identity Ring
+   Existing profile/upload DOM only.
+   ============================================================ */
+
+.profile .milan-avatar-upload{
+  position:relative;
+  isolation:isolate;
+}
+
+/* Main identity ring */
+.profile .milan-avatar-upload::before{
+  content:"";
+  position:absolute;
+  inset:-6px;
+  z-index:-1;
+  border-radius:30px;
+  padding:2px;
+  background:
+    conic-gradient(
+      from 210deg,
+      rgba(91,124,250,.15),
+      rgba(91,124,250,.95),
+      rgba(139,92,246,.85),
+      rgba(57,217,138,.70),
+      rgba(91,124,250,.20),
+      rgba(91,124,250,.95)
+    );
+
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+
+  -webkit-mask-composite:xor;
+  mask-composite:exclude;
+
+  animation:
+    milanDidRingRotate 10s linear infinite;
+
+  filter:
+    drop-shadow(
+      0 0 10px rgba(91,124,250,.20)
+    );
+
+  pointer-events:none;
+}
+
+/* Secondary orbit */
+.profile .milan-avatar-upload::after{
+  content:"DID";
+  position:absolute;
+  right:-4px;
+  top:-7px;
+  z-index:6;
+
+  min-width:25px;
+  height:16px;
+  display:grid;
+  place-items:center;
+  padding:0 5px;
+
+  border-radius:999px;
+  border:1px solid rgba(91,124,250,.28);
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(91,124,250,.90),
+      rgba(139,92,246,.90)
+    );
+
+  color:#f4f6ff;
+  font-size:7px;
+  line-height:1;
+  font-weight:900;
+  letter-spacing:.08em;
+
+  box-shadow:
+    0 5px 14px rgba(0,0,0,.22),
+    0 0 16px rgba(91,124,250,.18);
+
+  pointer-events:none;
+}
+
+@keyframes milanDidRingRotate{
+  to{
+    transform:rotate(360deg);
+  }
+}
+
+/* Keep the real photo above the visual ring */
+.profile .milan-avatar-upload #myAvatar{
+  position:relative;
+  z-index:2;
+  border-color:rgba(255,255,255,.14);
+  box-shadow:
+    0 0 0 3px rgba(7,11,20,.92),
+    0 12px 30px rgba(0,0,0,.24);
+}
+
+/* Camera remains the actual upload control */
+.profile .milan-avatar-upload .milan-avatar-upload-icon{
+  z-index:8;
+}
+
+/* Tiny active identity glow */
+.profile .milan-avatar-upload:hover::before{
+  filter:
+    drop-shadow(
+      0 0 15px rgba(91,124,250,.34)
+    );
+}
+
+@media (prefers-reduced-motion:reduce){
+  .profile .milan-avatar-upload::before{
+    animation:none;
+  }
+}
+
+/* ============================================================
+   PROFILE — remove legacy stats permanently
+   ============================================================ */
+
+.profile .profile-stats{
+  display:none!important;
+}
+
+/* ============================================================
+   DID BADGE — clean orbit position
+   ============================================================ */
+
+.profile .milan-avatar-upload::after{
+  content:"DID";
+  top:auto;
+  right:-7px;
+  bottom:8px;
+  min-width:26px;
+  height:17px;
+  padding:0 6px;
+  border-radius:999px;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(91,124,250,.96),
+      rgba(139,92,246,.96)
+    );
+
+  border:2px solid #0f172a;
+
+  color:#fff;
+  font-size:7px;
+  font-weight:900;
+  letter-spacing:.08em;
+
+  box-shadow:
+    0 5px 14px rgba(0,0,0,.24),
+    0 0 15px rgba(91,124,250,.18);
+}
+
+.profile .milan-avatar-upload #myAvatar{
+  position:relative;
+  z-index:2;
+}
+
+.profile .milan-avatar-upload .milan-avatar-upload-icon{
+  right:-4px;
+  bottom:-4px;
+  z-index:9;
+  border-width:2px;
+}
+
+/* ============================================================
+   MILAN — Identity Status Chips
+   Profile area only
+   ============================================================ */
+
+.milan-identity-status-row{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:6px;
+  width:100%;
+  margin:12px 0 2px;
+}
+
+.milan-identity-status-chip{
+  min-width:0;
+  padding:7px 6px;
+  text-align:center;
+  border-radius:11px;
+  border:1px solid rgba(148,163,184,.08);
+  background:rgba(255,255,255,.018);
+}
+
+.milan-identity-status-chip .label{
+  display:block;
+  color:#6f819d;
+  font-size:7px;
+  line-height:1;
+  font-weight:850;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+
+.milan-identity-status-chip .value{
+  display:block;
+  margin-top:4px;
+  color:#dbe5f8;
+  font-size:9px;
+  line-height:1.1;
+  font-weight:800;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.milan-identity-status-chip.did{
+  border-color:rgba(91,124,250,.14);
+  background:rgba(91,124,250,.04);
+}
+
+.milan-identity-status-chip.did .value{
+  color:#aebeff;
+}
+
+.milan-identity-status-chip.dwn{
+  border-color:rgba(57,217,138,.12);
+  background:rgba(57,217,138,.035);
+}
+
+.milan-identity-status-chip.dwn .value{
+  color:#9bd8b7;
+}
+
+.milan-identity-status-chip.privacy{
+  border-color:rgba(139,92,246,.13);
+  background:rgba(139,92,246,.035);
+}
+
+.milan-identity-status-chip.privacy .value{
+  color:#c6b4f8;
+}
+
+@media (max-width:420px){
+  .milan-identity-status-chip{
+    padding-left:4px;
+    padding-right:4px;
+  }
+
+  .milan-identity-status-chip .value{
+    font-size:8px;
+  }
+}
+
+/* ============================================================
+   MILAN — Identity Intelligence Layer
+   DID copy + DWN live state
+   ============================================================ */
+
+.milan-did-inline{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:5px;
+  min-width:0;
+}
+
+.milan-did-copy{
+  appearance:none;
+  width:18px;
+  height:18px;
+  flex:0 0 auto;
+  display:grid;
+  place-items:center;
+  padding:0;
+  border:1px solid rgba(91,124,250,.14);
+  border-radius:6px;
+  background:rgba(91,124,250,.045);
+  color:#aebeff;
+  font:inherit;
+  font-size:9px;
+  cursor:pointer;
+  transition:
+    transform .16s ease,
+    background .16s ease,
+    border-color .16s ease,
+    color .16s ease;
+}
+
+.milan-did-copy:hover{
+  transform:translateY(-1px);
+  background:rgba(91,124,250,.10);
+  border-color:rgba(91,124,250,.28);
+  color:#fff;
+}
+
+.milan-did-copy:active{
+  transform:scale(.94);
+}
+
+.milan-did-copy.copied{
+  color:#9de0bd;
+  border-color:rgba(57,217,138,.24);
+  background:rgba(57,217,138,.06);
+}
+
+.milan-dwn-live{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:5px;
+}
+
+.milan-dwn-live .dot{
+  width:5px;
+  height:5px;
+  flex:0 0 auto;
+  border-radius:50%;
+  background:#39d98a;
+  box-shadow:0 0 10px rgba(57,217,138,.55);
+}
+
+.milan-dwn-live.resolving .dot{
+  background:#7c8fff;
+  box-shadow:0 0 10px rgba(124,143,255,.55);
+  animation:milanDwnPulse 1.3s ease-in-out infinite;
+}
+
+.milan-dwn-live.isolated .dot{
+  background:#f2b84b;
+  box-shadow:0 0 10px rgba(242,184,75,.40);
+}
+
+@keyframes milanDwnPulse{
+  0%,100%{opacity:.45;transform:scale(.85)}
+  50%{opacity:1;transform:scale(1.1)}
+}
+
+.milan-dwn-live .state{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.milan-identity-toast{
+  position:fixed;
+  left:50%;
+  bottom:24px;
+  z-index:10050;
+  transform:translate(-50%,10px);
+  opacity:0;
+  padding:9px 13px;
+  border-radius:999px;
+  border:1px solid rgba(91,124,250,.16);
+  background:rgba(7,11,20,.92);
+  color:#dce5ff;
+  box-shadow:
+    0 12px 30px rgba(0,0,0,.24),
+    0 0 20px rgba(91,124,250,.07);
+  backdrop-filter:blur(14px);
+  font-size:10px;
+  font-weight:750;
+  pointer-events:none;
+  transition:
+    opacity .18s ease,
+    transform .18s ease;
+}
+
+.milan-identity-toast.show{
+  opacity:1;
+  transform:translate(-50%,0);
+}
+
+/* ============================================================
+   Web5 runtime data bridge
+   Runtime-readable, visually invisible.
+   ============================================================ */
+
+.milan-data-bridge{
+  display:none!important;
+  width:0!important;
+  height:0!important;
+  overflow:hidden!important;
+  position:absolute!important;
+  pointer-events:none!important;
+}
+
+/* ============================================================
+   MILAN — Identity Status Strip v2
+   ============================================================ */
+
+.milan-identity-status-row{
+  display:grid!important;
+  grid-template-columns:1fr 1fr 1fr!important;
+  gap:7px!important;
+  width:100%!important;
+  margin:13px 0 3px!important;
+}
+
+.milan-identity-status-chip{
+  position:relative;
+  min-width:0;
+  height:48px;
+  padding:7px 8px!important;
+  display:flex!important;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  gap:4px;
+  border-radius:12px!important;
+  background:rgba(255,255,255,.018)!important;
+  border:1px solid rgba(148,163,184,.09)!important;
+  overflow:hidden;
+}
+
+.milan-identity-status-chip::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255,255,255,.025),
+      transparent 60%
+    );
+}
+
+.milan-identity-status-chip .label{
+  position:relative;
+  z-index:1;
+  display:block;
+  margin:0!important;
+  color:#70819b!important;
+  font-size:7px!important;
+  line-height:1!important;
+  font-weight:900!important;
+  letter-spacing:.11em!important;
+  text-transform:uppercase!important;
+}
+
+.milan-identity-status-chip .value,
+.milan-identity-status-chip .milan-did-inline,
+.milan-identity-status-chip .milan-dwn-live{
+  position:relative;
+  z-index:1;
+  min-width:0;
+  max-width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:5px;
+  color:#dce6f9;
+  font-size:8.5px;
+  line-height:1.1;
+  font-weight:800;
+  white-space:nowrap;
+}
+
+.milan-identity-status-chip.did{
+  border-color:rgba(91,124,250,.17)!important;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(91,124,250,.055),
+      rgba(91,124,250,.015)
+    )!important;
+}
+
+.milan-identity-status-chip.did .value{
+  color:#b9c7ff;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.milan-identity-status-chip.dwn{
+  border-color:rgba(57,217,138,.14)!important;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(57,217,138,.045),
+      rgba(57,217,138,.012)
+    )!important;
+}
+
+.milan-identity-status-chip.dwn .value,
+.milan-identity-status-chip.dwn .state{
+  color:#9ad9b8;
+}
+
+.milan-identity-status-chip.privacy{
+  border-color:rgba(139,92,246,.15)!important;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(139,92,246,.05),
+      rgba(139,92,246,.012)
+    )!important;
+}
+
+.milan-identity-status-chip.privacy .value{
+  color:#ccbafd;
+}
+
+.milan-did-inline{
+  max-width:100%;
+}
+
+.milan-did-inline .value{
+  min-width:0;
+  max-width:calc(100% - 22px);
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.milan-did-copy{
+  width:17px!important;
+  height:17px!important;
+  flex:0 0 17px!important;
+  display:grid!important;
+  place-items:center!important;
+  padding:0!important;
+  border-radius:5px!important;
+  border:1px solid rgba(91,124,250,.20)!important;
+  background:rgba(91,124,250,.07)!important;
+  color:#b7c5ff!important;
+  font-size:8px!important;
+  cursor:pointer;
+}
+
+.milan-did-copy:hover{
+  background:rgba(91,124,250,.15)!important;
+  color:#fff!important;
+}
+
+.milan-did-copy.copied{
+  color:#9ee0be!important;
+  border-color:rgba(57,217,138,.25)!important;
+  background:rgba(57,217,138,.07)!important;
+}
+
+.milan-dwn-live{
+  gap:5px!important;
+}
+
+.milan-dwn-live .dot{
+  width:5px!important;
+  height:5px!important;
+  flex:0 0 5px;
+  border-radius:50%;
+  background:#39d98a;
+  box-shadow:0 0 10px rgba(57,217,138,.55);
+}
+
+.milan-dwn-live.resolving .dot{
+  background:#7c8fff;
+  box-shadow:0 0 10px rgba(124,143,255,.55);
+  animation:milanDwnPulse 1.2s ease-in-out infinite;
+}
+
+.milan-dwn-live.isolated .dot{
+  background:#f2b84b;
+  box-shadow:0 0 10px rgba(242,184,75,.45);
+}
+
+@media (max-width:420px){
+  .milan-identity-status-chip{
+    height:46px;
+    padding-left:5px!important;
+    padding-right:5px!important;
+  }
+
+  .milan-identity-status-chip .value,
+  .milan-identity-status-chip .milan-did-inline{
+    font-size:8px;
+  }
+}
+
+/* ============================================================
+   CREATIVE MODE — NEVER OVERRIDE REAL PROFILE PHOTO
+   ============================================================ */
+
+.profile .milan-avatar-upload #myAvatar{
+  background-image:none!important;
+  background-color:#0a0e1a!important;
+  overflow:hidden!important;
+}
+
+.profile .milan-avatar-upload #myAvatar img{
+  display:block!important;
+  width:100%!important;
+  height:100%!important;
+  max-width:none!important;
+  max-height:none!important;
+  object-fit:cover!important;
+  object-position:center!important;
+  border:0!important;
+  opacity:1!important;
+  visibility:visible!important;
+  position:relative!important;
+  z-index:3!important;
+}
+
+.profile .milan-avatar-upload #myAvatar .avatar img{
+  display:block!important;
+}
+
+/* ============================================================
+   FINAL PROFILE PHOTO SAFETY
+   Real uploaded image always wins over theme surfaces.
+   ============================================================ */
+
+.profile .milan-avatar-upload #myAvatar{
+  background-image:none!important;
+  background-color:transparent!important;
+  overflow:hidden!important;
+}
+
+.profile .milan-avatar-upload #myAvatar > img{
+  display:block!important;
+  width:100%!important;
+  height:100%!important;
+  object-fit:cover!important;
+  object-position:center!important;
+  opacity:1!important;
+  visibility:visible!important;
+  border:0!important;
+}
+
+/* ============================================================
+   CREATIVE MODE — APP parity with login page
+   ============================================================ */
+
+.mcm-fab{
+  pointer-events:auto!important;
+  user-select:none!important;
+  -webkit-user-select:none!important;
+  touch-action:manipulation!important;
+}
+
+.mcm-overlay{
+  pointer-events:none;
+}
+
+.mcm-overlay.open{
+  pointer-events:auto;
+}
+
+.mcm-sheet{
+  pointer-events:auto;
+}
+
+.mcm-card{
+  background:#0c1326!important;
+}
+
+.mcm-card .mcm-swatch{
+  background-color:transparent;
+}
+
+.mcm-card:hover{
+  cursor:pointer;
+}
+
+.mcm-card .mcm-name,
+.mcm-card .mcm-tagline{
+  background:transparent!important;
+}
+
+.mcm-x,
+.mcm-surprise,
+.mcm-reset{
+  cursor:pointer!important;
+  pointer-events:auto!important;
+}
+
+/* ============================================================
+   CREATIVE MODE — FINAL APP SAFETY
+   Exact login-page panel, always clickable/openable.
+   ============================================================ */
+
+.mcm-fab{
+  pointer-events:auto!important;
+  cursor:pointer!important;
+  touch-action:manipulation!important;
+  user-select:none!important;
+  -webkit-user-select:none!important;
+}
+
+.mcm-overlay{
+  position:fixed!important;
+  inset:0!important;
+}
+
+.mcm-overlay.open{
+  display:flex!important;
+  visibility:visible!important;
+  opacity:1!important;
+  pointer-events:auto!important;
+  z-index:2147483646!important;
+}
+
+.mcm-overlay.open .mcm-sheet{
+  visibility:visible!important;
+  opacity:1!important;
+  pointer-events:auto!important;
+}
+
+/* Creative Mode closed state */
+.mcm-overlay:not(.open){
+  display:none!important;
+  visibility:hidden!important;
+  opacity:0!important;
+  pointer-events:none!important;
+}
+
+/* Creative Mode open state */
+.mcm-overlay.open{
+  display:flex!important;
+  visibility:visible!important;
+  opacity:1!important;
+  pointer-events:auto!important;
+  z-index:2147483646!important;
+}
+
+/* ============================================================
+   OWN POST — Delete control
+   ============================================================ */
+
+.post-delete{
+  width:34px!important;
+  height:34px!important;
+  min-width:34px!important;
+  padding:0!important;
+  display:inline-grid!important;
+  place-items:center!important;
+  border-radius:10px!important;
+  border:1px solid rgba(248,113,113,.16)!important;
+  background:rgba(248,113,113,.055)!important;
+  color:#fca5a5!important;
+  cursor:pointer!important;
+  transition:
+    transform .16s ease,
+    background .16s ease,
+    border-color .16s ease,
+    box-shadow .16s ease;
+}
+
+.post-delete:hover{
+  transform:translateY(-1px);
+  background:rgba(248,113,113,.12)!important;
+  border-color:rgba(248,113,113,.30)!important;
+  box-shadow:
+    0 7px 18px rgba(248,113,113,.10);
+}
+
+.post-delete:active{
+  transform:scale(.94);
+}
+
+/* ============================================================
+   Own post delete button
+   ============================================================ */
+
+.milan-own-delete{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:5px!important;
+  min-height:32px!important;
+  padding:7px 11px!important;
+  border-radius:999px!important;
+  border:1px solid rgba(248,113,113,.22)!important;
+  background:rgba(248,113,113,.07)!important;
+  color:#fca5a5!important;
+  font-size:11px!important;
+  font-weight:750!important;
+  cursor:pointer!important;
+  transition:
+    transform .16s ease,
+    background .16s ease,
+    border-color .16s ease,
+    box-shadow .16s ease;
+}
+
+.milan-own-delete:hover{
+  transform:translateY(-1px);
+  background:rgba(248,113,113,.14)!important;
+  border-color:rgba(248,113,113,.36)!important;
+  box-shadow:0 8px 20px rgba(248,113,113,.10);
+}
+
+.milan-own-delete:active{
+  transform:scale(.96);
+}
+
+/* ============================================================
+   MILAN — Own post delete action
+   ============================================================ */
+
+.milan-delete-post{
+  color:#ffb4b4!important;
+  border:1px solid rgba(248,113,113,.22)!important;
+  background:rgba(248,113,113,.07)!important;
+  border-radius:999px!important;
+}
+
+.milan-delete-post:hover{
+  color:#fff!important;
+  background:rgba(248,113,113,.16)!important;
+  border-color:rgba(248,113,113,.40)!important;
+}
+
+/* ============================================================
+   MILAN — Delete Post
+   ============================================================ */
+
+.milan-delete-post{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  min-height:34px!important;
+  padding:7px 12px!important;
+  margin-left:2px!important;
+  border-radius:999px!important;
+  border:1px solid rgba(248,113,113,.28)!important;
+  background:rgba(248,113,113,.08)!important;
+  color:#fca5a5!important;
+  font-size:11px!important;
+  font-weight:800!important;
+  cursor:pointer!important;
+}
+
+.milan-delete-post:hover{
+  background:rgba(248,113,113,.17)!important;
+  border-color:rgba(248,113,113,.45)!important;
+  color:#fff!important;
+}
+
+.milan-delete-post:active{
+  transform:scale(.96);
+}

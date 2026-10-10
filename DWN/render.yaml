@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: dwn
+    env: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    autoDeployTrigger: checksPass
+    healthCheckPath: /health
+    envVars:
+      - key: DWN_HOST
+        value: 0.0.0.0
+      - key: DWN_PORT
+        value: 10000
+      - key: DWN_LEVELDB_PATH
+        value: /var/lib/DWN/leveldb

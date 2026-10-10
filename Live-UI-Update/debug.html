@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en-US"><head><meta charset="utf-8"><title>MILAN Auth Test</title>
+<script src="/milan-auth.js"></script>
+<style>body{background:#0a0e1a;color:#fff;font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;margin:0}.card{background:#151a2d;padding:28px;border-radius:16px;width:360px}input{width:100%;padding:12px;margin:8px 0;border-radius:8px;border:1px solid #2a3555;background:#0f1424;color:#fff;box-sizing:border-box}button{width:100%;padding:12px;margin-top:10px;border-radius:8px;border:0;background:#4f6af0;color:#fff;font-weight:bold;cursor:pointer}#log{margin-top:12px;font-size:12px;white-space:pre-wrap;color:#ff8fa8}</style>
+</head><body><div class="card">
+<h3>MILAN - Clean Login</h3>
+<input id="name" placeholder="Full Name" value="Nitesh">
+<input id="email" type="email" value="mynitesh13@gmail.com">
+<input id="pass" type="password" placeholder="Password">
+<button id="loginBtn">Login</button>
+<button id="regBtn" style="background:#2a3555">Register New</button>
+<div id="log"></div>
+</div>
+<script>
+const logEl=document.getElementById('log');
+function log(m){logEl.textContent=m;}
+document.getElementById('loginBtn').onclick=async()=>{
+  const e=email.value.trim(), p=pass.value;
+  log('Logging in...'); try{const d=await milanLogin(e,p); log(JSON.stringify(d,null,2)); if(d.success) location.href='/app.html';}catch(err){log(err.message);}
+};
+document.getElementById('regBtn').onclick=async()=>{
+  const n=name.value, e=email.value.trim(), p=pass.value;
+  log('Registering...'); try{const d=await milanRegister(n,e,p); log(JSON.stringify(d,null,2));}catch(err){log(err.message);}
+};
+</script></body></html>

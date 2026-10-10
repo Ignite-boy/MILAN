@@ -1,0 +1,17 @@
+services:
+  dwn:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: docker-dwn
+    ports:
+      - "10000:10000"
+    environment:
+      DWN_PORT: "10000"
+      DWN_LEVELDB_PATH: /var/lib/DWN/leveldb
+    volumes:
+      - dwn_data:/var/lib/DWN/leveldb
+    restart: unless-stopped
+
+volumes:
+  dwn_data:

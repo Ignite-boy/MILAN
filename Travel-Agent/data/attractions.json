@@ -1,0 +1,23 @@
+{
+  "Tokyo": [
+    "Senso-ji Temple, Asakusa — Tokyo's oldest temple, iconic Kaminarimon gate",
+    "Shibuya Crossing — the famous scramble crossing, best viewed from a nearby cafe",
+    "teamLab Planets / Borderless — immersive digital art museum",
+    "Tsukiji Outer Market — street food and fresh seafood",
+    "Meiji Shrine — forested shrine near Harajuku, calm contrast to the city"
+  ],
+  "Paris": [
+    "Eiffel Tower — go at sunset for the best light",
+    "Louvre Museum — book timed entry in advance to skip lines",
+    "Montmartre & Sacré-Cœur — artists' quarter with panoramic views",
+    "Seine River Cruise — good low-effort overview of major landmarks",
+    "Le Marais — historic district, great for food and boutique shopping"
+  ],
+  "Singapore": [
+    "Gardens by the Bay — Supertree Grove light show at night",
+    "Marina Bay Sands SkyPark — rooftop infinity pool view (non-guests can visit the observation deck)",
+    "Hawker centres (e.g. Maxwell Food Centre) — best budget-friendly local food",
+    "Sentosa Island — beaches and family attractions",
+    "Chinatown & Little India — walkable cultural districts"
+  ]
+}
