@@ -25,9 +25,6 @@ jobs:
       - name: Install Chromium for browser adapters
         run: npx playwright install --with-deps chromium
         working-directory: Milan-Sentinel
-      - name: Install Chromium for browser adapters
-        run: npx playwright install --with-deps chromium
-        working-directory: Milan-Sentinel
       - name: Validate theoretical 10M combinations
         run: npm run validate
         working-directory: Milan-Sentinel
