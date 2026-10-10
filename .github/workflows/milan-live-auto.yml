@@ -24,7 +24,6 @@ on:
 
 permissions:
   contents: read
-  actions: write
 
 concurrency:
   group: milan-live-auto
@@ -136,35 +135,3 @@ jobs:
             sleep 20
           done
           exit 1
-
-      - name: Trigger recovery planner cycle
-        if: failure()
-        env:
-          GH_TOKEN: ${{ secrets.MILAN_GH_TOKEN }}
-        run: |
-          attempt=1
-          while true; do
-            if gh workflow run milan-ui-plan.yml --repo Ignite-boy/MILAN --ref main; then
-              echo "RECOVERY PLANNER CYCLE TRIGGERED"
-              exit 0
-            fi
-            echo "Recovery planner attempt $attempt failed; retrying in 15 seconds..."
-            attempt=$((attempt + 1))
-            sleep 15
-          done
-
-      - name: Trigger next planner cycle
-        if: success()
-        env:
-          GH_TOKEN: ${{ secrets.MILAN_GH_TOKEN }}
-        run: |
-          attempt=1
-          while true; do
-            if gh workflow run milan-ui-plan.yml --repo Ignite-boy/MILAN --ref main; then
-              echo "NEXT UI PLANNER CYCLE TRIGGERED"
-              exit 0
-            fi
-            echo "Planner trigger attempt $attempt failed; retrying in 15 seconds..."
-            attempt=$((attempt + 1))
-            sleep 15
-          done
