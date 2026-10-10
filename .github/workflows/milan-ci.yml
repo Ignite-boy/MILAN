@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -73,6 +76,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   production:
+    if: github.event_name != 'pull_request'
     name: "LIVE • Production smoke"
     runs-on: ubuntu-latest
     needs: verify
@@ -87,14 +91,22 @@ jobs:
           set -e
           for attempt in $(seq 1 12); do
             echo "Production check $attempt/12"
-            if curl -fsSL --max-time 15 -o /dev/null https://milanlife.in/               && curl -fsSL --max-time 15 -o /dev/null https://milanlife.in/chat/; then
-              echo "🟢 LIVE — milanlife.in is reachable"
+            if curl -fsSL --max-time 15 -o /dev/null https://milanlife.in/ \
+              && curl -fsSL --max-time 15 -o /dev/null https://milanlife.in/chat/ \
+              && curl -fsSL --max-time 15 -o /dev/null https://milanlife.in/robots.txt \
+              && curl -fsSL --max-time 15 -o /dev/null https://milanlife.in/sitemap.xml \
+              && curl -fsSL --max-time 15 -o /dev/null https://milanlife.in/sitemap-index.xml \
+              && curl -fsSL --max-time 15 -o /dev/null https://milanlife.in/llms.txt \
+              && curl -fsSL --max-time 15 -o /dev/null https://milanlife.in/keywords.json \
+              && curl -fsSL --max-time 15 -o /dev/null https://milanlife.in/ai-info; then
+              echo "🟢 LIVE — public UI and canonical SEO routes are reachable"
               {
                 echo "## 🟢 LIVE — Production"
                 echo ""
                 echo "Production smoke checks passed:"
-                echo "- https://milanlife.in/"
-                echo "- https://milanlife.in/chat/"
+                echo "- / and /chat/"
+                echo "- /robots.txt, /sitemap.xml, /sitemap-index.xml"
+                echo "- /llms.txt, /keywords.json, /ai-info"
               } >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
