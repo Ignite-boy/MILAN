@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const APP_VERSION = require('../../package.json').version;
 const fs = require('fs');
 const path = require('path');
 const { supabase } = require('../utils/dwnStorage');
@@ -244,7 +245,7 @@ function provisionIsolatedDwn({ userId = '', did = '', email = '', spaceId: prea
   const p = persistenceInfo();
   const manifest = {
     app: 'MILAN',
-    version: '49.0.0',
+    version: APP_VERSION,
     realDwnProtocol: false,
     sdkReady: false,
     protocolEngineReady: false,
