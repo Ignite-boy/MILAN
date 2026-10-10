@@ -56,3 +56,22 @@ def test_auth_endpoint_requires_https(monkeypatch):
     with pytest.raises(HTTPException) as exc:
         require_identity(creds())
     assert exc.value.status_code == 503
+
+
+def test_user_scope_returns_verified_identity_when_assertion_matches():
+    from app.auth import resolve_user_scope
+    assert resolve_user_scope({"user_id": "user-123"}, "user-123") == "user-123"
+
+
+def test_user_scope_rejects_cross_account_body_id():
+    from app.auth import resolve_user_scope
+    with pytest.raises(HTTPException) as exc:
+        resolve_user_scope({"user_id": "user-123"}, "other-user")
+    assert exc.value.status_code == 403
+
+
+def test_user_scope_requires_verified_principal():
+    from app.auth import resolve_user_scope
+    with pytest.raises(HTTPException) as exc:
+        resolve_user_scope({}, "user-123")
+    assert exc.value.status_code == 401
