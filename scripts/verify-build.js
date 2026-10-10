@@ -44,6 +44,18 @@ check(vercel && vercel.outputDirectory === 'frontend', 'Vercel outputDirectory m
 check(vercel && Array.isArray(vercel.rewrites) && !vercel.rewrites.some(rule => String(rule.destination || '').startsWith('/api/seo/')),
   'Vercel config contains rewrites to missing /api/seo/* functions.');
 check(exists('frontend/ai-info.json'), 'Machine-readable /ai-info.json document is missing.');
+const requiredAliases = {
+  '/sitemap_index.xml': '/sitemap-index.xml',
+  '/ai-info': '/ai-info.json',
+  '/keywords': '/keywords.html',
+  '/topics': '/keywords.html'
+};
+for (const [source, destination] of Object.entries(requiredAliases)) {
+  check(vercel && vercel.rewrites.some(rule => rule.source === source && rule.destination === destination),
+    `Vercel static alias ${source} must resolve to ${destination}.`);
+  check(exists(path.join('frontend', destination.replace(/^\\//, '')),
+    `Static alias target is missing: ${destination}`);
+}
 
 if (matrix && matrix.dimensions) {
   const dimensions = Object.entries(matrix.dimensions);
