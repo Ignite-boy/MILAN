@@ -53,8 +53,8 @@ const requiredAliases = {
 for (const [source, destination] of Object.entries(requiredAliases)) {
   check(vercel && vercel.rewrites.some(rule => rule.source === source && rule.destination === destination),
     `Vercel static alias ${source} must resolve to ${destination}.`);
-  check(exists(path.join('frontend', destination.replace(/^\\//, '')),
-    `Static alias target is missing: ${destination}`);
+  const target = destination.startsWith('/') ? destination.slice(1) : destination;
+  check(exists(path.join('frontend', target)), `Static alias target is missing: ${destination}`);
 }
 
 if (matrix && matrix.dimensions) {
