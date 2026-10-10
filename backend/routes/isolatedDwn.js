@@ -39,13 +39,13 @@ router.get('/my-server', auth, async (req, res) => {
   res.json({ ok: true, ownerDid: found.user.did, email: found.email, dwn, manifest, realNode, storage: dwnStore.getStatus() });
 });
 
-// Dedicated real DWN node health + cryptographic proof for the current user.
+// Reports protocol status separately from logical Supabase tenant/storage status.
 router.get('/real-node', auth, async (req, res) => {
   const found = current(req);
   if (!found) return res.status(404).json({ error: 'User not found' });
   ensureUserDwn(found.user, found.email);
   const realNode = await realUserDwnNodeStatus(found.user).catch(err => ({ ok: false, error: err.message }));
-  res.json({ ok: realNode.ok !== false, ownerDid: found.user.did, realNode });
+  res.json({ ok: realNode.protocolReady === true, storageReady: realNode.storageReady === true, ownerDid: found.user.did, realNode });
 });
 
 router.get('/:spaceId/status', auth, (req, res) => {

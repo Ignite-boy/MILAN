@@ -57,7 +57,7 @@ jobs:
 
           if git diff --quiet; then
             echo "NO_UI_CHANGE=true" >> "$GITHUB_ENV"
-            echo "No real UI change generated; starting another planner cycle."
+            echo "No valid UI change generated; this manual planner run is ending without a commit."
             exit 0
           fi
           echo "NO_UI_CHANGE=false" >> "$GITHUB_ENV"
@@ -133,8 +133,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.MILAN_GH_TOKEN }}
         run: |
-          attempt=1
-          while true; do
+          for attempt in 1 2 3 4 5; do
             if gh workflow run milan-live-auto.yml \
               --repo Ignite-boy/MILAN \
               --ref main \
@@ -145,23 +144,8 @@ jobs:
               echo "NAMED UI DEPLOYMENT CYCLE TRIGGERED"
               exit 0
             fi
-            echo "Trigger attempt $attempt failed; retrying in 15 seconds..."
-            attempt=$((attempt + 1))
+            echo "Trigger attempt $attempt/5 failed; retrying in 15 seconds..."
             sleep 15
           done
-
-      - name: Trigger next planner cycle
-        if: success()
-        env:
-          GH_TOKEN: ${{ secrets.MILAN_GH_TOKEN }}
-        run: |
-          attempt=1
-          while true; do
-            if gh workflow run milan-ui-plan.yml --repo Ignite-boy/MILAN --ref main; then
-              echo "NEXT UI PLANNER CYCLE TRIGGERED"
-              exit 0
-            fi
-            echo "Planner trigger attempt $attempt failed; retrying in 15 seconds..."
-            attempt=$((attempt + 1))
-            sleep 15
-          done
+          echo "Unable to trigger deployment cycle after five attempts."
+          exit 1

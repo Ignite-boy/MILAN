@@ -5,7 +5,7 @@ const cp = require('child_process');
 const OpenAI = require('openai');
 
 const root = path.resolve(__dirname, '..');
-const reportPath = path.resolve(root, '..', 'milan-sentinel', 'reports', 'latest-results.json');
+const reportPath = path.resolve(root, '..', 'Milan-Sentinel', 'reports', 'latest-results.json');
 const report = fs.existsSync(reportPath) ? JSON.parse(fs.readFileSync(reportPath, 'utf8')) : null;
 if (!report || !Array.isArray(report.results)) throw new Error('No Sentinel failure evidence found.');
 const failures = report.results.filter(x => x.status === 'FAIL');
@@ -15,13 +15,7 @@ if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is not set.');
 function sh(cmd, cwd) {
   return cp.execSync(cmd, { cwd, shell: '/bin/bash', encoding: 'utf8', stdio: 'pipe', maxBuffer: 20 * 1024 * 1024 });
 }
-function repoFor(environment) {
-  if (/mini-dwn|dwn-public/.test(environment)) return 'Ignite-boy/mini-dwn';
-  if (/travel-agent/.test(environment)) return 'Ignite-boy/travel-agent';
-  if (/wallet/.test(environment)) return 'Ignite-boy/natively-dwn-wallet';
-  if (/inventory/.test(environment)) return 'Ignite-boy/inventory';
-  return 'Ignite-boy/milan-app';
-}
+function repoFor() { return 'Ignite-boy/MILAN'; }
 function sourceContext(worktree) {
   let files = '';
   try { files = sh("git ls-files | grep -E '\\.(js|mjs|cjs|ts|tsx|html|css|json|yml|yaml)$' | head -n 120", worktree); } catch {}
@@ -35,7 +29,7 @@ function parseJson(text) {
 }
 
 async function main() {
-  const repo = process.env.RSI_TARGET_REPO || repoFor(failures[0].environment || 'milan-prod');
+  const repo = repoFor();
   const workRoot = path.join(os.tmpdir(), 'milan-rsi');
   const worktree = path.join(workRoot, repo.split('/')[1]);
   fs.mkdirSync(workRoot, { recursive: true });
@@ -58,14 +52,26 @@ async function main() {
   const changedJs = sh("git diff --name-only -- '*.js' '*.mjs' '*.cjs'", worktree).trim();
   for (const file of changedJs.split(/\n+/).filter(Boolean)) sh(`node --check "${file}"`, worktree);
   if (fs.existsSync(path.join(worktree, 'package.json'))) {
-    try { sh('npm install --no-audit --no-fund', worktree); } catch {}
-    sh('npm test', worktree);
+    if (fs.existsSync(path.join(worktree, 'package-lock.json'))) {
+      sh('npm ci --no-audit --no-fund', worktree);
+    } else {
+      sh('npm install --no-audit --no-fund', worktree);
+    }
+    const packageJson = JSON.parse(fs.readFileSync(path.join(worktree, 'package.json'), 'utf8'));
+    const scripts = packageJson.scripts || {};
+    if (scripts.build) sh('npm run build', worktree);
+    if (scripts['test:chat']) sh('npm run test:chat', worktree);
+    if (fs.existsSync(path.join(worktree, 'Milan-Sentinel', 'package.json'))) {
+      sh('npm ci --no-audit --no-fund --prefix Milan-Sentinel', worktree);
+      sh('npm run validate --prefix Milan-Sentinel', worktree);
+      sh('npm run smoke --prefix Milan-Sentinel', worktree);
+    }
   }
 
   const branch = `rsi/repair-${Date.now()}`;
   sh(`git checkout -b ${branch}`, worktree);
   sh('git add -A && git commit -m "RSI: automatic repair from Sentinel failure"', worktree);
-  if (process.env.RSI_AUTO_PUSH !== 'false') sh(`git push -u origin ${branch}`, worktree);
+  if (process.env.RSI_AUTO_PUSH === 'true') sh(`git push -u origin ${branch}`, worktree);
 
   const evidenceDir = path.join(root, 'evidence');
   fs.mkdirSync(evidenceDir, { recursive: true });

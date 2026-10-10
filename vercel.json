@@ -2,48 +2,20 @@
   "outputDirectory": "frontend",
   "rewrites": [
     {
-      "source": "/robots.txt",
-      "destination": "/api/seo/robots.txt"
-    },
-    {
-      "source": "/sitemap.xml",
-      "destination": "/api/seo/sitemap.xml"
-    },
-    {
-      "source": "/sitemap-index.xml",
-      "destination": "/api/seo/sitemap-index.xml"
-    },
-    {
-      "source": "/sitemap_index.xml",
-      "destination": "/api/seo/sitemap-index.xml"
-    },
-    {
-      "source": "/llms.txt",
-      "destination": "/api/seo/llms.txt"
-    },
-    {
-      "source": "/keywords.json",
-      "destination": "/api/seo/keywords.json"
-    },
-    {
-      "source": "/ai-info",
-      "destination": "/api/seo/ai-info"
-    },
-    {
-      "source": "/ai-info.json",
-      "destination": "/api/seo/ai-info"
+      "source": "/topics",
+      "destination": "/keywords.html"
     },
     {
       "source": "/keywords",
-      "destination": "/api/seo/keywords"
+      "destination": "/keywords.html"
     },
     {
-      "source": "/keywords.html",
-      "destination": "/api/seo/keywords"
+      "source": "/ai-info",
+      "destination": "/ai-info.json"
     },
     {
-      "source": "/topics",
-      "destination": "/api/seo/keywords"
+      "source": "/sitemap_index.xml",
+      "destination": "/sitemap-index.xml"
     },
     {
       "source": "/api/music/suggest",

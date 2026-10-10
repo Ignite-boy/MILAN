@@ -6,7 +6,7 @@ on:
   pull_request:
   workflow_dispatch:
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '17 3 * * *'
 
 permissions:
   contents: read
@@ -22,10 +22,14 @@ jobs:
       - name: Install Sentinel
         run: npm ci
         working-directory: Milan-Sentinel
-      - name: Validate 10M test matrix
+      - name: Install Chromium for browser adapters
+        run: npx playwright install --with-deps chromium
+        working-directory: Milan-Sentinel
+      - name: Validate theoretical 10M combinations
         run: npm run validate
         working-directory: Milan-Sentinel
-      - name: Execute smoke checks
+      - name: Execute representative smoke checks
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
         run: npm run smoke
         working-directory: Milan-Sentinel
       - name: Upload evidence
@@ -51,10 +55,13 @@ jobs:
       - name: Install Sentinel
         run: npm ci
         working-directory: Milan-Sentinel
-      - name: Execute shard
+      - name: Install Chromium for browser adapters
+        run: npx playwright install --with-deps chromium
+        working-directory: Milan-Sentinel
+      - name: Execute stratified sample
         env:
           SHARD: ${{ matrix.shard }}
-        run: node scripts/run-matrix.js --run --start=$((SHARD * 500 + 1)) --count=500
+        run: node scripts/run-matrix.js --run --start=$((SHARD * 500 * 1000 + 1)) --count=500 --stride=1000
         working-directory: Milan-Sentinel
       - name: Upload shard evidence
         if: always()

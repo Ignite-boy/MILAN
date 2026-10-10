@@ -3,9 +3,11 @@ from pydantic import BaseModel, Field
 
 
 class ChatRequest(BaseModel):
-    user_id: str = Field(..., description="Stable ID for the user, used for long-term memory")
-    session_id: str = Field(..., description="Conversation/thread ID, used for short-term memory")
-    message: str = Field(..., description="The user's chat message")
+    # Optional for backwards-compatible payload shape; when present it must match
+    # the user identity verified from the MILAN Bearer token.
+    user_id: Optional[str] = Field(default=None, min_length=1, max_length=256, description="Optional asserted user ID; validated against the authenticated MILAN identity")
+    session_id: str = Field(..., min_length=1, max_length=128, description="Conversation/thread ID, namespaced under the verified user")
+    message: str = Field(..., min_length=1, max_length=10000, description="The user's chat message")
 
 
 class ChatResponse(BaseModel):
