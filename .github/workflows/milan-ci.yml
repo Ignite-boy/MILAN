@@ -110,7 +110,11 @@ jobs:
               && curl -fsSL --max-time 15 -o /dev/null https://milanlife.in/sitemap-index.xml \
               && curl -fsSL --max-time 15 -o /dev/null https://milanlife.in/llms.txt \
               && curl -fsSL --max-time 15 -o /dev/null https://milanlife.in/keywords.json \
-              && curl -fsSL --max-time 15 -o /dev/null https://milanlife.in/ai-info; then
+              && curl -fsSL --max-time 15 -o /dev/null https://milanlife.in/ai-info \
+              && curl -fsSL --max-time 15 -o /dev/null https://milanlife.in/ai-info.json \
+              && curl -fsSL --max-time 15 -o /dev/null https://milanlife.in/sitemap_index.xml \
+              && curl -fsSL --max-time 15 -o /dev/null https://milanlife.in/keywords \
+              && curl -fsSL --max-time 15 -o /dev/null https://milanlife.in/topics; then
               echo "🟢 LIVE — public UI and canonical SEO routes are reachable"
               {
                 echo "## 🟢 LIVE — Production"
