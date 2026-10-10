@@ -88,6 +88,8 @@ if (exists('backend/server.js')) {
   const server = read('backend/server.js');
   check(server.includes("const APP_VERSION = require('../package.json').version;"),
     'API version must be sourced from root package.json.');
+  check(server.includes("healthSemantics:") && server.includes("level: 'liveness'"),
+    'API health must label liveness separately from provider/protocol readiness.');
   check(!server.includes("origin: process.env.CORS_ORIGIN || true"),
     'Unsafe permissive CORS fallback remains.');
 }
