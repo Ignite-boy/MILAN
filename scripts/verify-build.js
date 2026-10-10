@@ -5,6 +5,7 @@
 // deliberately does not claim to exercise live integrations or user flows.
 const fs = require('node:fs');
 const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 
 const root = path.resolve(__dirname, '..');
 const failures = [];
@@ -53,6 +54,22 @@ if (matrix && matrix.dimensions) {
   }
   check(count === matrix.caseCount, `Sentinel theoretical matrix mismatch: dimensions produce ${count}, caseCount is ${matrix.caseCount}.`);
   check(count === 10000000, `Expected the documented 10,000,000 theoretical combinations; got ${count}.`);
+}
+
+const syntaxCheckFiles = [
+  'backend/server.js',
+  'backend/middleware/auth.js',
+  'backend/services/cloudDwnRegistry.js',
+  'backend/routes/isolatedDwn.js',
+  'Milan-Sentinel/scripts/run-matrix.js',
+  'Milan-Sentinel/scripts/execute-case.js',
+  'Milan-RSI-Agent/scripts/repair.js',
+  'Milan-RSI-Agent/scripts/rsi-loop.js'
+];
+for (const file of syntaxCheckFiles) {
+  if (!exists(file)) { failures.push(`Cannot syntax-check missing file: ${file}`); continue; }
+  const result = spawnSync(process.execPath, ['--check', path.join(root, file)], { encoding: 'utf8' });
+  check(result.status === 0, `JavaScript syntax error in ${file}: ${result.stderr || result.error || 'unknown error'}`);
 }
 
 if (exists('backend/server.js')) {
