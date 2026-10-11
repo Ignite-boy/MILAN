@@ -39,9 +39,15 @@ assert(chat.includes("CHAT_RECEIPT_SCHEMA = 'milan.chat.receipt'"), 'Read receip
 assert(chat.includes("CHAT_RECEIPT_PATH = 'receipts'"), 'Read receipt path missing.');
 assert(chat.includes("notifType: 'chat_read'"), 'Read receipt event missing.');
 assert(chat.includes("deliveryStatus: 'delivered'"), 'Delivered state missing.');
-assert(chat.includes("message: {"), 'Realtime message payload missing.');
+assert(chat.includes('message: realtimeMessage'), 'Realtime message payload missing.');
 assert(chat.includes("mailboxRole: 'recipient'"), 'Recipient mailbox role missing.');
 assert(chat.includes("mailboxRole: 'sender'"), 'Sender mailbox role missing.');
+assert(chat.includes('function decodeStoredData(value)'), 'Stored mailbox decoder must be synchronous.');
+assert(!chat.includes('async function decodeStoredData'), 'Stored mailbox decoder cannot return an unchecked Promise.');
+assert(chat.includes('withChatWriteLock'), 'Concurrent message/receipt write guard missing.');
+assert(chat.includes(".eq('owner_did', meDid)"), 'Conversation reads must be limited to the caller mailbox.');
+assert(chat.includes(".eq('owner_did', currentDid)"), 'Conversation list must be limited to the caller mailbox.');
+assert(chat.includes('livePush.push(req.userId'), 'Sender other-device push missing.');
 
 assert(social.includes('function isChatRecord(record)'), 'Feed chat-record guard missing.');
 assert(social.includes('if (isChatRecord(record)) return false;'), 'Social feed does not reject chat records.');
@@ -54,9 +60,14 @@ assert(frontend.includes('status === "sending"'), 'Optimistic sending state miss
 assert(frontend.includes('mergeMessages([incoming])'), 'Instant inbound message render missing.');
 assert(frontend.includes('CHAT_ACTIVE_KEY = "milan_chat_active_did"'), 'Active conversation persistence missing.');
 assert(frontend.includes('CHAT_CACHE_PREFIX = "milan_chat_cache:"'), 'Warm chat history cache missing.');
-assert(frontend.includes('localStorage.setItem(CHAT_CACHE_PREFIX'), 'Chat history cache write missing.');
-assert(frontend.includes('localStorage.getItem(CHAT_CACHE_PREFIX'), 'Chat history cache restore missing.');
+assert(frontend.includes('localStorage.setItem(key'), 'Chat history cache write missing.');
+assert(frontend.includes('function readChatCache(did)'), 'Chat history cache restore missing.');
 assert(chat.includes('CHAT_QUERY_RECORD_LIMIT = MAX_HISTORY * 2'), 'Mailbox pair query window missing.');
+assert(frontend.includes('scopedChatStorageKey'), 'Per-account browser storage isolation missing.');
+assert(frontend.includes('Chat request timed out. It will retry safely.'), 'Chat request timeout handling missing.');
+assert(frontend.includes('message.readAt || ""'), 'Read-state update rendering guard missing.');
+assert(frontend.includes('incoming.senderDid || "") === String(myDid || "")'), 'Sender other-device realtime handler missing.');
+assert(frontend.includes('retryOutboxMessage(retry.dataset.retryId)'), 'Failed-message retry action is not wired.');
 
 console.log('✅ MILAN chat architecture checks passed.');
 console.log('✅ Backend syntax checks passed.');
