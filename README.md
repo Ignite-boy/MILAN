@@ -1,206 +1,75 @@
-# MILAN
+# MILAN — the MILAN-ONE ecosystem
 
-> **Your Space. Your People.**
->
-> A privacy-first social platform built around user-owned identity, DID-based access, and DWN-backed data persistence.
+**Public product:** [milanlife.in](https://milanlife.in/)  
+**Repository:** `Ignite-boy/MILAN`  
+**Internal system name:** **MILAN-ONE** — one consolidated codebase and operating model for the MILAN application and its companion components. The public product remains named MILAN; MILAN-ONE is not a claim of affiliation with Google One, Meta, or any other company.
 
-[![Production](https://img.shields.io/badge/production-milanlife.in-111827?style=flat-square)](https://milanlife.in)
-[![Next.js](https://img.shields.io/badge/frontend-Next.js-black?style=flat-square&logo=next.js)](https://nextjs.org/)
-[![Node.js](https://img.shields.io/badge/backend-Node.js-16a34a?style=flat-square)](https://nodejs.org/)
-[![PostgreSQL](https://img.shields.io/badge/database-PostgreSQL-2563eb?style=flat-square)](https://www.postgresql.org/)
+MILAN is a privacy-oriented social application built around DID-based identity concepts and user-scoped data. This repository consolidates the web application, API, quality tooling, a C++ DWN experiment, a travel-agent prototype, and supporting tools in one place.
 
-## Overview
+## Current architecture — source of truth
 
-MILAN is a modern social platform designed around a simple principle:
+| Layer | Current implementation |
+|---|---|
+| Web frontend | Static HTML, CSS, JavaScript and assets in `frontend/`. This is the configured Vercel output directory. |
+| HTTP/API | Express application in `backend/server.js`; `api/index.js` exports that server for the Vercel API entry point. |
+| Authoritative persistence | Supabase-backed user snapshots, record metadata/data and media paths. Actual table/storage configuration and permissions remain environment-dependent. |
+| Identity and user spaces | DID and per-user space identifiers are associated with authoritative user records. A logical per-user namespace is not by itself proof of a live standards-compliant DWN node. |
+| C++ DWN component | Standalone experimental implementation in `DWN/`; its canonical CMake target uses LevelDB. It is **not currently verified as the protocol engine used by the main production API**. |
+| Quality/testing | `Milan-Sentinel/` defines a 10,000,000-combination Cartesian test space. Only cases with implemented adapters can produce PASS; unimplemented combinations must be SKIP. |
+| Other components | `Travel-Agent/`, `DWN-Wallet/`, `Inventory/`, `Milan-RSI-Agent/` and `Live-UI-Update/` are consolidated components with different maturity levels; do not infer production readiness from their presence in this repository. |
 
-> **One User = One DID = One Isolated DWN Space**
+## Important architecture boundary
 
-The application combines a polished social experience with an ownership-oriented data model. Identity is DID-based, and Supabase is the authoritative cloud storage backend for user snapshots, records, and media.
+The main API reports `realDwnProtocol: false` in its current persistence metadata. Supabase persistence and DID-scoped application records are real parts of the current implementation, but signed DWN protocol execution by a dedicated per-user DWN engine is **not verified in the main production path**. The former documentation describing `backend/services/realDwnEngine.js` did not match the current source tree and has been corrected.
 
-### Frontend Stack
+Similarly, the C++ DWN subproject and the wallet/travel components are standalone or experimental until their own integration, persistence, authorization, deployment and end-to-end tests pass. The repository's directory layout is not proof that these services are deployed from this monorepo.
 
-The MILAN production frontend is the `frontend/` web application containing the live HTML, CSS, JavaScript, and static assets.
+## Local verification
 
-### Production
-
-- **Web:** https://milanlife.in
-- **Storage:** Supabase authoritative cloud storage
-- **DWN health:** `GET /health`
-- **DWN protocol gateway:** `POST /json-rpc`
-
-## Core Architecture
-
-```text
-┌───────────────────────────────┐
-│        MILAN Frontend        │
-│   Social UI • Profiles • Feed │
-│     HTML • CSS • JavaScript  │
-└───────────────┬───────────────┘
-                │ HTTPS
-                ▼
-┌───────────────────────────────┐
-│      MILAN Backend / API      │
-│ Auth • Profiles • Social APIs │
-└───────────────┬───────────────┘
-                │ JSON-RPC
-                ▼
-┌───────────────────────────────┐
-│      Supabase Storage         │
-│ Authoritative cloud data      │
-└───────────────────────────────┘
-```
-
-The application keeps authoritative profile data in Supabase-backed storage rather than depending solely on browser-local state. This includes profile pictures: upload, read-back, logout, and login restore all use the persisted cloud record path.
-
-### Registration reliability
-
-Core account creation is intentionally independent of optional DWN metadata columns. Registration still mints a DID when available, with a bounded fallback identity path so a temporary local DWN initialization failure does not block account creation. The authoritative account row requires only the core authentication fields.
-
-### Profile picture persistence
-
-Profile pictures are stored as a dedicated DWN record:
-
-```text
-profile-picture:<user DID>
-```
-
-The live profile flow is:
-
-```text
-Upload
-  ↓
-MILAN API
-  ↓
-Cloud data persistence via Supabase
-  ↓
-PostgreSQL-backed DWN storage
-  ↓
-Read after logout/login
-  ↓
-Profile restored
-```
-
-## Identity & Data Ownership
-
-MILAN is built around DID-based identity and isolated user storage.
-
-- One registered user receives one DID-backed identity.
-- Profile records are addressed using the user's DID.
-- Profile media is stored as a DWN record and read back from the DWN node.
-- Access control supports private, public, and DID-based sharing models.
-- The architecture is designed so storage infrastructure can evolve without rewriting the frontend permission model.
-
-## Product Surface
-
-MILAN includes a social product layer with:
-
-- Home, public, friends, and personal feeds
-- Profile editing and persistent avatars
-- DID-based people discovery and friend requests
-- Reactions, comments, notifications, and messaging
-- Image, video, and text publishing
-- Privacy modes for private, public, and shared-DID content
-- Media upload and streaming workflows
-- Dark-mode friendly premium UI with motion and interaction polish
-
-## Engagement & Experience Layer
-
-The current product also includes an extended engagement system covering:
-
-- Animated profile/avatar treatments
-- Gradient and motion-based UI accents
-- XP and level progression
-- Daily streaks and milestone rewards
-- Badge and leaderboard concepts
-- Smart composer/AI interaction chips
-- Live activity indicators
-- Haptic feedback on supported devices
-
-These features are designed as product-layer enhancements on top of the identity and data architecture rather than as replacements for it.
-
-## Local Development
-
-### Next.js frontend
+Requirements: Node.js 22 or newer.
 
 ```bash
-The production frontend is served from `frontend/`.
+npm ci
+npm run build
+npm run test:chat
+npm --prefix Milan-Sentinel ci
+npm --prefix Milan-Sentinel run validate
+npm --prefix Milan-Sentinel run smoke
 ```
 
-### Backend
+- `npm run build` is a repository/configuration integrity check, not a frontend bundler.
+- `Milan-Sentinel run validate` verifies the test-space definition; it does not execute 10 million tests.
+- `Milan-Sentinel run smoke` executes a small, representative set of supported adapters and reports unsupported cases as SKIP.
+- Production smoke tests are limited to endpoints explicitly listed in the workflow; a green check does not prove every product flow or external provider works.
 
-From the project root:
+## Environment and deployment
 
-```bash
-npm install
-npm start
-```
+Use `backend/.env.example` as a template only. Required production secrets must be created in the hosting provider's secret manager and must never be committed. See [the environment contract](docs/ENVIRONMENT_CONTRACT.md) and [MILAN-ONE architecture/status](docs/MILAN_ONE_ARCHITECTURE.md).
 
-Local application endpoint:
+Vercel is configured to serve `frontend/` and route API requests through `api/index.js`. The separate Render API service also points to the MILAN repository. External service ownership, environment variables, persistent storage, and the travel/DWN service repository bindings must be verified in their respective provider dashboards; this repo cannot prove those settings by itself.
 
-```text
-http://localhost:5000
-```
+## Operating principles
 
-## Production Deployment
+1. **Evidence over labels:** a feature is PASS only when its adapter verifies a meaningful outcome.
+2. **No silent fallback claims:** report cloud persistence, logical namespacing and actual DWN protocol execution as distinct capabilities.
+3. **Fail closed on identity and authorization:** client-supplied user/session identifiers must not be treated as authenticated identity.
+4. **One canonical web source:** `frontend/` is the production static frontend. `Live-UI-Update/` contains tools/automation and must not become a second source of truth for deployed UI files.
+5. **Bounded automation:** AI-generated updates must run as a single bounded cycle with explicit gates, not recursively trigger themselves forever.
+6. **Production readiness is proven per component:** code presence, a successful build, or an HTTP 200 health check alone is insufficient.
 
-The production application is deployed on Vercel, with Supabase serving as the authoritative cloud storage backend.
+## Repository map
 
-Production environment configuration should use:
-
-```text
-SUPABASE_URL=https://<your-project>.supabase.co
-```
-
-Production API and storage are provided through the Vercel deployment and Supabase authoritative storage.
-
-## Repository Structure
-
-```text
-milan-app/
-├── frontend/           # Existing web application and static assets
-├── backend/            # Node.js API, auth, profile and social services
-├── api/                # Deployment/serverless entry points when applicable
-├── vercel.json         # Production routing/configuration
-└── README.md           # Project documentation
-```
-
-## Security & Reliability Principles
-
-MILAN's infrastructure is built with a few non-negotiable principles:
-
-1. **Persist before trusting the UI.** Client-side cache is treated as convenience, not authoritative storage.
-2. **DID-scoped records.** User-owned records are addressed and isolated by DID.
-3. **HTTPS in production.** Production services communicate over the public HTTPS DWN endpoint.
-4. **Resilient cloud sync.** Cloud persistence failures should be handled with bounded retry/backoff without treating local compatibility/cache storage as authoritative.
-5. **Stable fixes stay stable.** Changes should be narrowly scoped and should preserve already-verified functionality.
-
-## Quick Verification Checklist
-
-After a production deployment:
-
-```text
-[ ] https://milanlife.in loads
-[ ] Login succeeds with a fresh token
-[ ] Profile read returns avatarRecordId when a DP exists
-[ ] DP upload succeeds
-[ ] Logout succeeds
-[ ] Login restores the persisted DP
-[ ] Registration returns 201 for a new account
-```
-
-## Roadmap
-
-MILAN is structured to continue evolving across three layers:
-
-- **Product:** better discovery, communication, creation, and engagement
-- **Identity:** stronger DID lifecycle and user-controlled permissions
-- **Infrastructure:** more resilient DWN hosting, observability, backups, and scalable isolated storage
-
-## License
-
-This repository is maintained as the MILAN application codebase. Licensing and contribution terms should be confirmed from the repository owner's current policy before redistribution.
+- `frontend/` — production static web surface
+- `backend/` — Express API, authorization, records and persistence integrations
+- `api/` — Vercel entry point
+- `Milan-Sentinel/` — matrix definition and executable checks
+- `Milan-RSI-Agent/` — repair-analysis experiment (push is opt-in)
+- `DWN/` — standalone C++/LevelDB DWN experiment
+- `Travel-Agent/` — FastAPI/LangGraph travel prototype
+- `DWN-Wallet/` — wallet prototype
+- `Inventory/`, `Live-UI-Update/`, `Milan-Sentinel/` — companion utilities and tooling
 
 ---
 
-**MILAN**  
-*Your Space. Your People.*
+**MILAN — Your Space. Your People.**  
+**MILAN-ONE — one codebase, explicit boundaries, evidence-backed behavior.**

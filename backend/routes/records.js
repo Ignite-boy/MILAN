@@ -235,7 +235,7 @@ router.post('/media/chunk/:uploadId', auth, (req, res) => {
   const dir = uploadSessionDir(uploadId);
   fs.mkdirSync(dir, { recursive: true });
   const part = path.join(dir, `chunk-${String(index).padStart(8, '0')}.part`);
-  const tmp = `${part}.${Date.now()}.tmp`;
+  const tmp = `${part}.${crypto.randomUUID()}.tmp`;
   let bytes = 0;
   let settled = false;
   const out = fs.createWriteStream(tmp);
@@ -259,14 +259,27 @@ router.post('/media/chunk/:uploadId', auth, (req, res) => {
     if (settled) return;
     try {
       if (bytes <= 0) return fail(400, 'Empty chunk received.');
+
+      // Reload the latest session before updating chunk metadata.
+      const latest = readUploadSession(uploadId);
+      if (!latest) return fail(404, 'Upload session not found or expired.');
+      if (latest.userId !== req.userId) return fail(403, 'This upload session belongs to another user.');
+
+      const expectedBytes = index === latest.totalChunks - 1
+        ? latest.sizeBytes - (index * latest.chunkBytes)
+        : latest.chunkBytes;
+      if (bytes !== expectedBytes) {
+        return fail(400, `Chunk size mismatch. Expected ${expectedBytes} bytes but received ${bytes} bytes.`);
+      }
+
       fs.renameSync(tmp, part);
-      const previous = Number(session.received[index] || 0);
-      session.received[index] = bytes;
-      session.receivedBytes = Math.max(0, Number(session.receivedBytes || 0) - previous + bytes);
-      session.updatedAt = new Date().toISOString();
-      writeUploadSession(session);
+      const previous = Number(latest.received[index] || 0);
+      latest.received[index] = bytes;
+      latest.receivedBytes = Math.max(0, Number(latest.receivedBytes || 0) - previous + bytes);
+      latest.updatedAt = new Date().toISOString();
+      writeUploadSession(latest);
       settled = true;
-      res.json({ ok: true, uploadId, index, bytes, receivedChunks: Object.keys(session.received).length, totalChunks: session.totalChunks });
+      res.json({ ok: true, uploadId, index, bytes, receivedChunks: Object.keys(latest.received).length, totalChunks: latest.totalChunks });
     } catch (err) { fail(500, err.message || 'Could not finish chunk.'); }
   });
   req.pipe(out);

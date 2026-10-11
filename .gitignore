@@ -60,3 +60,7 @@ backend/dwn/database/*.json
 
 # Generated Sentinel test evidence
 /Milan-Sentinel/reports/
+
+# Root-level runtime resolver database/cache artifacts
+/RESOLVERCACHE/
+**/RESOLVERCACHE/

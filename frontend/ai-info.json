@@ -1,0 +1,29 @@
+{
+  "name": "MILAN",
+  "systemName": "MILAN-ONE",
+  "systemNameStatus": "Internal name for the consolidated MILAN codebase and operating model. The public product remains MILAN; no affiliation with Google or Meta is implied.",
+  "url": "https://milanlife.in",
+  "architecture": {
+    "frontend": "Static HTML, CSS, JavaScript and assets in frontend/.",
+    "api": "Express application in backend/server.js; api/index.js exports it for the Vercel API entry point.",
+    "persistence": "Supabase-backed users, record metadata/data and media paths are authoritative in the current main application.",
+    "identity": "DID and per-user space identifiers provide logical application namespacing; they do not by themselves prove protocol-level DWN isolation.",
+    "realDwnProtocol": {
+      "integratedInMainProductionPath": false,
+      "status": "Not currently verified. Main API persistence metadata reports realDwnProtocol=false. The separate C++ component in DWN/ uses LevelDB and is not proven to be invoked by the main web API."
+    },
+    "testMatrix": {
+      "theoreticalCombinations": 10000000,
+      "meaning": "Cartesian product cardinality, not a claim that 10 million end-to-end tests have run. Unsupported cases must be reported as SKIP."
+    }
+  },
+  "components": {
+    "DWN/": "Standalone C++20/LevelDB experiment; experimental integration status.",
+    "Travel-Agent/": "FastAPI/LangGraph travel prototype; external provider/service deployment and authorization require separate verification.",
+    "DWN-Wallet/": "Prototype component; in-memory implementation is not durable storage.",
+    "Milan-Sentinel/": "Quality tooling with explicit PASS/FAIL/SKIP semantics.",
+    "Milan-RSI-Agent/": "Repair-analysis experiment; patch push is opt-in.",
+    "Live-UI-Update/": "UI/SEO automation tooling; frontend/ remains the production UI source of truth."
+  },
+  "productionReadinessCaveat": "Source inventory and passing smoke checks do not prove every feature, external service, credential, payment, data-retention rule or protocol guarantee is production-ready."
+}

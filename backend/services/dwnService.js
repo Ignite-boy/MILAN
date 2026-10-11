@@ -56,7 +56,7 @@ function isRemoteOnlyMode() { return false; }
 let dwnInstance = null;
 const mediaProcessingQueue = new Set();
 const mediaRepairLocks = new Map();
-const MILAN_SYNC_VIDEO_PROCESS_BYTES = Number(process.env.MILAN_SYNC_VIDEO_PROCESS_BYTES || 150 * 1024 * 1024);
+const MILAN_SYNC_VIDEO_PROCESS_BYTES = Number(process.env.MILAN_SYNC_VIDEO_PROCESS_BYTES || 25 * 1024 * 1024);
 const MILAN_PROCESSING_STALE_MS = Number(process.env.MILAN_PROCESSING_STALE_MS || 20 * 1000);
 // V55 hard-core anti-stuck rule: processing must never stay forever.
 // Small WhatsApp/reel videos should either become playable quickly or show a clear repair/download state.
@@ -688,7 +688,7 @@ function mediaProcessingTimeoutMs(record) {
   const media = record?.data?.media || {};
   const size = Number(media.sizeBytes || record?.mediaCompatibility?.sizeBytes || 0);
   if (size > 0 && size <= 25 * 1024 * 1024) return MILAN_PROCESSING_SMALL_TIMEOUT_MS;
-  if (size > 0 && size <= 150 * 1024 * 1024) return MILAN_PROCESSING_MEDIUM_TIMEOUT_MS;
+  if (size > 0 && size <= 25 * 1024 * 1024) return MILAN_PROCESSING_MEDIUM_TIMEOUT_MS;
   return MILAN_PROCESSING_HARD_TIMEOUT_MS;
 }
 

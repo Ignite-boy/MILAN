@@ -1,3 +1,5 @@
+'use strict';
+
 const fs = require('fs');
 const path = require('path');
 const { run: executeCase } = require('./execute-case');
@@ -30,34 +32,73 @@ function caseAt(oneBased) {
 
 function arg(name, fallback) {
   const prefix = `--${name}=`;
-  const found = process.argv.find(v => v.startsWith(prefix));
+  const found = process.argv.find(value => value.startsWith(prefix));
   return found ? found.slice(prefix.length) : fallback;
 }
 
 function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
+function caseIdFor({ environment, scenario, action, device, state, locale }) {
+  const values = { environment, scenario, action, device, state, locale };
+  let n = 0;
+  for (const [name, dimension] of dims) {
+    const index = dimension.findIndex(value => {
+      if (name === 'scenario') return value.id === values.scenario.id || value.name === values.scenario.name;
+      return value === values[name];
+    });
+    if (index < 0) throw new Error(`Unknown ${name} value in representative case`);
+    n = n * dimension.length + index;
+  }
+  return n + 1;
+}
+
+function representativeSmokeIds() {
+  const { ADAPTERS } = require('./execute-case');
+  const locale = 'en-IN', device = 'desktop-1440', state = 'fresh';
+  return matrix.dimensions.scenario.map(scenario => {
+    const adapter = ADAPTERS[scenario.name];
+    const environment = adapter?.environment || 'milan-prod';
+    const action = adapter?.action || 'status';
+    return caseIdFor({ environment, scenario, action, device, state, locale });
+  });
+}
+
 async function execute(c) {
   const startedAt = new Date().toISOString();
   try {
     const evidence = await executeCase(c);
+    if (evidence && evidence.__status === 'SKIP') {
+      return { ...c, status: 'SKIP', reason: String(evidence.reason || 'Adapter not implemented'), startedAt, finishedAt: new Date().toISOString() };
+    }
     return { ...c, status: 'PASS', startedAt, finishedAt: new Date().toISOString(), evidenceRequired: true, evidence };
   } catch (error) {
     return { ...c, status: 'FAIL', startedAt, finishedAt: new Date().toISOString(), evidenceRequired: true, error: String(error?.message || error) };
   }
 }
 
-async function runBatch(start, count) {
+async function runBatch({ start = 1, count = 100, stride = 1, explicitIds = null, mode = 'sample' }) {
+  const ids = explicitIds || Array.from({ length: count }, (_, i) => start + i * stride).filter(id => id <= product);
   const results = [];
-  let failed = 0;
-  for (let i = start; i < start + count && i <= product; i++) {
-    const result = await execute(caseAt(i));
+  let failed = 0, passed = 0, skipped = 0;
+  for (const id of ids) {
+    const result = await execute(caseAt(id));
     results.push(result);
     process.stdout.write(JSON.stringify(result) + '\n');
     if (result.status === 'FAIL') failed++;
+    else if (result.status === 'SKIP') skipped++;
+    else if (result.status === 'PASS') passed++;
   }
-  fs.mkdirSync(path.join(__dirname, '..', 'reports'), { recursive: true });
-  fs.writeFileSync(path.join(__dirname, '..', 'reports', 'latest-results.json'), JSON.stringify({ generatedAt: new Date().toISOString(), caseCount: product, start, count: results.length, failed, results }, null, 2));
-  return { results, failed };
+  const reportPath = path.join(__dirname, '..', 'reports', 'latest-results.json');
+  fs.mkdirSync(path.dirname(reportPath), { recursive: true });
+  const report = {
+    generatedAt: new Date().toISOString(),
+    matrixCaseCount: product,
+    execution: { mode, start: explicitIds ? null : start, requestedCount: explicitIds ? explicitIds.length : count, executedCount: results.length, stride: explicitIds ? null : stride },
+    passed, failed, skipped, results
+  };
+  fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
+  console.log(JSON.stringify({ mode, matrixCaseCount: product, executed: results.length, passed, failed, skipped }, null, 2));
+  return { results, passed, failed, skipped };
 }
 
 async function main() {
@@ -68,24 +109,35 @@ async function main() {
     : 'run';
 
   if (mode === 'validate') {
-    console.log(JSON.stringify({ caseCount: product, expected: matrix.caseCount, valid: product === matrix.caseCount }, null, 2));
+    const dimensionsValid = dims.every(([, values]) => Array.isArray(values) && values.length > 0);
+    if (!dimensionsValid || product !== matrix.caseCount) throw new Error('Test matrix dimensions are empty or inconsistent.');
+    console.log(JSON.stringify({ theoreticalCaseCount: product, expected: matrix.caseCount, valid: true, fullyExecuted: false }, null, 2));
     return;
   }
   if (mode === 'list') {
-    const start = Number(arg('start', '1')); const count = Number(arg('count', '20'));
-    for (let i = start; i < start + count && i <= product; i++) console.log(JSON.stringify(caseAt(i)));
+    const start = Number(arg('start', '1'));
+    const count = Number(arg('count', '20'));
+    const stride = Number(arg('stride', '1'));
+    for (let i = start, emitted = 0; emitted < count && i <= product; i += stride, emitted++) console.log(JSON.stringify(caseAt(i)));
     return;
   }
 
-  const count = Number(arg('count', mode === 'smoke' ? '100' : '100'));
+  if (mode === 'smoke') {
+    const batch = await runBatch({ explicitIds: representativeSmokeIds(), mode: 'representative-smoke' });
+    if (batch.failed > 0 || batch.passed === 0) process.exitCode = 2;
+    return;
+  }
+
   let start = Number(arg('start', '1'));
+  const count = Number(arg('count', '100'));
+  const stride = Number(arg('stride', '1'));
   const interval = Number(arg('interval', '300000'));
 
   do {
-    const batch = await runBatch(start, count);
-    if (batch.failed > 0) process.exitCode = 2;
+    const batch = await runBatch({ start, count, stride, mode: mode === 'continuous' ? 'continuous-sample' : 'sample' });
+    if (batch.failed > 0 || batch.passed === 0) process.exitCode = 2;
     if (mode !== 'continuous') break;
-    start = start + count > product ? 1 : start + count;
+    start = start + count * stride > product ? 1 : start + count * stride;
     await sleep(interval);
   } while (true);
 }

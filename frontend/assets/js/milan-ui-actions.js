@@ -270,18 +270,37 @@
         };
 
         try {
-            for (let index = 0; index < totalChunks; index++) {
+            // Bounded parallelism: faster transfer without flooding the backend.
+            const requestedConcurrency = Number(window.MILAN_UPLOAD_CONCURRENCY || 3);
+            const chunkConcurrency = Math.max(
+                1,
+                Math.min(
+                    3,
+                    Number.isFinite(requestedConcurrency)
+                        ? Math.floor(requestedConcurrency)
+                        : 3,
+                    totalChunks
+                )
+            );
+
+            const chunkLoaded = new Array(totalChunks).fill(0);
+            let loadedBytes = 0;
+
+            const reportProgress = () => {
+                if (!onProgress || file.size <= 0) return;
+                onProgress(Math.max(
+                    1,
+                    Math.min(96, (loadedBytes / file.size) * 96)
+                ));
+            };
+
+            const uploadChunk = async index => {
                 const start = index * actualChunkBytes;
-                const end = Math.min(
-                    file.size,
-                    start + actualChunkBytes
-                );
+                const end = Math.min(file.size, start + actualChunkBytes);
                 const blob = file.slice(start, end);
-
                 let lastError = null;
-                let uploaded = false;
 
-                for (let attempt = 0; attempt < 4 && !uploaded; attempt++) {
+                for (let attempt = 0; attempt < 4; attempt++) {
                     try {
                         await new Promise((resolve, reject) => {
                             const xhr = new XMLHttpRequest();
@@ -306,118 +325,102 @@
                                 "Content-Type",
                                 "application/octet-stream"
                             );
-                            xhr.setRequestHeader(
-                                "X-Chunk-Index",
-                                String(index)
-                            );
-                            xhr.setRequestHeader(
-                                "X-Total-Chunks",
-                                String(totalChunks)
-                            );
-                            xhr.setRequestHeader(
-                                "X-Chunk-Bytes",
-                                String(blob.size)
-                            );
+                            xhr.setRequestHeader("X-Chunk-Index", String(index));
+                            xhr.setRequestHeader("X-Total-Chunks", String(totalChunks));
+                            xhr.setRequestHeader("X-Chunk-Bytes", String(blob.size));
 
                             xhr.upload.onprogress = event => {
-                                if (!event.lengthComputable || !onProgress) return;
+                                if (!event.lengthComputable) return;
 
-                                const pct =
-                                    ((uploadedBase + event.loaded) /
-                                        file.size) *
-                                    96;
-
-                                onProgress(
-                                    Math.max(
-                                        1,
-                                        Math.min(96, pct)
-                                    )
+                                const nextLoaded = Math.max(
+                                    0,
+                                    Math.min(blob.size, event.loaded)
                                 );
+
+                                loadedBytes += nextLoaded - chunkLoaded[index];
+                                chunkLoaded[index] = nextLoaded;
+                                reportProgress();
                             };
 
                             xhr.onload = () => {
-                                if (
-                                    xhr.status >= 200 &&
-                                    xhr.status < 300
-                                ) {
+                                if (xhr.status >= 200 && xhr.status < 300) {
                                     resolve();
                                     return;
                                 }
 
                                 let data = {};
                                 try {
-                                    data = JSON.parse(
-                                        xhr.responseText || "{}"
-                                    );
+                                    data = JSON.parse(xhr.responseText || "{}");
                                 } catch (_) {}
 
-                                reject(
-                                    new Error(
-                                        data.error ||
-                                        "Video chunk upload failed: HTTP " +
-                                        xhr.status
-                                    )
-                                );
+                                reject(new Error(
+                                    data.error ||
+                                    "Video chunk upload failed: HTTP " + xhr.status
+                                ));
                             };
 
-                            xhr.onerror = () =>
-                                reject(
-                                    new Error(
-                                        "Network error while uploading video."
-                                    )
-                                );
-
-                            xhr.ontimeout = () =>
-                                reject(
-                                    new Error(
-                                        "Video chunk upload timed out."
-                                    )
-                                );
-
-                            xhr.onabort = () =>
-                                reject(
-                                    new Error(
-                                        "Video upload cancelled."
-                                    )
-                                );
+                            xhr.onerror = () => reject(
+                                new Error("Network error while uploading video.")
+                            );
+                            xhr.ontimeout = () => reject(
+                                new Error("Video chunk upload timed out.")
+                            );
+                            xhr.onabort = () => reject(
+                                new Error("Video upload cancelled.")
+                            );
 
                             xhr.send(blob);
                         });
 
-                        uploaded = true;
+                        // Count the full chunk only after the server confirms success.
+                        loadedBytes += blob.size - chunkLoaded[index];
+                        chunkLoaded[index] = blob.size;
+                        reportProgress();
+                        return;
                     } catch (error) {
                         lastError = error;
 
+                        // A retry retransmits this chunk, so remove its previous
+                        // in-flight bytes from the aggregate progress.
+                        loadedBytes -= chunkLoaded[index];
+                        chunkLoaded[index] = 0;
+                        reportProgress();
+
                         if (attempt < 3) {
                             await new Promise(resolve =>
-                                setTimeout(
-                                    resolve,
-                                    700 + attempt * 900
-                                )
+                                setTimeout(resolve, 700 + attempt * 900)
                             );
                         }
                     }
                 }
 
-                if (!uploaded) {
-                    throw lastError ||
-                        new Error("Video chunk upload failed.");
-                }
+                throw lastError || new Error("Video chunk upload failed.");
+            };
 
-                uploadedBase = end;
+            let nextIndex = 0;
+            let workerError = null;
 
-                if (onProgress) {
-                    onProgress(
-                        Math.max(
-                            1,
-                            Math.min(
-                                96,
-                                (uploadedBase / file.size) * 96
-                            )
-                        )
-                    );
+            const worker = async () => {
+                while (!workerError) {
+                    const index = nextIndex++;
+                    if (index >= totalChunks) return;
+
+                    try {
+                        await uploadChunk(index);
+                    } catch (error) {
+                        if (!workerError) workerError = error;
+                        return;
+                    }
                 }
-            }
+            };
+
+            // Wait for active requests to settle before failure cleanup removes
+            // the upload session. This avoids racing DELETE against active chunks.
+            await Promise.all(
+                Array.from({ length: chunkConcurrency }, () => worker())
+            );
+
+            if (workerError) throw workerError;
 
             if (onProgress) onProgress(98);
 

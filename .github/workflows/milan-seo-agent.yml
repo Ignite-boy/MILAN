@@ -33,7 +33,23 @@ jobs:
           SEO_TIMEOUT: "20"
         run: |
           python -m py_compile Live-UI-Update/seo-agent/seo_agent.py
-          python Live-UI-Update/seo-agent/seo_agent.py || echo "SEO findings detected; report generated."
+          rm -rf seo-reports
+          set +e
+          python Live-UI-Update/seo-agent/seo_agent.py
+          audit_status=$?
+          set -e
+          if [ ! -s seo-reports/latest.json ]; then
+            echo "::error::SEO audit did not produce a report; this is an execution failure."
+            exit 2
+          fi
+          if [ "$audit_status" -eq 0 ]; then
+            echo "SEO audit completed with no blocking issues."
+          elif [ "$audit_status" -eq 1 ]; then
+            echo "::warning::SEO issues were detected. The audit report was generated; review the artifact."
+          else
+            echo "::error::SEO auditor exited unexpectedly with code $audit_status."
+            exit "$audit_status"
+          fi
 
       - name: Upload SEO report
         if: always()

@@ -1,10 +1,10 @@
-/* MILAN service worker - v95
+/* MILAN service worker - v96
    Goal: stay FRESH on Android/WebView (no stale app shell) while still giving a
    real offline experience. We do NOT cache the HTML/JS app shell (prevents old
    login patches from returning). We DO precache a small offline fallback + icons
    so failed navigations show a proper page instead of a browser error. */
 
-var CACHE_NAME = 'milan-v102-universal-uiux';
+var CACHE_NAME = 'milan-v103-chat-feed-isolation';
 var OFFLINE_URL = '/offline.html';
 var PRECACHE = [OFFLINE_URL, '/favicon.svg', '/assets/icon-192.png', '/manifest.json'];
 

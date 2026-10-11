@@ -1,78 +1,41 @@
-# MILAN — Real Per-User DWN Implementation
+# DWN protocol status — MILAN
 
-## What changed
+## Verified state
 
-MILAN now runs a **real Decentralized Web Node per user** using the official
-DIF / TBD reference SDK (`@tbd54566975/dwn-sdk-js`) — not a JSON simulation.
+The main MILAN API's current persistence implementation is Supabase-authoritative. The canonical C++ component under `DWN/` is a separate LevelDB-backed C++20 target. The current main API metadata explicitly sets `realDwnProtocol: false`; the source tree does not contain the previously documented `backend/services/realDwnEngine.js`.
 
-> **1 user = 1 real cryptographic DID = 1 isolated real DWN node.**
+Therefore, this repository does **not** currently establish that production web requests execute signed DWN `RecordsWrite` / `RecordsQuery` messages against an isolated protocol node for every user.
 
-### Before
-- DIDs were fake (`did:key:z<random-base64>`), not spec-compliant.
-- "DWN spaces" were plain JSON files in per-user folders.
-- No real DWN protocol messages, no signing, no LevelDB.
+## What the production code currently does
 
-### After
-- **Real DIDs**: each user gets a genuine `did:key` (Ed25519) created and
-  persisted by the engine. The DID stored on the user record is exactly the
-  key that signs that user's DWN messages.
-- **Real DWN nodes**: each user has a dedicated `Dwn` instance backed by
-  isolated LevelDB stores (MessageStore / DataStore / EventLog /
-  ResumableTaskStore) under their own `spaceId` directory.
-- **Real protocol**: every record is written as a signed `RecordsWrite`
-  (`dwn.processMessage(tenantDid, message)` → HTTP-equivalent status `202`),
-  and is queryable via signed `RecordsQuery` (status `200`).
+- Uses DID and per-user space identifiers to associate application records with a user.
+- Stores record metadata/data and database snapshots through Supabase-backed tables; media paths use Supabase Storage configuration.
+- Reports Supabase persistence status separately from a real protocol-engine readiness signal.
+- Contains a standalone C++ DWN experiment in `DWN/`, whose canonical CMake build links LevelDB and excludes `src/postgres_storage.cpp`.
 
-## Key files
+A Supabase tenant row is evidence of a configured tenant record; it is **not** evidence that a DWN protocol engine is running or that cryptographic protocol messages were verified.
 
-| File | Role |
-|------|------|
-| `backend/services/realDwnEngine.js` | **New.** The real per-user DWN engine: opens/caches one node per `spaceId`, real DID resolution, signed write/query, status, graceful close. |
-| `backend/utils/did.js` | `mintRealUserIdentity()` mints a real DID via the engine at registration (falls back to a unique legacy id if the SDK is unavailable). |
-| `backend/services/cloudDwnRegistry.js` | `pushRecordToCloudDwn()` now also performs the real DWN-node write and attaches the cryptographic proof under `cloudDwn.sync.realNode`. Honors a pre-assigned `spaceId`. New `realUserDwnNodeStatus()`. |
-| `backend/routes/auth.js` | Registration uses `mintRealUserIdentity()`. |
-| `backend/routes/isolatedDwn.js` | `/api/isolated-dwn/my-server` now includes `realNode`; new `/api/isolated-dwn/real-node`. |
-| `backend/server.js` | Logs engine status on boot; closes all user nodes gracefully on SIGTERM/SIGINT (LevelDB flush). |
+## Production claims that are not yet supported
 
-## Guarantees
+Until a real engine is integrated and exercised end-to-end, do not describe these as established production guarantees:
 
-- **Non-breaking**: if `@tbd54566975/dwn-sdk-js` fails to load or a node fails
-  to open, the engine returns a structured `{ ok:false, reason }` and the
-  existing JSON persistence keeps the app fully working. No hard crash.
-- **Stable identity**: a user's `spaceId` and real DID are fixed at
-  registration and reused on every login/restart (the DID is loaded from a
-  durable `portable-did.json` inside the node directory).
-- **Isolation**: one user can never read another user's node; each node is a
-  separate DWN tenant with its own signing key and its own LevelDB.
+- one independent running DWN node per account;
+- signed protocol messages executed by that node;
+- protocol-level RecordsWrite/RecordsQuery status codes;
+- a durable portable DID private key available after deployment restarts;
+- protocol-level isolation verified by cross-tenant tests.
 
-## Configuration
+## Acceptance gate for a future protocol integration
 
-```
-MILAN_REAL_DWN_ENGINE=true                      # on by default
-MILAN_REAL_DWN_ENGINE_ROOT=/var/data/milan-dwn/real-dwn-engine   # optional
-```
+A future implementation should not set `realDwnProtocol: true` until all of the following exist and pass:
 
-Defaults to `<cloud-dwn-root>/real-dwn-engine`, so on Render it lands on your
-persistent disk automatically.
+1. A tracked, maintained engine implementation and pinned SDK/dependency versions.
+2. Durable key/identity lifecycle with documented backup/recovery and no private key leakage.
+3. Authenticated tenant resolution derived from verified identity, not caller-supplied space IDs.
+4. Signed RecordsWrite and RecordsQuery integration tests that assert protocol response codes and returned record content.
+5. Cross-tenant tests proving one identity cannot read, update or delete another tenant's records.
+6. Restart/redeploy persistence tests against the real configured durable store.
+7. Runtime health that distinguishes `storageReady`, `tenantConfigured`, and `protocolReady`.
+8. Production deployment, secret and backup verification with recorded evidence.
 
-## Verify it
-
-```
-# Per-user real node health + proof:
-GET /api/isolated-dwn/real-node   (Authorization: Bearer <token>)
-
-# Full server view incl. real node:
-GET /api/isolated-dwn/my-server
-```
-
-A successful record write attaches proof like:
-
-```json
-"realNode": {
-  "ok": true,
-  "status": 202,
-  "dwnRecordId": "bafyrei...",
-  "tenantDid": "did:key:z6Mk...",
-  "spaceId": "milan-...."
-}
-```
+Do not flip the protocol-ready flag based on a database row, a successful HTTP health response, or the presence of the C++ source folder alone.

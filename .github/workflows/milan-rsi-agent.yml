@@ -1,0 +1,59 @@
+name: MILAN RSI Repair Agent
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["MILAN Sentinel"]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: milan-rsi-repair
+  cancel-in-progress: false
+
+jobs:
+  repair-analysis:
+    if: github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Sentinel
+        run: npm ci
+        working-directory: Milan-Sentinel
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+        working-directory: Milan-Sentinel
+      - name: Install RSI agent
+        run: npm install --no-audit --no-fund
+        working-directory: Milan-RSI-Agent
+      - name: Analyze and propose one bounded repair cycle
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          MILAN_GH_TOKEN: ${{ secrets.MILAN_GH_TOKEN }}
+          RSI_AUTO_PUSH: 'false'
+          RSI_MODEL: ${{ vars.RSI_MODEL }}
+        run: node scripts/rsi-loop.js
+        working-directory: Milan-RSI-Agent
+      - name: Upload Sentinel evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: milan-rsi-sentinel-evidence
+          path: Milan-Sentinel/reports/latest-results.json
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Upload repair proposal
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: milan-rsi-repair-proposal
+          path: Milan-RSI-Agent/evidence/
+          if-no-files-found: ignore
+          retention-days: 14

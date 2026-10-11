@@ -20,7 +20,12 @@ function invalidateAuthCache() { _cache = null; _cacheAt = 0; }
 
 module.exports = async (req, res, next) => {
   const header = req.headers.authorization || '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : (req.query && req.query.token ? String(req.query.token) : null);
+  const bearerToken = header.startsWith('Bearer ') ? header.slice(7) : null;
+  // EventSource cannot attach Authorization headers; allow a query token only for this exact GET endpoint.
+  const requestPath = String(req.originalUrl || '').split('?')[0];
+  const isSseGet = req.method === 'GET' && requestPath === '/api/events';
+  const queryToken = isSseGet && req.query && req.query.token ? String(req.query.token) : null;
+  const token = bearerToken || queryToken;
   if (!token) return res.status(401).json({ error: 'No token provided' });
 
   try {
