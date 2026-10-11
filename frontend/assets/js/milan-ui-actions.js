@@ -1973,7 +1973,7 @@
 
         try {
             const response = await fetch(
-                "/api/records",
+                "/api/social/feed?scope=all",
                 {
                     method: "GET",
                     headers: {
