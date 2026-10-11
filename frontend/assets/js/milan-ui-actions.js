@@ -52,6 +52,16 @@
         );
     }
 
+    function isChatFeedRecord(record) {
+        const data = record?.data && typeof record.data === "object" ? record.data : {};
+        return String(record?.protocol || "").trim().toLowerCase() === "milan.chat" ||
+            String(record?.protocolPath || "").trim().toLowerCase() === "messages" ||
+            String(record?.schema || "").trim().toLowerCase() === "milan.chat.message" ||
+            String(record?.title || "").trim().toLowerCase() === "milan chat message" ||
+            String(data.kind || "").trim().toLowerCase() === "chat_message" ||
+            Boolean(data.messageId && data.conversationId && data.senderDid && data.recipientDid);
+    }
+
     function getRecordText(record) {
         const data = record?.data || {};
 
@@ -1876,16 +1886,22 @@
         const byId = new Map();
 
         for (const record of state.feedRecords.values()) {
+            if (isChatFeedRecord(record)) continue;
             const id = getRecordId(record);
             if (id) byId.set(id, record);
         }
 
         for (const record of serverRecords || []) {
+            if (isChatFeedRecord(record)) continue;
             const id = getRecordId(record);
             if (id) byId.set(id, record);
         }
 
         for (const [id, record] of state.pendingPosts) {
+            if (isChatFeedRecord(record)) {
+                state.pendingPosts.delete(id);
+                continue;
+            }
             if (!byId.has(id)) {
                 byId.set(id, record);
             } else {
@@ -1917,6 +1933,8 @@
         const list = $("milanFeedList");
 
         if (!list) return;
+
+        records = (Array.isArray(records) ? records : []).filter(record => !isChatFeedRecord(record));
 
         state.feedRecords = new Map(
             (records || [])

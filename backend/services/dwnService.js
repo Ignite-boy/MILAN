@@ -5,6 +5,7 @@ const uuidv4 = () => crypto.randomUUID();
 const { readJson, writeJson, findUserByDid } = require('../utils/store');
 const { BROWSER_SAFE_MEDIA, detectMimeFromFile, extForMime, categoryForMime, normalizeUploadedMedia } = require('../utils/mediaCompat');
 const { getDwnInfo, pushRecordToCloudDwn, deleteRecordFromCloudDwn, pushMediaToCloudDwn, storageRootFor, dwnRoot, databaseRoot, isolatedRoot, persistenceInfo, cloudRemoteBase, isEmbeddedSelfEndpoint } = require('./cloudDwnRegistry');
+const { assertCloudSyncSucceeded } = require('./dwnSyncGuard');
 
 const { createClient } = require('@supabase/supabase-js');
 
@@ -535,6 +536,7 @@ async function createRecord(userId, ownerDid, body = {}) {
       for (let attempt = 1; attempt <= 3; attempt += 1) {
         try {
           await markCloudSync(existingForRequestedId, ownerDid);
+          assertCloudSyncSucceeded(existingForRequestedId);
           lastError = null;
           break;
         } catch (err) {
@@ -594,6 +596,7 @@ async function createRecord(userId, ownerDid, body = {}) {
     for (let attempt = 1; attempt <= 3; attempt += 1) {
       try {
         await markCloudSync(record, ownerDid);
+        assertCloudSyncSucceeded(record);
         lastError = null;
         break;
       } catch (err) {
