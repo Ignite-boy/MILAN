@@ -1,6 +1,6 @@
 name: MILAN UI Deployment
 
-run-name: MILAN UI Deployment
+run-name: "${{ inputs.run_name || format('MILAN UI Deployment #{0}', github.run_number) }}"
 
 on:
   workflow_dispatch:

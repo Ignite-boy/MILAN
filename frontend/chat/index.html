@@ -889,10 +889,26 @@
   let remoteTypingTimer = null;
   let typingActive = false;
   let readReceiptSignature = "";
+  let outboxProcessing = false;
   const CHAT_ACTIVE_KEY = "milan_chat_active_did";
   const CHAT_CACHE_PREFIX = "milan_chat_cache:";
   const CHAT_OUTBOX_KEY = "milan_chat_outbox_v1";
   const MAX_CLIENT_RETRIES = 3;
+  const CHAT_REQUEST_TIMEOUT_MS = 20000;
+
+  // Never let a second account on a shared browser restore another person's
+  // draft, failed message, read marker, or cached private conversation.
+  function scopedChatStorageKey(base, suffix = "") {
+    const owner = String(myDid || "").trim();
+    if (!owner) return "";
+    return String(base) + ":v2:" + encodeURIComponent(owner) +
+      (suffix ? ":" + encodeURIComponent(String(suffix)) : "");
+  }
+
+  const activeChatStorageKey = () => scopedChatStorageKey(CHAT_ACTIVE_KEY);
+  const cachedChatStorageKey = did => scopedChatStorageKey(CHAT_CACHE_PREFIX, did);
+  const outboxStorageKey = () => scopedChatStorageKey(CHAT_OUTBOX_KEY);
+  const readMarkerStorageKey = did => scopedChatStorageKey("milanChatRead", did);
 
   const getToken = () => {
     try {
@@ -999,11 +1015,13 @@
   }
 
   function readMarker(did) {
-    try { return localStorage.getItem("milanChatRead:" + did) || ""; } catch (_) { return ""; }
+    const key = readMarkerStorageKey(did);
+    try { return key ? localStorage.getItem(key) || "" : ""; } catch (_) { return ""; }
   }
 
   function markRead(did, at) {
-    try { localStorage.setItem("milanChatRead:" + did, at || new Date().toISOString()); } catch (_) {}
+    const key = readMarkerStorageKey(did);
+    try { if (key) localStorage.setItem(key, at || new Date().toISOString()); } catch (_) {}
   }
 
   function isUnread(item) {
@@ -1191,8 +1209,18 @@
 
     const merged = [...map.values()]
       .sort((a, b) => Date.parse(a.sentAt || "") - Date.parse(b.sentAt || ""));
+    const fingerprint = message => [
+      message.messageId || message.id || "",
+      message.text || "",
+      message.sentAt || "",
+      message.dateModified || "",
+      message.status || "",
+      message.deliveryStatus || "",
+      message.deliveredAt || "",
+      message.readAt || ""
+    ].join("\u001f");
     const changed = merged.length !== currentMessages.length ||
-      merged.some((message, index) => String(message.messageId || message.id || "") !== String(currentMessages[index]?.messageId || currentMessages[index]?.id || ""));
+      merged.some((message, index) => fingerprint(message) !== fingerprint(currentMessages[index] || {}));
     currentMessages = merged;
     return changed;
   }
@@ -1211,13 +1239,24 @@
   async function api(path, options = {}) {
     const token = getToken();
     if (!token) throw new Error("Please sign in to use Milan Chat.");
+    const { timeoutMs = CHAT_REQUEST_TIMEOUT_MS, ...requestOptions } = options;
     const headers = {
       Authorization: "Bearer " + token,
       Accept: "application/json",
-      ...(options.body ? {"Content-Type":"application/json"} : {}),
-      ...(options.headers || {})
+      ...(requestOptions.body ? {"Content-Type":"application/json"} : {}),
+      ...(requestOptions.headers || {})
     };
-    const response = await fetch(path, {...options, headers, cache:"no-store"});
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    let response;
+    try {
+      response = await fetch(path, {...requestOptions, headers, cache:"no-store", signal:controller.signal});
+    } catch (err) {
+      if (err?.name === "AbortError") throw new Error("Chat request timed out. It will retry safely.");
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
     let data = null;
     try { data = await response.json(); } catch (_) {}
     if (!response.ok) throw new Error(data?.error || "Chat request failed.");
@@ -1236,24 +1275,39 @@
   }
 
   function saveChatCache(did, messages) {
+    const key = cachedChatStorageKey(did);
+    if (!key) return;
     try {
-      localStorage.setItem(CHAT_CACHE_PREFIX + encodeURIComponent(String(did || "")), JSON.stringify({
+      localStorage.setItem(key, JSON.stringify({
         savedAt: Date.now(),
         messages: (Array.isArray(messages) ? messages : []).filter(message => message.status !== "sending").slice(-200)
       }));
     } catch (_) {}
   }
 
-  function readOutbox() {
+  function readChatCache(did) {
+    const key = cachedChatStorageKey(did);
+    if (!key) return null;
     try {
-      const raw = localStorage.getItem(CHAT_OUTBOX_KEY);
+      const raw = localStorage.getItem(key);
+      const cached = raw ? JSON.parse(raw) : null;
+      return Array.isArray(cached?.messages) ? cached : null;
+    } catch (_) { return null; }
+  }
+
+  function readOutbox() {
+    const key = outboxStorageKey();
+    if (!key) return [];
+    try {
+      const raw = localStorage.getItem(key);
       const rows = raw ? JSON.parse(raw) : [];
       return Array.isArray(rows) ? rows.slice(0, 50) : [];
     } catch (_) { return []; }
   }
 
   function writeOutbox(rows) {
-    try { localStorage.setItem(CHAT_OUTBOX_KEY, JSON.stringify((Array.isArray(rows) ? rows : []).slice(0, 50))); } catch (_) {}
+    const key = outboxStorageKey();
+    try { if (key) localStorage.setItem(key, JSON.stringify((Array.isArray(rows) ? rows : []).slice(0, 50))); } catch (_) {}
   }
 
   function upsertOutbox(item) {
@@ -1264,6 +1318,12 @@
 
   function removeOutbox(clientMessageId) {
     writeOutbox(readOutbox().filter(row => row.clientMessageId !== clientMessageId));
+  }
+
+  function updateOutbox(clientMessageId, patch) {
+    writeOutbox(readOutbox().map(row =>
+      row.clientMessageId === clientMessageId ? {...row, ...patch} : row
+    ));
   }
 
   function retryDelay(attempt) {
@@ -1293,7 +1353,8 @@
 
     selected = person;
     readReceiptSignature = "";
-    try { localStorage.setItem(CHAT_ACTIVE_KEY, String(person.did || "")); } catch (_) {}
+    const activeKey = activeChatStorageKey();
+    try { if (activeKey) localStorage.setItem(activeKey, String(person.did || "")); } catch (_) {}
     shell.classList.remove("mobile-list");
     shell.classList.remove("people-open");
     emptyState.style.display = "none";
@@ -1376,7 +1437,6 @@
     const did = selected.did;
     try {
       const last = currentMessages[currentMessages.length - 1];
-      const after = incremental && last?.sentAt ? "&after=" + encodeURIComponent(last.sentAt) : "";
       const path = incremental
         ? "/api/chat/with/" + encodeURIComponent(did) + "/messages?after=" + encodeURIComponent(last?.sentAt || "")
         : "/api/chat/with/" + encodeURIComponent(did);
@@ -1397,8 +1457,8 @@
         // layer so refresh never leaves the conversation looking empty while
         // the authoritative mailbox is being read.
         currentMessages = serverMessages;
-        renderMessages(currentMessages);
         mergeOutboxForConversation(did);
+        renderMessages(currentMessages);
         scrollConversationToBottom(forceBottom);
       }
 
@@ -1418,7 +1478,14 @@
 
   function showChatError(err) {
     const message = esc(err?.message || "Chat unavailable.");
-    conversation.innerHTML = '<div class="chat-system-note">' + message + '</div>';
+    if (!currentMessages.length) {
+      conversation.innerHTML = '<div class="chat-system-note">' + message + '</div>';
+      return;
+    }
+    setConversationSubtitle(message + " · Retrying safely");
+    setTimeout(() => {
+      if (selected) setConversationSubtitle(conversationSubtitle(selected));
+    }, 3200);
   }
 
   async function sendMessage() {
@@ -1444,7 +1511,9 @@
       clientMessageId,
       recipientDid,
       text,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      status: "sending",
+      attempts: 0
     });
 
     if (selected?.did === recipientDid) {
@@ -1472,6 +1541,11 @@
       }
       await loadConversations();
     } catch (err) {
+      updateOutbox(clientMessageId, {
+        status: "failed",
+        attempts: Number(readOutbox().find(row => row.clientMessageId === clientMessageId)?.attempts || 0) + 1,
+        lastError: String(err?.message || "Message could not be sent").slice(0, 180)
+      });
       if (selected?.did === recipientDid) {
         currentMessages = currentMessages.map(message =>
           String(message.messageId || message.id) === clientMessageId
@@ -1479,10 +1553,7 @@
             : message
         );
         renderMessages(currentMessages);
-        input.value = text;
-        input.style.height = "auto";
         setComposerEnabled(true);
-        input.focus({preventScroll:true});
       }
       showChatError(err);
     } finally {
@@ -1499,6 +1570,7 @@
     currentMessages = currentMessages.map(message =>
       String(message.messageId || message.id) === clientMessageId ? {...message, status:"sending"} : message
     );
+    updateOutbox(clientMessageId, { status: "sending" });
     renderMessages(currentMessages);
     try {
       const data = await sendMessageRequest(item.recipientDid, item.text, item.clientMessageId);
@@ -1510,6 +1582,7 @@
       scrollConversationToBottom(true);
       await loadConversations();
     } catch (_) {
+      updateOutbox(clientMessageId, { status: "failed" });
       currentMessages = currentMessages.map(message =>
         String(message.messageId || message.id) === clientMessageId ? {...message, status:"failed"} : message
       );
@@ -1528,30 +1601,41 @@
         recipientDid: did,
         text: item.text,
         sentAt: new Date(item.createdAt || Date.now()).toISOString(),
-        status: "failed"
+        status: item.status === "sending" ? "sending" : "failed"
       }));
     if (!pending.length) return false;
     const changed = mergeMessages(pending);
-    renderMessages(currentMessages);
     return changed;
   }
 
   async function processOutbox() {
+    if (outboxProcessing || navigator.onLine === false) return;
     const rows = readOutbox();
     if (!rows.length) return;
-    for (const item of rows) {
-      if (!item?.clientMessageId || !item?.recipientDid || !item?.text) continue;
-      try {
-        const data = await sendMessageRequest(item.recipientDid, item.text, item.clientMessageId);
-        removeOutbox(item.clientMessageId);
-        if (selected?.did === item.recipientDid && data?.message) {
-          currentMessages = currentMessages.filter(message => String(message.messageId || message.id) !== item.clientMessageId);
-          currentMessages = [...currentMessages, data.message];
-          renderMessages(currentMessages);
-          saveChatCache(item.recipientDid, currentMessages);
-          scrollConversationToBottom(true);
+    outboxProcessing = true;
+    try {
+      for (const item of rows) {
+        if (!item?.clientMessageId || !item?.recipientDid || !item?.text) continue;
+        updateOutbox(item.clientMessageId, { status: "sending" });
+        try {
+          const data = await sendMessageRequest(item.recipientDid, item.text, item.clientMessageId);
+          removeOutbox(item.clientMessageId);
+          if (selected?.did === item.recipientDid && data?.message) {
+            currentMessages = currentMessages.filter(message => String(message.messageId || message.id) !== item.clientMessageId);
+            currentMessages = [...currentMessages, data.message];
+            renderMessages(currentMessages);
+            saveChatCache(item.recipientDid, currentMessages);
+            scrollConversationToBottom(true);
+          }
+        } catch (err) {
+          updateOutbox(item.clientMessageId, {
+            status: "failed",
+            lastError: String(err?.message || "Message could not be sent").slice(0, 180)
+          });
         }
-      } catch (_) {}
+      }
+    } finally {
+      outboxProcessing = false;
     }
   }
 
@@ -1573,12 +1657,15 @@
 
           if (String(data.notifType || "") === "chat_read") {
             if (selected && String(data.readerDid || "") === String(selected.did || "")) {
-              currentMessages = currentMessages.map(message =>
+              const changed = mergeMessages(currentMessages.map(message =>
                 String(message.messageId || "") === String(data.messageId || "")
                   ? { ...message, readAt: data.readAt || message.readAt || new Date().toISOString() }
                   : message
-              );
-              renderMessages(currentMessages);
+              ));
+              if (changed) {
+                renderMessages(currentMessages);
+                saveChatCache(selected.did, currentMessages);
+              }
             }
             return;
           }
@@ -1592,13 +1679,18 @@
           if (incoming && incoming.messageId && incoming.senderDid && incoming.recipientDid) {
             const isForOpenConversation =
               selected &&
-              String(selected.did || "") === String(incoming.senderDid || "") &&
-              String(incoming.recipientDid || "") === String(myDid || "");
+              (
+                (String(selected.did || "") === String(incoming.senderDid || "") &&
+                  String(incoming.recipientDid || "") === String(myDid || "")) ||
+                (String(selected.did || "") === String(incoming.recipientDid || "") &&
+                  String(incoming.senderDid || "") === String(myDid || ""))
+              );
 
             if (isForOpenConversation) {
               const changed = mergeMessages([incoming]);
               if (changed) {
                 renderMessages(currentMessages);
+                saveChatCache(selected.did, currentMessages);
                 scrollConversationToBottom(false);
               }
               syncReadReceipts().catch(() => {});
@@ -1618,6 +1710,10 @@
           }
         } catch (_) {}
       };
+      eventStream.onerror = () => {
+        // EventSource reconnects itself. The polling fallback remains active
+        // while a proxy or a server instance is temporarily unavailable.
+      };
     } catch (_) {}
   }
 
@@ -1633,11 +1729,11 @@
         loadConversation(true, false, true).finally(() => { chatPollBusy = false; });
       }
 
-      const listEvery = selected ? 4 : 1;
+      const listEvery = selected ? 3 : 1;
       if (conversationPollTick % listEvery === 0) {
         loadConversations().catch(() => {});
       }
-    }, 1000);
+    }, 5000);
   }
 
   search.addEventListener("input", () => {
@@ -1730,6 +1826,15 @@
     sendMessage();
   });
 
+  conversation.addEventListener("click", event => {
+    const retry = event.target?.closest?.("[data-retry-id]");
+    if (!retry?.dataset?.retryId) return;
+    retry.disabled = true;
+    retryOutboxMessage(retry.dataset.retryId)
+      .catch(() => {})
+      .finally(() => { retry.disabled = false; });
+  });
+
   document.getElementById("peopleBtn")?.addEventListener("click", () => shell.classList.add("people-open"));
   document.getElementById("peopleBackdrop")?.addEventListener("click", () => shell.classList.remove("people-open"));
   document.getElementById("refreshPeopleBtn")?.addEventListener("click", loadPeople);
@@ -1753,6 +1858,13 @@
     }
   });
 
+  window.addEventListener("online", () => {
+    processOutbox().catch(() => {});
+    loadConversations().catch(() => {});
+    if (selected) loadConversation(true, false, false).catch(() => {});
+    if (!eventStream || eventStream.readyState === EventSource.CLOSED) connectRealtime();
+  });
+
   (async () => {
     try {
       if (!getToken()) {
@@ -1769,7 +1881,8 @@
       const requestedDid = String(new URLSearchParams(location.search).get("with") || "").trim();
       let restoreDid = requestedDid;
       if (!restoreDid) {
-        try { restoreDid = String(localStorage.getItem(CHAT_ACTIVE_KEY) || "").trim(); } catch (_) {}
+        const activeKey = activeChatStorageKey();
+        try { restoreDid = String(activeKey ? localStorage.getItem(activeKey) || "" : "").trim(); } catch (_) {}
       }
 
       if (restoreDid) {
@@ -1778,8 +1891,7 @@
           conversations.find(item => item.person?.did === restoreDid)?.person || null;
         if (requestedPerson) {
           try {
-            const raw = localStorage.getItem(CHAT_CACHE_PREFIX + encodeURIComponent(restoreDid));
-            const cached = raw ? JSON.parse(raw) : null;
+            const cached = readChatCache(restoreDid);
             if (Array.isArray(cached?.messages) && cached.messages.length) {
               selected = requestedPerson;
               emptyState.style.display = "none";

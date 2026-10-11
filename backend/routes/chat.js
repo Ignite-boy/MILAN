@@ -21,6 +21,10 @@ const MAX_MESSAGE_CHARS = 5000;
 const MAX_HISTORY = 200;
 const CHAT_QUERY_RECORD_LIMIT = MAX_HISTORY * 2;
 const CHAT_GLOBAL_RECORD_LIMIT = MAX_HISTORY * 20;
+// A retry can arrive while the first request is still syncing its two private
+// mailboxes. Serialising by message keeps the operation idempotent inside this
+// server instance; deterministic record IDs keep it idempotent across restarts.
+const chatWriteLocks = new Map();
 
 const didOf = value => String(value || '').trim();
 
@@ -93,6 +97,14 @@ function cleanText(value) {
     .slice(0, MAX_MESSAGE_CHARS);
 }
 
+function cleanClientMessageId(value) {
+  const id = String(value == null ? '' : value).trim().slice(0, 120);
+  if (!id) return '';
+  // Client IDs are opaque idempotency keys, not user-facing text. Keeping a
+  // constrained format prevents accidental key reuse caused by pasted text.
+  return /^[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$/.test(id) ? id : null;
+}
+
 async function recipientByDid(did) {
   const { data, error } = await supabase
     .from('users')
@@ -141,6 +153,57 @@ function mailboxRecordId(conversationId, messageId, role) {
     .slice(0, 64);
 }
 
+async function withChatWriteLock(lockKey, operation) {
+  const previous = chatWriteLocks.get(lockKey) || Promise.resolve();
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const queued = previous.catch(() => {}).then(() => gate);
+  chatWriteLocks.set(lockKey, queued);
+
+  await previous.catch(() => {});
+  try {
+    return await operation();
+  } finally {
+    release();
+    if (chatWriteLocks.get(lockKey) === queued) chatWriteLocks.delete(lockKey);
+  }
+}
+
+async function chatMailboxRecord(ownerDid, conversationId, messageId, role) {
+  const owner = didOf(ownerDid);
+  const recordId = mailboxRecordId(conversationId, messageId, role);
+  if (!owner || !recordId) return null;
+
+  const { data: row, error } = await supabase
+    .from('dwn_records')
+    .select('record_id,owner_did,date_created,date_modified,deleted')
+    .eq('record_id', recordId)
+    .eq('owner_did', owner)
+    .eq('deleted', false)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!row) return null;
+
+  const { data: payload, error: payloadError } = await supabase
+    .from('dwn_record_data')
+    .select('data')
+    .eq('record_id', recordId)
+    .maybeSingle();
+
+  if (payloadError) throw payloadError;
+  const data = decodeStoredData(payload?.data);
+  if (!data || typeof data !== 'object' || data.kind !== 'chat_message') return null;
+
+  return {
+    id: String(row.record_id || recordId),
+    owner,
+    dateCreated: row.date_created || null,
+    dateModified: row.date_modified || row.date_created || null,
+    data
+  };
+}
+
 async function createChatMailboxRecord(userId, ownerDid, data) {
   const role = String(data?.mailboxRole || '').trim() || 'mailbox';
   return dwnStore.createRecord(userId, ownerDid, {
@@ -149,80 +212,22 @@ async function createChatMailboxRecord(userId, ownerDid, data) {
   });
 }
 
-async function recipientMailboxHasMessage(recipientDid, messageId) {
-  const did = didOf(recipientDid);
-  const key = didOf(messageId);
-  if (!did || !key) return false;
-
-  const { data: rows, error } = await supabase
-    .from('dwn_records')
-    .select('record_id')
-    .eq('deleted', false)
-    .eq('protocol', CHAT_PROTOCOL)
-    .eq('protocol_path', CHAT_PATH)
-    .eq('owner_did', did)
-    .order('date_created', { ascending: false })
-    .limit(MAX_HISTORY * 4);
-
-  if (error) throw error;
-  const ids = (rows || []).map(row => String(row.record_id || '')).filter(Boolean);
-  if (!ids.length) return false;
-
-  const { data: payloads, error: dataError } = await supabase
-    .from('dwn_record_data')
-    .select('record_id,data')
-    .in('record_id', ids);
-
-  if (dataError) throw dataError;
-
-  return (payloads || []).some(row => {
-    const data = decodeStoredData(row.data);
-    return data && typeof data === 'object' &&
-      data.kind === 'chat_message' &&
-      String(data.messageId || '') === key;
-  });
-}
-
-async function recipientMailboxHasReceipt(ownerDid, messageId, readerDid) {
+async function recipientMailboxHasReceipt(ownerDid, conversationId, messageId, readerDid) {
   const owner = didOf(ownerDid);
   const key = didOf(messageId);
   const reader = didOf(readerDid);
   if (!owner || !key || !reader) return false;
 
-  const { data: rows, error } = await supabase
+  const { data: row, error } = await supabase
     .from('dwn_records')
     .select('record_id')
     .eq('deleted', false)
-    .eq('protocol', CHAT_PROTOCOL)
-    .eq('protocol_path', CHAT_RECEIPT_PATH)
     .eq('owner_did', owner)
-    .order('date_created', { ascending: false })
-    .limit(MAX_HISTORY * 4);
+    .eq('record_id', receiptRecordId(conversationId, key, reader, owner))
+    .maybeSingle();
 
   if (error) throw error;
-
-  const ids = (rows || [])
-    .map(row => String(row.record_id || ''))
-    .filter(Boolean);
-
-  if (!ids.length) return false;
-
-  const { data: payloads, error: dataError } = await supabase
-    .from('dwn_record_data')
-    .select('record_id,data')
-    .in('record_id', ids);
-
-  if (dataError) throw dataError;
-
-  return (payloads || []).some(row => {
-    const data = decodeStoredData(row.data);
-    return data &&
-      typeof data === 'object' &&
-      data.kind === 'chat_receipt' &&
-      data.state === 'read' &&
-      String(data.messageId || '') === key &&
-      String(data.readerDid || '') === reader;
-  });
+  return !!row;
 }
 
 function chatReceiptRecordOptions(data) {
@@ -253,7 +258,7 @@ async function createChatReceiptRecord(userId, ownerDid, data) {
   });
 }
 
-async function decodeStoredData(value) {
+function decodeStoredData(value) {
   if (value == null) return {};
   try {
     if (Buffer.isBuffer(value)) {
@@ -279,7 +284,7 @@ async function conversationMessages(meDid, otherDid, options = {}) {
     .eq('deleted', false)
     .eq('protocol', CHAT_PROTOCOL)
     .eq('protocol_path', CHAT_PATH)
-    .in('owner_did', [meDid, otherDid]);
+    .eq('owner_did', meDid);
 
   if (Number.isFinite(afterMs)) {
     recordsQuery = recordsQuery.gte('date_created', new Date(afterMs).toISOString());
@@ -310,7 +315,7 @@ async function conversationMessages(meDid, otherDid, options = {}) {
     .eq('deleted', false)
     .eq('protocol', CHAT_PROTOCOL)
     .eq('protocol_path', CHAT_RECEIPT_PATH)
-    .in('owner_did', [meDid, otherDid])
+    .eq('owner_did', meDid)
     .order('date_created', { ascending: false })
     .limit(MAX_HISTORY * 4);
 
@@ -372,8 +377,7 @@ async function conversationMessages(meDid, otherDid, options = {}) {
     (!Number.isFinite(afterMs) || Date.parse(message.sentAt || '') >= afterMs) &&
     message.conversationId === conversationId &&
     (
-      message.ownerDid === meDid ||
-      (message.senderDid === otherDid && message.sharedWithDids.includes(meDid))
+      message.ownerDid === meDid
     ) &&
     (
       (message.senderDid === meDid && message.recipientDid === otherDid) ||
@@ -410,6 +414,7 @@ async function listConversations(meDid) {
     .eq('deleted', false)
     .eq('protocol', CHAT_PROTOCOL)
     .eq('protocol_path', CHAT_PATH)
+    .eq('owner_did', currentDid)
     .order('date_created', { ascending: false })
     .limit(CHAT_GLOBAL_RECORD_LIMIT);
 
@@ -435,12 +440,8 @@ async function listConversations(meDid) {
     const data = dataMap.get(recordId);
     if (!data || typeof data !== 'object' || data.kind !== 'chat_message') continue;
 
-    let metadata = {};
-    try { metadata = row.metadata ? JSON.parse(String(row.metadata)) : {}; } catch (_) {}
-
     const ownerDid = didOf(row.owner_did);
-    const sharedWithDids = Array.isArray(metadata.sharedWithDids) ? metadata.sharedWithDids : [];
-    if (ownerDid !== currentDid && !sharedWithDids.includes(currentDid)) continue;
+    if (ownerDid !== currentDid) continue;
 
     const senderDid = didOf(data.senderDid || row.owner_did);
     const recipientDid = didOf(data.recipientDid || row.recipient);
@@ -620,6 +621,7 @@ router.post('/with/:did/read', auth, async (req, res) => {
       messageIds.includes(String(message.messageId || ''))
     );
 
+    const conversationId = conversationIdFor(meDid, otherDid);
     const readAt = new Date().toISOString();
     let created = 0;
 
@@ -628,34 +630,48 @@ router.post('/with/:did/read', auth, async (req, res) => {
         kind: 'chat_receipt',
         state: 'read',
         messageId: String(message.messageId),
-        conversationId: conversationIdFor(meDid, otherDid),
+        conversationId,
         senderDid: otherDid,
         readerDid: meDid,
         readAt
       };
 
-      if (!(await recipientMailboxHasReceipt(meDid, message.messageId, meDid))) {
-        await createChatReceiptRecord(req.userId, meDid, {
-          ...receiptData,
-          mailboxRole: 'reader'
-        });
-        created += 1;
-      }
+      const receiptResult = await withChatWriteLock(
+        ['read', conversationId, message.messageId, meDid].join('|'),
+        async () => {
+          let readerCopyCreated = false;
+          let senderCopyCreated = false;
 
-      if (!(await recipientMailboxHasReceipt(otherDid, message.messageId, meDid))) {
-        await createChatReceiptRecord(other.id, otherDid, {
-          ...receiptData,
-          mailboxRole: 'sender'
+          if (!(await recipientMailboxHasReceipt(meDid, conversationId, message.messageId, meDid))) {
+            await createChatReceiptRecord(req.userId, meDid, {
+              ...receiptData,
+              mailboxRole: 'reader'
+            });
+            readerCopyCreated = true;
+          }
+
+          if (!(await recipientMailboxHasReceipt(otherDid, conversationId, message.messageId, meDid))) {
+            await createChatReceiptRecord(other.id, otherDid, {
+              ...receiptData,
+              mailboxRole: 'sender'
+            });
+            senderCopyCreated = true;
+          }
+
+          return { readerCopyCreated, senderCopyCreated };
+        }
+      );
+
+      if (receiptResult.readerCopyCreated) created += 1;
+      if (receiptResult.readerCopyCreated || receiptResult.senderCopyCreated) {
+        livePush.push(other.id, 'notify', {
+          notifType: 'chat_read',
+          conversationId,
+          readerDid: meDid,
+          messageId: String(message.messageId),
+          readAt
         });
       }
-
-      livePush.push(other.id, 'notify', {
-        notifType: 'chat_read',
-        conversationId: conversationIdFor(meDid, otherDid),
-        readerDid: meDid,
-        messageId: String(message.messageId),
-        readAt
-      });
     }
 
     res.setHeader('Cache-Control', 'no-store');
@@ -780,12 +796,13 @@ router.post('/with/:did/messages', auth, async (req, res) => {
   const meDid = didOf(req.did || req.account?.did);
   const otherDid = didOf(req.params.did);
   const text = cleanText(req.body?.text);
-  const clientMessageId = cleanText(req.body?.clientMessageId).slice(0, 120);
+  const clientMessageId = cleanClientMessageId(req.body?.clientMessageId);
 
   if (!meDid) return res.status(401).json({ error: 'Authenticated DID unavailable' });
   if (!otherDid) return res.status(400).json({ error: 'Recipient DID required' });
   if (meDid === otherDid) return res.status(400).json({ error: 'Cannot message yourself' });
   if (!text) return res.status(400).json({ error: 'Message cannot be empty' });
+  if (clientMessageId === null) return res.status(400).json({ error: 'Invalid client message ID' });
 
   try {
     const recipient = await recipientByDid(otherDid);
@@ -796,80 +813,74 @@ router.post('/with/:did/messages', auth, async (req, res) => {
       return res.status(403).json({ error: 'You can only message connected friends' });
     }
 
-    const now = new Date().toISOString();
     const messageId = clientMessageId || crypto.randomUUID();
     const conversationId = conversationIdFor(meDid, otherDid);
-
-    if (clientMessageId) {
-      const existing = (await conversationMessages(meDid, otherDid))
-        .find(message => message.messageId === clientMessageId);
-      if (existing) {
-        return res.status(200).json({
-          ok: true,
-          duplicate: true,
-          conversationId,
-          message: existing,
-          recipient: {
-            id: recipient.id,
-            name: recipient.name || recipient.email?.split('@')[0] || 'MILAN User',
-            did: recipient.did
-          }
-        });
-      }
-    }
-
-    const messageData = {
-      kind: 'chat_message',
-      messageId,
-      conversationId,
-      senderDid: meDid,
-      recipientDid: otherDid,
-      text,
-      sentAt: now,
-      deliveryStatus: 'delivered',
-      deliveredAt: now
-    };
-
-    // One-to-one DWN mailbox model:
-    // 1) the recipient-owned private mailbox receives the message;
-    // 2) the sender-owned private mailbox keeps the sender's durable copy.
-    // Both copies share one clientMessageId/messageId so retries are idempotent
-    // and each client renders exactly one message.
-    const recipientAlreadyHasMessage = await recipientMailboxHasMessage(otherDid, messageId);
-    if (!recipientAlreadyHasMessage) {
-      await createChatMailboxRecord(recipient.id, otherDid, {
-        ...messageData,
-        mailboxRole: 'recipient'
-      });
-    }
-
-    const senderRecord = await createChatMailboxRecord(req.userId, meDid, {
-      ...messageData,
-      mailboxRole: 'sender'
-    });
-
-    const message = toMessage(senderRecord);
-
-    try {
-      // Push the fully formed message after the recipient DWN mailbox is
-      // durably written. The recipient UI can render it immediately without
-      // waiting for a second network read; polling remains a safety fallback.
-      livePush.push(recipient.id, 'notify', {
-        notifType: 'chat_message',
+    const sendMessage = async () => {
+      // The only records read here are the deterministic private mailbox
+      // records for these two DIDs. A retry never scans an arbitrary history,
+      // so it stays correct even after a busy conversation exceeds its window.
+      const senderExisting = await chatMailboxRecord(meDid, conversationId, messageId, 'sender');
+      const recipientExisting = await chatMailboxRecord(otherDid, conversationId, messageId, 'recipient');
+      const saved = senderExisting?.data || recipientExisting?.data || {};
+      const now = new Date().toISOString();
+      const messageData = {
+        kind: 'chat_message',
+        messageId,
         conversationId,
         senderDid: meDid,
-        messageId,
-        message: {
-          ...message,
-          status: 'delivered'
-        }
-      });
-    } catch (_) {}
+        recipientDid: otherDid,
+        // Preserve the first successfully written payload if the same
+        // clientMessageId is retried with altered text.
+        text: String(saved.text || text),
+        sentAt: saved.sentAt || now,
+        deliveryStatus: 'delivered',
+        deliveredAt: saved.deliveredAt || now
+      };
 
-    return res.status(201).json({
+      // One-to-one DWN mailbox model:
+      // 1) the recipient-owned private mailbox receives the message;
+      // 2) the sender-owned private mailbox keeps the sender's durable copy.
+      // The operation may resume safely after an interrupted half-write.
+      if (!recipientExisting) {
+        await createChatMailboxRecord(recipient.id, otherDid, {
+          ...messageData,
+          mailboxRole: 'recipient'
+        });
+      }
+
+      const senderRecord = senderExisting || await createChatMailboxRecord(req.userId, meDid, {
+        ...messageData,
+        mailboxRole: 'sender'
+      });
+      const message = toMessage(senderRecord);
+      const duplicate = !!senderExisting && !!recipientExisting;
+
+      if (!duplicate) {
+        const realtimeMessage = { ...message, status: 'delivered' };
+        try {
+          // Notify both parties. The sender notification makes a message sent
+          // on phone appear immediately on the sender's other signed-in device.
+          livePush.push(recipient.id, 'notify', {
+            notifType: 'chat_message', conversationId, senderDid: meDid, messageId, message: realtimeMessage
+          });
+          livePush.push(req.userId, 'notify', {
+            notifType: 'chat_message', conversationId, senderDid: meDid, messageId, message: realtimeMessage
+          });
+        } catch (_) {}
+      }
+
+      return { duplicate, message };
+    };
+
+    const outcome = clientMessageId
+      ? await withChatWriteLock(['message', conversationId, messageId].join('|'), sendMessage)
+      : await sendMessage();
+
+    return res.status(outcome.duplicate ? 200 : 201).json({
       ok: true,
+      duplicate: outcome.duplicate,
       conversationId,
-      message,
+      message: outcome.message,
       recipient: {
         id: recipient.id,
         name: recipient.name || recipient.email?.split('@')[0] || 'MILAN User',

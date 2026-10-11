@@ -250,7 +250,10 @@ router.get('/feed', auth, async (req, res) => {
 
 router.get('/records/:id/comments', auth, async (req, res) => {
   const me = current(req); if (!me) return res.status(404).json({ error:'User not found' });
-  await dwnStore.getRecord(req.params.id, me.user.did);
+  const record = await dwnStore.getRecord(req.params.id, me.user.did);
+  if (isChatRecord(record)) {
+    return res.status(400).json({ error: 'Chat messages do not support social comments' });
+  }
   const rows = commentsFor(req.params.id).map(c => ({ ...c, authorProfile: profileFor(findUserByDid(users(), c.authorDid)?.user || { did:c.authorDid, email:'', profile:{} }) }));
   res.json(rows);
 });
@@ -258,6 +261,9 @@ router.get('/records/:id/comments', auth, async (req, res) => {
 router.post('/records/:id/comments', auth, async (req, res) => {
   const me = current(req); if (!me) return res.status(404).json({ error:'User not found' });
   const record = await dwnStore.getRecord(req.params.id, me.user.did);
+  if (isChatRecord(record)) {
+    return res.status(400).json({ error: 'Chat messages do not support social comments' });
+  }
   const text = String(req.body.text || '').trim();
   if (!text) return res.status(400).json({ error:'Comment required' });
   const all = readComments();
@@ -275,6 +281,9 @@ router.post('/records/:id/comments', auth, async (req, res) => {
 router.post('/records/:id/reactions', auth, async (req, res) => {
   const me = current(req); if (!me) return res.status(404).json({ error:'User not found' });
   const record = await dwnStore.getRecord(req.params.id, me.user.did);
+  if (isChatRecord(record)) {
+    return res.status(400).json({ error: 'Chat messages do not support social reactions' });
+  }
   const type = String(req.body.type || 'like').toLowerCase().replace(/[^a-z]/g,'').slice(0,20) || 'like';
   const all = readReactions();
   if (!all[req.params.id]) all[req.params.id] = {};
@@ -296,12 +305,15 @@ router.get('/saved', auth, async (req, res) => {
   const saves = readSaves();
   const ids = saves[req.userId] || [];
   const rows = await dwnStore.listVisibleRecords(me.user.did, req.query);
-  res.json(rows.filter(r => ids.includes(r.id)).map(r => decorateRecord(r, me.user.did)));
+  res.json(rows.filter(r => !isChatRecord(r) && ids.includes(r.id)).map(r => decorateRecord(r, me.user.did)));
 });
 
 router.post('/records/:id/save', auth, async (req, res) => {
   const me = current(req); if (!me) return res.status(404).json({ error:'User not found' });
-  await dwnStore.getRecord(req.params.id, me.user.did);
+  const record = await dwnStore.getRecord(req.params.id, me.user.did);
+  if (isChatRecord(record)) {
+    return res.status(400).json({ error: 'Chat messages cannot be saved as social posts' });
+  }
   const saves = readSaves();
   if (!Array.isArray(saves[req.userId])) saves[req.userId] = [];
   const exists = saves[req.userId].includes(req.params.id);
