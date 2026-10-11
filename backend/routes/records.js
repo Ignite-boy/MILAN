@@ -272,6 +272,27 @@ router.post('/media/chunk/:uploadId', auth, (req, res) => {
   req.pipe(out);
 });
 
+// Lets a browser resume a large upload after a brief disconnect or reload.
+// The caller must still own the session; no media bytes or private metadata are
+// returned. A user can select the same file again and the client sends only
+// the missing chunks.
+router.get('/media/chunk/:uploadId', auth, (req, res) => {
+  const uploadId = safeUploadId(req.params.uploadId);
+  const session = readUploadSession(uploadId);
+  if (!session) return res.status(404).json({ error: 'Upload session not found or expired.' });
+  if (session.userId !== req.userId) return res.status(403).json({ error: 'This upload session belongs to another user.' });
+  return res.json({
+    ok: true,
+    uploadId,
+    status: session.status || 'receiving',
+    chunkBytes: session.chunkBytes,
+    totalChunks: session.totalChunks,
+    received: Object.keys(session.received || {}).map(Number).filter(Number.isInteger).sort((a, b) => a - b),
+    receivedBytes: Number(session.receivedBytes || 0),
+    updatedAt: session.updatedAt
+  });
+});
+
 router.post('/media/chunk/:uploadId/complete', auth, async (req, res) => {
   const uploadId = safeUploadId(req.params.uploadId);
   const session = readUploadSession(uploadId);
