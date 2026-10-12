@@ -3,7 +3,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://milanlife.in/api/:path*"
+      "destination": "https://milan-api-4n3n.onrender.com/api/:path*"
     },
     {
       "source": "/app",
