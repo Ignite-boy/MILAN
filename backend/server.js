@@ -809,7 +809,7 @@ if (!process.env.VERCEL) {
   listenWithFallback(PORT);
 }
 
-(async () => {
+const milanStartupPromise = (async () => {
   const filesToHydrate = [
     global.usersFile, global.recordsFile, global.protocolsFile, global.activityFile,
     global.requestsFile, global.connectionsFile, global.socialReactionsFile,
@@ -828,6 +828,7 @@ if (!process.env.VERCEL) {
   console.log('[STARTUP] initDwn done');
   console.log('DWN storage status:', status);
   console.log('[STARTUP] Supabase-authoritative DWN storage ready');
-})(); module.exports = app; 
+})()
+app.locals.milanStartupPromise = milanStartupPromise;; module.exports = app; 
 
 
