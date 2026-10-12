@@ -25,9 +25,9 @@ This file documents names and minimum intent. It contains no production secrets.
 
 ### Travel Agent
 
-`/chat` now requires an HTTP Bearer token and asks the primary MILAN identity endpoint (`MILAN_AUTH_URL`, default `https://milanlife.in/api/auth/me`) to verify it. The chat handler derives its user ID from the verified response, rejects a conflicting body `user_id`, and namespaces graph thread IDs under that account. Missing/invalid credentials are rejected; identity-service outages return 503 rather than silently trusting the caller. The default Render blueprint includes this URL, and `Travel-Agent/tests/test_auth.py` covers valid/invalid tokens, verifier outages, HTTPS enforcement and cross-account ID rejection.
+`/chat` now requires an HTTP Bearer token and asks the primary MILAN identity endpoint (`MILAN_AUTH_URL`, default `https://milanlife.in/api/auth/me`) to verify it. The chat handler derives its user ID from the verified response, rejects a conflicting body `user_id`, and namespaces graph thread IDs under that account. Missing/invalid credentials are rejected; identity-service outages return 503 rather than silently trusting the caller. `Travel-Agent/tests/test_auth.py` covers valid/invalid tokens, verifier outages, HTTPS enforcement and cross-account ID rejection.
 
-**Deployment caveat:** the current Render service still points to the old pre-consolidation repository. Rebind it to `Ignite-boy/MILAN` with root directory `Travel-Agent` and redeploy before treating this new source behavior as live.
+**Deployment caveat:** the consolidated Vercel project does not yet prove that this component is deployed as a separate FastAPI service. Configure a Vercel project rooted at `Travel-Agent`, supply its required secrets, migrate process-local conversations and FAISS preferences to durable Supabase storage, then verify cross-instance persistence before setting `TRAVEL_AGENT_URL`.
 
 ### C++ DWN component
 
