@@ -10,7 +10,8 @@ const TEXT_EXTENSIONS = /\.(?:c|cc|cpp|h|hpp|js|cjs|mjs|html|css|json|ya?ml|toml
 const IGNORED_DIRS = new Set(['.git', 'node_modules', '.next', 'dist', 'build', 'coverage']);
 const IGNORED_FILE_SUFFIXES = ['.bak', '.before-supabase-cleanup', '.before-supabase-normalize'];
 const RULES = [
-  { name: 'hard-coded Render service hostname', pattern: /https?:\/\/[^\s"'\x60<>]*\.onrender\.com\b/i },
+  { name: 'hard-coded Render service URL', pattern: /https?:\/\/[^\s"'\x60<>]*(?:\.onrender\.com|\.render\.com)\b/i },
+  { name: 'Render provider domain literal', pattern: /\b(?:onrender|render)\.com\b/i },
   { name: 'Render-specific runtime environment variable', pattern: /\bRENDER_[A-Z0-9_]+\b/ }
 ];
 
