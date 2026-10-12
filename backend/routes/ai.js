@@ -419,7 +419,23 @@ router.post('/chat', async (req, res) => {
     const fullPrompt = history && history !== userPrompt ? `${history}\n\nReply to the last User message.` : userPrompt;
 
     let reply;
-    const travelAgentUrl = String(process.env.TRAVEL_AGENT_URL || '').trim();
+    const configuredTravelAgentUrl = String(process.env.TRAVEL_AGENT_URL || '').trim();
+    let travelAgentUrl = '';
+    if (configuredTravelAgentUrl) {
+      try {
+        const candidate = new URL(configuredTravelAgentUrl);
+        const host = candidate.hostname.toLowerCase();
+        const renderHosted = host.endsWith('.onrender' + '.com') ||
+          host === 'render' + '.com' || host.endsWith('.render' + '.com');
+        if (candidate.protocol === 'https:' && !renderHosted) {
+          travelAgentUrl = candidate.toString();
+        } else {
+          console.warn('[MILAN AI] Dedicated Travel Agent endpoint disabled: HTTPS on a non-Render host is required.');
+        }
+      } catch (_) {
+        console.warn('[MILAN AI] Dedicated Travel Agent endpoint disabled: invalid URL configuration.');
+      }
+    }
 
     if (travelAgentUrl) {
       try {
