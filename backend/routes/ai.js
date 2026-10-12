@@ -14,7 +14,6 @@ const path    = require('path');
 
 /* ── helpers ── */
 const DB_ROOT = process.env.MILAN_CLOUD_DWN_ROOT
-  || process.env.RENDER_DISK_MOUNT_PATH
   || path.join(__dirname, '../../data');
 
 function readJson(name) {
@@ -420,31 +419,10 @@ router.post('/chat', async (req, res) => {
 
     let reply;
     try {
-      const travelAgentUrl = process.env.TRAVEL_AGENT_URL || 'https://ai-travel-agent-1u4n.onrender.com/chat';
-      const travelRes = await fetch(travelAgentUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: req.body.user_id || 'milan-user',
-          session_id: req.body.session_id || 'milan-session',
-          message: fullPrompt || 'Hello'
-        })
-      });
-      const travelContentType = travelRes.headers.get('content-type') || '';
-      const travelBody = await travelRes.text();
-      console.log('[MILAN AI] Travel Agent:', travelRes.status, travelContentType, travelBody.slice(0, 300));
-      if (!travelContentType.includes('application/json')) {
-        throw new Error(`Travel Agent returned ${travelRes.status} ${travelContentType}: ${travelBody.slice(0, 120)}`);
-      }
-      const travelData = JSON.parse(travelBody);
-      if (travelRes.ok && travelData.response) {
-        reply = travelData.response;
-      } else {
-        throw new Error(travelData.error || `Travel Agent HTTP ${travelRes.status}`);
-      }
+      reply = await callLLM(system, fullPrompt || 'Hello');
     } catch (e) {
-      console.error('[MILAN AI] Travel Agent failed:', e.message);
-      return res.status(502).json({ success: false, error: 'Travel Agent unavailable: ' + e.message });
+      console.error('[MILAN AI] LLM failed:', e.message);
+      return res.status(502).json({ success: false, error: 'MILAN AI provider unavailable: ' + e.message });
     }
 
     if (!reply) {
