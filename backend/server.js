@@ -828,7 +828,9 @@ const milanStartupPromise = (async () => {
   console.log('[STARTUP] initDwn done');
   console.log('DWN storage status:', status);
   console.log('[STARTUP] Supabase-authoritative DWN storage ready');
-})()
-app.locals.milanStartupPromise = milanStartupPromise;; module.exports = app; 
+})();
+app.locals.milanStartupPromise = milanStartupPromise;
+module.exports = app;
+
 
 
