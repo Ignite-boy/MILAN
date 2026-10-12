@@ -14,7 +14,7 @@
 | DWN C++ experiment | `DWN/` | C++20 target, LevelDB linked, PostgreSQL source excluded from canonical build | That main API invokes its protocol/server |
 | Sentinel | `Milan-Sentinel/` | 10M theoretical Cartesian product; subset adapters only | 10M end-to-end executed tests |
 | RSI | `Milan-RSI-Agent/` | Repair-analysis and patch-generation scripts | Safe autonomous production code mutation without isolation/review |
-| Travel agent | `Travel-Agent/` | FastAPI/LangGraph source now verifies MILAN Bearer tokens through the MILAN identity endpoint and scopes graph/memory IDs by verified user | Deployed enforcement is not verified: Render's current service binding still points to the pre-consolidation repository; live flight/hotel prices also are not guaranteed (the tool contains mock fallbacks) |
+| Travel agent | `Travel-Agent/` | FastAPI/LangGraph source now verifies MILAN Bearer tokens through the MILAN identity endpoint and scopes graph/memory IDs by verified user | Dedicated deployment is not yet verified; live flight/hotel prices are not guaranteed (the tool contains mock fallbacks) |
 | Wallet | `DWN-Wallet/` | Prototype, including in-memory store code | Durable wallet state or connected production transfer routes |
 | UI updater | `Live-UI-Update/` | AI/helper scripts, SEO tooling and workflow source | A second canonical copy of the production UI |
 
@@ -34,20 +34,20 @@
 ### Main API
 The source expects production values for at least `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, and a stable high-entropy `JWT_SECRET`. Optional features (email, payments, external AI) require their own credentials and should be represented as configured/unconfigured rather than assumed active. See `ENVIRONMENT_CONTRACT.md`.
 
-The Node API uses an in-process rate-limit map. It is a per-process guard, not a distributed limiter across serverless instances or multiple Render instances.
+The Node API uses an in-process rate-limit map. It is a per-process guard, not a distributed limiter across serverless instances.
 
 ### Vercel
 The config serves `frontend/` and forwards `/api/*` to `api/index.js`. Static SEO assets should be served from the static output directory, rather than rewrites to absent `/api/seo/*` modules. Production deployment status should be verified against the actual Vercel project/commit because this audit's provider connection could not read the target project's live configuration.
 
-### Render
-The available Render configuration showed `milan-api` connected to the consolidated `Ignite-boy/MILAN` repository and auto-deploying from `main`. The separately listed `DWN` and `ai-travel-agent` services still showed pre-consolidation repository bindings. A commit to MILAN cannot update those services until their repository and root-directory settings are changed in Render. Current service URLs and deployment history must be confirmed in Render before these components are described as live/updated.
+### External service retirement
+The current infrastructure account still contains legacy web services outside the main Vercel project. Repository cleanup alone does not retire those services. Only retire them after their callers have been replaced, the Vercel deployments and Supabase persistence have been tested end to end, and production routing has been verified against a known commit.
 
 ## 4. External dependencies / operational status requiring provider access
 
 These are not resolvable by editing this repository alone:
 
 - Vercel project API access returned a scope-level 403 during this session; production project settings and deployment identity are not independently verified here.
-- Render's current service list identifies legacy repository bindings for the separate DWN and Travel Agent services; the available Render connector did not expose a repository-binding update operation.
+- The current service list identifies separate DWN and Travel Agent services with repository bindings outside this consolidated project; the provider connection did not expose a verified safe cutover path for those bindings.
 - Production secret values are intentionally not read into this document. Their presence and correctness must be verified in the relevant provider secret store.
 - Actual authentication, registration, upload/read-back, cross-user isolation, payments, email delivery and durable-storage recovery require production integration tests; simple homepage/health smoke checks do not prove them.
 
@@ -66,7 +66,7 @@ These are not resolvable by editing this repository alone:
 - Make CI test meaningful smoke cases and report SKIP/FAIL/PASS separately.
 - Remove runaway recursive workflow triggering; keep AI deployment runs bounded.
 - Align Vercel static SEO routes and API destinations with files that actually exist.
-- Correct Render repository bindings for separate components before attempting their redeployment.
+- Deploy companion components to the chosen Vercel/Supabase architecture and retire legacy hosts only after cutover checks pass.
 - Choose one build-backed DWN storage implementation (LevelDB currently) and remove misleading unused PostgreSQL environment fields.
 
 ### P2 — maintainability/observability
