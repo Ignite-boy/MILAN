@@ -46,7 +46,7 @@ npm --prefix Milan-Sentinel run smoke
 
 Use `backend/.env.example` as a template only. Required production secrets must be created in the hosting provider's secret manager and must never be committed. See [the environment contract](docs/ENVIRONMENT_CONTRACT.md) and [MILAN-ONE architecture/status](docs/MILAN_ONE_ARCHITECTURE.md).
 
-Vercel is configured to serve `frontend/` and route API requests through `api/index.js`. The separate Render API service also points to the MILAN repository. External service ownership, environment variables, persistent storage, and the travel/DWN service repository bindings must be verified in their respective provider dashboards; this repo cannot prove those settings by itself.
+Vercel is configured to serve `frontend/` and route API requests through `api/index.js`. This repository alone cannot prove that every companion service has been migrated, that production traffic uses the intended deployment, or that the configured secrets and persistent storage are correct; verify those points before declaring a cutover complete.
 
 ## Operating principles
 

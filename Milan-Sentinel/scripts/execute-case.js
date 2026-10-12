@@ -2,10 +2,12 @@
 
 const { chromium } = require('playwright');
 
-const BASE = process.env.MILAN_URL || 'https://milanlife.in';
-const API = process.env.MILAN_API_URL || 'https://milan-api-4n3n.onrender.com';
-const TRAVEL = process.env.TRAVEL_URL || 'https://ai-travel-agent-1u4n.onrender.com';
-const DWN = process.env.DWN_URL || 'https://mini-dwn.onrender.com';
+const BASE = String(process.env.MILAN_URL || 'https://milanlife.in').replace(/\/+$/, '');
+const API = String(process.env.MILAN_API_URL || BASE).replace(/\/+$/, '');
+// Optional integrations are disabled by default. Supply URLs only after their
+// replacement services have been deployed and verified.
+const TRAVEL = String(process.env.TRAVEL_URL || '').trim().replace(/\/+$/, '');
+const DWN = String(process.env.DWN_URL || '').trim().replace(/\/+$/, '');
 
 const ADAPTERS = {
   'favicon-http-status': { action: 'status', environment: 'milan-prod' },
@@ -40,9 +42,11 @@ const URLS = {
   'sitemap': `${BASE}/sitemap.xml`,
   'canonical': `${BASE}/app`,
   'structured-data': `${BASE}/app`,
-  'dwn-health': `${DWN}/health`,
-  'travel-health': `${TRAVEL}/health`,
-  'travel-request': `${TRAVEL}/`
+  ...(DWN ? { 'dwn-health': `${DWN}/health` } : {}),
+  ...(TRAVEL ? {
+    'travel-health': `${TRAVEL}/health`,
+    'travel-request': `${TRAVEL}/`
+  } : {})
 };
 
 const VIEWPORTS = {

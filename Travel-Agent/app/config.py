@@ -1,7 +1,7 @@
 """
 Central configuration. Everything is read from environment variables so the
-same code runs unchanged on a laptop, in Docker, or on Render — only the
-.env / dashboard env vars change.
+same code runs unchanged on a laptop, in a container, or in a serverless
+deployment. Only environment configuration changes.
 """
 import os
 from dotenv import load_dotenv

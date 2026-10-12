@@ -14,7 +14,7 @@ const path    = require('path');
 
 /* ── helpers ── */
 const DB_ROOT = process.env.MILAN_CLOUD_DWN_ROOT
-  || process.env.RENDER_DISK_MOUNT_PATH
+  || process.env.MILAN_DATA_ROOT
   || path.join(__dirname, '../../data');
 
 function readJson(name) {
@@ -419,32 +419,67 @@ router.post('/chat', async (req, res) => {
     const fullPrompt = history && history !== userPrompt ? `${history}\n\nReply to the last User message.` : userPrompt;
 
     let reply;
-    try {
-      const travelAgentUrl = process.env.TRAVEL_AGENT_URL || 'https://ai-travel-agent-1u4n.onrender.com/chat';
-      const travelRes = await fetch(travelAgentUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: req.body.user_id || 'milan-user',
-          session_id: req.body.session_id || 'milan-session',
-          message: fullPrompt || 'Hello'
-        })
-      });
-      const travelContentType = travelRes.headers.get('content-type') || '';
-      const travelBody = await travelRes.text();
-      console.log('[MILAN AI] Travel Agent:', travelRes.status, travelContentType, travelBody.slice(0, 300));
-      if (!travelContentType.includes('application/json')) {
-        throw new Error(`Travel Agent returned ${travelRes.status} ${travelContentType}: ${travelBody.slice(0, 120)}`);
+    const configuredTravelAgentUrl = String(process.env.TRAVEL_AGENT_URL || '').trim();
+    let travelAgentUrl = '';
+    if (configuredTravelAgentUrl) {
+      try {
+        const candidate = new URL(configuredTravelAgentUrl);
+        const host = candidate.hostname.toLowerCase();
+        const renderHosted = host.endsWith('.onrender' + '.com') ||
+          host === 'render' + '.com' || host.endsWith('.render' + '.com');
+        if (candidate.protocol === 'https:' && !renderHosted) {
+          travelAgentUrl = candidate.toString();
+        } else {
+          console.warn('[MILAN AI] Dedicated Travel Agent endpoint disabled: HTTPS on a non-Render host is required.');
+        }
+      } catch (_) {
+        console.warn('[MILAN AI] Dedicated Travel Agent endpoint disabled: invalid URL configuration.');
       }
-      const travelData = JSON.parse(travelBody);
-      if (travelRes.ok && travelData.response) {
-        reply = travelData.response;
-      } else {
-        throw new Error(travelData.error || `Travel Agent HTTP ${travelRes.status}`);
+    }
+
+    if (travelAgentUrl) {
+      try {
+        const headers = { 'Content-Type': 'application/json' };
+        // The Travel Agent validates MILAN's bearer token itself. Forward the
+        // caller's token; never manufacture an identity from request-body data.
+        const authorization = req.get('authorization');
+        if (authorization) headers.Authorization = authorization;
+
+        const travelRes = await fetch(travelAgentUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            session_id: String(req.body.session_id || 'milan-session'),
+            message: fullPrompt || 'Hello'
+          })
+        });
+        const travelContentType = travelRes.headers.get('content-type') || '';
+        const travelBody = await travelRes.text();
+
+        if (!travelContentType.includes('application/json')) {
+          throw new Error(`Travel Agent returned ${travelRes.status} ${travelContentType}: ${travelBody.slice(0, 120)}`);
+        }
+        const travelData = JSON.parse(travelBody);
+        if (travelRes.ok && travelData.response) {
+          reply = travelData.response;
+        } else {
+          throw new Error(travelData.detail || travelData.error || `Travel Agent HTTP ${travelRes.status}`);
+        }
+      } catch (e) {
+        console.error('[MILAN AI] Configured Travel Agent failed:', e.message);
+        // Do not silently switch to a provider-specific host. Continue to the
+        // shared model path below if the dedicated service is unavailable.
       }
-    } catch (e) {
-      console.error('[MILAN AI] Travel Agent failed:', e.message);
-      return res.status(502).json({ success: false, error: 'Travel Agent unavailable: ' + e.message });
+    }
+
+    if (!reply) {
+      // Without a dedicated travel service, use the configured shared LLM.
+      // This keeps the assistant usable without a hidden external-host dependency.
+      try {
+        reply = await callLLM(system, fullPrompt || 'Hello');
+      } catch (e) {
+        console.error('[MILAN AI] Shared LLM failed:', e.message);
+      }
     }
 
     if (!reply) {

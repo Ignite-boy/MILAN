@@ -9,7 +9,8 @@
     "mail:test": "node scripts/test-mail.js",
     "mail:diagnose": "node scripts/smtp-diagnose.js",
     "build": "node scripts/verify-build.js",
-    "test:chat": "node scripts/chat-self-test.js"
+    "test:chat": "node scripts/chat-self-test.js",
+    "check:render-free": "node scripts/check-render-free.js"
   },
   "dependencies": {
     "@simplewebauthn/server": "^13.3.2",
