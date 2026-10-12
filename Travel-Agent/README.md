@@ -229,20 +229,21 @@ curl -X POST http://localhost:8000/chat \
 
 ---
 
-## 9. Deployment (Render)
+## 9. Deployment target (Vercel)
 
-1. Push this repo to GitHub.
-2. On Render: New → Blueprint → point at the repo (picks up `render.yaml`
-   automatically), or New → Web Service → Environment: Docker.
-3. Set `GEMINI_API_KEY` (get one free at https://aistudio.google.com/apikey —
-   `render.yaml` already defaults `LLM_PROVIDER`/`EMBEDDING_PROVIDER` to `gemini` for
-   the deployed service, since it needs no billing setup and Render's free tier can't
-   run Ollama). Optionally set `OPENWEATHER_API_KEY` / `TAVILY_API_KEY` for live
-   weather/search instead of the mock/Wikipedia fallback.
-4. Deploy → REST API live at `https://<your-service>.onrender.com/chat`.
+The deployment entrypoint is `app/index.py` (which exports the FastAPI app in
+`app/main.py`). Configure a Vercel project using `Travel-Agent` as its root
+directory and install dependencies from `requirements.txt`. Configure
+`GEMINI_API_KEY`; optionally set `OPENWEATHER_API_KEY` and `TAVILY_API_KEY`
+for live weather and search.
 
-For AWS instead: build the same `Dockerfile`, push to ECR, run on ECS Fargate or a
-single EC2 instance behind nginx — no code changes needed either way.
+**Production cutover is not approved by this file alone.** The current
+conversation checkpointer uses process-local memory, and FAISS indexes (including
+long-term user preferences) are read from and written to the local filesystem.
+Those are not durable across serverless instances. Before routing real users to a
+serverless deployment, migrate conversation state and preference storage to
+Supabase-backed persistence and pass cross-instance session/retrieval tests.
+Do not rely on a local filesystem write for durable data.
 
 ---
 
