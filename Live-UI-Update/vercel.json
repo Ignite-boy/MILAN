@@ -3,7 +3,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://milan-api-4n3n.onrender.com/api/:path*"
+      "destination": "/api/index.js"
     },
     {
       "source": "/app",
