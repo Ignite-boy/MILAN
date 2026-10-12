@@ -74,7 +74,6 @@ travel-agent/
 ├── tests/                         # 19 tests, all offline (fakes/mocks, no live LLM needed)
 ├── requirements.txt
 ├── Dockerfile
-├── render.yaml
 ├── .env.example
 └── README.md                      # this file
 ```
