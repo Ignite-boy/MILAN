@@ -2,6 +2,7 @@
 
 const express = require('express');
 const crypto = require('crypto');
+const { DidKey } = require('@web5/dids');
 const jwt = require('jsonwebtoken');
 
 process.env.CBOR_NATIVE_ACCELERATION_DISABLED =
@@ -117,6 +118,46 @@ function challengeExpiresAt() {
   ).toISOString();
 }
 
+function readWebAuthnChallenge(body, expectedType) {
+  try {
+    const encoded = body?.response?.clientDataJSON;
+    if (typeof encoded !== 'string' || !encoded) return null;
+
+    const clientData = JSON.parse(
+      Buffer.from(encoded, 'base64url').toString('utf8')
+    );
+
+    if (clientData?.type !== expectedType) return null;
+    if (typeof clientData.challenge !== 'string' ||
+        !clientData.challenge) return null;
+
+    return clientData.challenge;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function consumeWebAuthnChallenge(id) {
+  const consumedAt = new Date().toISOString();
+
+  const { data, error } = await supabaseDb
+    .from('webauthn_challenges')
+    .update({ used_at: consumedAt })
+    .eq('id', id)
+    .is('used_at', null)
+    .gt('expires_at', consumedAt)
+    .select('id')
+    .maybeSingle();
+
+  if (error) {
+    console.error('[ID3] Challenge consumption failed:', error.message);
+    return false;
+  }
+
+  return Boolean(data?.id);
+}
+
+
 function issueJwt(user) {
   return jwt.sign(
     {
@@ -164,50 +205,49 @@ router.get('/current', auth, (req, res) => {
   });
 });
 
-router.get('/document', auth, (req, res) => {
-  const users =
-    readJson(global.usersFile, {});
-
-  const found =
-    findUserById(users, req.userId);
+router.get('/document', auth, async (req, res) => {
+  const users = readJson(global.usersFile, {});
+  const found = findUserById(users, req.userId);
 
   if (!found) {
-    return res.status(404).json({
-      error: 'User not found'
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  const userDid = String(found.user.did || '').trim();
+  let resolution;
+
+  try {
+    // This installed Web5 API takes the DID URI as a string.
+    resolution = await DidKey.resolve(userDid);
+  } catch (error) {
+    console.warn('[DID] Could not resolve account DID:', error.message);
+  }
+
+  const document = resolution?.didDocument;
+
+  if (
+    !document ||
+    document.id !== userDid ||
+    resolution?.didResolutionMetadata?.error
+  ) {
+    return res.status(409).json({
+      error: 'This account uses a legacy DID that cannot be resolved. Its identifier has not been changed; migration is required.',
+      code: 'legacy_did_migration_required'
     });
   }
 
-  ensureUserDwn(
-    found.user,
-    found.email
-  );
-
+  ensureUserDwn(found.user, found.email);
   users[found.email] = found.user;
   writeJson(global.usersFile, users);
 
-  res.json({
-    '@context': [
-      'https://www.w3.org/ns/did/v1'
-    ],
-    id: found.user.did,
-    verificationMethod: [{
-      id: `${found.user.did}#keys-1`,
-      type: 'JsonWebKey2020',
-      controller: found.user.did,
-      publicKeyJwk: {
-        kty: 'OKP',
-        crv: 'Ed25519',
-        x:
-          found.user.raw_seed?.slice(0, 43) ||
-          'demo'
-      }
-    }],
-    authentication: [
-      `${found.user.did}#keys-1`
-    ],
-    service: [
-      makeDidDwnService(found.user)
-    ]
+  const dwnService = makeDidDwnService(found.user);
+  const services = Array.isArray(document.service)
+    ? document.service.filter(item => item?.id !== dwnService.id)
+    : [];
+
+  return res.json({
+    ...document,
+    service: [...services, dwnService]
   });
 });
 
@@ -368,37 +408,29 @@ router.post(
       });
     }
 
-    const { data: challengeRow, error: challengeError } =
-      await supabaseDb
-        .from('webauthn_challenges')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('purpose', 'registration')
-        .is('used_at', null)
-        .gt(
-          'expires_at',
-          new Date().toISOString()
-        )
-        .order('created_at', {
-          ascending: false
-        })
-        .limit(1)
-        .maybeSingle();
-
-    if (challengeError || !challengeRow) {
+    const responseChallenge = readWebAuthnChallenge(body, 'webauthn.create');
+    if (!responseChallenge) {
       return res.status(400).json({
-        error:
-          'WebAuthn registration challenge expired. Start again.'
+        error: 'Invalid WebAuthn registration response challenge'
       });
     }
 
-    await supabaseDb
+    const challengeNow = new Date().toISOString();
+    const { data: challengeRow, error: challengeError } = await supabaseDb
       .from('webauthn_challenges')
-      .update({
-        used_at: new Date().toISOString()
-      })
-      .eq('id', challengeRow.id);
+      .select('id,challenge')
+      .eq('user_id', user.id)
+      .eq('purpose', 'registration')
+      .eq('challenge', responseChallenge)
+      .is('used_at', null)
+      .gt('expires_at', challengeNow)
+      .maybeSingle();
 
+    if (challengeError || !challengeRow) {
+      return res.status(400).json({
+        error: 'WebAuthn registration challenge is invalid, expired or already used. Start again.'
+      });
+    }
     const { rpID, origin } =
       webauthnConfig(req);
 
@@ -432,6 +464,12 @@ router.post(
       return res.status(400).json({
         error:
           'ID3 registration was not verified'
+      });
+    }
+
+    if (!(await consumeWebAuthnChallenge(challengeRow.id))) {
+      return res.status(409).json({
+        error: 'Registration challenge was already used or expired. Please try again.'
       });
     }
 
@@ -619,40 +657,28 @@ router.post(
       });
     }
 
-    const {
-      data: challengeRow,
-      error: challengeError
-    } = await supabaseDb
-      .from('webauthn_challenges')
-      .select('*')
-      .eq('purpose', 'authentication')
-      .is('used_at', null)
-      .gt(
-        'expires_at',
-        new Date().toISOString()
-      )
-      .order('created_at', {
-        ascending: false
-      })
-      .limit(1)
-      .maybeSingle();
-
-    if (challengeError ||
-        !challengeRow) {
+    const responseChallenge = readWebAuthnChallenge(body, 'webauthn.get');
+    if (!responseChallenge) {
       return res.status(400).json({
-        error:
-          'ID3 authentication challenge expired. Try again.'
+        error: 'Invalid WebAuthn authentication response challenge'
       });
     }
 
-    await supabaseDb
+    const challengeNow = new Date().toISOString();
+    const { data: challengeRow, error: challengeError } = await supabaseDb
       .from('webauthn_challenges')
-      .update({
-        used_at:
-          new Date().toISOString()
-      })
-      .eq('id', challengeRow.id);
+      .select('id,challenge')
+      .eq('purpose', 'authentication')
+      .eq('challenge', responseChallenge)
+      .is('used_at', null)
+      .gt('expires_at', challengeNow)
+      .maybeSingle();
 
+    if (challengeError || !challengeRow) {
+      return res.status(400).json({
+        error: 'WebAuthn authentication challenge is invalid, expired or already used. Start again.'
+      });
+    }
     const { rpID, origin } =
       webauthnConfig(req);
 
@@ -702,6 +728,12 @@ router.post(
       return res.status(401).json({
         error:
           'ID3 authentication was not verified'
+      });
+    }
+
+    if (!(await consumeWebAuthnChallenge(challengeRow.id))) {
+      return res.status(400).json({
+        error: 'Login challenge was already used or expired. Please try again.'
       });
     }
 

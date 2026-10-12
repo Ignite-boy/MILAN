@@ -5,7 +5,7 @@ const bcrypt = require('../services/cryptoPool'); // bcrypt off the event loop (
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const uuidv4 = () => crypto.randomUUID();
-const { generateDIDAndRawSeed, mintRealUserIdentity } = require('../utils/did');
+const { mintRealUserIdentity, toPublicPortableDid } = require('../utils/did');
 const totp = require('../utils/totp');
 const { readJson, writeJson, writeJsonAndSync, addActivity, normalizePulledSnapshot, cleanUsersDb, repairUsersFile } = require('../utils/store');
 const { assignDwnEndpoint, ensureUserDwn, getDwnInfo, provisionRemoteUserDwn, pullDatabaseSnapshot } = require('../services/cloudDwnRegistry');
@@ -196,7 +196,16 @@ router.post('/register', authThrottle(10, 60_000), asyncRoute(async (req, res) =
     .insert(fullInsert);
 
   if (insertError && isMissingOptionalUserColumn(insertError)) {
-    console.warn('[auth] Optional DWN user columns are unavailable; using core registration schema.');
+    const missingColumnMessage = String(insertError.message || '');
+
+    if (/portable_did/i.test(missingColumnMessage)) {
+      console.error('[auth] Encrypted DID persistence column is missing.');
+      return res.status(500).json({
+        error: 'Account schema must support portable_did before registration can proceed.'
+      });
+    }
+
+    console.warn('[auth] Retrying registration without optional DWN columns.');
     ({ error: insertError } = await supabaseDb
       .from('users')
       .insert({
@@ -204,7 +213,8 @@ router.post('/register', authThrottle(10, 60_000), asyncRoute(async (req, res) =
         email,
         password_hash: passwordHash,
         name: displayName,
-        did
+        did,
+        portable_did: portableDid || null
       }));
   }
 
@@ -274,7 +284,7 @@ router.post('/login', authThrottle(15, 60_000), asyncRoute(async (req, res) => {
     name: user.name,
     did: user.did,
     spaceId,
-    portableDid: user.portable_did || '',
+    portableDid: toPublicPortableDid(user.portable_did),
     dwnQuotaBytes: Number(user.dwn_quota_bytes || 1073741824),
     profile: { display_name: String(user.name || '').trim() },
     settings: {},
@@ -312,7 +322,7 @@ router.get('/me', auth, asyncRoute(async (req, res) => {
       dbUser.space_id ||
       deriveUserSpaceId(dbUser.id, dbUser.email)
     ).trim(),
-    portableDid: dbUser.portable_did || '',
+    portableDid: toPublicPortableDid(dbUser.portable_did),
     dwnQuotaBytes: Number(dbUser.dwn_quota_bytes || 1073741824),
     // see the note in POST /login - keeps the registered name available to
     // every client instead of falling back to the email local-part

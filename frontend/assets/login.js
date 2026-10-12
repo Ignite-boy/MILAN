@@ -102,6 +102,36 @@ async function loginWithID3() {
     setToken(result.token);
     window.location.replace("/app.html?login=" + Date.now());
   } catch (error) {
+    if (
+      error?.status === 401 &&
+      /this id3 credential is not registered with milan/i.test(error?.message || "")
+    ) {
+      // The selected passkey is not in MILAN's credential table.
+      // Preserve all existing credentials and request password auth before
+      // enrolling a new credential for this authenticated account.
+      localStorage.setItem("milanID3RepairPending", "1");
+      localStorage.removeItem("milanID3SetupPending");
+      setActiveTab("login");
+
+      const remembered =
+        localStorage.getItem("milanLastAuthEmail") ||
+        localStorage.getItem("rememberedEmail") || "";
+      const loginEmail = document.getElementById("loginEmail");
+      if (loginEmail && remembered) loginEmail.value = remembered;
+
+      const loginPass = document.getElementById("loginPass");
+      if (loginPass) {
+        loginPass.value = "";
+        loginPass.focus();
+      }
+
+      showMessage(
+        "This passkey is not registered with MILAN. Sign in with your password to register a matching passkey.",
+        false
+      );
+      return;
+    }
+
     if (error?.status === 409) {
       localStorage.setItem("milanID3SetupPending", "1");
       setActiveTab("login");
@@ -211,16 +241,31 @@ function bind() {
         if (!data.token) throw new Error("No token received.");
         setToken(data.token);
 
-        if (localStorage.getItem("milanID3SetupPending") === "1") {
-          localStorage.removeItem("milanID3SetupPending");
+        const setupPending =
+          localStorage.getItem("milanID3SetupPending") === "1";
+        const repairPending =
+          localStorage.getItem("milanID3RepairPending") === "1";
 
-          const status = await authenticatedJson("/did/passkey/status");
-          if (status?.registered) {
-            window.location.replace("/app.html?login=" + Date.now());
-          } else {
-            await registerID3();
+        if (setupPending || repairPending) {
+          localStorage.removeItem("milanID3SetupPending");
+          localStorage.removeItem("milanID3RepairPending");
+
+          try {
+            const status = await authenticatedJson("/did/passkey/status");
+
+            // A stale/unregistered browser credential can coexist with an
+            // older stored credential. Repair explicitly, without deleting it.
+            if (repairPending || !status?.registered) {
+              await registerID3({ continueToAppOnFailure: true });
+              return;
+            }
+          } catch (setupError) {
+            console.warn("[MILAN ID3] Optional setup check failed:", setupError?.message || setupError);
+            showMessage(
+              "Password login succeeded. ID3 setup is unavailable right now; continuing to MILAN.",
+              false
+            );
           }
-          return;
         }
 
         window.location.replace("/app.html?login=" + Date.now());
@@ -233,7 +278,7 @@ function bind() {
     });
   }
 
-async function registerID3() {
+async function registerID3({ continueToAppOnFailure = false } = {}) {
     const didBtn =
         document.getElementById(
             "didLoginBtn"
@@ -377,6 +422,14 @@ async function registerID3() {
                 message || "Could not enable ID3. Please try again.",
                 true
             );
+        }
+
+        // If password authentication already succeeded, passkey enrollment
+        // is optional: preserve the valid session and continue to the app.
+        if (continueToAppOnFailure && getToken()) {
+            setTimeout(() => {
+                window.location.replace("/app.html?login=" + Date.now());
+            }, 1200);
         }
     }
 }

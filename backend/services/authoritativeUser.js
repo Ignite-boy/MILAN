@@ -1,6 +1,7 @@
 'use strict';
 
 const { createClient } = require('@supabase/supabase-js');
+const { toPublicPortableDid } = require('../utils/did');
 
 const supabaseDb = createClient(
   process.env.SUPABASE_URL,
@@ -40,7 +41,7 @@ async function getAuthoritativeUserByDid(did) {
   return {
     ...data,
     spaceId,
-    portableDid: data.portable_did || '',
+    portableDid: toPublicPortableDid(data.portable_did),
     dwnQuotaBytes: Number(data.dwn_quota_bytes || 1073741824)
   };
 }
@@ -70,7 +71,7 @@ async function getAuthoritativeUserById(userId) {
   return {
     ...data,
     spaceId,
-    portableDid: data.portable_did || '',
+    portableDid: toPublicPortableDid(data.portable_did),
     dwnQuotaBytes: Number(data.dwn_quota_bytes || 1073741824)
   };
 }
