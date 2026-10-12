@@ -16,6 +16,8 @@ This file documents names and minimum intent. It contains no production secrets.
 
 ## Optional providers
 
+- Dedicated Travel Agent: `TRAVEL_AGENT_URL` is optional and must point to an HTTPS endpoint outside Render. Leave it unset until a supported replacement is deployed and cross-instance persistence tests pass; otherwise the AI route uses the shared LLM fallback.
+
 - Email: configure a supported mail-provider API key or SMTP credentials; otherwise mail features may skip sending.
 - Payments: verify Cashfree/Cashfree environment and price configuration in provider dashboards; an example file with `sandbox` is not proof of live payment readiness.
 - AI: API keys enable providers but do not make every AI route available or accurate.
