@@ -36,7 +36,8 @@ function walk(relativePath) {
     }
     if (!entry.isFile() || !TEXT_EXTENSIONS.test(entry.name)) continue;
     if (path.posix.normalize(childRelative) === SELF_PATH) continue;
-    if (IGNORED_FILE_SUFFIXES.some(suffix => entry.name.endsWith(suffix))) continue;\n    if (/^(?:\\.env(?:\\.|$)|Environment$)/i.test(entry.name)) continue;
+    if (IGNORED_FILE_SUFFIXES.some(suffix => entry.name.endsWith(suffix))) continue;
+    if (/^(?:\.env(?:\.|$)|Environment$)/i.test(entry.name)) continue;
     if (/^render\.(?:yaml|yml)$/i.test(entry.name)) {
       failures.push(`Render deployment manifest remains: ${childRelative}`);
       continue;
