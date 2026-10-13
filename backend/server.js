@@ -28,12 +28,12 @@ app.use((req, res, next) => {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'camera=(), geolocation=(self)');
-  // --- Enterprise security headers (HSTS + CSP) ---
+  // --- Enterprise security headers (HSTS + CSP; Paytm Business Checkout allow-list) ---
   res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
   res.setHeader('X-DNS-Prefetch-Control', 'on');
   res.setHeader('Origin-Agent-Cluster', '?1');
   // CSP tuned for MILAN's stack (inline app scripts, YouTube player, Google Fonts, Audius, Razorpay checkout).
-  res.setHeader('Content-Security-Policy', "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.youtube.com https://s.ytimg.com https://sdk.cashfree.com https://*.cashfree.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https: https://*.cashfree.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://sdk.cashfree.com https://*.cashfree.com; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests");
+  res.setHeader('Content-Security-Policy', "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.youtube.com https://s.ytimg.com https://securestage.paytmpayments.com https://secure.paytmpayments.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https: https://securestage.paytmpayments.com https://secure.paytmpayments.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://securestage.paytmpayments.com https://secure.paytmpayments.com; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests");
   next();
 });
 const rateBuckets = new Map();
@@ -101,7 +101,7 @@ app.use(compression({
 }));
 // Media uploads are streamed directly on /api/records/media.
 // Keep JSON body small for speed and protection on mobile/production.
-// Cashfree webhook needs the exact raw request body for signature verification.
+// Paytm server-to-server webhook signature verification needs the exact raw request body.
 app.use('/api/payment/webhook', express.json({
   limit: '1mb',
   verify: (req, _res, buf) => {
