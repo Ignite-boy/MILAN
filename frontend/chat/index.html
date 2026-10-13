@@ -456,6 +456,13 @@
       padding:8px 2px;
     }
     .chat-compose-box textarea::placeholder{color:#657493}
+    .chat-compose-box textarea{padding-right:58px;padding-bottom:18px}
+    .chat-char-count{
+      position:absolute;right:48px;bottom:5px;
+      color:#7585a8;font-size:9px;line-height:1;
+      white-space:nowrap;pointer-events:none
+    }
+    .chat-char-count.is-limit{color:#ffb27a}
     .chat-send{
       width:44px;height:44px;flex:0 0 44px;
       display:grid;place-items:center;
@@ -827,7 +834,8 @@
         <form class="chat-composer" id="composer">
           <div class="chat-compose-box" style="position:relative">
             <button class="chat-compose-action" id="emojiBtn" type="button" aria-label="Add emoji">☺</button>
-            <textarea id="messageInput" rows="1" placeholder="Select a person to start chatting…" disabled></textarea>
+            <textarea id="messageInput" rows="1" maxlength="5000" aria-describedby="messageCharCount" placeholder="Select a person to start chatting…" disabled></textarea>
+            <span id="messageCharCount" class="chat-char-count" aria-label="Message characters used">0 / 5,000</span>
             <button class="chat-compose-action" id="emojiBtnAlt" type="button" aria-label="Emoji picker">+</button>
             <div class="chat-emoji-pop" id="emojiPop" aria-label="Emoji picker">
               <button class="chat-emoji" type="button">😀</button><button class="chat-emoji" type="button">😂</button><button class="chat-emoji" type="button">😍</button><button class="chat-emoji" type="button">🔥</button><button class="chat-emoji" type="button">❤️</button><button class="chat-emoji" type="button">👍</button>
@@ -865,6 +873,7 @@
   const emptyState = document.getElementById("emptyState");
   const conversation = document.getElementById("conversation");
   const input = document.getElementById("messageInput");
+  const messageCharCount = document.getElementById("messageCharCount");
   const sendBtn = document.getElementById("sendBtn");
   const composer = document.getElementById("composer");
   const emojiBtn = document.getElementById("emojiBtn");
@@ -873,13 +882,15 @@
 
   let people = [];
   let conversations = [];
+  let conversationListRequestId = 0;
   let selected = null;
   let listMode = "conversations";
   let myDid = "";
   let pollingTimer = null;
   let eventStream = null;
-  let loadingConversation = false;
-  let sending = false;
+  let conversationSelectionVersion = 0;
+  const loadingConversationRequests = new Set();
+  const sendingRecipients = new Set();
   let currentMessages = [];
   let chatPollBusy = false;
   let conversationPollTick = 0;
@@ -895,6 +906,7 @@
   const CHAT_OUTBOX_KEY = "milan_chat_outbox_v1";
   const MAX_CLIENT_RETRIES = 3;
   const CHAT_REQUEST_TIMEOUT_MS = 20000;
+  const MAX_CHAT_MESSAGE_CHARS = 5000;
 
   // Never let a second account on a shared browser restore another person's
   // draft, failed message, read marker, or cached private conversation.
@@ -1025,10 +1037,7 @@
   }
 
   function isUnread(item) {
-    if (!item || item.lastSenderDid === myDid) return false;
-    const last = Date.parse(item.lastMessageAt || "");
-    const read = Date.parse(readMarker(item.person?.did || ""));
-    return Number.isFinite(last) && (!Number.isFinite(read) || last > read);
+    return !!item && Number(item.unreadCount || 0) > 0;
   }
 
   function setListMode(mode) {
@@ -1079,6 +1088,7 @@
       const active = selected?.did === person.did ? " is-active" : "";
       const preview = item.lastMessage || "Start a conversation";
       const unread = isUnread(item);
+      const unreadCount = Math.max(0, Number(item.unreadCount) || 0);
       return '<button class="chat-person' + active + '" type="button" data-did="' + esc(person.did) + '">'
         + '<span class="chat-avatar">' + avatarMarkup(person) + '</span>'
         + '<span class="chat-person-main">'
@@ -1086,7 +1096,7 @@
         + '<span class="chat-person-row-meta">'
         + '<span class="chat-person-preview">' + esc(preview) + '</span>'
         + '<span class="chat-time">' + esc(formatChatTime(item.lastMessageAt)) + '</span>'
-        + (unread ? '<span class="chat-unread">1</span>' : '')
+        + (unread ? '<span class="chat-unread">' + (unreadCount > 99 ? "99+" : String(unreadCount)) + '</span>' : '')
         + '</span>'
         + '</span>'
         + '</button>';
@@ -1268,9 +1278,18 @@
     myDid = String(data.did || "");
   }
 
+  function updateMessageCharCount() {
+    if (!messageCharCount) return;
+    const length = input.value.length;
+    messageCharCount.textContent = length.toLocaleString() + " / 5,000";
+    messageCharCount.classList.toggle("is-limit", length >= MAX_CHAT_MESSAGE_CHARS);
+  }
+
+  updateMessageCharCount();
+
   function setComposerEnabled(enabled) {
     input.disabled = !enabled;
-    sendBtn.disabled = !enabled || !input.value.trim() || sending;
+    sendBtn.disabled = !enabled || !input.value.trim() || sendingRecipients.has(String(selected?.did || ""));
     input.placeholder = enabled ? "Write a message…" : "Select a person to start chatting…";
   }
 
@@ -1348,13 +1367,35 @@
     throw lastError || new Error("Message could not be sent.");
   }
 
+  function messageBelongsToConversation(message, did) {
+    const ownerDid = String(myDid || "");
+    const otherDid = String(did || "");
+    const senderDid = String(message?.senderDid || "");
+    const recipientDid = String(message?.recipientDid || "");
+    return !!ownerDid && !!otherDid && (
+      (senderDid === ownerDid && recipientDid === otherDid) ||
+      (senderDid === otherDid && recipientDid === ownerDid)
+    );
+  }
+
   function openConversation(person, focusInput = false) {
     if (!person) return;
+    const did = String(person.did || "").trim();
+    if (!did) return;
 
     selected = person;
+    conversationSelectionVersion += 1;
     readReceiptSignature = "";
+
     const activeKey = activeChatStorageKey();
-    try { if (activeKey) localStorage.setItem(activeKey, String(person.did || "")); } catch (_) {}
+    try { if (activeKey) localStorage.setItem(activeKey, did); } catch (_) {}
+
+    // A contact switch must not leave the previous contact's messages visible.
+    const cached = readChatCache(did);
+    currentMessages = Array.isArray(cached?.messages)
+      ? cached.messages.filter(message => messageBelongsToConversation(message, did))
+      : [];
+
     shell.classList.remove("mobile-list");
     shell.classList.remove("people-open");
     emptyState.style.display = "none";
@@ -1364,6 +1405,13 @@
     typingActive = false;
     currentSub.textContent = conversationSubtitle(person);
     currentAvatar.innerHTML = avatarMarkup(person);
+
+    if (currentMessages.length) {
+      renderMessages(currentMessages);
+    } else {
+      conversation.innerHTML = '<div class="chat-system-note">Loading conversation…</div>';
+    }
+
     setComposerEnabled(true);
     if (focusInput) input.focus({preventScroll:true});
 
@@ -1371,11 +1419,16 @@
   }
 
   async function loadConversations() {
+    const requestId = ++conversationListRequestId;
     try {
       const data = await api("/api/chat/conversations");
+      // Ignore older polling or refresh responses that resolve out of order.
+      if (requestId !== conversationListRequestId) return;
       conversations = Array.isArray(data?.conversations) ? data.conversations : [];
       if (listMode === "conversations") renderConversations(conversations);
     } catch (err) {
+      // An obsolete failed request must not replace the newer list with an error.
+      if (requestId !== conversationListRequestId) return;
       if (listMode === "conversations") {
         peopleList.innerHTML =
           '<div style="padding:28px 14px;color:#ff9a9a;text-align:center;font-size:12px;">' +
@@ -1431,10 +1484,16 @@
   }
 
   async function loadConversation(silent = true, forceBottom = false, incremental = false) {
-    if (!selected || loadingConversation) return;
-    loadingConversation = true;
+    if (!selected) return;
 
-    const did = selected.did;
+    const did = String(selected.did || "");
+    const selectionVersion = conversationSelectionVersion;
+    const requestKey = selectionVersion + ":" + did;
+
+    // Deduplicate only this selection; another contact can load concurrently.
+    if (loadingConversationRequests.has(requestKey)) return;
+    loadingConversationRequests.add(requestKey);
+
     try {
       const last = currentMessages[currentMessages.length - 1];
       const path = incremental
@@ -1442,9 +1501,16 @@
         : "/api/chat/with/" + encodeURIComponent(did);
 
       const data = await api(path);
-      if (!selected || selected.did !== did) return;
 
-      const serverMessages = Array.isArray(data.messages) ? data.messages : [];
+      if (
+        !selected ||
+        String(selected.did || "") !== did ||
+        selectionVersion !== conversationSelectionVersion
+      ) return;
+
+      const serverMessages = (Array.isArray(data.messages) ? data.messages : [])
+        .filter(message => messageBelongsToConversation(message, did));
+
       if (incremental) {
         const changed = mergeMessages(serverMessages);
         if (changed) {
@@ -1453,9 +1519,7 @@
           scrollConversationToBottom(false);
         }
       } else {
-        // The server/DWN is authoritative. Local cache is only a fast-start
-        // layer so refresh never leaves the conversation looking empty while
-        // the authoritative mailbox is being read.
+        // The server is authoritative; local cache is only a fast-start layer.
         currentMessages = serverMessages;
         mergeOutboxForConversation(did);
         renderMessages(currentMessages);
@@ -1463,16 +1527,29 @@
       }
 
       saveChatCache(did, currentMessages);
-
       await syncReadReceipts();
+
+      // Receipt synchronization also awaits network I/O.
+      if (
+        !selected ||
+        String(selected.did || "") !== did ||
+        selectionVersion !== conversationSelectionVersion
+      ) return;
 
       const latest = currentMessages[currentMessages.length - 1];
       if (latest?.sentAt) markRead(did, latest.sentAt);
-      if (!incremental && listMode === "conversations") loadConversations().catch(() => {});
+      if (!incremental && listMode === "conversations") {
+        loadConversations().catch(() => {});
+      }
     } catch (err) {
-      if (!silent) showChatError(err);
+      if (
+        !silent &&
+        selected &&
+        String(selected.did || "") === did &&
+        selectionVersion === conversationSelectionVersion
+      ) showChatError(err);
     } finally {
-      loadingConversation = false;
+      loadingConversationRequests.delete(requestKey);
     }
   }
 
@@ -1489,9 +1566,10 @@
   }
 
   async function sendMessage() {
-    if (!selected || !input.value.trim() || sending) return;
+    if (!selected || !input.value.trim()) return;
 
-    const recipientDid = selected.did;
+    const recipientDid = String(selected.did || "");
+    if (sendingRecipients.has(recipientDid)) return;
     const text = input.value.trim();
     const clientMessageId = (globalThis.crypto?.randomUUID?.() || ("m-" + Date.now() + "-" + Math.random().toString(16).slice(2)));
     const pendingMessage = {
@@ -1505,7 +1583,7 @@
       status: "sending"
     };
 
-    sending = true;
+    sendingRecipients.add(recipientDid);
     sendBtn.disabled = true;
     upsertOutbox({
       clientMessageId,
@@ -1523,6 +1601,7 @@
       scrollConversationToBottom(true);
       input.value = "";
       input.style.height = "auto";
+      updateMessageCharCount();
       setComposerEnabled(true);
     }
 
@@ -1555,9 +1634,9 @@
         renderMessages(currentMessages);
         setComposerEnabled(true);
       }
-      showChatError(err);
+      if (selected?.did === recipientDid) showChatError(err);
     } finally {
-      sending = false;
+      sendingRecipients.delete(recipientDid);
       setComposerEnabled(!!selected);
     }
   }
@@ -1566,27 +1645,55 @@
   async function retryOutboxMessage(clientMessageId) {
     const item = readOutbox().find(row => row.clientMessageId === clientMessageId);
     if (!item) return;
-    if (selected?.did !== item.recipientDid) return;
+
+    const recipientDid = String(item.recipientDid || "");
+    if (!selected || String(selected.did || "") !== recipientDid) return;
+    const selectionVersion = conversationSelectionVersion;
+
     currentMessages = currentMessages.map(message =>
-      String(message.messageId || message.id) === clientMessageId ? {...message, status:"sending"} : message
+      String(message.messageId || message.id) === clientMessageId
+        ? {...message, status:"sending"}
+        : message
     );
     updateOutbox(clientMessageId, { status: "sending" });
     renderMessages(currentMessages);
+
     try {
-      const data = await sendMessageRequest(item.recipientDid, item.text, item.clientMessageId);
+      const data = await sendMessageRequest(
+        recipientDid, item.text, item.clientMessageId
+      );
       removeOutbox(clientMessageId);
-      currentMessages = currentMessages.filter(message => String(message.messageId || message.id) !== clientMessageId);
-      currentMessages = [...currentMessages, data.message];
-      renderMessages(currentMessages);
-      saveChatCache(item.recipientDid, currentMessages);
-      scrollConversationToBottom(true);
+
+      if (
+        selected &&
+        String(selected.did || "") === recipientDid &&
+        selectionVersion === conversationSelectionVersion
+      ) {
+        currentMessages = currentMessages.filter(message =>
+          String(message.messageId || message.id) !== clientMessageId
+        );
+        currentMessages = [...currentMessages, data.message];
+        renderMessages(currentMessages);
+        saveChatCache(recipientDid, currentMessages);
+        scrollConversationToBottom(true);
+      }
+
       await loadConversations();
     } catch (_) {
       updateOutbox(clientMessageId, { status: "failed" });
-      currentMessages = currentMessages.map(message =>
-        String(message.messageId || message.id) === clientMessageId ? {...message, status:"failed"} : message
-      );
-      renderMessages(currentMessages);
+
+      if (
+        selected &&
+        String(selected.did || "") === recipientDid &&
+        selectionVersion === conversationSelectionVersion
+      ) {
+        currentMessages = currentMessages.map(message =>
+          String(message.messageId || message.id) === clientMessageId
+            ? {...message, status:"failed"}
+            : message
+        );
+        renderMessages(currentMessages);
+      }
     }
   }
 
@@ -1804,6 +1911,7 @@
   });
 
   input.addEventListener("input", () => {
+    updateMessageCharCount();
     input.style.height = "auto";
     input.style.height = Math.min(input.scrollHeight, 120) + "px";
     setComposerEnabled(!!selected);

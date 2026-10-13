@@ -146,7 +146,20 @@ function chatMessageRecordOptions(data) {
   };
 }
 
-function mailboxRecordId(conversationId, messageId, role) {
+function mailboxRecordId(ownerDid, conversationId, messageId, role) {
+  return crypto.createHash('sha256')
+    .update([
+      'milan-chat-mailbox-v2',
+      didOf(ownerDid),
+      conversationId,
+      messageId,
+      role
+    ].join('|'))
+    .digest('hex')
+    .slice(0, 64);
+}
+
+function legacyMailboxRecordId(conversationId, messageId, role) {
   return crypto.createHash('sha256')
     .update(['milan-chat-mailbox-v1', conversationId, messageId, role].join('|'))
     .digest('hex')
@@ -171,44 +184,56 @@ async function withChatWriteLock(lockKey, operation) {
 
 async function chatMailboxRecord(ownerDid, conversationId, messageId, role) {
   const owner = didOf(ownerDid);
-  const recordId = mailboxRecordId(conversationId, messageId, role);
-  if (!owner || !recordId) return null;
+  if (!owner) return null;
 
-  const { data: row, error } = await supabase
-    .from('dwn_records')
-    .select('record_id,owner_did,date_created,date_modified,deleted')
-    .eq('record_id', recordId)
-    .eq('owner_did', owner)
-    .eq('deleted', false)
-    .maybeSingle();
+  // Prefer owner-scoped v2 records. Legacy IDs are read-only fallbacks,
+  // and only if the database row still belongs to this owner.
+  const candidates = [
+    { recordId: mailboxRecordId(owner, conversationId, messageId, role), legacy: false },
+    { recordId: legacyMailboxRecordId(conversationId, messageId, role), legacy: true }
+  ];
 
-  if (error) throw error;
-  if (!row) return null;
+  for (const candidate of candidates) {
+    const { data: row, error } = await supabase
+      .from('dwn_records')
+      .select('record_id,owner_did,date_created,date_modified,deleted')
+      .eq('record_id', candidate.recordId)
+      .eq('owner_did', owner)
+      .eq('deleted', false)
+      .maybeSingle();
 
-  const { data: payload, error: payloadError } = await supabase
-    .from('dwn_record_data')
-    .select('data')
-    .eq('record_id', recordId)
-    .maybeSingle();
+    if (error) throw error;
+    if (!row) continue;
 
-  if (payloadError) throw payloadError;
-  const data = decodeStoredData(payload?.data);
-  if (!data || typeof data !== 'object' || data.kind !== 'chat_message') return null;
+    const { data: payload, error: payloadError } = await supabase
+      .from('dwn_record_data')
+      .select('data')
+      .eq('record_id', row.record_id)
+      .maybeSingle();
 
-  return {
-    id: String(row.record_id || recordId),
-    owner,
-    dateCreated: row.date_created || null,
-    dateModified: row.date_modified || row.date_created || null,
-    data
-  };
+    if (payloadError) throw payloadError;
+
+    const data = decodeStoredData(payload?.data);
+    if (!data || typeof data !== 'object' || data.kind !== 'chat_message') continue;
+
+    return {
+      id: String(row.record_id || candidate.recordId),
+      owner,
+      dateCreated: row.date_created || null,
+      dateModified: row.date_modified || row.date_created || null,
+      data,
+      legacy: candidate.legacy
+    };
+  }
+
+  return null;
 }
 
 async function createChatMailboxRecord(userId, ownerDid, data) {
   const role = String(data?.mailboxRole || '').trim() || 'mailbox';
   return dwnStore.createRecord(userId, ownerDid, {
     ...chatMessageRecordOptions(data),
-    recordId: mailboxRecordId(data.conversationId, data.messageId, role)
+    recordId: mailboxRecordId(ownerDid, data.conversationId, data.messageId, role)
   });
 }
 
@@ -223,11 +248,29 @@ async function recipientMailboxHasReceipt(ownerDid, conversationId, messageId, r
     .select('record_id')
     .eq('deleted', false)
     .eq('owner_did', owner)
+    .eq('protocol', CHAT_PROTOCOL)
+    .eq('protocol_path', CHAT_RECEIPT_PATH)
     .eq('record_id', receiptRecordId(conversationId, key, reader, owner))
     .maybeSingle();
 
   if (error) throw error;
-  return !!row;
+  if (!row) return false;
+
+  const { data: payloadRow, error: payloadError } = await supabase
+    .from('dwn_record_data')
+    .select('data')
+    .eq('record_id', row.record_id)
+    .maybeSingle();
+
+  if (payloadError) throw payloadError;
+
+  const payload = decodeStoredData(payloadRow?.data);
+  return !!payload &&
+    payload.kind === 'chat_receipt' &&
+    payload.state === 'read' &&
+    String(payload.messageId || '') === key &&
+    String(payload.conversationId || '') === String(conversationId || '') &&
+    String(payload.readerDid || '') === reader;
 }
 
 function chatReceiptRecordOptions(data) {
@@ -252,9 +295,21 @@ function receiptRecordId(conversationId, messageId, readerDid, ownerDid) {
 }
 
 async function createChatReceiptRecord(userId, ownerDid, data) {
+  const recordId = receiptRecordId(
+    data.conversationId, data.messageId, data.readerDid, ownerDid
+  );
+
+  // If this deterministic ID already exists in the local owner snapshot,
+  // update its payload through the DWN service's normal cloud-sync path.
+  // Otherwise createRecord will create it and publish the same deterministic ID.
+  const repaired = await dwnStore.updateRecord(userId, ownerDid, recordId, {
+    data
+  });
+  if (repaired) return repaired;
+
   return dwnStore.createRecord(userId, ownerDid, {
     ...chatReceiptRecordOptions(data),
-    recordId: receiptRecordId(data.conversationId, data.messageId, data.readerDid, ownerDid)
+    recordId
   });
 }
 
@@ -464,9 +519,11 @@ async function listConversations(meDid) {
       sentAt: data.sentAt || row.date_created || row.date_modified || '',
     };
 
-    const previous = uniqueMessages.get(messageId);
+    // A client message ID is unique within a conversation, not globally.
+    const uniqueKey = candidate.conversationId + '|' + messageId;
+    const previous = uniqueMessages.get(uniqueKey);
     if (!previous || candidate.ownerDid === currentDid) {
-      uniqueMessages.set(messageId, candidate);
+      uniqueMessages.set(uniqueKey, candidate);
     }
   }
 
@@ -479,9 +536,15 @@ async function listConversations(meDid) {
       lastMessageAt: message.sentAt,
       lastMessageId: message.messageId,
       lastSenderDid: message.senderDid,
-      messageCount: 0
+      messageCount: 0,
+      historyMessages: []
     };
     item.messageCount += 1;
+    item.historyMessages.push({
+      messageId: message.messageId,
+      senderDid: message.senderDid,
+      sentAt: message.sentAt
+    });
 
     const candidateTime = Date.parse(message.sentAt || '') || 0;
     const currentTime = Date.parse(item.lastMessageAt || '') || 0;
@@ -494,11 +557,130 @@ async function listConversations(meDid) {
     byConversation.set(message.conversationId, item);
   }
 
+  // Keep unread IDs aligned with the same latest-history window shown by
+  // conversationMessages and accepted by the read-receipt endpoint.
+  for (const item of byConversation.values()) {
+    const visibleHistory = item.historyMessages
+      .sort((a, b) =>
+        (Date.parse(a.sentAt || '') || 0) -
+        (Date.parse(b.sentAt || '') || 0)
+      )
+      .slice(-MAX_HISTORY);
+
+    item.incomingMessageIds = visibleHistory
+      .filter(message => message.senderDid === item.otherDid)
+      .map(message => ({ messageId: message.messageId }));
+
+    delete item.historyMessages;
+  }
+
   const conversationRows = [...byConversation.values()]
     .sort((a, b) => new Date(b.lastMessageAt) - new Date(a.lastMessageAt))
     .slice(0, 100);
 
   if (!conversationRows.length) return [];
+
+  // Count unread incoming messages in each conversation's latest visible
+  // history window, using deterministic reader-owned receipt IDs. The
+  // overall candidates are still bounded by CHAT_GLOBAL_RECORD_LIMIT.
+  const incomingMessages = conversationRows.flatMap(row =>
+    row.incomingMessageIds.map(item => ({
+      conversationId: row.conversationId,
+      messageId: item.messageId,
+      receiptId: receiptRecordId(
+        row.conversationId, item.messageId, currentDid, currentDid
+      )
+    }))
+  );
+
+  const existingReadReceiptIds = new Set();
+  const expectedReceiptById = new Map(
+    incomingMessages.map(item => [item.receiptId, item])
+  );
+  const expectedReceiptIds = [...expectedReceiptById.keys()];
+
+  if (expectedReceiptIds.length) {
+    const RECEIPT_LOOKUP_BATCH_SIZE = 200;
+    const MAX_PARALLEL_RECEIPT_LOOKUPS = 4;
+    const receiptIdBatches = [];
+
+    for (
+      let offset = 0;
+      offset < expectedReceiptIds.length;
+      offset += RECEIPT_LOOKUP_BATCH_SIZE
+    ) {
+      receiptIdBatches.push(
+        expectedReceiptIds.slice(offset, offset + RECEIPT_LOOKUP_BATCH_SIZE)
+      );
+    }
+
+    // Bound URL/query size and database concurrency for large inboxes.
+    for (
+      let batchOffset = 0;
+      batchOffset < receiptIdBatches.length;
+      batchOffset += MAX_PARALLEL_RECEIPT_LOOKUPS
+    ) {
+      const batchResults = await Promise.all(
+        receiptIdBatches
+          .slice(batchOffset, batchOffset + MAX_PARALLEL_RECEIPT_LOOKUPS)
+          .map(async receiptBatch => {
+            const { data: receiptRows, error: receiptError } = await supabase
+              .from('dwn_records')
+              .select('record_id')
+              .eq('deleted', false)
+              .eq('protocol', CHAT_PROTOCOL)
+              .eq('protocol_path', CHAT_RECEIPT_PATH)
+              .eq('owner_did', currentDid)
+              .in('record_id', receiptBatch);
+
+            if (receiptError) throw receiptError;
+
+            const receiptRecordIds = (receiptRows || [])
+              .map(row => String(row.record_id || ''))
+              .filter(Boolean);
+
+            if (!receiptRecordIds.length) return [];
+
+            const { data: receiptPayloads, error: payloadError } = await supabase
+              .from('dwn_record_data')
+              .select('record_id,data')
+              .in('record_id', receiptRecordIds);
+
+            if (payloadError) throw payloadError;
+
+            // A row alone is not proof of a successful read receipt.
+            // Validate the linked payload against the expected message.
+            return (receiptPayloads || []).filter(row => {
+              const recordId = String(row.record_id || '');
+              const expected = expectedReceiptById.get(recordId);
+              const payload = decodeStoredData(row.data);
+
+              return !!expected &&
+                payload?.kind === 'chat_receipt' &&
+                payload?.state === 'read' &&
+                String(payload.messageId || '') === expected.messageId &&
+                String(payload.conversationId || '') === expected.conversationId &&
+                String(payload.readerDid || '') === currentDid;
+            }).map(row => String(row.record_id || ''));
+          })
+      );
+
+      for (const readReceiptRows of batchResults) {
+        for (const row of readReceiptRows) {
+          existingReadReceiptIds.add(String(row.record_id || ''));
+        }
+      }
+    }
+  }
+
+  const unreadCountByConversation = new Map();
+  for (const message of incomingMessages) {
+    if (existingReadReceiptIds.has(message.receiptId)) continue;
+    unreadCountByConversation.set(
+      message.conversationId,
+      (unreadCountByConversation.get(message.conversationId) || 0) + 1
+    );
+  }
 
   const dids = [...new Set(conversationRows.map(row => row.otherDid))];
   const { data: users, error: usersError } = await supabase
@@ -527,7 +709,8 @@ async function listConversations(meDid) {
       lastMessageAt: row.lastMessageAt,
       lastMessageId: row.lastMessageId,
       lastSenderDid: row.lastSenderDid,
-      messageCount: row.messageCount
+      messageCount: row.messageCount,
+      unreadCount: unreadCountByConversation.get(row.conversationId) || 0
     }))
     .filter(row => row.person?.did && row.person.did !== currentDid);
 }
@@ -819,8 +1002,41 @@ router.post('/with/:did/messages', auth, async (req, res) => {
       // The only records read here are the deterministic private mailbox
       // records for these two DIDs. A retry never scans an arbitrary history,
       // so it stays correct even after a busy conversation exceeds its window.
-      const senderExisting = await chatMailboxRecord(meDid, conversationId, messageId, 'sender');
-      const recipientExisting = await chatMailboxRecord(otherDid, conversationId, messageId, 'recipient');
+      const senderCandidate = await chatMailboxRecord(meDid, conversationId, messageId, 'sender');
+      const recipientCandidate = await chatMailboxRecord(otherDid, conversationId, messageId, 'recipient');
+
+      const matchesRequestedMessage = record => {
+        const data = record?.data;
+        return !!data &&
+          String(data.conversationId || '') === conversationId &&
+          String(data.messageId || '') === messageId &&
+          String(data.senderDid || '') === meDid &&
+          String(data.recipientDid || '') === otherDid;
+      };
+
+      // The legacy v1 key could collide with the opposite direction of the
+      // same conversation. Never reuse a legacy row with a different payload.
+      let senderExisting = senderCandidate;
+      let recipientExisting = recipientCandidate;
+
+      if (senderExisting?.legacy && !matchesRequestedMessage(senderExisting)) {
+        senderExisting = null;
+      }
+      if (recipientExisting?.legacy && !matchesRequestedMessage(recipientExisting)) {
+        recipientExisting = null;
+      }
+
+      // A v2 ID is owner-scoped. If its payload does not match, fail closed
+      // instead of silently using a record bound to another message identity.
+      if (
+        (senderExisting && !matchesRequestedMessage(senderExisting)) ||
+        (recipientExisting && !matchesRequestedMessage(recipientExisting))
+      ) {
+        const conflict = new Error('Message ID is already bound to a different chat message');
+        conflict.status = 409;
+        throw conflict;
+      }
+
       const saved = senderExisting?.data || recipientExisting?.data || {};
       const now = new Date().toISOString();
       const messageData = {
@@ -841,19 +1057,27 @@ router.post('/with/:did/messages', auth, async (req, res) => {
       // 1) the recipient-owned private mailbox receives the message;
       // 2) the sender-owned private mailbox keeps the sender's durable copy.
       // The operation may resume safely after an interrupted half-write.
-      if (!recipientExisting) {
+      if (!recipientExisting || recipientExisting.legacy) {
         await createChatMailboxRecord(recipient.id, otherDid, {
           ...messageData,
           mailboxRole: 'recipient'
         });
       }
 
-      const senderRecord = senderExisting || await createChatMailboxRecord(req.userId, meDid, {
-        ...messageData,
-        mailboxRole: 'sender'
-      });
+      // Migrate legacy retries to owner-scoped v2 IDs, preserving the
+      // first payload and timestamp used to make the client ID idempotent.
+      const senderRecord = !senderExisting || senderExisting.legacy
+        ? await createChatMailboxRecord(req.userId, meDid, {
+            ...messageData,
+            mailboxRole: 'sender'
+          })
+        : senderExisting;
+
       const message = toMessage(senderRecord);
-      const duplicate = !!senderExisting && !!recipientExisting;
+      const duplicate = !!senderExisting &&
+        !!recipientExisting &&
+        !senderExisting.legacy &&
+        !recipientExisting.legacy;
 
       if (!duplicate) {
         const realtimeMessage = { ...message, status: 'delivered' };
