@@ -661,19 +661,72 @@
         );
 
         if (navButtons[0]) {
-            navButtons[0].onclick = () => go("/app?view=home");
+            navButtons[0].onclick = () => loadFeed({ scope: "all" });
         }
 
         if (navButtons[1]) {
-            navButtons[1].onclick = () => go("/app?view=mine");
+            navButtons[1].onclick = () => loadFeed({ scope: "mine" });
         }
 
         if (navButtons[2]) {
-            navButtons[2].onclick = () => go("/app?view=public");
+            navButtons[2].onclick = () => loadFeed({ scope: "public" });
         }
 
         if (navButtons[3]) {
-            navButtons[3].onclick = () => go("/app?view=saved");
+            navButtons[3].onclick = () => loadFeed({
+                endpoint: "/api/social/saved",
+                emptyMessage: "You have no saved posts yet."
+            });
+        }
+
+        if (navButtons[7]) {
+            navButtons[7].onclick = async () => {
+                const list = $("milanFeedList");
+                const auth = getToken();
+                if (!list) return;
+
+                if (!auth) {
+                    list.textContent = "Login required to view notifications.";
+                    return;
+                }
+
+                list.innerHTML = '<div class="milan-feed-loading">Loading notifications…</div>';
+
+                try {
+                    const response = await fetch("/api/social/notifications", {
+                        headers: {
+                            "Authorization": "Bearer " + auth,
+                            "Accept": "application/json"
+                        },
+                        cache: "no-store"
+                    });
+                    const payload = await response.json().catch(() => []);
+
+                    if (!response.ok || !Array.isArray(payload)) {
+                        throw new Error(payload.error || "Could not load notifications.");
+                    }
+
+                    if (!payload.length) {
+                        list.innerHTML = '<div class="milan-feed-empty">No notifications yet.</div>';
+                        return;
+                    }
+
+                    list.innerHTML = payload.map((item) => {
+                        const type = escapeHtml(String(item.type || "Notification"));
+                        const actor = escapeHtml(String(item.actorDid || "MILAN user"));
+                        const date = new Date(item.createdAt);
+                        const when = Number.isNaN(date.getTime())
+                            ? ""
+                            : escapeHtml(date.toLocaleString());
+                        const unread = item.read ? "" : " · New";
+                        return '<article class="milan-feed-card"><div class="milan-feed-card-body"><strong>' +
+                            type + '</strong><p>' + actor + '</p><small>' +
+                            when + escapeHtml(unread) + '</small></div></article>';
+                    }).join("");
+                } catch (error) {
+                    list.textContent = error.message || "Could not load notifications.";
+                }
+            };
         }
 
         const editProfile = $("editProfileBtn");
@@ -682,12 +735,20 @@
             editProfile.onclick = () => openEditProfileModal();
         }
 
-        if (navButtons[8]) {
-            navButtons[8].onclick = () => go("/privacy");
+        if (navButtons[9]) {
+            navButtons[9].onclick = () => go("/privacy");
         }
 
-        if (navButtons[9]) {
-            navButtons[9].onclick = () => go("/app?view=ai");
+        if (navButtons[10]) {
+            navButtons[10].onclick = () => {
+                if (typeof window.openAIModal === "function") {
+                    window.openAIModal(
+                        '<h2>MILAN AI</h2><p>AI interface is available only when its module is loaded.</p>'
+                    );
+                } else {
+                    go("/app?view=ai");
+                }
+            };
         }
 
         const topActions = document.querySelectorAll(
@@ -1866,12 +1927,51 @@
                             }
 
                             if (action === "save") {
-                                button.classList.toggle("active");
+                                const recordId = card.dataset.recordId || "";
+                                const auth = getToken();
 
-                                button.textContent =
-                                    button.classList.contains("active")
-                                        ? "✓ Saved"
-                                        : "🔖 Save";
+                                if (!recordId || !auth || button.disabled) return;
+
+                                const previousText = button.textContent;
+                                button.disabled = true;
+                                button.textContent = "Saving…";
+
+                                try {
+                                    const response = await fetch(
+                                        "/api/social/records/" +
+                                        encodeURIComponent(recordId) +
+                                        "/save",
+                                        {
+                                            method: "POST",
+                                            headers: {
+                                                "Authorization": "Bearer " + auth,
+                                                "Accept": "application/json"
+                                            },
+                                            cache: "no-store"
+                                        }
+                                    );
+
+                                    const payload = await response.json().catch(() => ({}));
+
+                                    if (!response.ok || typeof payload.saved !== "boolean") {
+                                        throw new Error(
+                                            payload.error || "Could not save this post."
+                                        );
+                                    }
+
+                                    button.classList.toggle("active", payload.saved);
+                                    button.textContent = payload.saved ? "✓ Saved" : "🔖 Save";
+                                    showPublishStatus(
+                                        payload.saved ? "Post saved." : "Post removed from Saved."
+                                    );
+                                } catch (error) {
+                                    button.textContent = previousText;
+                                    showPublishStatus(error.message || "Saving failed.", true);
+                                } finally {
+                                    button.disabled = false;
+                                }
+
+                                return;
                             }
                         };
                     });
@@ -1932,7 +2032,7 @@
         return merged;
     }
 
-    function renderFeed(records) {
+    function renderFeed(records, emptyMessage = "No posts yet. Write your first quote above.") {
         const list = $("milanFeedList");
 
         if (!list) return;
@@ -1948,7 +2048,7 @@
         if (!records.length) {
             list.innerHTML = `
                 <div class="milan-feed-empty">
-                    No posts yet. Write your first quote above.
+                    ${escapeHtml(emptyMessage)}
                 </div>
             `;
             return;
@@ -1990,8 +2090,14 @@
         }
 
         try {
+            const scope = ["mine", "public", "friends"].includes(options.scope)
+                ? options.scope
+                : "all";
+            const endpoint = options.endpoint ||
+                "/api/social/feed?scope=" + encodeURIComponent(scope);
+
             const response = await fetch(
-                "/api/social/feed?scope=all",
+                endpoint,
                 {
                     method: "GET",
                     headers: {
@@ -2015,13 +2121,13 @@
                 );
             }
 
-            const serverRecords =
-                normalizeRecords(payload);
+            const serverRecords = normalizeRecords(payload);
 
-            const merged =
-                mergeRecords(serverRecords);
-
-            renderFeed(merged);
+            if (options.endpoint || scope !== "all") {
+                renderFeed(serverRecords, options.emptyMessage);
+            } else {
+                renderFeed(mergeRecords(serverRecords));
+            }
 
         } catch (error) {
             console.error(
