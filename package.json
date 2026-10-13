@@ -9,7 +9,8 @@
     "mail:test": "node scripts/test-mail.js",
     "mail:diagnose": "node scripts/smtp-diagnose.js",
     "build": "node scripts/verify-build.js",
-    "test:chat": "node scripts/chat-self-test.js"
+    "test:chat": "node scripts/chat-self-test.js",
+    "test:payment": "node scripts/payment-self-test.js"
   },
   "dependencies": {
     "@simplewebauthn/server": "^13.3.2",
@@ -31,6 +32,7 @@
     "jsonwebtoken": "^9.0.0",
     "multer": "^2.3.0",
     "nodemailer": "^6.9.14",
+    "paytmchecksum": "1.5.1",
     "qrcode": "^1.5.4",
     "sharp": "^0.35.4",
     "tus-js-client": "^4.3.1",
