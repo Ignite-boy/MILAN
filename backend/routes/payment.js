@@ -98,7 +98,7 @@ function publicPaymentError(error) {
   if (error?.code === 'PAYTM_NOT_CONFIGURED') {
     return {
       status: 503,
-      message: 'Paytm Business is not configured. Set PAYTM_MID and PAYTM_MERCHANT_KEY in the server environment.'
+      message: 'MILAN Pay is temporarily unavailable. Please try again later or contact MILAN support.'
     };
   }
   if (Number(error?.status) === 401 || Number(error?.status) === 403) {

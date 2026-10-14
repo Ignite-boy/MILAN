@@ -25,7 +25,7 @@ assert(payment.includes('sendPaymentSuccessEmail'), 'Payment-success email must 
 assert(frontend.includes('window.Paytm.CheckoutJS.init(checkoutConfig)'), 'Paytm CheckoutJS init missing.');
 assert(frontend.includes('tokenType: "TXN_TOKEN"'), 'Paytm TXN_TOKEN config missing.');
 assert(frontend.includes('await recoverPayment(order.orderId)'), 'Client must rely on server-side verification.');
-assert(frontend.includes('Paytm Business'), 'Storage page must identify Paytm Business.');
+assert(frontend.includes('MILAN Pay'), 'Storage page must display MILAN Pay branding.');
 assert(server.includes('https://securestage.paytmpayments.com'), 'CSP must allow Paytm staging.');
 assert(server.includes('https://secure.paytmpayments.com'), 'CSP must allow Paytm production.');
 assert(env.includes('PAYTM_MID='), 'Paytm MID example missing.');
