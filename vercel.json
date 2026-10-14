@@ -106,6 +106,10 @@
       "destination": "/cookie-policy.html"
     },
     {
+      "source": "/milan-pay",
+      "destination": "/milan-pay.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/$1"
     }
