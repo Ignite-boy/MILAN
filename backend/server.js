@@ -1,4 +1,4 @@
-require('dotenv').config({ path: require('path').join(__dirname, '.env') });
+require('dotenv').config({ path: require('fs').existsSync(require('path').join(require('os').homedir(), '.config/milan/backend.env')) ? require('path').join(require('os').homedir(), '.config/milan/backend.env') : require('path').join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 const compression = require('compression');
