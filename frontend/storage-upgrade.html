@@ -765,8 +765,8 @@ border-color:#8b5cf6;
         <tr>
           <td>Verification</td>
           <td>Not required</td>
-          <td>Automatic verification</td>
-          <td>Automatic verification</td>
+          <td>Manual bank verification before activation</td>
+          <td>Manual bank verification before activation</td>
         </tr>
       </tbody>
     </table>
@@ -805,7 +805,7 @@ border-color:#8b5cf6;
 
     <div class="card">
       <h3>Secure checkout</h3>
-      <p>MILAN Pay will display the payment methods available for the transaction. This can include Indian UPI/QR and supported international payment methods, subject to merchant activation and transaction eligibility.</p>
+      <p>MILAN Pay uses direct UPI checkout for this flow. Payments remain pending until an administrator independently verifies the UTR, amount, beneficiary, and settled credit against bank records. Cards and international payments are not enabled.</p>
 
       <div class="payment-panel">
         <div class="payment-topline">
@@ -819,20 +819,9 @@ border-color:#8b5cf6;
           Direct UPI orders remain pending until payment is independently verified.
         </div>
 
-        <label style="display:block;margin-top:16px;">
-          Phone number
-          <input
-            id="customerPhone"
-            type="tel"
-            inputmode="tel"
-            autocomplete="tel"
-            maxlength="20"
-            placeholder="+91 9876543210"
-          >
-          <small style="display:block;margin-top:7px;opacity:.72;">
-            Use the country code for international numbers.
-          </small>
-        </label>
+        <div class="payment-subline" style="margin-top:16px;">
+          No phone number is required for direct UPI checkout. After paying in your UPI app, submit the transaction reference in MILAN Pay for manual bank-record review.
+        </div>
 
         <div class="payment-mini-steps" style="margin-top:16px;">
           <div><b>01</b><span>Choose plan</span></div>
@@ -866,13 +855,13 @@ border-color:#8b5cf6;
     </article>
     <article class="step">
       <div class="step-num">03</div>
-      <h3>Server verification</h3>
-      <p>Direct UPI checkout does not yet verify transaction status automatically. Wait for independent payment verification before assuming the upgrade is complete.</p>
+      <h3>Manual bank review</h3>
+      <p>Direct UPI checkout does not verify payment automatically. An administrator must confirm the UTR, exact amount, beneficiary, and settled credit against bank records before activation.</p>
     </article>
     <article class="step">
       <div class="step-num">04</div>
       <h3>Storage activated</h3>
-      <p>Your existing account quota is updated only after Paytm confirms successful payment.</p>
+      <p>Your existing account quota is updated only after an administrator independently verifies the transaction against bank records.</p>
     </article>
   </div>
 </section>
@@ -898,7 +887,7 @@ border-color:#8b5cf6;
     </details>
     <details>
       <summary>How is the payment verified?</summary>
-      <p>MILAN verifies the transaction status directly with Paytm before activating storage. Browser callbacks alone are not treated as proof of payment.</p>
+      <p>Direct UPI payments are not verified automatically. Submit the UTR only after payment, and wait while an administrator checks the UTR, amount, beneficiary, and settled credit against bank records.</p>
     </details>
     <details>
       <summary>What happens after approval?</summary>
