@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta http-equiv="Cache-Control" content="no-store">
+<title>MILAN Pay — Secure Checkout</title>
+<style>
+:root{color-scheme:dark;--bg:#080d1b;--card:#111a2c;--line:#293650;--text:#f5f7ff;--muted:#a7b4cc;--brand:#76e4bb;--warn:#ffce78}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(900px 450px at 50% -10%,#263b62 0%,transparent 65%),var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;min-height:100vh}
+main{max-width:760px;margin:0 auto;padding:28px 18px 60px}.top{display:flex;align-items:center;gap:12px;margin:14px 0 36px}.logo{display:grid;place-items:center;width:44px;height:44px;border-radius:14px;background:var(--brand);color:#082218;font-weight:900;font-size:20px}.brand{font-weight:800;font-size:20px;letter-spacing:.2px}.tag{font-size:12px;color:var(--muted)}h1{font-size:clamp(30px,6vw,44px);line-height:1.1;margin:0 0 12px;letter-spacing:-1px}p{color:var(--muted);margin-top:0}.panel{background:rgba(17,26,44,.94);border:1px solid var(--line);border-radius:22px;padding:22px;margin-top:24px;box-shadow:0 20px 70px #0003}.eyebrow{font-size:12px;color:var(--brand);font-weight:800;text-transform:uppercase;letter-spacing:1.5px}.plans{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0}.plan{background:#0d1525;color:var(--text);border:1px solid var(--line);border-radius:16px;padding:17px;text-align:left;cursor:pointer}.plan[aria-pressed=true]{border-color:var(--brand);box-shadow:inset 0 0 0 1px var(--brand)}.plan strong{display:block;font-size:20px}.plan span{color:var(--muted);font-size:13px}.primary,.secondary{display:block;width:100%;border:0;border-radius:13px;padding:14px 16px;font-weight:800;font-size:15px;cursor:pointer;text-align:center;text-decoration:none}.primary{background:var(--brand);color:#062219}.secondary{background:#1b2940;color:var(--text);margin-top:10px}.primary:disabled{opacity:.5;cursor:not-allowed}.pill{display:inline-flex;gap:7px;align-items:center;border:1px solid var(--line);border-radius:999px;padding:6px 10px;color:var(--muted);font-size:12px}.dot{width:7px;height:7px;border-radius:50%;background:var(--warn)}#status{margin-top:14px;white-space:pre-wrap;font-size:14px;color:var(--muted)}.notice{border-left:3px solid var(--warn);padding:10px 12px;background:#2c2518;border-radius:8px;color:#ffe8b8;font-size:13px;margin-top:16px}.methods{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0}.method{border:1px solid var(--line);border-radius:12px;padding:11px 6px;text-align:center;font-size:13px;color:var(--muted)}footer{font-size:12px;color:#8290aa;margin-top:22px;text-align:center}a{color:var(--brand)}@media(max-width:480px){.plans{grid-template-columns:1fr}.panel{padding:17px}.methods{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<main>
+  <div class="top"><div class="logo">M</div><div><div class="brand">MILAN Pay</div><div class="tag">MILAN merchant checkout</div></div></div>
+  <div class="eyebrow">Secure checkout</div>
+  <h1>Simple payments.<br>Built for MILAN.</h1>
+  <p>Choose your storage plan and continue using a supported payment method.</p>
+
+  <section class="panel">
+    <span class="pill"><span class="dot"></span><span id="railStatus">Checking payment setup…</span></span>
+    <h2 style="margin:18px 0 4px">Choose a plan</h2>
+    <p>Prices are set by the MILAN server.</p>
+    <div class="plans">
+      <button class="plan" data-plan="500mb" aria-pressed="true"><strong>500 MB</strong><span>Storage upgrade · ₹250</span></button>
+      <button class="plan" data-plan="1gb" aria-pressed="false"><strong>1 GB</strong><span>Storage upgrade · ₹500</span></button>
+    </div>
+    <div class="methods">
+      <div class="method">UPI apps*</div>
+      <div class="method">Cards — subject to merchant activation</div>
+      <div class="method">Other methods — subject to provider availability</div>
+    </div>
+    <label for="customerPhone" style="display:block;margin:14px 0 6px;font-weight:700">
+      Phone number for checkout
+    </label>
+    <input id="customerPhone" type="tel" inputmode="tel"
+      autocomplete="tel" maxlength="20" placeholder="+91 9876543210"
+      style="width:100%;padding:13px;border:1px solid var(--line);border-radius:12px;background:#0d1525;color:var(--text)">
+    <button class="primary" id="pay" disabled>Loading payment options…</button>
+    <a class="secondary" href="/storage-upgrade.html">Back to storage plans</a>
+    <div id="status" role="status" aria-live="polite"></div>
+    <div class="notice">A payment is not marked successful just because checkout returns to this page. MILAN confirms payment only after server-side verification with the payment provider.</div>
+  </section>
+  <footer>* Available payment methods depend on merchant approval and provider configuration. Never enter card PIN or payment OTP on a MILAN page.</footer>
+</main>
+<script>
+(() => {
+  "use strict";
+
+  const pay = document.getElementById("pay");
+  const status = document.getElementById("status");
+  const railStatus = document.getElementById("railStatus");
+  const phone = document.getElementById("customerPhone");
+  const token = () => localStorage.getItem("milan_token") || "";
+  let plan = new URLSearchParams(location.search).get("plan") || "500mb";
+  if (!["500mb", "1gb"].includes(plan)) plan = "500mb";
+  let ready = false;
+  let busy = false;
+  let loaderPromise = null;
+
+  function setStatus(message, error = false) {
+    status.textContent = message || "";
+    status.style.color = error ? "#ffadad" : "var(--muted)";
+  }
+
+  function normalizePhone(value) {
+    const digits = String(value || "").replace(/\D/g, "");
+    return digits.length >= 10 && digits.length <= 15 ? digits : "";
+  }
+
+  document.querySelectorAll("[data-plan]").forEach(button => {
+    button.addEventListener("click", () => {
+      plan = button.dataset.plan;
+      document.querySelectorAll("[data-plan]").forEach(item =>
+        item.setAttribute("aria-pressed", String(item === button))
+      );
+    });
+  });
+
+  async function loadConfig() {
+    const response = await fetch("/api/payment/config", { cache: "no-store" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error("Could not load payment configuration.");
+    return data;
+  }
+
+  function loadPaytmCheckout(url) {
+    if (window.Paytm && window.Paytm.CheckoutJS) return Promise.resolve();
+    if (!url) return Promise.reject(new Error("Secure checkout URL is unavailable."));
+    if (loaderPromise) return loaderPromise;
+
+    loaderPromise = new Promise((resolve, reject) => {
+      let done = false;
+      const finish = error => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        if (error) {
+          loaderPromise = null;
+          reject(error);
+        } else if (window.Paytm && window.Paytm.CheckoutJS) {
+          resolve();
+        } else {
+          loaderPromise = null;
+          reject(new Error("Secure checkout could not initialise."));
+        }
+      };
+
+      let parsed;
+      try {
+        parsed = new URL(url, location.origin);
+      } catch {
+        finish(new Error("Invalid checkout URL."));
+        return;
+      }
+
+      if (parsed.protocol !== "https:" ||
+          !["securestage.paytmpayments.com", "secure.paytmpayments.com"].includes(parsed.hostname)) {
+        finish(new Error("Checkout URL is not trusted."));
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = parsed.toString();
+      script.onload = () => finish();
+      script.onerror = () => finish(new Error("Could not load secure checkout."));
+      const timer = setTimeout(() => finish(new Error("Checkout loading timed out.")), 12000);
+      document.head.appendChild(script);
+    });
+
+    return loaderPromise;
+  }
+
+  async function createOrder(phoneNumber) {
+    const response = await fetch("/api/payment/create-order", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + token()
+      },
+      body: JSON.stringify({ plan, customerPhone: phoneNumber }),
+      cache: "no-store"
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Could not create payment order.");
+    if (!data.orderId || !data.txnToken || !data.amount || !data.mid) {
+      throw new Error("The payment provider did not return a valid checkout session.");
+    }
+    return data;
+  }
+
+  async function verifyOrder(orderId) {
+    const response = await fetch("/api/payment/verify", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + token()
+      },
+      body: JSON.stringify({ orderId }),
+      cache: "no-store"
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Payment verification is unavailable.");
+    return data;
+  }
+
+  async function recoverPayment(orderId, attempts = 8) {
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      try {
+        const result = await verifyOrder(orderId);
+        if (result.status === "paid") {
+          setStatus("Payment verified by MILAN. Storage upgrade confirmed.");
+          pay.textContent = "Payment complete";
+          sessionStorage.removeItem("milanPaymentOrderId");
+          return true;
+        }
+        if (result.status === "failed") {
+          setStatus("Payment was not completed. You can start a new payment.", true);
+          return false;
+        }
+        setStatus("Payment is still being processed. Checking securely…");
+      } catch (error) {
+        if (attempt === attempts - 1) {
+          setStatus((error.message || "Verification unavailable.") +
+            " Check your order status before retrying.");
+          return false;
+        }
+      }
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    }
+    setStatus("Payment status is still pending. Please check again shortly.");
+    return false;
+  }
+
+  function launchCheckout(order) {
+    return new Promise((resolve, reject) => {
+      let finished = false;
+      const finish = error => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timer);
+        if (error) reject(error);
+        else resolve();
+      };
+
+      const timer = setTimeout(() => finish(), 120000);
+      const checkout = {
+        root: "",
+        flow: "DEFAULT",
+        data: {
+          orderId: order.orderId,
+          token: order.txnToken,
+          tokenType: "TXN_TOKEN",
+          amount: order.amount
+        },
+        merchant: { redirect: true },
+        handler: {
+          notifyMerchant(eventName) {
+            if (["APP_CLOSED", "SESSION_EXPIRED", "CHECK_ORDER_STATUS"].includes(eventName)) {
+              finish();
+            }
+          },
+          transactionStatus() {
+            try { window.Paytm.CheckoutJS.close(); } catch (_) {}
+            finish();
+          }
+        }
+      };
+
+      Promise.resolve()
+        .then(() => window.Paytm.CheckoutJS.init(checkout))
+        .then(() => window.Paytm.CheckoutJS.invoke())
+        .catch(finish);
+    });
+  }
+
+  async function startPayment() {
+    if (!token()) {
+      location.href = "/login";
+      return;
+    }
+    if (busy || !ready) return;
+
+    const phoneNumber = normalizePhone(phone.value);
+    if (!phoneNumber) {
+      setStatus("Enter a valid phone number, including country code if needed.", true);
+      phone.focus();
+      return;
+    }
+
+    busy = true;
+    pay.disabled = true;
+    pay.textContent = "Preparing secure checkout…";
+    setStatus("Checking merchant configuration…");
+    let order = null;
+
+    try {
+      const config = await loadConfig();
+      if (!config.configured || !config.checkoutJsUrl) {
+        throw new Error("Merchant production credentials or activation are incomplete.");
+      }
+
+      await loadPaytmCheckout(config.checkoutJsUrl);
+      order = await createOrder(phoneNumber);
+      sessionStorage.setItem("milanPaymentOrderId", order.orderId);
+      setStatus("Opening secure payment checkout…");
+      await launchCheckout(order);
+      await recoverPayment(order.orderId);
+    } catch (error) {
+      setStatus(error.message || "Checkout could not start.", true);
+      if (order && order.orderId) {
+        await recoverPayment(order.orderId, 3);
+      }
+    } finally {
+      busy = false;
+      if (ready) {
+        pay.disabled = false;
+        pay.textContent = "Pay securely with MILAN Pay";
+      }
+    }
+  }
+
+  pay.addEventListener("click", startPayment);
+
+  loadConfig()
+    .then(config => {
+      ready = Boolean(config.configured && config.checkoutJsUrl);
+      railStatus.textContent = ready
+        ? "Secure provider checkout available"
+        : "Merchant credentials or activation required";
+      pay.disabled = !ready;
+      pay.textContent = ready ? "Pay securely with MILAN Pay" : "Payments not activated";
+      if (!ready) {
+        setStatus("Production merchant setup is incomplete. No payment has been taken.");
+      }
+    })
+    .catch(() => {
+      railStatus.textContent = "Payment configuration unavailable";
+      pay.disabled = true;
+      pay.textContent = "Payments unavailable";
+      setStatus("Could not check merchant configuration.", true);
+    });
+})();
+</script>
+</body>
+</html>
