@@ -66,6 +66,23 @@ router.post('/orders', auth, async (req, res) => {
       });
     }
 
+    const { data: activeRequest, error: activeRequestError } = await supabase
+      .from('storage_upgrade_requests')
+      .select('id')
+      .eq('user_id', req.account.id)
+      .eq('status', 'pending')
+      .limit(1)
+      .maybeSingle();
+
+    if (activeRequestError) throw activeRequestError;
+    if (activeRequest) {
+      return res.status(409).json({
+        ok: false,
+        code: 'STORAGE_REQUEST_PENDING',
+        error: 'Your existing storage request is awaiting payment verification.'
+      });
+    }
+
     const planKey = String(req.body?.plan || '').trim();
     const plan = PLANS[planKey];
     if (!plan) {
@@ -84,14 +101,17 @@ router.post('/orders', auth, async (req, res) => {
 
     if (error) {
       console.error('[MILAN Pay] Order insert failed:', error.message);
-      return res.status(500).json({ ok: false, error: 'Could not create payment order.' });
+      return res.status(500).json({
+        ok: false,
+        error: 'Could not create payment order.'
+      });
     }
 
     const params = new URLSearchParams({
       pa: vpa,
       pn: merchantName(),
       tr: orderId,
-      tn: `MILAN Pay ${plan.name} ${orderId}`,
+      tn: 'MILAN Pay ' + plan.name + ' ' + orderId,
       am: plan.amountInr.toFixed(2),
       cu: 'INR'
     });
@@ -103,13 +123,17 @@ router.post('/orders', auth, async (req, res) => {
       orderId,
       amountInr: plan.amountInr,
       currency: 'INR',
+      plan: planKey,
       status: 'pending',
-      upiUri: `upi://pay?${params.toString()}`,
-      message: 'Complete payment in your UPI app. This order stays pending until a trusted payment-verification connection confirms settlement.'
+      upiUri: 'upi://pay?' + params.toString(),
+      message: 'Complete payment in your UPI app, then submit the UTR. Storage is upgraded only after independent bank verification.'
     });
   } catch (error) {
     console.error('[MILAN Pay] Order creation failed:', error.message);
-    return res.status(500).json({ ok: false, error: 'Could not create payment order.' });
+    return res.status(500).json({
+      ok: false,
+      error: 'Could not create payment order.'
+    });
   }
 });
 

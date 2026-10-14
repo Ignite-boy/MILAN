@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('node:crypto');
 const fs = require('fs');
 const path = require('path');
 const { readJson, writeJson, cleanUsersDb, repairUsersFile } = require('../utils/store');
@@ -8,9 +9,24 @@ const { mailStatus, sendTestEmail } = require('../services/mailService');
 const router = express.Router();
 
 function adminRequired(req, res, next) {
-  const expected = process.env.ADMIN_TOKEN || 'milan-local-admin-token';
-  const given = req.headers['x-admin-token'] || req.query.adminToken || req.query.token || '';
-  if (String(given) !== String(expected)) return res.status(401).json({ error: 'Admin token required' });
+  const expected = String(process.env.ADMIN_TOKEN || '').trim();
+  const given = String(req.headers['x-admin-token'] || '');
+
+  if (!expected ||
+      expected === 'change-this-admin-token' ||
+      expected === 'milan-local-admin-token') {
+    return res.status(503).json({ error: 'Admin access is not configured securely.' });
+  }
+
+  const givenBuffer = Buffer.from(given);
+  const expectedBuffer = Buffer.from(expected);
+
+  if (!given ||
+      givenBuffer.length !== expectedBuffer.length ||
+      !crypto.timingSafeEqual(givenBuffer, expectedBuffer)) {
+    return res.status(401).json({ error: 'Admin token required' });
+  }
+
   next();
 }
 function fileSizeSafe(file) { try { return fs.statSync(file).size; } catch (_) { return 0; } }

@@ -70,7 +70,6 @@ if (matrix && matrix.dimensions) {
 
 const syntaxCheckFiles = [
   'backend/server.js',
-  'backend/routes/payment.js',
   'backend/middleware/auth.js',
   'backend/services/cloudDwnRegistry.js',
   'backend/routes/isolatedDwn.js',

@@ -96,6 +96,7 @@ button:focus-visible,
       <button class="tab" data-tab="feedback">Feedback</button>
       <button class="tab" data-tab="security">Security</button>
       <button class="tab" data-tab="mail">Mail</button>
+      <button class="tab" data-tab="storage">Storage payments</button>
     </div>
 
     <div class="toolbar">
@@ -113,7 +114,7 @@ button:focus-visible,
 <script>
 var $=function(id){return document.getElementById(id);};
 var token="", tab="users", users=[], overview=null;
-try{ token=localStorage.getItem("milanAdminToken")||""; }catch(_){}
+try{ token=sessionStorage.getItem("milanAdminToken")||""; }catch(_){}
 if(token) $("token").value=token;
 
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(m){return({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[m];});}
@@ -122,18 +123,37 @@ function copy(t){navigator.clipboard&&navigator.clipboard.writeText(t||"");$("ms
 window.__copy=copy;
 
 function api(path){
-  return fetch(path+(path.indexOf("?")>=0?"&":"?")+"adminToken="+encodeURIComponent(token))
-    .then(function(r){return r.json().then(function(d){ if(!r.ok) throw new Error(d.error||("Request failed "+r.status)); return d; });});
+  return fetch(path, {
+    headers: {"x-admin-token": token, "Accept": "application/json"},
+    cache: "no-store"
+  }).then(function(r){
+    return r.json().then(function(d){
+      if(!r.ok) throw new Error(d.error||("Request failed "+r.status));
+      return d;
+    });
+  });
 }
 function apiPost(path, body){
-  return fetch(path+(path.indexOf("?")>=0?"&":"?")+"adminToken="+encodeURIComponent(token),
-    {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body||{})})
-    .then(function(r){return r.json().then(function(d){ if(!r.ok) throw new Error(d.error||("Request failed "+r.status)); return d; });});
+  return fetch(path, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+      "x-admin-token": token
+    },
+    body: JSON.stringify(body||{}),
+    cache: "no-store"
+  }).then(function(r){
+    return r.json().then(function(d){
+      if(!r.ok) throw new Error(d.error||("Request failed "+r.status));
+      return d;
+    });
+  });
 }
 
 function unlock(){
   token=$("token").value.trim();
-  try{ localStorage.setItem("milanAdminToken",token); }catch(_){}
+  try{ sessionStorage.setItem("milanAdminToken",token); }catch(_){}
   $("gateMsg").textContent="Checking...";
   api("/api/admin/overview").then(function(d){
     overview=d; $("gateMsg").textContent="";
@@ -158,6 +178,86 @@ function renderCards(){
   }).join("");
 }
 
+function renderStorageRequests(requests){
+  if(!requests.length){
+    $("panel").innerHTML='<div class="mini">No pending storage payment requests.</div>';
+    $("msg").textContent="Storage payment queue is empty";
+    return;
+  }
+
+  var rows=requests.map(function(r){
+    return '<tr>'+
+      '<td>'+esc(r.created_at?when(r.created_at):"-")+'</td>'+
+      '<td><b>'+esc(r.plan||"-")+'</b><br>₹'+esc(r.amount_inr||"-")+'</td>'+
+      '<td><code>'+esc(r.order_id||"-")+'</code></td>'+
+      '<td><code>'+esc(r.utr||"-")+'</code></td>'+
+      '<td><code>'+esc(r.user_id||"-")+'</code></td>'+
+      '<td>'+esc(r.status||"-")+'</td>'+
+      '<td>'+(r.status==="pending"
+        ? '<button class="ghost storage-approve" data-id="'+esc(r.id)+'">Approve — verified</button> '+
+          '<button class="ghost storage-reject" data-id="'+esc(r.id)+'">Reject</button>'
+        : '-')+'</td>'+
+      '</tr>';
+  }).join("");
+
+  $("panel").innerHTML=
+    '<div class="mini" style="margin-bottom:12px">'+requests.length+
+    ' pending request(s). Verify amount, beneficiary and settled transaction in bank records before approval.</div>'+
+    '<div style="overflow-x:auto"><table><thead><tr>'+
+    '<th>Created</th><th>Plan / amount</th><th>MILAN Pay order ID</th>'+
+    '<th>UTR</th><th>User ID</th><th>Status</th><th>Action</th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table></div>';
+
+  document.querySelectorAll(".storage-approve").forEach(function(button){
+    button.addEventListener("click",function(){
+      var id=button.dataset.id;
+      var ok=window.confirm(
+        "Have you independently checked your bank records and confirmed this exact UTR, amount, beneficiary and a successful settled credit? Only approve if every detail matches."
+      );
+      if(!ok) return;
+
+      var note=window.prompt(
+        "Optional review note. The transaction must already be independently verified in bank records.",
+        "Bank transaction independently verified against bank records."
+      );
+      if(note===null) return;
+
+      button.disabled=true;
+      apiPost("/api/storage/admin/requests/"+encodeURIComponent(id)+"/approve",{
+        bankVerified:true,
+        note:note
+      }).then(function(){
+        $("msg").textContent="Verified storage request approved.";
+        loadTab();
+        api("/api/admin/overview").then(function(d){overview=d;renderCards();}).catch(function(){});
+      }).catch(function(error){
+        button.disabled=false;
+        $("msg").textContent=error.message;
+      });
+    });
+  });
+
+  document.querySelectorAll(".storage-reject").forEach(function(button){
+    button.addEventListener("click",function(){
+      var id=button.dataset.id;
+      if(!window.confirm("Reject this request? Check the bank transaction first; rejection does not verify or refund a payment.")) return;
+      var note=window.prompt("Reason for rejection:", "Could not verify the submitted transaction reference.");
+      if(note===null) return;
+
+      button.disabled=true;
+      apiPost("/api/storage/admin/requests/"+encodeURIComponent(id)+"/reject",{
+        note:note
+      }).then(function(){
+        $("msg").textContent="Storage request rejected.";
+        loadTab();
+      }).catch(function(error){
+        button.disabled=false;
+        $("msg").textContent=error.message;
+      });
+    });
+  });
+}
+
 function loadTab(){
   $("panel").innerHTML='<div class="mini">Loading...</div>';
   if(tab==="users"){
@@ -172,6 +272,12 @@ function loadTab(){
   } else if(tab==="security"){
     api("/api/admin/security-reports").then(function(d){ renderJsonList("Security reports", d); })
       .catch(function(e){ $("panel").innerHTML='<div class="bad">'+esc(e.message)+'</div>'; });
+  } else if(tab==="storage"){
+    api("/api/storage/admin/requests").then(function(d){
+      renderStorageRequests((d&&d.requests)||[]);
+    }).catch(function(e){
+      $("panel").innerHTML='<div class="bad">'+esc(e.message)+'</div>';
+    });
   } else if(tab==="mail"){
     api("/api/admin/mail/status").then(function(d){ renderMail(d); })
       .catch(function(e){ $("panel").innerHTML='<div class="bad">'+esc(e.message)+'</div>'; });
@@ -262,7 +368,7 @@ $("token").addEventListener("keydown",function(e){ if(e.key==="Enter") unlock();
 $("refresh").onclick=function(){ api("/api/admin/overview").then(function(d){overview=d;renderCards();}).catch(function(){}); loadTab(); };
 $("csv").onclick=csv;
 $("q").oninput=function(){ if(tab==="users") renderUsers(); };
-$("lock").onclick=function(){ try{localStorage.removeItem("milanAdminToken");}catch(_){} location.reload(); };
+$("lock").onclick=function(){ try{sessionStorage.removeItem("milanAdminToken");}catch(_){} location.reload(); };
 document.querySelectorAll(".tab").forEach(function(b){
   b.onclick=function(){
     document.querySelectorAll(".tab").forEach(function(x){x.classList.remove("active");});

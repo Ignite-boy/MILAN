@@ -1,57 +1,85 @@
 'use strict';
 
-const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const PaytmChecksum = require('paytmchecksum');
 
 const root = path.resolve(__dirname, '..');
-const read = relative => fs.readFileSync(path.join(root, relative), 'utf8');
-const payment = read('backend/routes/payment.js');
-const frontend = read('frontend/storage-upgrade.html');
+const read = file => fs.readFileSync(path.join(root, file), 'utf8');
+
 const server = read('backend/server.js');
+const adminRoute = read('backend/routes/admin.js');
+const adminPage = read('frontend/admin-users.html');
+const payRoute = read('backend/routes/milanPay.js');
+const storageRoute = read('backend/routes/storage.js');
+const storagePage = read('frontend/storage-upgrade.html');
+const payPage = read('frontend/milan-pay.html');
 const env = read('backend/.env.example');
 const pkg = JSON.parse(read('package.json'));
+const migration = read('backend/migrations/20261014_milan_pay_manual_verification.sql');
 
-assert(payment.includes("require('paytmchecksum')"), 'Paytm checksum package must be used by the backend.');
-assert(payment.includes('/theia/api/v1/initiateTransaction'), 'Paytm Initiate Transaction endpoint missing.');
-assert(payment.includes('/v3/order/status'), 'Paytm Transaction Status endpoint missing.');
-assert(payment.includes('PaytmChecksum.verifySignature'), 'Paytm response/callback/webhook verification missing.');
-assert(payment.includes("gateway: 'paytm'"), 'New orders must use Paytm as gateway.');
-assert(payment.includes("router.post('/callback'"), 'Paytm callback endpoint missing.');
-assert(payment.includes("router.post('/webhook'"), 'Paytm S2S webhook missing.');
-assert(payment.includes('amountPaise(reportedAmount) !== amountPaise(order.amount_inr)'), 'Paid amount must match the server-stored order.');
-assert(payment.includes('sendPaymentSuccessEmail'), 'Payment-success email must remain wired.');
-assert(frontend.includes('window.Paytm.CheckoutJS.init(checkoutConfig)'), 'Paytm CheckoutJS init missing.');
-assert(frontend.includes('tokenType: "TXN_TOKEN"'), 'Paytm TXN_TOKEN config missing.');
-assert(frontend.includes('await recoverPayment(order.orderId)'), 'Client must rely on server-side verification.');
-assert(frontend.includes('MILAN Pay'), 'Storage page must display MILAN Pay branding.');
-assert(server.includes('https://securestage.paytmpayments.com'), 'CSP must allow Paytm staging.');
-assert(server.includes('https://secure.paytmpayments.com'), 'CSP must allow Paytm production.');
-assert(env.includes('PAYTM_MID='), 'Paytm MID example missing.');
-assert(env.includes('PAYTM_MERCHANT_KEY='), 'Paytm Merchant Key example missing.');
-assert(pkg.dependencies?.paytmchecksum === '1.5.1', 'Paytm checksum dependency missing.');
-assert(pkg.scripts?.['test:payment'] === 'node scripts/payment-self-test.js', 'Payment test script missing.');
-for (const [name, source] of Object.entries({ payment, frontend, server, env })) {
-  assert(!/cashfree|stripe/i.test(source), 'Retired gateway reference remains in ' + name);
+const checks = [
+  ['MILAN Pay route is mounted', server.includes("app.use('/api/milan-pay', require('./routes/milanPay'));")],
+  ['Legacy payment route is not mounted', !server.includes("app.use('/api/payment', require('./routes/payment'));")],
+  ['Legacy payment route file is removed', !fs.existsSync(path.join(root, 'backend/routes/payment.js'))],
+  ['MILAN Pay config endpoint exists', payRoute.includes("router.get('/config'")],
+  ['Order creation requires authentication', payRoute.includes("router.post('/orders', auth")],
+  ['Order status endpoint requires authentication', payRoute.includes("router.get('/orders/:orderId/status', auth")],
+  ['New orders start pending', payRoute.includes("status: 'pending'")],
+  ['Order creation checks pending manual requests', payRoute.includes("from('storage_upgrade_requests')")],
+  ['Storage request validates the order ID', storageRoute.includes("req.body?.orderId")],
+  ['Storage request checks the server order', storageRoute.includes("from('payment_orders')") && storageRoute.includes("order.gateway !== 'milanpay'")],
+  ['Storage request links the UTR to the order', storageRoute.includes("order_id: orderId") && storageRoute.includes("utr,")],
+  ['Manual request does not mark payment paid', !storageRoute.includes("status: 'paid'")],
+  ['Admin approval requires explicit bank verification', storageRoute.includes("req.body?.bankVerified !== true")],
+  ['Admin approval uses a database RPC', storageRoute.includes("supabase.rpc(") && storageRoute.includes("'admin_approve_milan_pay_storage_request'")],
+  ['Admin rejection uses a database RPC', storageRoute.includes("'admin_reject_milan_pay_storage_request'")],
+  ['Duplicate UTR insert conflict is handled', storageRoute.includes("error.code === '23505'")],
+  ['Admin token fails closed when missing', storageRoute.includes("process.env.ADMIN_TOKEN || ''")],
+  ['Admin token is not accepted via query string', !storageRoute.includes('req.query.adminToken')],
+  ['500 MB price is consistent', payRoute.includes("amountInr: 250") && storageRoute.includes("amountInr: 250")],
+  ['1 GB price is consistent', payRoute.includes("amountInr: 500") && storageRoute.includes("amountInr: 500")],
+  ['Checkout has a UTR form', payPage.includes('id="utrForm"') && payPage.includes('name="utr"')],
+  ['Checkout submits the server order ID and UTR', payPage.includes('orderId: currentOrderId') && payPage.includes('utr')],
+  ['Checkout keeps storage pending until manual verification', payPage.includes('PENDING BANK VERIFICATION') && payPage.includes('storage is not upgraded yet')],
+  ['Storage page links to MILAN Pay', storagePage.includes('/milan-pay?plan=')],
+  ['Old Paytm hosts are removed from active source', !server.includes('paytmpayments.com')],
+  ['Old Paytm variables are absent from environment example', !env.includes('PAYTM_')],
+  ['Legacy checksum package is absent', !pkg.dependencies?.paytmchecksum],
+  ['Migration adds the order link column', migration.includes('ADD COLUMN IF NOT EXISTS order_id')],
+  ['Migration creates a unique order link index', migration.includes('CREATE UNIQUE INDEX IF NOT EXISTS storage_upgrade_requests_order_id_uidx')],
+  ['Migration enforces case-insensitive UTR uniqueness', migration.includes('storage_upgrade_requests_utr_normalized_uidx')],
+  ['Migration checks order, user, plan and amount', migration.includes("v_order.gateway IS DISTINCT FROM 'milanpay'") && migration.includes('v_order.amount_inr IS DISTINCT FROM v_expected_amount')],
+  ['Migration checks reused UTRs', migration.includes('This transaction reference has already been used.')],
+  ['Migration updates payment and quota transactionally', migration.includes("status = 'paid'") && migration.includes('dwn_quota_bytes = GREATEST')],
+  ['Migration restricts the RPC to service role', migration.includes('REVOKE ALL ON FUNCTION public.admin_approve_milan_pay_storage_request') && migration.includes('TO service_role')],
+  ['Admin API rejects missing or placeholder token configuration',
+    adminRoute.includes("process.env.ADMIN_TOKEN || ''") &&
+    adminRoute.includes("expected === 'change-this-admin-token'")],
+  ['Admin API no longer accepts token query parameters',
+    !adminRoute.includes('req.query.adminToken') && !adminRoute.includes('req.query.token')],
+  ['Admin dashboard sends token in header',
+    adminPage.includes('"x-admin-token": token') && !adminPage.includes('adminToken=')],
+  ['Admin dashboard stores token only in session storage',
+    adminPage.includes('sessionStorage.getItem("milanAdminToken")') &&
+    !adminPage.includes('localStorage.getItem("milanAdminToken")')],
+  ['Admin dashboard has storage payment queue',
+    adminPage.includes('data-tab="storage"') &&
+    adminPage.includes('/api/storage/admin/requests')],
+  ['Admin approval requires explicit confirmation and bankVerified flag',
+    adminPage.includes('Have you independently checked your bank records') &&
+    adminPage.includes('bankVerified:true')],
+  ['Test script is configured', pkg.scripts?.['test:payment'] === 'node scripts/payment-self-test.js']
+];
+
+let failed = false;
+for (const [label, passed] of checks) {
+  console.log((passed ? 'PASS: ' : 'FAIL: ') + label);
+  if (!passed) failed = true;
 }
 
-async function verifyChecksumRoundTrip() {
-  const testKey = '1234567890123456';
-  const body = JSON.stringify({ mid: 'TEST_MID', orderId: 'MLN_TEST_001' });
-  const signature = await PaytmChecksum.generateSignature(body, testKey);
-  assert.equal(await PaytmChecksum.verifySignature(body, testKey, signature), true,
-    'Paytm checksum round trip must verify.');
-  assert.equal(await PaytmChecksum.verifySignature(body + ' ', testKey, signature), false,
-    'Paytm checksum must reject a tampered payload.');
-}
-verifyChecksumRoundTrip().then(() => {
-  console.log('MILAN Paytm payment architecture checks passed.');
-  console.log(' - Initiate Transaction + Transaction Status APIs');
-  console.log(' - Callback/webhook checksum validation');
-  console.log(' - Stored-price verification + storage activation path');
-  console.log(' - Checksum round-trip + tamper detection');
-}).catch(error => {
-  console.error('MILAN Paytm payment tests FAILED:', error.message);
+if (failed) {
+  console.log('Some MILAN Pay integration checks failed.');
   process.exitCode = 1;
-});
+} else {
+  console.log('All MILAN Pay manual-verification integration checks passed.');
+}

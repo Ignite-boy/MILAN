@@ -20,11 +20,17 @@ assert(route.includes('MILAN_PAY_UPI_ID'), 'Merchant UPI configuration hook miss
 assert(route.includes('upi://pay?'), 'UPI intent generation missing');
 assert(!route.includes('PAYTM_MERCHANT_KEY'), 'MILAN Pay must not rely on Paytm Merchant Key');
 assert(storagePage.includes('href="/milan-pay"'), 'Storage page must link to MILAN Pay checkout');
+assert(storagePage.includes('/milan-pay?plan='), 'Upgrade Storage must open MILAN Pay');
 assert(page.includes('MILAN Pay'), 'Branded checkout missing');
-assert(page.includes('Cards — subject to merchant activation'), 'Card availability must depend on merchant activation');
-assert(page.includes('not marked successful'), 'Checkout must explain server-side verification limitation');
-assert(page.includes('/api/payment/create-order'), 'Checkout must use the existing server-side payment order API');
-assert(page.includes('/api/payment/verify'), 'Checkout must use trusted server-side payment verification');
+assert(page.includes('Cards — not enabled in direct UPI mode'), 'Cards must remain disabled in direct UPI mode');
+assert(
+  page.includes('Direct UPI checkout does not automatically verify payment') &&
+  page.includes('independently verifies the transaction against bank records'),
+  'Checkout must explain manual bank verification limitation'
+);
+assert(page.includes('/api/milan-pay/orders'), 'Checkout must create a direct MILAN Pay UPI order');
+assert(!page.includes('/api/payment/create-order'), 'Direct UPI checkout must not invoke Paytm order creation');
+assert(!page.includes('/api/payment/verify'), 'Direct UPI checkout must not depend on Paytm verification APIs');
 
 console.log('MILAN Pay checks passed:');
 console.log(' - Branded checkout created');

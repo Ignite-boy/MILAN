@@ -29,21 +29,26 @@ main{max-width:760px;margin:0 auto;padding:28px 18px 60px}.top{display:flex;alig
     </div>
     <div class="methods">
       <div class="method">UPI apps*</div>
-      <div class="method">Cards — subject to merchant activation</div>
-      <div class="method">Other methods — subject to provider availability</div>
+      <div class="method">Cards — not enabled in direct UPI mode</div>
+      <div class="method">Direct UPI collection</div>
     </div>
-    <label for="customerPhone" style="display:block;margin:14px 0 6px;font-weight:700">
-      Phone number for checkout
-    </label>
-    <input id="customerPhone" type="tel" inputmode="tel"
-      autocomplete="tel" maxlength="20" placeholder="+91 9876543210"
-      style="width:100%;padding:13px;border:1px solid var(--line);border-radius:12px;background:#0d1525;color:var(--text)">
     <button class="primary" id="pay" disabled>Loading payment options…</button>
     <a class="secondary" href="/storage-upgrade.html">Back to storage plans</a>
     <div id="status" role="status" aria-live="polite"></div>
-    <div class="notice">A payment is not marked successful just because checkout returns to this page. MILAN confirms payment only after server-side verification with the payment provider.</div>
+    <form id="utrForm" hidden style="margin-top:18px;border-top:1px solid var(--line);padding-top:18px;">
+      <h3 style="margin:0 0 8px;">Submit transaction reference</h3>
+      <p id="orderSummary"></p>
+      <label for="utr" style="display:block;font-weight:700;margin:12px 0 6px;">UPI UTR / transaction reference</label>
+      <input id="utr" name="utr" autocomplete="off" required minlength="6" maxlength="80"
+        pattern="[A-Za-z0-9._-]{6,80}"
+        style="width:100%;padding:13px;border-radius:10px;border:1px solid var(--line);background:#0d1525;color:var(--text);"
+        placeholder="Enter the UTR from your UPI app">
+      <button class="secondary" id="submitUtr" type="submit">Submit UTR for verification</button>
+      <p style="margin-top:10px;font-size:12px;">Only submit after completing the payment. Do not enter your UPI PIN or OTP here. Submitting a UTR does not itself confirm payment.</p>
+    </form>
+    <div class="notice">Direct UPI checkout does not automatically verify payment. Submit the UTR after paying; storage remains unchanged until an administrator independently verifies the transaction against bank records.</div>
   </section>
-  <footer>* Available payment methods depend on merchant approval and provider configuration. Never enter card PIN or payment OTP on a MILAN page.</footer>
+  <footer>* Available payment methods depend on merchant approval and provider configuration. Cards are not enabled in this direct UPI flow. Never enter a payment PIN or OTP on a MILAN page.</footer>
 </main>
 <script>
 (() => {
@@ -52,257 +57,276 @@ main{max-width:760px;margin:0 auto;padding:28px 18px 60px}.top{display:flex;alig
   const pay = document.getElementById("pay");
   const status = document.getElementById("status");
   const railStatus = document.getElementById("railStatus");
-  const phone = document.getElementById("customerPhone");
+  const utrForm = document.getElementById("utrForm");
+  const utrInput = document.getElementById("utr");
+  const submitUtr = document.getElementById("submitUtr");
+  const orderSummary = document.getElementById("orderSummary");
   const token = () => localStorage.getItem("milan_token") || "";
+  const validPlans = ["500mb", "1gb"];
   let plan = new URLSearchParams(location.search).get("plan") || "500mb";
-  if (!["500mb", "1gb"].includes(plan)) plan = "500mb";
+  if (!validPlans.includes(plan)) plan = "500mb";
+
   let ready = false;
   let busy = false;
-  let loaderPromise = null;
+  let pendingOrder = false;
+  let currentOrderId = "";
+  let currentOrderPlan = "";
+  let currentUpiUri = "";
 
-  function setStatus(message, error = false) {
+  function setStatus(message, error) {
     status.textContent = message || "";
     status.style.color = error ? "#ffadad" : "var(--muted)";
   }
 
-  function normalizePhone(value) {
-    const digits = String(value || "").replace(/\D/g, "");
-    return digits.length >= 10 && digits.length <= 15 ? digits : "";
+  function setPlanButtonsDisabled(disabled) {
+    document.querySelectorAll("[data-plan]").forEach(button => {
+      button.disabled = disabled;
+      button.setAttribute("aria-pressed", String(button.dataset.plan === plan));
+    });
+  }
+
+  function clearSavedOrder() {
+    sessionStorage.removeItem("milanPaymentOrderId");
+    sessionStorage.removeItem("milanPaymentUri");
+    sessionStorage.removeItem("milanPaymentPlan");
+  }
+
+  function showPendingOrder(orderId, upiUri, orderPlan, amount) {
+    currentOrderId = orderId;
+    currentUpiUri = upiUri;
+    currentOrderPlan = orderPlan;
+    pendingOrder = true;
+
+    sessionStorage.setItem("milanPaymentOrderId", orderId);
+    sessionStorage.setItem("milanPaymentUri", upiUri);
+    sessionStorage.setItem("milanPaymentPlan", orderPlan);
+
+    let link = document.getElementById("milan-upi-link");
+    if (!link) {
+      link = document.createElement("a");
+      link.id = "milan-upi-link";
+      link.className = "primary";
+      link.style.marginTop = "12px";
+      link.rel = "noopener";
+      link.textContent = "Open UPI payment app";
+      status.before(link);
+    }
+    link.href = upiUri;
+
+    orderSummary.textContent =
+      "Order ID: " + orderId +
+      " | Plan: " + (orderPlan === "500mb" ? "500 MB" : "1 GB") +
+      " | Amount: ₹" + amount;
+
+    utrForm.hidden = false;
+    setPlanButtonsDisabled(true);
+    pay.disabled = true;
+    pay.textContent = "Order created — submit UTR below";
+
+    setStatus(
+      "Order created. Complete the UPI payment and enter its transaction reference / UTR below. " +
+      "The order remains pending and storage is not activated until an administrator verifies the transaction against bank records."
+    );
+  }
+
+  async function loadConfig() {
+    const response = await fetch("/api/milan-pay/config", { cache: "no-store" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error("MILAN Pay setup could not be checked.");
+    return data;
+  }
+
+  async function restorePendingOrder() {
+    const savedId = sessionStorage.getItem("milanPaymentOrderId") || "";
+    const savedUri = sessionStorage.getItem("milanPaymentUri") || "";
+    const savedPlan = sessionStorage.getItem("milanPaymentPlan") || "";
+
+    if (!savedId || !savedUri || !validPlans.includes(savedPlan) || !token()) {
+      return false;
+    }
+
+    if (!savedUri.startsWith("upi://pay?")) {
+      clearSavedOrder();
+      return false;
+    }
+
+    try {
+      const response = await fetch(
+        "/api/milan-pay/orders/" + encodeURIComponent(savedId) + "/status",
+        {
+          headers: { Authorization: "Bearer " + token() },
+          cache: "no-store"
+        }
+      );
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setStatus(data.error || "Could not recheck the existing order. Retry after checking your connection.", true);
+        pay.disabled = true;
+        return true;
+      }
+
+      if (data.status !== "pending" || data.plan !== savedPlan) {
+        clearSavedOrder();
+        return false;
+      }
+
+      showPendingOrder(savedId, savedUri, savedPlan, data.amountInr);
+      return true;
+    } catch (_) {
+      setStatus("Could not recheck the existing order. Refresh after restoring your connection.", true);
+      pay.disabled = true;
+      return true;
+    }
   }
 
   document.querySelectorAll("[data-plan]").forEach(button => {
     button.addEventListener("click", () => {
+      if (pendingOrder) return;
       plan = button.dataset.plan;
-      document.querySelectorAll("[data-plan]").forEach(item =>
-        item.setAttribute("aria-pressed", String(item === button))
-      );
+      setPlanButtonsDisabled(false);
     });
   });
 
-  async function loadConfig() {
-    const response = await fetch("/api/payment/config", { cache: "no-store" });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error("Could not load payment configuration.");
-    return data;
-  }
-
-  function loadPaytmCheckout(url) {
-    if (window.Paytm && window.Paytm.CheckoutJS) return Promise.resolve();
-    if (!url) return Promise.reject(new Error("Secure checkout URL is unavailable."));
-    if (loaderPromise) return loaderPromise;
-
-    loaderPromise = new Promise((resolve, reject) => {
-      let done = false;
-      const finish = error => {
-        if (done) return;
-        done = true;
-        clearTimeout(timer);
-        if (error) {
-          loaderPromise = null;
-          reject(error);
-        } else if (window.Paytm && window.Paytm.CheckoutJS) {
-          resolve();
-        } else {
-          loaderPromise = null;
-          reject(new Error("Secure checkout could not initialise."));
-        }
-      };
-
-      let parsed;
-      try {
-        parsed = new URL(url, location.origin);
-      } catch {
-        finish(new Error("Invalid checkout URL."));
-        return;
-      }
-
-      if (parsed.protocol !== "https:" ||
-          !["securestage.paytmpayments.com", "secure.paytmpayments.com"].includes(parsed.hostname)) {
-        finish(new Error("Checkout URL is not trusted."));
-        return;
-      }
-
-      const script = document.createElement("script");
-      script.src = parsed.toString();
-      script.onload = () => finish();
-      script.onerror = () => finish(new Error("Could not load secure checkout."));
-      const timer = setTimeout(() => finish(new Error("Checkout loading timed out.")), 12000);
-      document.head.appendChild(script);
-    });
-
-    return loaderPromise;
-  }
-
-  async function createOrder(phoneNumber) {
-    const response = await fetch("/api/payment/create-order", {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + token()
-      },
-      body: JSON.stringify({ plan, customerPhone: phoneNumber }),
-      cache: "no-store"
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || "Could not create payment order.");
-    if (!data.orderId || !data.txnToken || !data.amount || !data.mid) {
-      throw new Error("The payment provider did not return a valid checkout session.");
-    }
-    return data;
-  }
-
-  async function verifyOrder(orderId) {
-    const response = await fetch("/api/payment/verify", {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + token()
-      },
-      body: JSON.stringify({ orderId }),
-      cache: "no-store"
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || "Payment verification is unavailable.");
-    return data;
-  }
-
-  async function recoverPayment(orderId, attempts = 8) {
-    for (let attempt = 0; attempt < attempts; attempt++) {
-      try {
-        const result = await verifyOrder(orderId);
-        if (result.status === "paid") {
-          setStatus("Payment verified by MILAN. Storage upgrade confirmed.");
-          pay.textContent = "Payment complete";
-          sessionStorage.removeItem("milanPaymentOrderId");
-          return true;
-        }
-        if (result.status === "failed") {
-          setStatus("Payment was not completed. You can start a new payment.", true);
-          return false;
-        }
-        setStatus("Payment is still being processed. Checking securely…");
-      } catch (error) {
-        if (attempt === attempts - 1) {
-          setStatus((error.message || "Verification unavailable.") +
-            " Check your order status before retrying.");
-          return false;
-        }
-      }
-      await new Promise(resolve => setTimeout(resolve, 1500));
-    }
-    setStatus("Payment status is still pending. Please check again shortly.");
-    return false;
-  }
-
-  function launchCheckout(order) {
-    return new Promise((resolve, reject) => {
-      let finished = false;
-      const finish = error => {
-        if (finished) return;
-        finished = true;
-        clearTimeout(timer);
-        if (error) reject(error);
-        else resolve();
-      };
-
-      const timer = setTimeout(() => finish(), 120000);
-      const checkout = {
-        root: "",
-        flow: "DEFAULT",
-        data: {
-          orderId: order.orderId,
-          token: order.txnToken,
-          tokenType: "TXN_TOKEN",
-          amount: order.amount
-        },
-        merchant: { redirect: true },
-        handler: {
-          notifyMerchant(eventName) {
-            if (["APP_CLOSED", "SESSION_EXPIRED", "CHECK_ORDER_STATUS"].includes(eventName)) {
-              finish();
-            }
-          },
-          transactionStatus() {
-            try { window.Paytm.CheckoutJS.close(); } catch (_) {}
-            finish();
-          }
-        }
-      };
-
-      Promise.resolve()
-        .then(() => window.Paytm.CheckoutJS.init(checkout))
-        .then(() => window.Paytm.CheckoutJS.invoke())
-        .catch(finish);
-    });
-  }
-
-  async function startPayment() {
+  pay.addEventListener("click", async () => {
     if (!token()) {
       location.href = "/login";
       return;
     }
-    if (busy || !ready) return;
+    if (!ready || busy || pendingOrder) return;
 
-    const phoneNumber = normalizePhone(phone.value);
-    if (!phoneNumber) {
-      setStatus("Enter a valid phone number, including country code if needed.", true);
-      phone.focus();
+    busy = true;
+    pay.disabled = true;
+    pay.textContent = "Creating secure order…";
+    setStatus("Creating your MILAN Pay order…");
+
+    try {
+      const response = await fetch("/api/milan-pay/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + token()
+        },
+        body: JSON.stringify({ plan }),
+        cache: "no-store"
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || "Could not create the payment order.");
+      }
+
+      if (typeof data.upiUri !== "string" ||
+          !data.upiUri.startsWith("upi://pay?") ||
+          !data.orderId ||
+          data.plan !== plan ||
+          !Number.isFinite(Number(data.amountInr))) {
+        throw new Error("MILAN Pay returned invalid order details.");
+      }
+
+      showPendingOrder(data.orderId, data.upiUri, data.plan, data.amountInr);
+    } catch (error) {
+      setStatus(error.message || "MILAN Pay is temporarily unavailable.", true);
+      pay.disabled = !ready;
+      pay.textContent = "Create UPI payment";
+    } finally {
+      busy = false;
+    }
+  });
+
+  utrForm.addEventListener("submit", async event => {
+    event.preventDefault();
+
+    if (!token()) {
+      location.href = "/login";
+      return;
+    }
+    if (!currentOrderId || !currentOrderPlan || busy) {
+      setStatus("Create or restore a valid MILAN Pay order first.", true);
+      return;
+    }
+
+    const utr = utrInput.value.trim();
+    if (!/^[A-Za-z0-9._-]{6,80}$/.test(utr)) {
+      setStatus("Enter the transaction reference / UTR exactly as shown by your UPI app.", true);
+      utrInput.focus();
       return;
     }
 
     busy = true;
-    pay.disabled = true;
-    pay.textContent = "Preparing secure checkout…";
-    setStatus("Checking merchant configuration…");
-    let order = null;
+    submitUtr.disabled = true;
+    submitUtr.textContent = "Submitting for verification…";
+    setStatus("Submitting your UTR. Storage will remain unchanged pending bank verification.");
 
     try {
-      const config = await loadConfig();
-      if (!config.configured || !config.checkoutJsUrl) {
-        throw new Error("Merchant production credentials or activation are incomplete.");
+      const response = await fetch("/api/storage/upgrade-request", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + token()
+        },
+        body: JSON.stringify({
+          plan: currentOrderPlan,
+          orderId: currentOrderId,
+          utr
+        }),
+        cache: "no-store"
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || "Could not submit the transaction reference.");
       }
 
-      await loadPaytmCheckout(config.checkoutJsUrl);
-      order = await createOrder(phoneNumber);
-      sessionStorage.setItem("milanPaymentOrderId", order.orderId);
-      setStatus("Opening secure payment checkout…");
-      await launchCheckout(order);
-      await recoverPayment(order.orderId);
+      const requestId = data.request && data.request.id ? data.request.id : "submitted";
+      clearSavedOrder();
+      utrForm.hidden = true;
+
+      const link = document.getElementById("milan-upi-link");
+      if (link) link.remove();
+
+      setStatus(
+        "UTR submitted successfully. Request: " + requestId +
+        ". Status: PENDING BANK VERIFICATION. Your storage is not upgraded yet. " +
+        "An administrator must independently verify the transaction in bank records before approval."
+      );
+      pay.disabled = true;
+      pay.textContent = "Verification pending";
     } catch (error) {
-      setStatus(error.message || "Checkout could not start.", true);
-      if (order && order.orderId) {
-        await recoverPayment(order.orderId, 3);
-      }
+      setStatus(error.message || "Could not submit the transaction reference.", true);
     } finally {
       busy = false;
-      if (ready) {
-        pay.disabled = false;
-        pay.textContent = "Pay securely with MILAN Pay";
-      }
+      submitUtr.disabled = false;
+      submitUtr.textContent = "Submit UTR for verification";
     }
-  }
-
-  pay.addEventListener("click", startPayment);
+  });
 
   loadConfig()
-    .then(config => {
-      ready = Boolean(config.configured && config.checkoutJsUrl);
+    .then(async config => {
+      ready = config.upiAvailable === true;
       railStatus.textContent = ready
-        ? "Secure provider checkout available"
-        : "Merchant credentials or activation required";
-      pay.disabled = !ready;
-      pay.textContent = ready ? "Pay securely with MILAN Pay" : "Payments not activated";
+        ? "MILAN Pay · Direct UPI configured"
+        : "MILAN Pay merchant UPI setup required";
+
       if (!ready) {
-        setStatus("Production merchant setup is incomplete. No payment has been taken.");
+        pay.disabled = true;
+        pay.textContent = "Payments not configured";
+        setStatus("Configure a valid bank-linked merchant UPI ID on the server before accepting payments.", true);
+        return;
+      }
+
+      const restored = await restorePendingOrder();
+      if (!restored) {
+        pay.disabled = false;
+        pay.textContent = token() ? "Create UPI payment" : "Login to pay with MILAN Pay";
       }
     })
     .catch(() => {
-      railStatus.textContent = "Payment configuration unavailable";
+      ready = false;
       pay.disabled = true;
       pay.textContent = "Payments unavailable";
-      setStatus("Could not check merchant configuration.", true);
+      railStatus.textContent = "MILAN Pay setup unavailable";
+      setStatus("MILAN Pay is temporarily unavailable. Please try again later.", true);
     });
 })();
 </script>

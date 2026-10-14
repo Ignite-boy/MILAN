@@ -33,7 +33,7 @@ app.use((req, res, next) => {
   res.setHeader('X-DNS-Prefetch-Control', 'on');
   res.setHeader('Origin-Agent-Cluster', '?1');
   // CSP tuned for MILAN's stack (inline app scripts, YouTube player, Google Fonts, Audius, Razorpay checkout).
-  res.setHeader('Content-Security-Policy', "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.youtube.com https://s.ytimg.com https://securestage.paytmpayments.com https://secure.paytmpayments.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https: https://securestage.paytmpayments.com https://secure.paytmpayments.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://securestage.paytmpayments.com https://secure.paytmpayments.com; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests");
+  res.setHeader('Content-Security-Policy', "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.youtube.com https://s.ytimg.com  ; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https:  ; frame-src https://www.youtube.com https://www.youtube-nocookie.com  ; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests");
   next();
 });
 const rateBuckets = new Map();
@@ -101,13 +101,6 @@ app.use(compression({
 }));
 // Media uploads are streamed directly on /api/records/media.
 // Keep JSON body small for speed and protection on mobile/production.
-// Paytm server-to-server webhook signature verification needs the exact raw request body.
-app.use('/api/payment/webhook', express.json({
-  limit: '1mb',
-  verify: (req, _res, buf) => {
-    req.rawBody = buf.toString('utf8');
-  }
-}));
 app.use(express.json({ limit: process.env.JSON_LIMIT || '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: process.env.URLENCODED_LIMIT || '10mb' }));
 
@@ -328,7 +321,6 @@ const cloudDwnRouter = require('./routes/cloudDwn');
 app.use('/api/cloud-dwn', cloudDwnRouter);
 app.use('/api/isolated-dwn', require('./routes/isolatedDwn'));
 app.use('/api/storage', require('./routes/storage'));
-app.use('/api/payment', require('./routes/payment'));
 app.use('/api/milan-pay', require('./routes/milanPay'));
 app.use('/api/profile', require('./routes/profile'));
 app.use('/api/settings', require('./routes/settings'));
