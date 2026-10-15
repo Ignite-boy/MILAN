@@ -46,8 +46,8 @@ async function cycle(n) {
     }
 
     console.log(`RSI SOURCE EVIDENCE: ${failures.length} failure(s); source run ${report.sourceRunId || process.env.GITHUB_RUN_ID || 'unknown'}.`);
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY is required to analyze the triggering Sentinel failures.');
+    if (!process.env.OPENAI_API_KEY && !process.env.RSI_BASE_URL) {
+      throw new Error('OPENAI_API_KEY or RSI_BASE_URL is required to analyze the triggering Sentinel failures.');
     }
 
     sh('node scripts/repair.js');
@@ -62,8 +62,8 @@ async function cycle(n) {
     return true;
   } catch (error) {
     console.error('RSI TEST GATE: RED');
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY is required for autonomous repair after a failed local test gate.');
+    if (!process.env.OPENAI_API_KEY && !process.env.RSI_BASE_URL) {
+      throw new Error('OPENAI_API_KEY or RSI_BASE_URL is required for autonomous repair after a failed local test gate.');
     }
     sh('node scripts/repair.js');
     console.error('RSI TEST GATE: RED — repair proposal generated in an isolated worktree; this checkout remains unverified.');
