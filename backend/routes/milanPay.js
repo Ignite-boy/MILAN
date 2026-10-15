@@ -299,23 +299,6 @@ router.get('/orders/:orderId/status', auth, async (req, res) => {
 
     let paymentDetails = {};
     if (data.status === 'pending') {
-      // Never issue or restore a payment intent when account-level duplicates exist.
-      const { data: activeOrders, error: activeOrdersError } = await supabase
-        .from('payment_orders')
-        .select('order_id')
-        .eq('user_id', req.account.id)
-        .eq('gateway', 'milanpay')
-        .eq('status', 'pending')
-        .limit(2);
-      if (activeOrdersError) throw activeOrdersError;
-      if (Array.isArray(activeOrders) && activeOrders.length > 1) {
-        return res.status(409).json({
-          ok: false,
-          code: 'MILAN_PAY_PENDING_ORDER_RECONCILIATION_REQUIRED',
-          error: 'Multiple pending MILAN Pay orders exist for your account. No payment link will be shown until support reconciles the orders against bank records.'
-        });
-      }
-
       // A submitted verification request means this order is awaiting review, not another payment.
       const { data: linkedRequest, error: linkedRequestError } = await supabase
         .from('storage_upgrade_requests')
@@ -339,6 +322,23 @@ router.get('/orders/:orderId/status', auth, async (req, res) => {
           message: linkedRequest.status === 'pending'
             ? 'A verification request is already linked to this order. Do not pay again; wait for bank-record review.'
             : 'A verification request is already linked to this order. Do not pay again; contact support if you need help.'
+        });
+      }
+
+      // Never issue or restore a payment intent when account-level duplicates exist.
+      const { data: activeOrders, error: activeOrdersError } = await supabase
+        .from('payment_orders')
+        .select('order_id')
+        .eq('user_id', req.account.id)
+        .eq('gateway', 'milanpay')
+        .eq('status', 'pending')
+        .limit(2);
+      if (activeOrdersError) throw activeOrdersError;
+      if (Array.isArray(activeOrders) && activeOrders.length > 1) {
+        return res.status(409).json({
+          ok: false,
+          code: 'MILAN_PAY_PENDING_ORDER_RECONCILIATION_REQUIRED',
+          error: 'Multiple pending MILAN Pay orders exist for your account. No payment link will be shown until support reconciles the orders against bank records.'
         });
       }
 
