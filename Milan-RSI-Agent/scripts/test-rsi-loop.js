@@ -60,13 +60,13 @@ try {
   const red = runCase({ mode: 'fail' });
   assert.notStrictEqual(red.status, 0, 'failed test gate must not return 0');
   assert.match(red.output, /RSI TEST GATE: RED/);
-  assert.match(red.output, /OPENAI_API_KEY is required/);
+  assert.match(red.output, /OPENAI_API_KEY or RSI_BASE_URL is required/);
   assert.doesNotMatch(red.output, /RSI RESULT: GREEN/);
 
   const sourceFailure = runCase({ mode: 'pass', sourceFailureReport: true });
   assert.notStrictEqual(sourceFailure.status, 0, 'failed source-run evidence must not return 0 without a repair key');
   assert.match(sourceFailure.output, /RSI SOURCE EVIDENCE: 1 failure/);
-  assert.match(sourceFailure.output, /OPENAI_API_KEY is required/);
+  assert.match(sourceFailure.output, /OPENAI_API_KEY or RSI_BASE_URL is required/);
   assert.strictEqual(sourceFailure.npmCalls.length, 0, 'source-run failures must be analyzed before a fresh smoke run');
 
   console.log('PASS: RSI green, red, and triggering-run evidence paths behave as expected.');
