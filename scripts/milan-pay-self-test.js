@@ -28,6 +28,7 @@ assert(fs.readFileSync('backend/.env.example', 'utf8').includes('MILAN_PAY_GOOGL
 assert(page.includes('id="upiQr"') && page.includes('id="payeeVpa"'), 'Checkout must show dynamic QR and receiver UPI ID');
 assert(page.includes('id="copyVpa"') && page.includes('id="copyAmount"') && page.includes('id="copyOrderId"'), 'Cross-device copy-payment fallbacks missing');
 assert(page.includes("Never trust the payment URI from sessionStorage"), 'Pending order restore must use the authenticated server-owned payment URI');
+assert(page.includes('data.paymentActionRequired === false') && page.includes('Verification pending'), 'Checkout must not reopen a payment intent after UTR submission');
 assert(page.includes("navigator.clipboard") && page.includes('document.execCommand("copy")'), 'Clipboard fallback missing');
 assert(fs.readFileSync('backend/.env.example', 'utf8').includes('MILAN_PAY_MCC='), 'Document bank-assigned MCC setting for iOS UPI intent');
 assert(storagePage.includes('href="/milan-pay"'), 'Storage page must link to MILAN Pay checkout');
