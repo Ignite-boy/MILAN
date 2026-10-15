@@ -65,6 +65,12 @@
 
   /* 3 — WebSocket fallback */
   function viaWebSocket() {
+    // Vercel production has no attached Node upgrade listener; use polling fallback.
+    var host = String(location.hostname || "").toLowerCase();
+    if (host === "milanlife.in" || host === "www.milanlife.in" || host.endsWith(".vercel.app")) return false;
+    // Vercel serverless has no Node HTTP upgrade listener; polling remains the fallback.
+    var host = String(location.hostname || "").toLowerCase();
+    if (host === "milanlife.in" || host === "www.milanlife.in" || /\\.vercel\\.app$/.test(host)) return false;
     if (!("WebSocket" in window)) return false;
     var delay = 2000;
     function conn() {
