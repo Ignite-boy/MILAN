@@ -11,7 +11,8 @@
     "build": "node scripts/verify-build.js",
     "test:chat": "node scripts/chat-self-test.js",
     "test:payment": "node scripts/payment-self-test.js",
-    "test:milan-pay": "node scripts/milan-pay-self-test.js"
+    "test:milan-pay": "node scripts/milan-pay-self-test.js",
+    "test:security": "node --test scripts/security-self-test.js"
   },
   "dependencies": {
     "@simplewebauthn/server": "^13.3.2",

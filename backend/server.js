@@ -36,7 +36,11 @@ app.use((req, res, next) => {
   res.setHeader('Content-Security-Policy', "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.youtube.com https://s.ytimg.com  ; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https:  ; frame-src https://www.youtube.com https://www.youtube-nocookie.com  ; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests");
   next();
 });
-const rateBuckets = new Map();
+const apiRateLimiter = require('./middleware/apiRateLimiter')({
+  limit: 300,
+  windowMs: 60_000,
+  maxBuckets: 20_000
+});
 app.use('/api', (req, res, next) => {
   // Do not throttle video byte-range playback or video/photo uploads.
   // Desktop browsers upload large videos as many small chunks; the old 300/minute
@@ -53,16 +57,7 @@ app.use('/api', (req, res, next) => {
     res.setHeader('X-RateLimit-Skipped', 'media-upload');
     return next();
   }
-  const ip = req.ip || req.socket.remoteAddress || 'local';
-  const now = Date.now();
-  const bucket = rateBuckets.get(ip) || { count: 0, reset: now + 60_000 };
-  if (now > bucket.reset) { bucket.count = 0; bucket.reset = now + 60_000; }
-  bucket.count += 1;
-  rateBuckets.set(ip, bucket);
-  res.setHeader('X-RateLimit-Limit', '300');
-  res.setHeader('X-RateLimit-Remaining', Math.max(0, 300 - bucket.count));
-  if (bucket.count > 300) return res.status(429).json({ error: 'Too many requests. Please try again shortly.' });
-  next();
+  return apiRateLimiter(req, res, next);
 });
 app.use((req, _res, next) => {
   // Keep API logging off by default because mobile networks can feel slower when every request is printed.

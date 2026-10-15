@@ -57,6 +57,9 @@ jobs:
       - name: Verify chat architecture
         run: npm run test:chat
 
+      - name: Verify API rate-limit behavior
+        run: npm run test:security
+
       - name: Verify MILAN Pay architecture
         run: npm run test:payment
 
