@@ -43,6 +43,13 @@ const checks = [
   ['1 GB price is consistent', payRoute.includes("amountInr: 500") && storageRoute.includes("amountInr: 500")],
   ['Checkout has a UTR form', payPage.includes('id="utrForm"') && payPage.includes('name="utr"')],
   ['Checkout submits the server order ID and UTR', payPage.includes('orderId: currentOrderId') && payPage.includes('utr')],
+  ['Checkout disables repeat-payment actions when support reconciliation is required',
+    payPage.includes('function requiresPaymentSupport(code)') &&
+    payPage.includes("'MILAN_PAY_PENDING_ORDER_RECIPIENT_UNVERIFIED'") &&
+    payPage.includes("'MILAN_PAY_ORDER_VERIFICATION_ALREADY_SUBMITTED'") &&
+    payPage.includes('pay.disabled = supportRequired || !ready') &&
+    payPage.includes("'Contact support'") &&
+    payPage.includes('Payment status unavailable')],
   ['Checkout keeps storage pending until manual verification', payPage.includes('PENDING BANK VERIFICATION') && payPage.includes('storage is not upgraded yet')],
   ['Checkout shows server-generated order QR', payRoute.includes("QRCode.toDataURL") && payRoute.includes("qrDataUrl") && payPage.includes('id="upiQr"')],
   ['Checkout shows merchant receiver details', payRoute.includes("merchantVpa: ready ? vpa : null") && payPage.includes('id="payeeVpa"')],
