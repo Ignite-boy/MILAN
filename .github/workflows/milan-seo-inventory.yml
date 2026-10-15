@@ -1,7 +1,9 @@
 name: MILAN SEO Inventory
 
 on:
-  push:
+  workflow_run:
+    workflows: ["MILAN • Build & Production Pipeline"]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
     inputs:
@@ -18,6 +20,7 @@ permissions:
 jobs:
   seo:
     name: Deep SEO inventory
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
