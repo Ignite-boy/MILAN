@@ -41,6 +41,13 @@ function adminRequired(req, res, next) {
   next();
 }
 
+// Storage/payment responses contain user quota, UTR and bank-review metadata.
+// Prevent browser and intermediary caches from persisting these responses.
+router.use((_req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store');
+  next();
+});
+
 router.post('/upgrade-request', auth, async (req, res) => {
   try {
     const planKey = String(req.body?.plan || '').trim();
