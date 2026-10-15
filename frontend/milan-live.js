@@ -86,7 +86,52 @@
     return true;
   }
 
-  function start() { viaSharedWorker() || direct(); }
+  function start() {
+    var host = String(location.hostname || "").toLowerCase();
+
+    if (
+      host === "milanlife.in" ||
+      host === "www.milanlife.in" ||
+      host.endsWith(".vercel.app")
+    ) {
+      // Vercel serverless fallback: refresh persisted notification/summary APIs.
+      var refreshing = false;
+
+      function refresh() {
+        if (refreshing || document.hidden) return;
+        refreshing = true;
+
+        var tasks = [];
+        try {
+          if (typeof loadNotifications === "function") {
+            tasks.push(Promise.resolve(loadNotifications()));
+          }
+        } catch (_) {}
+
+        try {
+          if (typeof loadSummary === "function") {
+            tasks.push(Promise.resolve(loadSummary()));
+          }
+        } catch (_) {}
+
+        Promise.all(tasks.map(function (task) {
+          return Promise.resolve(task).catch(function () {});
+        })).then(
+          function () { refreshing = false; },
+          function () { refreshing = false; }
+        );
+      }
+
+      refresh();
+      window.setInterval(refresh, 30000);
+      document.addEventListener("visibilitychange", function () {
+        if (!document.hidden) refresh();
+      });
+      return;
+    }
+
+    viaSharedWorker() || direct();
+  }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
   else start();
 })();

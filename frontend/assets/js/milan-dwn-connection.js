@@ -2,7 +2,7 @@
 
 (() => {
   const STATUS_ID = "myDwn";
-  const HEALTH_URL = "/api/cloud-dwn/health";
+  const HEALTH_URL = "/api/cloud-dwn/status";
   const PROFILE_URL = "/api/profile";
 
   let timer = null;
@@ -26,16 +26,17 @@
     if (!el) return;
 
     const labels = {
-      connected: "Connected",
-      connecting: "Connected",
-      reconnecting: "Connected",
-      disconnected: "Connected"
+      connected: "Cloud storage connected",
+      connecting: "Checking cloud storage...",
+      reconnecting: "Checking cloud storage...",
+      disconnected: "Cloud storage unavailable"
     };
 
-    // Authenticated user always has an established assigned DWN binding.
-    // Never expose transient Resolving / Connecting / Reconnecting / Disconnected UI.
-    el.textContent = "Connected";
-    el.dataset.dwnConnection = "connected";
+    el.textContent = labels[state] || "Cloud storage status unknown";
+    el.dataset.dwnConnection = state;
+    el.title = state === "connected"
+      ? "Supabase-backed storage is configured. Signed DWN protocol execution is not integrated."
+      : "Cloud storage configuration or authenticated profile check needs attention.";
   };
 
   async function check() {
@@ -48,9 +49,8 @@
 
     busy = true;
 
-    // Once authenticated, the assigned DWN is the user's active connection.
-    // Never expose a transient health-check state in the UI.
-    setStatus("connected");
+    // Only show connected after cloud storage and profile checks succeed.
+    setStatus("connecting");
 
     try {
       const response = await fetch(HEALTH_URL, {
@@ -67,12 +67,14 @@
 
       if (
         !response.ok ||
-        health?.state !== "connected" ||
-        health?.dwn?.nodeReady !== true
+        health?.ok !== true ||
+        health?.mode !== "supabase" ||
+        health?.storage?.mode !== "supabase" ||
+        health?.storage?.remoteWriteEnabled !== true
       ) {
         throw new Error(
-          health?.reason ||
-          ("DWN health check failed: " + response.status)
+          "Supabase cloud storage is not configured or reachable (HTTP " +
+          response.status + ")."
         );
       }
 
@@ -100,8 +102,7 @@
       setStatus("connected");
     } catch (error) {
       console.warn("[MILAN DWN] background health check failed:", error.message);
-      // Authenticated session owns the UI connection state.
-      setStatus("connected");
+      setStatus("disconnected");
     } finally {
       busy = false;
     }
