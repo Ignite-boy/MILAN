@@ -6,6 +6,7 @@ const { readJson, writeJson, findUserByDid } = require('../utils/store');
 const { BROWSER_SAFE_MEDIA, detectMimeFromFile, extForMime, categoryForMime, normalizeUploadedMedia } = require('../utils/mediaCompat');
 const { getDwnInfo, pushRecordToCloudDwn, deleteRecordFromCloudDwn, pushMediaToCloudDwn, storageRootFor, dwnRoot, databaseRoot, isolatedRoot, persistenceInfo, cloudRemoteBase, isEmbeddedSelfEndpoint } = require('./cloudDwnRegistry');
 const { assertCloudSyncSucceeded } = require('./dwnSyncGuard');
+const { commitResumableMedia } = require('./resumableMediaCommit');
 
 const { createClient } = require('@supabase/supabase-js');
 
@@ -807,7 +808,10 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
 
   const { all, list } = ownerRecordsRaw(userId);
   const now = new Date().toISOString();
-  const id = uuidv4();
+  const requestedRecordId = String(meta.recordId || '').trim();
+  const id = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestedRecordId)
+    ? requestedRecordId
+    : uuidv4();
   let ext = mediaExtFromMime(mimeType) || path.extname(originalName) || '.bin';
   const mediaUserDir = path.join(userIsolatedRoot(userId), 'media');
   ensureDir(mediaUserDir);
@@ -957,23 +961,49 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
     queuedAt: new Date().toISOString()
   };
 
+  // Stable upload IDs make retrying a failed cloud commit idempotent.
+  const priorRecordIndex = list.findIndex(item => String(item?.id || '') === id);
+  if (priorRecordIndex >= 0) list.splice(priorRecordIndex, 1);
   list.unshift(record);
   persistRecord(userId, record);
   all[userId] = list;
   writeIndex(all);
 
   const ownerUser = userByDid(ownerDid);
-  const mediaSync = {
+  const durableResumableUpload =
+    String(meta.uploadMode || '') === 'resumable-chunked' &&
+    (Boolean(process.env.VERCEL) ||
+      String(process.env.MILAN_UPLOAD_STORAGE_BACKEND || '').toLowerCase() === 'supabase');
+
+  let mediaSync = {
     pushed: false,
     backend: 'supabase',
-    mode: 'background',
+    mode: durableResumableUpload ? 'synchronous-resumable' : 'background',
     pending: true,
     queuedAt: new Date().toISOString()
   };
   record.cloudDwn.mediaSync = mediaSync;
   persistRecord(userId, record);
 
-  runBackground(async () => {
+  if (durableResumableUpload) {
+    const persistCommitState = () => {
+      persistRecord(userId, record);
+      all[userId] = list;
+      writeIndex(all);
+    };
+
+    mediaSync = await commitResumableMedia({
+      record,
+      ownerDid,
+      ownerUser,
+      mediaFile,
+      pushMediaToCloudDwn,
+      markCloudSync,
+      assertCloudSyncSucceeded,
+      persistCommitState
+    });
+  } else {
+    runBackground(async () => {
       try {
         runBackground(() => markCloudSync(record, ownerDid));
       } catch (err) {
@@ -1008,7 +1038,8 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
       } catch (persistErr) {
         console.error('[Background cloud-sync status persist failed]', record?.id, persistErr?.message || persistErr);
       }
-  });
+    });
+  }
   if (isRemoteOnlyMode() && !mediaSync.pushed) {
     try { removeRecordFile(userId, record.id); } catch (_) {}
     try { if (fs.existsSync(mediaFile)) fs.unlinkSync(mediaFile); } catch (_) {}

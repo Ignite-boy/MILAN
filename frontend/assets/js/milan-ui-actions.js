@@ -1,6 +1,12 @@
 (function () {
     "use strict";
 
+    if (window.__MILAN_UI_ACTIONS_INITIALIZED__) {
+        console.warn("[MILAN] Duplicate UI actions initialization skipped.");
+        return;
+    }
+    window.__MILAN_UI_ACTIONS_INITIALIZED__ = true;
+
     /* =========================================================
        MILAN — SINGLE AUTHORITATIVE HOME UI CONTROLLER
        One navigation layer
@@ -210,64 +216,126 @@
     }
 
 
+    const activeVideoUploadSessions = new WeakMap();
+
     async function uploadVideoChunked(file, meta, onProgress) {
         const token = getToken();
         const chunkBytes = Number(window.MILAN_UPLOAD_CHUNK_BYTES || 4194304);
 
-        const initResponse = await fetch("/api/records/media/chunk/init", {
-            method: "POST",
-            headers: {
-                "Authorization": "Bearer " + token,
-                "Content-Type": "application/json",
-                "Accept": "application/json"
-            },
-            body: JSON.stringify({
-                fileName: file.name,
-                mimeType: file.type || "application/octet-stream",
-                sizeBytes: file.size,
-                chunkBytes,
-                title: meta.title || file.name,
-                caption: meta.caption || "",
-                accessMode: meta.accessMode || "private",
-                sharedWithDids: [],
-                tags: []
-            })
+        const signature = JSON.stringify({
+            name: file.name,
+            size: file.size,
+            lastModified: Number(file.lastModified || 0),
+            type: file.type || "application/octet-stream",
+            title: meta.title || file.name,
+            caption: meta.caption || "",
+            accessMode: meta.accessMode || "private"
         });
 
-        const init = await initResponse.json().catch(() => ({}));
+        let uploadId = "";
+        let actualChunkBytes = chunkBytes;
+        let totalChunks = Math.ceil(file.size / chunkBytes);
+        let receivedIndexes = [];
+        const previous = activeVideoUploadSessions.get(file);
 
-        if (!initResponse.ok || !init.uploadId) {
-            throw new Error(
-                init.error ||
-                init.detail ||
-                "Video upload could not be started."
+        if (previous && previous.signature === signature) {
+            const statusResponse = await fetch(
+                "/api/records/media/chunk/" +
+                encodeURIComponent(previous.uploadId),
+                {
+                    method: "GET",
+                    headers: {
+                        "Authorization": "Bearer " + token,
+                        "Accept": "application/json"
+                    }
+                }
             );
+            const status = await statusResponse.json().catch(() => ({}));
+
+            if (!statusResponse.ok) {
+                if (
+                    statusResponse.status === 404 &&
+                    previous.stage === "completing"
+                ) {
+                    activeVideoUploadSessions.delete(file);
+                    throw new Error(
+                        "The server could not confirm whether this video was already published. " +
+                        "Refresh the feed before retrying to avoid a duplicate post."
+                    );
+                }
+
+                if (![403, 404].includes(statusResponse.status)) {
+                    throw new Error(
+                        status.error ||
+                        status.detail ||
+                        "Could not check the previous upload. Please retry."
+                    );
+                }
+
+                activeVideoUploadSessions.delete(file);
+            } else if (
+                status.status === "receiving" &&
+                Number(status.chunkBytes) > 0 &&
+                Number(status.totalChunks) ===
+                    Math.ceil(file.size / Number(status.chunkBytes)) &&
+                Array.isArray(status.received)
+            ) {
+                uploadId = previous.uploadId;
+                actualChunkBytes = Number(status.chunkBytes);
+                totalChunks = Number(status.totalChunks);
+                receivedIndexes = status.received;
+            } else {
+                activeVideoUploadSessions.delete(file);
+            }
+        } else if (previous) {
+            activeVideoUploadSessions.delete(file);
         }
 
-        const uploadId = init.uploadId;
-        const actualChunkBytes = Number(init.chunkBytes || chunkBytes);
-        const totalChunks = Number(
-            init.totalChunks ||
-            Math.ceil(file.size / actualChunkBytes)
-        );
+        if (!uploadId) {
+            const initResponse = await fetch("/api/records/media/chunk/init", {
+                method: "POST",
+                headers: {
+                    "Authorization": "Bearer " + token,
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                },
+                body: JSON.stringify({
+                    fileName: file.name,
+                    mimeType: file.type || "application/octet-stream",
+                    sizeBytes: file.size,
+                    chunkBytes,
+                    title: meta.title || file.name,
+                    caption: meta.caption || "",
+                    accessMode: meta.accessMode || "private",
+                    sharedWithDids: [],
+                    tags: []
+                })
+            });
 
-        let uploadedBase = 0;
+            const init = await initResponse.json().catch(() => ({}));
 
-        const removeUpload = async () => {
-            try {
-                await fetch(
-                    "/api/records/media/chunk/" +
-                    encodeURIComponent(uploadId),
-                    {
-                        method: "DELETE",
-                        headers: {
-                            "Authorization": "Bearer " + token,
-                            "Accept": "application/json"
-                        }
-                    }
+            if (!initResponse.ok || !init.uploadId) {
+                throw new Error(
+                    init.error ||
+                    init.detail ||
+                    "Video upload could not be started."
                 );
-            } catch (_) {}
-        };
+            }
+
+            uploadId = init.uploadId;
+            actualChunkBytes = Number(init.chunkBytes || chunkBytes);
+            totalChunks = Number(
+                init.totalChunks ||
+                Math.ceil(file.size / actualChunkBytes)
+            );
+            receivedIndexes = [];
+        }
+
+        activeVideoUploadSessions.set(file, {
+            uploadId,
+            signature,
+            stage: "uploading"
+        });
 
         try {
             // Bounded parallelism: faster transfer without flooding the backend.
@@ -283,8 +351,30 @@
                 )
             );
 
+            const receivedSet = new Set(
+                receivedIndexes
+                    .map(Number)
+                    .filter(index =>
+                        Number.isInteger(index) &&
+                        index >= 0 &&
+                        index < totalChunks
+                    )
+            );
             const chunkLoaded = new Array(totalChunks).fill(0);
             let loadedBytes = 0;
+
+            for (const index of receivedSet) {
+                const bytes = Math.min(
+                    actualChunkBytes,
+                    file.size - index * actualChunkBytes
+                );
+                if (bytes > 0) {
+                    chunkLoaded[index] = bytes;
+                    loadedBytes += bytes;
+                } else {
+                    receivedSet.delete(index);
+                }
+            }
 
             const reportProgress = () => {
                 if (!onProgress || file.size <= 0) return;
@@ -293,6 +383,8 @@
                     Math.min(96, (loadedBytes / file.size) * 96)
                 ));
             };
+
+            reportProgress();
 
             const uploadChunk = async index => {
                 const start = index * actualChunkBytes;
@@ -404,6 +496,7 @@
                 while (!workerError) {
                     const index = nextIndex++;
                     if (index >= totalChunks) return;
+                    if (receivedSet.has(index)) continue;
 
                     try {
                         await uploadChunk(index);
@@ -423,6 +516,12 @@
             if (workerError) throw workerError;
 
             if (onProgress) onProgress(98);
+
+            activeVideoUploadSessions.set(file, {
+                uploadId,
+                signature,
+                stage: "completing"
+            });
 
             const completeResponse = await fetch(
                 "/api/records/media/chunk/" +
@@ -449,9 +548,11 @@
                 );
             }
 
+            activeVideoUploadSessions.delete(file);
             return record;
         } catch (error) {
-            await removeUpload();
+            // Keep the session reference so a same-page retry can resume
+            // server-confirmed chunks instead of starting over.
             throw error;
         }
     }

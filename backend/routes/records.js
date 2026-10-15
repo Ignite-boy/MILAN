@@ -14,6 +14,7 @@ const supabaseDb = createClient(
 const { Readable } = require('stream');
 const crypto = require('crypto');
 const { detectMimeFromFile } = require('../utils/mediaCompat');
+const resumableUploadStore = require('../services/resumableUploadStore');
 
 const router = express.Router();
 
@@ -163,7 +164,20 @@ function readUploadSession(id) {
 function writeUploadSession(session) {
   const dir = uploadSessionDir(session.id);
   fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(uploadSessionFile(session.id), JSON.stringify(session, null, 2));
+
+  const file = uploadSessionFile(session.id);
+  const temporaryFile = `${file}.${crypto.randomUUID()}.tmp`;
+
+  try {
+    fs.writeFileSync(temporaryFile, JSON.stringify(session, null, 2), {
+      encoding: 'utf8',
+      flag: 'wx'
+    });
+    fs.renameSync(temporaryFile, file);
+  } catch (err) {
+    try { fs.unlinkSync(temporaryFile); } catch (_) {}
+    throw err;
+  }
 }
 function cleanupUploadSession(id) {
   try { fs.rmSync(uploadSessionDir(id), { recursive: true, force: true }); } catch (_) {}
@@ -179,6 +193,11 @@ function cleanupOldUploadSessions() {
     }
   } catch (_) {}
 }
+function usesSharedUploadStorage() {
+  return Boolean(process.env.VERCEL) ||
+    String(process.env.MILAN_UPLOAD_STORAGE_BACKEND || "").toLowerCase() === "supabase";
+}
+
 function normalizeUploadMeta(body = {}) {
   return {
     title: String(body.title || body.fileName || 'Untitled media').slice(0, 140),
@@ -193,7 +212,7 @@ function normalizeUploadMeta(body = {}) {
 
 router.post('/media/chunk/init', auth, async (req, res) => {
   try {
-    cleanupOldUploadSessions();
+    if (!usesSharedUploadStorage()) cleanupOldUploadSessions();
     const u = await current(req);
     if (!u) return res.status(404).json({ error: 'User not found' });
     const limit = Number(process.env.MAX_MEDIA_BYTES || 5000 * 1024 * 1024);
@@ -206,6 +225,7 @@ router.post('/media/chunk/init', auth, async (req, res) => {
     const meta = normalizeUploadMeta(req.body || {});
     const session = {
       id,
+      recordId: crypto.randomUUID(),
       userId: req.userId,
       ownerDid: u.user.did,
       sizeBytes,
@@ -218,36 +238,70 @@ router.post('/media/chunk/init', auth, async (req, res) => {
       updatedAt: new Date().toISOString(),
       status: 'receiving'
     };
-    writeUploadSession(session);
+    if (usesSharedUploadStorage()) {
+      await resumableUploadStore.writeSession(session);
+    } else {
+      writeUploadSession(session);
+    }
     res.status(201).json({ ok: true, uploadId: id, chunkBytes, totalChunks, maxBytes: limit });
   } catch (err) { handleError(res, err); }
 });
 
-router.post('/media/chunk/:uploadId', auth, (req, res) => {
+router.post('/media/chunk/:uploadId', auth, async (req, res) => {
+  const shared = usesSharedUploadStorage();
   const uploadId = safeUploadId(req.params.uploadId);
-  const session = readUploadSession(uploadId);
+
+  let session;
+  try {
+    session = shared
+      ? await resumableUploadStore.readSession(uploadId)
+      : readUploadSession(uploadId);
+  } catch (err) {
+    return handleError(res, err);
+  }
+
   if (!session) return res.status(404).json({ error: 'Upload session not found or expired.' });
   if (session.userId !== req.userId) return res.status(403).json({ error: 'This upload session belongs to another user.' });
+
   const index = Number(req.headers['x-chunk-index']);
-  if (!Number.isInteger(index) || index < 0 || index >= session.totalChunks) return res.status(400).json({ error: 'Invalid chunk index.' });
+  if (!Number.isInteger(index) || index < 0 || index >= session.totalChunks) {
+    return res.status(400).json({ error: 'Invalid chunk index.' });
+  }
+
   const contentLength = Number(req.headers['content-length'] || 0);
-  if (contentLength > MAX_CHUNK_BYTES + 1024 * 512) return res.status(413).json({ error: 'Chunk is too large. Please retry with the app chunk uploader.' });
-  const dir = uploadSessionDir(uploadId);
-  fs.mkdirSync(dir, { recursive: true });
+  if (contentLength > MAX_CHUNK_BYTES + 1024 * 512) {
+    return res.status(413).json({ error: 'Chunk is too large. Please retry with the app chunk uploader.' });
+  }
+
+  let dir;
+  try {
+    dir = shared
+      ? fs.mkdtempSync(path.join(os.tmpdir(), 'milan-upload-chunk-'))
+      : uploadSessionDir(uploadId);
+    fs.mkdirSync(dir, { recursive: true });
+  } catch (err) {
+    return handleError(res, err);
+  }
+
   const part = path.join(dir, `chunk-${String(index).padStart(8, '0')}.part`);
   const tmp = `${part}.${crypto.randomUUID()}.tmp`;
   let bytes = 0;
   let settled = false;
   const out = fs.createWriteStream(tmp);
+
   const fail = (status, message) => {
     if (settled) return;
     settled = true;
     try { req.unpipe(out); } catch (_) {}
     try { out.destroy(); } catch (_) {}
     try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch (_) {}
+    if (shared) {
+      try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {}
+    }
     try { req.resume(); } catch (_) {}
     if (!res.headersSent) res.status(status).json({ error: message });
   };
+
   req.on('aborted', () => fail(499, 'Chunk upload was cancelled.'));
   req.on('error', err => fail(400, err.message || 'Chunk upload stream failed.'));
   req.on('data', chunk => {
@@ -255,33 +309,64 @@ router.post('/media/chunk/:uploadId', auth, (req, res) => {
     if (bytes > MAX_CHUNK_BYTES + 1024 * 512) fail(413, 'Chunk is too large.');
   });
   out.on('error', err => fail(500, err.message || 'Could not save chunk.'));
-  out.on('finish', () => {
+
+  out.on('finish', async () => {
     if (settled) return;
     try {
-      if (bytes <= 0) return fail(400, 'Empty chunk received.');
+      const latest = shared
+        ? await resumableUploadStore.readSession(uploadId)
+        : readUploadSession(uploadId);
 
-      // Reload the latest session before updating chunk metadata.
-      const latest = readUploadSession(uploadId);
       if (!latest) return fail(404, 'Upload session not found or expired.');
       if (latest.userId !== req.userId) return fail(403, 'This upload session belongs to another user.');
+      if (bytes <= 0) return fail(400, 'Empty chunk received.');
 
       const expectedBytes = index === latest.totalChunks - 1
         ? latest.sizeBytes - (index * latest.chunkBytes)
         : latest.chunkBytes;
+
       if (bytes !== expectedBytes) {
         return fail(400, `Chunk size mismatch. Expected ${expectedBytes} bytes but received ${bytes} bytes.`);
+      }
+
+      if (shared) {
+        await resumableUploadStore.writeChunk(uploadId, index, fs.readFileSync(tmp));
+        try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {}
+        const received = await resumableUploadStore.listChunkIndexes(uploadId);
+        settled = true;
+        return res.json({
+          ok: true,
+          uploadId,
+          index,
+          bytes,
+          receivedChunks: received.length,
+          totalChunks: latest.totalChunks
+        });
       }
 
       fs.renameSync(tmp, part);
       const previous = Number(latest.received[index] || 0);
       latest.received[index] = bytes;
-      latest.receivedBytes = Math.max(0, Number(latest.receivedBytes || 0) - previous + bytes);
+      latest.receivedBytes = Math.max(
+        0,
+        Number(latest.receivedBytes || 0) - previous + bytes
+      );
       latest.updatedAt = new Date().toISOString();
       writeUploadSession(latest);
       settled = true;
-      res.json({ ok: true, uploadId, index, bytes, receivedChunks: Object.keys(latest.received).length, totalChunks: latest.totalChunks });
-    } catch (err) { fail(500, err.message || 'Could not finish chunk.'); }
+      return res.json({
+        ok: true,
+        uploadId,
+        index,
+        bytes,
+        receivedChunks: Object.keys(latest.received).length,
+        totalChunks: latest.totalChunks
+      });
+    } catch (err) {
+      return fail(err.status || 500, err.message || 'Could not finish chunk.');
+    }
   });
+
   req.pipe(out);
 });
 
@@ -289,86 +374,227 @@ router.post('/media/chunk/:uploadId', auth, (req, res) => {
 // The caller must still own the session; no media bytes or private metadata are
 // returned. A user can select the same file again and the client sends only
 // the missing chunks.
-router.get('/media/chunk/:uploadId', auth, (req, res) => {
+router.get('/media/chunk/:uploadId', auth, async (req, res) => {
+  const shared = usesSharedUploadStorage();
   const uploadId = safeUploadId(req.params.uploadId);
-  const session = readUploadSession(uploadId);
-  if (!session) return res.status(404).json({ error: 'Upload session not found or expired.' });
-  if (session.userId !== req.userId) return res.status(403).json({ error: 'This upload session belongs to another user.' });
-  return res.json({
-    ok: true,
-    uploadId,
-    status: session.status || 'receiving',
-    chunkBytes: session.chunkBytes,
-    totalChunks: session.totalChunks,
-    received: Object.keys(session.received || {}).map(Number).filter(Number.isInteger).sort((a, b) => a - b),
-    receivedBytes: Number(session.receivedBytes || 0),
-    updatedAt: session.updatedAt
-  });
-});
 
-router.post('/media/chunk/:uploadId/complete', auth, async (req, res) => {
-  const uploadId = safeUploadId(req.params.uploadId);
-  const session = readUploadSession(uploadId);
-  if (!session) return res.status(404).json({ error: 'Upload session not found or expired.' });
-  if (session.userId !== req.userId) return res.status(403).json({ error: 'This upload session belongs to another user.' });
-  const dir = uploadSessionDir(uploadId);
-  const assembled = path.join(dir, 'assembled.upload');
   try {
-    const u = await current(req);
-    if (!u) return res.status(404).json({ error: 'User not found' });
-    if (Object.keys(session.received || {}).length !== session.totalChunks) {
-      return res.status(409).json({ error: `Upload incomplete. Received ${Object.keys(session.received || {}).length}/${session.totalChunks} chunks.` });
-    }
-    try { if (fs.existsSync(assembled)) fs.unlinkSync(assembled); } catch (_) {}
-    await new Promise((resolve, reject) => {
-      const out = fs.createWriteStream(assembled, { flags: 'w' });
-      let index = 0;
-      let failed = false;
-      const fail = (err) => {
-        if (failed) return;
-        failed = true;
-        try { out.destroy(); } catch (_) {}
-        reject(err instanceof Error ? err : new Error(String(err || 'Could not assemble upload.')));
-      };
-      const pipeNext = () => {
-        if (failed) return;
-        if (index >= session.totalChunks) return out.end();
-        const part = path.join(dir, `chunk-${String(index).padStart(8, '0')}.part`);
-        if (!fs.existsSync(part)) {
-          const err = new Error(`Missing chunk ${index + 1}/${session.totalChunks}.`);
-          err.status = 409;
-          return fail(err);
-        }
-        const input = fs.createReadStream(part, { highWaterMark: 1024 * 1024 });
-        input.on('error', fail);
-        input.on('end', () => { index += 1; pipeNext(); });
-        input.pipe(out, { end: false });
-      };
-      out.on('error', fail);
-      out.on('finish', () => failed ? undefined : resolve());
-      pipeNext();
+    const session = shared
+      ? await resumableUploadStore.readSession(uploadId)
+      : readUploadSession(uploadId);
+
+    if (!session) return res.status(404).json({ error: 'Upload session not found or expired.' });
+    if (session.userId !== req.userId) return res.status(403).json({ error: 'This upload session belongs to another user.' });
+
+    const received = shared
+      ? await resumableUploadStore.listChunkIndexes(uploadId)
+      : Object.keys(session.received || {}).map(Number).filter(Number.isInteger).sort((a, b) => a - b);
+
+    const receivedBytes = shared
+      ? received.reduce((sum, index) => sum + Math.max(
+          0,
+          Math.min(session.chunkBytes, session.sizeBytes - index * session.chunkBytes)
+        ), 0)
+      : Number(session.receivedBytes || 0);
+
+    return res.json({
+      ok: true,
+      uploadId,
+      status: session.status || 'receiving',
+      chunkBytes: session.chunkBytes,
+      totalChunks: session.totalChunks,
+      received,
+      receivedBytes,
+      updatedAt: session.updatedAt
     });
-    const finalSize = fs.statSync(assembled).size;
-    if (finalSize !== session.sizeBytes) {
-      return res.status(400).json({ error: `Upload size mismatch. Expected ${session.sizeBytes} bytes but received ${finalSize} bytes.` });
-    }
-    const record = await dwnStore.createMediaRecordFromFile(req.userId, u.user.did, { ...session.meta, fastAccept: true, uploadMode: 'resumable-chunked' }, assembled);
-    // createMediaRecordFromFile moves the assembled file, so do not delete it separately here.
-    cleanupUploadSession(uploadId);
-    addActivity(req.userId, 'media.record.chunked.to.dwn', { title: record.title, accessMode: record.accessMode, dwnRecordId: record.dwnRecordId, bytes: finalSize, mimeType: session.meta.mimeType, chunks: session.totalChunks });
-    return res.status(201).json(record);
   } catch (err) {
-    try { if (fs.existsSync(assembled)) fs.unlinkSync(assembled); } catch (_) {}
     return handleError(res, err);
   }
 });
 
-router.delete('/media/chunk/:uploadId', auth, (req, res) => {
+router.post('/media/chunk/:uploadId/complete', auth, async (req, res) => {
+  const shared = usesSharedUploadStorage();
   const uploadId = safeUploadId(req.params.uploadId);
-  const session = readUploadSession(uploadId);
-  if (session && session.userId !== req.userId) return res.status(403).json({ error: 'This upload session belongs to another user.' });
-  cleanupUploadSession(uploadId);
-  res.json({ ok: true, cancelled: true });
+
+  let session;
+  try {
+    session = shared
+      ? await resumableUploadStore.readSession(uploadId)
+      : readUploadSession(uploadId);
+  } catch (err) {
+    return handleError(res, err);
+  }
+
+  if (!session) return res.status(404).json({ error: 'Upload session not found or expired.' });
+  if (session.userId !== req.userId) return res.status(403).json({ error: 'This upload session belongs to another user.' });
+
+  let dir;
+  try {
+    dir = shared
+      ? fs.mkdtempSync(path.join(os.tmpdir(), 'milan-upload-assemble-'))
+      : uploadSessionDir(uploadId);
+    fs.mkdirSync(dir, { recursive: true });
+  } catch (err) {
+    return handleError(res, err);
+  }
+
+  const assembled = path.join(dir, 'assembled.upload');
+
+  try {
+    const u = await current(req);
+    if (!u) return res.status(404).json({ error: 'User not found' });
+
+    const received = shared
+      ? await resumableUploadStore.listChunkIndexes(uploadId)
+      : Object.keys(session.received || {}).map(Number).filter(Number.isInteger);
+
+    const receivedSet = new Set(received);
+    let completeCount = 0;
+    for (let i = 0; i < session.totalChunks; i++) {
+      if (receivedSet.has(i)) completeCount++;
+    }
+
+    if (completeCount !== session.totalChunks) {
+      if (shared) {
+        try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {}
+      }
+      return res.status(409).json({
+        error: `Upload incomplete. Received ${completeCount}/${session.totalChunks} chunks.`
+      });
+    }
+
+    try { if (fs.existsSync(assembled)) fs.unlinkSync(assembled); } catch (_) {}
+
+    if (shared) {
+      for (let index = 0; index < session.totalChunks; index++) {
+        const chunk = await resumableUploadStore.readChunk(uploadId, index);
+        if (!chunk) {
+          const err = new Error(`Missing chunk ${index + 1}/${session.totalChunks}.`);
+          err.status = 409;
+          throw err;
+        }
+
+        const expectedBytes = index === session.totalChunks - 1
+          ? session.sizeBytes - (index * session.chunkBytes)
+          : session.chunkBytes;
+
+        if (chunk.length !== expectedBytes) {
+          const err = new Error(`Chunk ${index + 1} has an invalid size.`);
+          err.status = 409;
+          throw err;
+        }
+
+        await fs.promises.appendFile(assembled, chunk);
+      }
+    } else {
+      await new Promise((resolve, reject) => {
+        const out = fs.createWriteStream(assembled, { flags: 'w' });
+        let index = 0;
+        let failed = false;
+
+        const failAssembly = err => {
+          if (failed) return;
+          failed = true;
+          try { out.destroy(); } catch (_) {}
+          reject(err instanceof Error ? err : new Error(String(err || 'Could not assemble upload.')));
+        };
+
+        const pipeNext = () => {
+          if (failed) return;
+          if (index >= session.totalChunks) return out.end();
+
+          const part = path.join(dir, `chunk-${String(index).padStart(8, '0')}.part`);
+          if (!fs.existsSync(part)) {
+            const err = new Error(`Missing chunk ${index + 1}/${session.totalChunks}.`);
+            err.status = 409;
+            return failAssembly(err);
+          }
+
+          const input = fs.createReadStream(part, { highWaterMark: 1024 * 1024 });
+          input.on('error', failAssembly);
+          input.on('end', () => {
+            index += 1;
+            pipeNext();
+          });
+          input.pipe(out, { end: false });
+        };
+
+        out.on('error', failAssembly);
+        out.on('finish', () => failed ? undefined : resolve());
+        pipeNext();
+      });
+    }
+
+    const finalSize = fs.statSync(assembled).size;
+    if (finalSize !== session.sizeBytes) {
+      return res.status(400).json({
+        error: `Upload size mismatch. Expected ${session.sizeBytes} bytes but received ${finalSize} bytes.`
+      });
+    }
+
+    const record = await dwnStore.createMediaRecordFromFile(
+      req.userId,
+      u.user.did,
+      { ...session.meta, recordId: session.recordId, fastAccept: true, uploadMode: 'resumable-chunked' },
+      assembled
+    );
+
+    // Record persistence is the commit point. Cleanup failure must not turn a
+    // confirmed record into an apparent publish failure that invites duplicates.
+    if (shared) {
+      try {
+        await resumableUploadStore.deleteSession(uploadId);
+      } catch (cleanupErr) {
+        console.warn('[MILAN] Staged upload cleanup deferred:', cleanupErr?.message || cleanupErr);
+      }
+      try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {}
+    } else {
+      cleanupUploadSession(uploadId);
+    }
+
+    addActivity(req.userId, 'media.record.chunked.to.dwn', {
+      title: record.title,
+      accessMode: record.accessMode,
+      dwnRecordId: record.dwnRecordId,
+      bytes: finalSize,
+      mimeType: session.meta.mimeType,
+      chunks: session.totalChunks
+    });
+
+    return res.status(201).json(record);
+  } catch (err) {
+    try { if (fs.existsSync(assembled)) fs.unlinkSync(assembled); } catch (_) {}
+    if (shared) {
+      try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {}
+    }
+    return handleError(res, err);
+  }
+});
+
+router.delete('/media/chunk/:uploadId', auth, async (req, res) => {
+  const shared = usesSharedUploadStorage();
+  const uploadId = safeUploadId(req.params.uploadId);
+
+  try {
+    const session = shared
+      ? await resumableUploadStore.readSession(uploadId)
+      : readUploadSession(uploadId);
+
+    if (!session) {
+      return res.status(404).json({ error: 'Upload session not found or expired.' });
+    }
+
+    if (session.userId !== req.userId) {
+      return res.status(403).json({ error: 'This upload session belongs to another user.' });
+    }
+
+    if (shared) await resumableUploadStore.deleteSession(uploadId);
+    else cleanupUploadSession(uploadId);
+
+    return res.json({ ok: true, cancelled: true });
+  } catch (err) {
+    return handleError(res, err);
+  }
 });
 
 router.get('/', auth, async (req, res) => {
