@@ -13,7 +13,6 @@
 | Data layer | `backend/services/cloudDwnRegistry.js`, `backend/utils/dwnStorage.js` | Supabase is declared authoritative; records/snapshots/media use Supabase paths | This alone is a standards-compliant live DWN protocol implementation |
 | DWN C++ experiment | `DWN/` | C++20 target, LevelDB linked, PostgreSQL source excluded from canonical build | That main API invokes its protocol/server |
 | Sentinel | `Milan-Sentinel/` | 10M theoretical Cartesian product; subset adapters only | 10M end-to-end executed tests |
-| RSI | `Milan-RSI-Agent/` | Repair-analysis and patch-generation scripts | Safe autonomous production code mutation without isolation/review |
 | Travel agent | `Travel-Agent/` | FastAPI/LangGraph source now verifies MILAN Bearer tokens through the MILAN identity endpoint and scopes graph/memory IDs by verified user | Deployed enforcement is not verified: Render's current service binding still points to the pre-consolidation repository; live flight/hotel prices also are not guaranteed (the tool contains mock fallbacks) |
 | Wallet | `DWN-Wallet/` | Prototype, including in-memory store code | Durable wallet state or connected production transfer routes |
 | UI updater | `Live-UI-Update/` | AI/helper scripts, SEO tooling and workflow source | A second canonical copy of the production UI |

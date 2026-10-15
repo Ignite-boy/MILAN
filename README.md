@@ -16,7 +16,7 @@ MILAN is a privacy-oriented social application built around DID-based identity c
 | Identity and user spaces | DID and per-user space identifiers are associated with authoritative user records. A logical per-user namespace is not by itself proof of a live standards-compliant DWN node. |
 | C++ DWN component | Standalone experimental implementation in `DWN/`; its canonical CMake target uses LevelDB. It is **not currently verified as the protocol engine used by the main production API**. |
 | Quality/testing | `Milan-Sentinel/` defines a 10,000,000-combination Cartesian test space. Only cases with implemented adapters can produce PASS; unimplemented combinations must be SKIP. |
-| Other components | `Travel-Agent/`, `DWN-Wallet/`, `Inventory/`, `Milan-RSI-Agent/` and `Live-UI-Update/` are consolidated components with different maturity levels; do not infer production readiness from their presence in this repository. |
+| Other components | `Travel-Agent/`, `DWN-Wallet/`, `Inventory/` and `Live-UI-Update/` are consolidated components with different maturity levels; do not infer production readiness from their presence in this repository. |
 
 ## Important architecture boundary
 
@@ -63,7 +63,6 @@ Vercel is configured to serve `frontend/` and route API requests through `api/in
 - `backend/` — Express API, authorization, records and persistence integrations
 - `api/` — Vercel entry point
 - `Milan-Sentinel/` — matrix definition and executable checks
-- `Milan-RSI-Agent/` — repair-analysis experiment (push is opt-in)
 - `DWN/` — standalone C++/LevelDB DWN experiment
 - `Travel-Agent/` — FastAPI/LangGraph travel prototype
 - `DWN-Wallet/` — wallet prototype

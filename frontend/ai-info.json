@@ -22,7 +22,6 @@
     "Travel-Agent/": "FastAPI/LangGraph travel prototype; external provider/service deployment and authorization require separate verification.",
     "DWN-Wallet/": "Prototype component; in-memory implementation is not durable storage.",
     "Milan-Sentinel/": "Quality tooling with explicit PASS/FAIL/SKIP semantics.",
-    "Milan-RSI-Agent/": "Repair-analysis experiment; patch push is opt-in.",
     "Live-UI-Update/": "UI/SEO automation tooling; frontend/ remains the production UI source of truth."
   },
   "productionReadinessCaveat": "Source inventory and passing smoke checks do not prove every feature, external service, credential, payment, data-retention rule or protocol guarantee is production-ready."
