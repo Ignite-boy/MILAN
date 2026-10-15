@@ -78,15 +78,26 @@ function validatePatchPaths(patch) {
     const from = match[1];
     const to = match[2];
     if (from !== to) throw new Error('Renames are not accepted in an automated repair proposal.');
-    if (!/^[A-Za-z0-9._/-]+$/.test(to) || path.isAbsolute(to) || to.split('/').includes('..')) {
+    const normalized = path.posix.normalize(to);
+    if (
+      normalized !== to ||
+      to.split('/').includes('.') ||
+      !/^[A-Za-z0-9._/-]+$/.test(to) ||
+      path.isAbsolute(to) ||
+      to.split('/').includes('..')
+    ) {
       throw new Error(`Unsafe or unsupported path in repair patch: ${to}`);
     }
     if (
-      to.startsWith('.github/workflows/') ||
-      to.startsWith('.github/actions/') ||
+      to.startsWith('.github/') ||
       to === '.gitignore' ||
+      to === '.npmrc' ||
       /(^|\/)\.env(?:\.|$)/i.test(to) ||
       /(^|\/)(secrets?|credentials?)(\/|\.|$)/i.test(to) ||
+      /(^|\/)package(?:-lock)?\.json$/i.test(to) ||
+      to === 'Milan-RSI-Agent/scripts/repair.js' ||
+      to === 'Milan-RSI-Agent/scripts/rsi-loop.js' ||
+      to === 'Milan-RSI-Agent/scripts/test-rsi-loop.js' ||
       /\.(pem|key|p12|pfx)$/i.test(to)
     ) {
       throw new Error(`Repair patch is not allowed to modify a protected path: ${to}`);
