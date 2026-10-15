@@ -53,7 +53,7 @@ class Parser(HTMLParser):
             if isinstance(rel, list): rel = " ".join(rel)
             if rel.lower() == "canonical": self.canonical = (a.get("href") or "").strip()
         elif tag == "a" and a.get("href"): self.links.append(a["href"])
-        elif tag == "img" and not (a.get("alt") or "").strip(): self.images_without_alt += 1
+        elif tag == "img" and "alt" not in a: self.images_without_alt += 1
         elif tag == "script" and (a.get("type") or "").lower() == "application/ld+json": self.capture = "jsonld"
 
     def handle_endtag(self, tag):
