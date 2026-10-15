@@ -34,7 +34,7 @@ if (!failures.length) {
   console.error('No FAIL rows found in the selected Sentinel evidence; no repair proposal will be generated.');
   process.exit(1);
 }
-if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is not set.');
+if (!process.env.OPENAI_API_KEY && !process.env.RSI_BASE_URL) throw new Error('Set OPENAI_API_KEY or RSI_BASE_URL for the selected repair model.');
 
 function sh(cmd, cwd) {
   return cp.execSync(cmd, {
@@ -61,7 +61,7 @@ function sourceContext(worktree) {
     } catch {
       return '';
     }
-  }).join('\n\n').slice(0, 160000);
+  }).join('\n\n').slice(0, 60000);
 }
 
 function parseJson(text) {
@@ -138,7 +138,11 @@ async function main() {
     action: row.action,
     error: row.error
   })).join('\n');
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const localBaseURL = process.env.RSI_BASE_URL;
+  const client = new OpenAI({
+    apiKey: localBaseURL ? 'ollama' : process.env.OPENAI_API_KEY,
+    ...(localBaseURL ? { baseURL: localBaseURL } : {})
+  });
 
   if (!fs.existsSync(path.join(worktree, '.git'))) {
     fs.rmSync(worktree, { recursive: true, force: true });
@@ -178,7 +182,7 @@ Return ONLY JSON with keys summary and patch. The patch must be a valid unified 
     writeEvidence(
       evidenceDir,
       'ANALYSIS_FAILED',
-      `OpenAI request failed (HTTP ${status || 'unknown'}): ${message}\n\nNo candidate patch was generated. Check API project billing, credits, permissions, and model access.`
+      `OpenAI request failed (HTTP ${status || 'unknown'}): ${message}\n\nNo candidate patch was generated. Check local model availability or, for OpenAI API mode, project billing, credits, permissions, and model access.`
     );
     throw error;
   }
