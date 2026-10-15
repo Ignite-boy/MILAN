@@ -36,6 +36,16 @@ function validVpa(value) {
   return /^[A-Za-z0-9._-]{2,256}@[A-Za-z][A-Za-z0-9]{1,63}$/.test(value);
 }
 
+// The iOS shortcut remains off by default even when an MCC is present. Enable it only
+// after the bank/acquirer has verified merchant onboarding and the real-device flow.
+function googlePayIosEnabled() {
+  return String(process.env.MILAN_PAY_GOOGLE_PAY_IOS_ENABLED || '').trim().toLowerCase() === 'true';
+}
+
+function googlePayIosAvailable(vpa) {
+  return validVpa(vpa) && Boolean(merchantMcc()) && googlePayIosEnabled();
+}
+
 function makeOrderId(userId) {
   const user = String(userId || 'USER')
     .replace(/[^A-Za-z0-9_-]/g, '').slice(0, 8) || 'USER';
@@ -57,8 +67,8 @@ function makeUpiUri(vpa, orderId, plan) {
 }
 
 function makeGooglePayIosUri(vpa, orderId, plan) {
+  if (!googlePayIosAvailable(vpa)) return null;
   const mcc = merchantMcc();
-  if (!mcc) return null;
   const params = new URLSearchParams({
     pa: vpa,
     pn: merchantName(),
@@ -91,16 +101,20 @@ router.get('/config', (_req, res) => {
     merchantName: merchantName(),
     merchantVpa: ready ? vpa : null,
     merchantMccConfigured: Boolean(merchantMcc()),
-    googlePayIosAvailable: ready && Boolean(merchantMcc()),
+    googlePayIosAvailable: ready && googlePayIosAvailable(vpa),
     qrPaymentsAvailable: ready,
+    // These flags describe app capability, not confirmation that the VPA has live
+    // merchant collection privileges or that a transaction was settled.
+    merchantVerificationStatus: ready ? 'configured-unverified' : 'not-configured',
     verificationMode: 'manual-bank-verification',
+    automaticPaymentConfirmationAvailable: false,
     upiAvailable: ready,
     cardPaymentsAvailable: false,
     internationalPaymentsAvailable: false,
     status: ready ? 'upi-intent-awaiting-verification' : 'merchant-upi-not-configured',
     methods: ready ? ['UPI apps supported by the customer device'] : [],
     message: ready
-      ? 'UPI intent checkout is available. Payment verification and automatic settlement confirmation require an authorised bank/acquirer connection.'
+      ? 'UPI intent and QR can be generated for the configured VPA. Verify merchant collection eligibility with your bank; settlement is not confirmed by this app.'
       : 'Configure MILAN_PAY_UPI_ID for the bank-linked merchant UPI ID. Bank account number and IFSC alone do not enable UPI/card processing.'
   });
 });
@@ -139,16 +153,24 @@ router.post('/orders', auth, async (req, res) => {
       return res.status(400).json({ ok: false, error: 'Invalid plan.' });
     }
 
-    const { data: pendingOrder, error: pendingOrderError } = await supabase
+    const { data: pendingOrders, error: pendingOrderError } = await supabase
       .from('payment_orders')
       .select('order_id,plan,amount_inr,status,gateway_reference')
       .eq('user_id', req.account.id)
       .eq('gateway', 'milanpay')
       .eq('status', 'pending')
-      .limit(1)
-      .maybeSingle();
+      .limit(2);
 
     if (pendingOrderError) throw pendingOrderError;
+    const existingPendingOrders = Array.isArray(pendingOrders) ? pendingOrders : [];
+    if (existingPendingOrders.length > 1) {
+      return res.status(409).json({
+        ok: false,
+        code: 'MILAN_PAY_PENDING_ORDER_RECONCILIATION_REQUIRED',
+        error: 'Multiple pending MILAN Pay orders exist for your account. For your safety, no payment link will be issued until support reconciles the orders against bank records.'
+      });
+    }
+    const pendingOrder = existingPendingOrders[0] || null;
     if (pendingOrder) {
       if (pendingOrder.plan !== planKey || Number(pendingOrder.amount_inr) !== plan.amountInr) {
         return res.status(409).json({
@@ -252,6 +274,7 @@ router.post('/orders', auth, async (req, res) => {
 });
 
 router.get('/orders/:orderId/status', auth, async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
   try {
     const orderId = String(req.params.orderId || '').trim();
     if (!/^MLNPAY_[A-Za-z0-9_-]+_[a-z0-9]+_[a-f0-9]+$/i.test(orderId)) {
@@ -276,6 +299,49 @@ router.get('/orders/:orderId/status', auth, async (req, res) => {
 
     let paymentDetails = {};
     if (data.status === 'pending') {
+      // A submitted verification request means this order is awaiting review, not another payment.
+      const { data: linkedRequest, error: linkedRequestError } = await supabase
+        .from('storage_upgrade_requests')
+        .select('id,status')
+        .eq('order_id', data.order_id)
+        .limit(1)
+        .maybeSingle();
+      if (linkedRequestError) throw linkedRequestError;
+      if (linkedRequest) {
+        res.setHeader('Cache-Control', 'no-store');
+        return res.json({
+          ok: true,
+          orderId: data.order_id,
+          status: data.status,
+          amountInr: data.amount_inr,
+          plan: data.plan,
+          paidAt: data.paid_at || null,
+          paymentActionRequired: false,
+          verificationPending: linkedRequest.status === 'pending',
+          requestStatus: linkedRequest.status,
+          message: linkedRequest.status === 'pending'
+            ? 'A verification request is already linked to this order. Do not pay again; wait for bank-record review.'
+            : 'A verification request is already linked to this order. Do not pay again; contact support if you need help.'
+        });
+      }
+
+      // Never issue or restore a payment intent when account-level duplicates exist.
+      const { data: activeOrders, error: activeOrdersError } = await supabase
+        .from('payment_orders')
+        .select('order_id')
+        .eq('user_id', req.account.id)
+        .eq('gateway', 'milanpay')
+        .eq('status', 'pending')
+        .limit(2);
+      if (activeOrdersError) throw activeOrdersError;
+      if (Array.isArray(activeOrders) && activeOrders.length > 1) {
+        return res.status(409).json({
+          ok: false,
+          code: 'MILAN_PAY_PENDING_ORDER_RECONCILIATION_REQUIRED',
+          error: 'Multiple pending MILAN Pay orders exist for your account. No payment link will be shown until support reconciles the orders against bank records.'
+        });
+      }
+
       if (data.gateway_reference && !validVpa(data.gateway_reference)) {
         return res.status(409).json({ ok: false, code: 'MILAN_PAY_PENDING_ORDER_RECIPIENT_INVALID', error: 'The saved recipient for this pending order is invalid. Do not pay; contact support.' });
       }

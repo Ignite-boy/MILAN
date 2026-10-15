@@ -17,6 +17,8 @@ const env = read('backend/.env.example');
 const pkg = JSON.parse(read('package.json'));
 const migration = read('backend/migrations/20261014_milan_pay_manual_verification.sql');
 const pendingOrdersMigration = read('backend/migrations/20261015_milan_pay_single_pending_order.sql');
+const pendingAudit = read('scripts/milan-pay-pending-audit.sql');
+const paymentOpsDoc = read('docs/MILAN_PAY_OPERATIONS.md');
 
 const checks = [
   ['MILAN Pay route is mounted', server.includes("app.use('/api/milan-pay', require('./routes/milanPay'));")],
@@ -49,6 +51,12 @@ const checks = [
   ['Pending orders pin the selected merchant VPA', payRoute.includes("gateway_reference: vpa") && payRoute.includes("gateway_reference,paid_at")],
   ['Migration checks for duplicate pending orders before indexing', pendingOrdersMigration.includes("HAVING COUNT(*) > 1") && pendingOrdersMigration.includes("Multiple pending MILAN Pay orders exist")],
   ['Migration enforces one pending MILAN Pay order per user', pendingOrdersMigration.includes("payment_orders_one_pending_milanpay_per_user_uidx") && pendingOrdersMigration.includes("gateway = 'milanpay' AND status = 'pending'")],
+  ['Order creation and restore fail closed when duplicate pending orders exist', payRoute.includes("MILAN_PAY_PENDING_ORDER_RECONCILIATION_REQUIRED") && payRoute.includes(".limit(2)")],
+  ['Order status suppresses payment links when a verification request already exists', payRoute.includes("paymentActionRequired: false") && payRoute.includes("Do not pay again")],
+  ['Config clearly distinguishes unverified merchant setup from automatic confirmation', payRoute.includes("merchantVerificationStatus: ready ? 'configured-unverified'") && payRoute.includes("automaticPaymentConfirmationAvailable: false")],
+  ['Pending-order reconciliation SQL is read-only', pendingAudit.startsWith('-- READ-ONLY') && !/(?:^|\n)\s*(INSERT|UPDATE|DELETE|TRUNCATE|ALTER|DROP)\b/im.test(pendingAudit)],
+  ['Operations runbook requires zero duplicate groups before migration', paymentOpsDoc.includes('duplicate-group result must return **zero rows**') && paymentOpsDoc.includes('Do not remove or bypass that preflight')],
+  ['Operations runbook documents bank integration prerequisite for automatic confirmation', paymentOpsDoc.includes('current UPI intent/QR protocol does not provide a trusted server-to-server settlement callback') && paymentOpsDoc.includes('authorised UPI partner')],
   ['Google Pay iOS intent requires configured bank MCC', payRoute.includes("gpay://upi/pay?") && payRoute.includes("merchantMcc()") && payRoute.includes("MILAN_PAY_MCC")],
   ['Copy-payment fallback available for VPA amount and order reference', payPage.includes('id="copyVpa"') && payPage.includes('id="copyAmount"') && payPage.includes('id="copyOrderId"')],
   ['Restored checkout URI is rebuilt by the server', payPage.includes("Never trust the payment URI from sessionStorage") && payPage.includes("data.upiUri")],

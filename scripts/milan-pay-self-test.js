@@ -23,9 +23,12 @@ assert(route.includes("require('qrcode')") && route.includes("QRCode.toDataURL")
 assert(route.includes("reusedOrder: true") && route.includes("MILAN_PAY_PENDING_ORDER_EXISTS"), 'Existing pending orders must be reused or block plan changes');
 assert(route.includes("merchantVpa: ready ? vpa : null"), 'Public checkout config must expose the receiver VPA for customer verification');
 assert(route.includes("gpay://upi/pay?") && route.includes("merchantMcc"), 'Google Pay iOS intent must use documented scheme and bank-supplied MCC');
+assert(route.includes("MILAN_PAY_GOOGLE_PAY_IOS_ENABLED") && route.includes("googlePayIosAvailable(vpa)"), 'Google Pay iOS shortcut must require explicit merchant-approved opt-in');
+assert(fs.readFileSync('backend/.env.example', 'utf8').includes('MILAN_PAY_GOOGLE_PAY_IOS_ENABLED=false'), 'Google Pay iOS shortcut must default off until bank onboarding and device QA');
 assert(page.includes('id="upiQr"') && page.includes('id="payeeVpa"'), 'Checkout must show dynamic QR and receiver UPI ID');
 assert(page.includes('id="copyVpa"') && page.includes('id="copyAmount"') && page.includes('id="copyOrderId"'), 'Cross-device copy-payment fallbacks missing');
 assert(page.includes("Never trust the payment URI from sessionStorage"), 'Pending order restore must use the authenticated server-owned payment URI');
+assert(page.includes('data.paymentActionRequired === false') && page.includes('Verification pending'), 'Checkout must not reopen a payment intent after UTR submission');
 assert(page.includes("navigator.clipboard") && page.includes('document.execCommand("copy")'), 'Clipboard fallback missing');
 assert(fs.readFileSync('backend/.env.example', 'utf8').includes('MILAN_PAY_MCC='), 'Document bank-assigned MCC setting for iOS UPI intent');
 assert(storagePage.includes('href="/milan-pay"'), 'Storage page must link to MILAN Pay checkout');

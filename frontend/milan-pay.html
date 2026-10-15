@@ -216,6 +216,16 @@ main{max-width:760px;margin:0 auto;padding:28px 18px 60px}.top{display:flex;alig
         clearSavedOrder();
         return false;
       }
+      if (data.paymentActionRequired === false) {
+        clearSavedOrder();
+        setStatus(
+          data.message || "A verification request is already linked to this order. Do not pay again.",
+          data.verificationPending !== true
+        );
+        pay.disabled = true;
+        pay.textContent = data.verificationPending ? "Verification pending" : "Contact support";
+        return true;
+      }
       if (typeof data.upiUri !== "string" || !data.upiUri.startsWith("upi://pay?") || !data.merchantVpa) {
         setStatus("Server did not return checkout destination details. Do not pay; contact support.", true);
         pay.disabled = true;
