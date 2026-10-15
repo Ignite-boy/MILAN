@@ -120,17 +120,23 @@ def audit() -> dict:
             "og_title": p.og.get("og:title", ""), "og_description": p.og.get("og:description", ""),
             "jsonld": bool(p.jsonld),
         })
-        if not p.title: item["issues"].append("missing_title")
-        elif not 20 <= len(p.title) <= 65: item["warnings"].append("title_length")
-        if not p.description: item["issues"].append("missing_meta_description")
-        elif not 70 <= len(p.description) <= 170: item["warnings"].append("description_length")
-        if not p.canonical: item["issues"].append("missing_canonical")
-        if "noindex" in p.robots.lower(): item["warnings"].append("noindex")
-        if len(p.h1) != 1: item["warnings"].append("h1_count")
-        if p.images_without_alt: item["warnings"].append("image_alt")
-        if not p.og.get("og:title"): item["warnings"].append("og_title")
-        if not p.og.get("og:description"): item["warnings"].append("og_description")
-        if not p.jsonld: item["warnings"].append("jsonld")
+        # Pages that explicitly declare noindex (for example, authenticated app
+        # surfaces and payment checkout) are intentionally not search landing pages.
+        # Keep them visible in the inventory, but do not fail SEO checks for metadata
+        # that search engines should not use to index them.
+        indexable = "noindex" not in p.robots.lower()
+        item["indexable"] = indexable
+        if indexable:
+            if not p.title: item["issues"].append("missing_title")
+            elif not 20 <= len(p.title) <= 65: item["warnings"].append("title_length")
+            if not p.description: item["issues"].append("missing_meta_description")
+            elif not 70 <= len(p.description) <= 170: item["warnings"].append("description_length")
+            if not p.canonical: item["issues"].append("missing_canonical")
+            if len(p.h1) != 1: item["warnings"].append("h1_count")
+            if p.images_without_alt: item["warnings"].append("image_alt")
+            if not p.og.get("og:title"): item["warnings"].append("og_title")
+            if not p.og.get("og:description"): item["warnings"].append("og_description")
+            if not p.jsonld: item["warnings"].append("jsonld")
         pages.append(item)
         for href in p.links:
             u = norm(urllib.parse.urljoin(url, href))
