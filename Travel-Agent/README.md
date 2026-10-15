@@ -74,7 +74,6 @@ travel-agent/
 ├── tests/                         # 19 tests, all offline (fakes/mocks, no live LLM needed)
 ├── requirements.txt
 ├── Dockerfile
-├── render.yaml
 ├── .env.example
 └── README.md                      # this file
 ```
@@ -229,23 +228,19 @@ curl -X POST http://localhost:8000/chat \
 
 ---
 
-## 9. Deployment (Render)
+## 9. Self-hosted Docker deployment
 
-1. Push this repo to GitHub.
-2. On Render: New → Blueprint → point at the repo (picks up `render.yaml`
-   automatically), or New → Web Service → Environment: Docker.
-3. Set `GEMINI_API_KEY` (get one free at https://aistudio.google.com/apikey —
-   `render.yaml` already defaults `LLM_PROVIDER`/`EMBEDDING_PROVIDER` to `gemini` for
-   the deployed service, since it needs no billing setup and Render's free tier can't
-   run Ollama). Optionally set `OPENWEATHER_API_KEY` / `TAVILY_API_KEY` for live
-   weather/search instead of the mock/Wikipedia fallback.
-4. Deploy → REST API live at `https://<your-service>.onrender.com/chat`.
+Build the container from the MILAN repository root:
 
-For AWS instead: build the same `Dockerfile`, push to ECR, run on ECS Fargate or a
-single EC2 instance behind nginx — no code changes needed either way.
+```bash
+docker build -t milan-travel-agent ./Travel-Agent
+```
+
+Run it with secrets supplied through environment variables or a secret manager.
+For production, configure persistent storage and verify semantic embeddings
+before relying on RAG retrieval.
 
 ---
-
 ## 10. Bonus Features Support
 
 - **Budget support:** already wired — `budget` flows from intent extraction through

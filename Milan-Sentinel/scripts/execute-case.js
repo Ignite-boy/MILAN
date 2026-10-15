@@ -3,9 +3,9 @@
 const { chromium } = require('playwright');
 
 const BASE = process.env.MILAN_URL || 'https://milanlife.in';
-const API = process.env.MILAN_API_URL || 'https://milan-api-4n3n.onrender.com';
-const TRAVEL = process.env.TRAVEL_URL || 'https://ai-travel-agent-1u4n.onrender.com';
-const DWN = process.env.DWN_URL || 'https://mini-dwn.onrender.com';
+const API = process.env.MILAN_API_URL || BASE;
+const TRAVEL = process.env.TRAVEL_URL || '';
+const DWN = process.env.DWN_URL || '';
 
 const ADAPTERS = {
   'favicon-http-status': { action: 'status', environment: 'milan-prod' },
@@ -40,9 +40,9 @@ const URLS = {
   'sitemap': `${BASE}/sitemap.xml`,
   'canonical': `${BASE}/`,
   'structured-data': `${BASE}/`,
-  'dwn-health': `${DWN}/health`,
-  'travel-health': `${TRAVEL}/health`,
-  'travel-request': `${TRAVEL}/`
+  'dwn-health': DWN ? `${DWN}/health` : null,
+  'travel-health': TRAVEL ? `${TRAVEL}/health` : null,
+  'travel-request': TRAVEL ? `${TRAVEL}/` : null
 };
 
 const VIEWPORTS = {

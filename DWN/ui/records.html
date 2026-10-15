@@ -18,7 +18,8 @@
       <p class="lead">Records are processed through the DWN JSON-RPC protocol and stored by the production DWN backend.</p>
       <div class="panel">
         <h2>JSON-RPC</h2>
-        <code>POST https://dwn.onrender.com/json-rpc</code>
+        <code>POST <span id="dwn-json-rpc-url"></span></code>
+        <script>document.getElementById("dwn-json-rpc-url").textContent = new URL("/json-rpc", window.location.origin).href;</script>
         <pre>{
   "jsonrpc": "2.0",
   "id": "example",

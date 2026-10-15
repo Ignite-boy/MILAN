@@ -14,7 +14,7 @@ const path    = require('path');
 
 /* ── helpers ── */
 const DB_ROOT = process.env.MILAN_CLOUD_DWN_ROOT
-  || process.env.RENDER_DISK_MOUNT_PATH
+  || process.env.MILAN_STORAGE_ROOT
   || path.join(__dirname, '../../data');
 
 function readJson(name) {
@@ -419,37 +419,56 @@ router.post('/chat', async (req, res) => {
     const fullPrompt = history && history !== userPrompt ? `${history}\n\nReply to the last User message.` : userPrompt;
 
     let reply;
-    try {
-      const travelAgentUrl = process.env.TRAVEL_AGENT_URL || 'https://ai-travel-agent-1u4n.onrender.com/chat';
-      const travelRes = await fetch(travelAgentUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: req.body.user_id || 'milan-user',
-          session_id: req.body.session_id || 'milan-session',
-          message: fullPrompt || 'Hello'
-        })
-      });
-      const travelContentType = travelRes.headers.get('content-type') || '';
-      const travelBody = await travelRes.text();
-      console.log('[MILAN AI] Travel Agent:', travelRes.status, travelContentType, travelBody.slice(0, 300));
-      if (!travelContentType.includes('application/json')) {
-        throw new Error(`Travel Agent returned ${travelRes.status} ${travelContentType}: ${travelBody.slice(0, 120)}`);
+    const travelAgentUrl = String(process.env.TRAVEL_AGENT_URL || '').trim();
+
+    // Use the self-hosted RAG agent when configured.
+    if (travelAgentUrl) {
+      try {
+        const authorization = req.get('authorization');
+        const travelRes = await fetch(travelAgentUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(authorization ? { Authorization: authorization } : {})
+          },
+          body: JSON.stringify({
+            session_id: req.body.session_id || 'milan-session',
+            message: fullPrompt || 'Hello'
+          })
+        });
+
+        const contentType = travelRes.headers.get('content-type') || '';
+        const body = await travelRes.text();
+
+        if (!contentType.includes('application/json')) {
+          throw new Error(
+            `Travel Agent returned ${travelRes.status} ${contentType}: ${body.slice(0, 120)}`
+          );
+        }
+
+        const data = JSON.parse(body);
+        if (travelRes.ok && data.response) {
+          reply = data.response;
+        } else {
+          throw new Error(data.error || `Travel Agent HTTP ${travelRes.status}`);
+        }
+      } catch (err) {
+        console.error('[MILAN AI] Travel Agent failed; trying direct LLM:', err.message);
       }
-      const travelData = JSON.parse(travelBody);
-      if (travelRes.ok && travelData.response) {
-        reply = travelData.response;
-      } else {
-        throw new Error(travelData.error || `Travel Agent HTTP ${travelRes.status}`);
+    }
+
+    // No agent configured, or agent unavailable: try MILAN's existing LLM helper.
+    if (!reply) {
+      try {
+        reply = await callLLM(system, fullPrompt || userPrompt || 'Hello');
+      } catch (err) {
+        console.error('[MILAN AI] Direct LLM fallback failed:', err.message);
       }
-    } catch (e) {
-      console.error('[MILAN AI] Travel Agent failed:', e.message);
-      return res.status(502).json({ success: false, error: 'Travel Agent unavailable: ' + e.message });
     }
 
     if (!reply) {
       // No API key configured (or all providers failed) — honest, helpful fallback.
-      reply = 'MILAN AI is not connected to a language model yet. Add one of ANTHROPIC_API_KEY, OPENAI_API_KEY or GEMINI_API_KEY to the server .env and restart to enable full AI chat. Meanwhile, the Caption, Translate, Hashtags and Audience tools still work with built-in fallbacks.';
+      reply = 'MILAN AI is not connected to a language model yet. Add OPENAI_API_KEY or GEMINI_API_KEY to the server .env and restart to enable full AI chat. Meanwhile, the Caption, Translate, Hashtags and Audience tools still work with built-in fallbacks.';
     }
 
     res.json({ success: true, reply });

@@ -16,7 +16,8 @@
       <div class="eyebrow">PROTOCOL INTERFACE</div>
       <h1>Developer</h1>
       <div class="panel"><h2>Public endpoints</h2><div class="endpoint"><span>/health</span><span>GET</span></div><div class="endpoint"><span>/info</span><span>GET</span></div><div class="endpoint"><span>/metrics</span><span>GET</span></div><div class="endpoint"><span>/json-rpc</span><span>POST</span></div></div>
-      <div class="panel"><h2>Production host</h2><code>https://dwn.onrender.com</code></div>
+      <div class="panel"><h2>Current host</h2><code id="dwn-origin"></code></div>
+      <script>document.getElementById("dwn-origin").textContent = window.location.origin;</script>
     </section>
   </main>
 </body>
