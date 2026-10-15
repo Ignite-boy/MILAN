@@ -60,6 +60,9 @@ jobs:
       - name: Verify MILAN Pay architecture
         run: npm run test:payment
 
+      - name: Verify MILAN Pay checkout details
+        run: npm run test:milan-pay
+
       - name: Verify critical frontend files
         run: |
           test -s frontend/app.html
