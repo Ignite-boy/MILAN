@@ -9,7 +9,8 @@
 <style>
 :root{color-scheme:dark;--bg:#080d1b;--card:#111a2c;--line:#293650;--text:#f5f7ff;--muted:#a7b4cc;--brand:#76e4bb;--warn:#ffce78}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(900px 450px at 50% -10%,#263b62 0%,transparent 65%),var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;min-height:100vh}
-main{max-width:760px;margin:0 auto;padding:28px 18px 60px}.top{display:flex;align-items:center;gap:12px;margin:14px 0 36px}.logo{display:grid;place-items:center;width:44px;height:44px;border-radius:14px;background:var(--brand);color:#082218;font-weight:900;font-size:20px}.brand{font-weight:800;font-size:20px;letter-spacing:.2px}.tag{font-size:12px;color:var(--muted)}h1{font-size:clamp(30px,6vw,44px);line-height:1.1;margin:0 0 12px;letter-spacing:-1px}p{color:var(--muted);margin-top:0}.panel{background:rgba(17,26,44,.94);border:1px solid var(--line);border-radius:22px;padding:22px;margin-top:24px;box-shadow:0 20px 70px #0003}.eyebrow{font-size:12px;color:var(--brand);font-weight:800;text-transform:uppercase;letter-spacing:1.5px}.plans{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0}.plan{background:#0d1525;color:var(--text);border:1px solid var(--line);border-radius:16px;padding:17px;text-align:left;cursor:pointer}.plan[aria-pressed=true]{border-color:var(--brand);box-shadow:inset 0 0 0 1px var(--brand)}.plan strong{display:block;font-size:20px}.plan span{color:var(--muted);font-size:13px}.primary,.secondary{display:block;width:100%;border:0;border-radius:13px;padding:14px 16px;font-weight:800;font-size:15px;cursor:pointer;text-align:center;text-decoration:none}.primary{background:var(--brand);color:#062219}.secondary{background:#1b2940;color:var(--text);margin-top:10px}.primary:disabled{opacity:.5;cursor:not-allowed}.pill{display:inline-flex;gap:7px;align-items:center;border:1px solid var(--line);border-radius:999px;padding:6px 10px;color:var(--muted);font-size:12px}.dot{width:7px;height:7px;border-radius:50%;background:var(--warn)}#status{margin-top:14px;white-space:pre-wrap;font-size:14px;color:var(--muted)}.notice{border-left:3px solid var(--warn);padding:10px 12px;background:#2c2518;border-radius:8px;color:#ffe8b8;font-size:13px;margin-top:16px}.methods{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0}.method{border:1px solid var(--line);border-radius:12px;padding:11px 6px;text-align:center;font-size:13px;color:var(--muted)}footer{font-size:12px;color:#8290aa;margin-top:22px;text-align:center}a{color:var(--brand)}@media(max-width:480px){.plans{grid-template-columns:1fr}.panel{padding:17px}.methods{grid-template-columns:1fr 1fr}}
+main{max-width:760px;margin:0 auto;padding:28px 18px 60px}.top{display:flex;align-items:center;gap:12px;margin:14px 0 36px}.logo{display:grid;place-items:center;width:44px;height:44px;border-radius:14px;background:var(--brand);color:#082218;font-weight:900;font-size:20px}.brand{font-weight:800;font-size:20px;letter-spacing:.2px}.tag{font-size:12px;color:var(--muted)}h1{font-size:clamp(30px,6vw,44px);line-height:1.1;margin:0 0 12px;letter-spacing:-1px}p{color:var(--muted);margin-top:0}.panel{background:rgba(17,26,44,.94);border:1px solid var(--line);border-radius:22px;padding:22px;margin-top:24px;box-shadow:0 20px 70px #0003}.eyebrow{font-size:12px;color:var(--brand);font-weight:800;text-transform:uppercase;letter-spacing:1.5px}.plans{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0}.plan{background:#0d1525;color:var(--text);border:1px solid var(--line);border-radius:16px;padding:17px;text-align:left;cursor:pointer}.plan[aria-pressed=true]{border-color:var(--brand);box-shadow:inset 0 0 0 1px var(--brand)}.plan strong{display:block;font-size:20px}.plan span{color:var(--muted);font-size:13px}.primary,.secondary{display:block;width:100%;border:0;border-radius:13px;padding:14px 16px;font-weight:800;font-size:15px;cursor:pointer;text-align:center;text-decoration:none}.primary{background:var(--brand);color:#062219}.secondary{background:#1b2940;color:var(--text);margin-top:10px}.primary:disabled{opacity:.5;cursor:not-allowed}.pill{display:inline-flex;gap:7px;align-items:center;border:1px solid var(--line);border-radius:999px;padding:6px 10px;color:var(--muted);font-size:12px}.dot{width:7px;height:7px;border-radius:50%;background:var(--warn)}#status{margin-top:14px;white-space:pre-wrap;font-size:14px;color:var(--muted)}.notice{border-left:3px solid var(--warn);padding:10px 12px;background:#2c2518;border-radius:8px;color:#ffe8b8;font-size:13px;margin-top:16px}.methods{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0}.method{border:1px solid var(--line);border-radius:12px;padding:11px 6px;text-align:center;font-size:13px;color:var(--muted)}footer{font-size:12px;color:#8290aa;margin-top:22px;text-align:center}a{color:var(--brand)}
+.payment-details[hidden]{display:none!important}.recipient{border:1px solid var(--line);border-radius:14px;padding:13px;margin-top:10px}.recipient strong{display:block;font-size:17px;margin-top:2px}.recipient code{display:inline-block;margin-top:5px;font-size:14px;color:var(--brand);overflow-wrap:anywhere}.payment-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,260px);gap:16px;align-items:start;margin-top:14px}.payment-actions{display:grid;grid-template-columns:1fr;gap:9px}.payment-actions .secondary{margin-top:0}.qr-card{border:1px solid var(--line);border-radius:15px;padding:12px;text-align:center;background:#0d1525}.qr-card img{display:block;width:min(100%,240px);height:auto;margin:4px auto 10px;background:#fff;padding:8px;border-radius:10px}.qr-card img[hidden]{display:none!important}.qr-card p{font-size:12px;margin:0}.ios-gpay{display:none!important}.ios-gpay.visible{display:block!important}.payment-help{font-size:12px;margin:12px 0 0}.copy-btn{font:inherit}@media(max-width:560px){.payment-grid{grid-template-columns:1fr}.qr-card img{width:min(100%,220px)}}@media(max-width:480px){.plans{grid-template-columns:1fr}.panel{padding:17px}.methods{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
@@ -35,6 +36,27 @@ main{max-width:760px;margin:0 auto;padding:28px 18px 60px}.top{display:flex;alig
     <button class="primary" id="pay" disabled>Loading payment options…</button>
     <a class="secondary" href="/storage-upgrade.html">Back to storage plans</a>
     <div id="status" role="status" aria-live="polite"></div>
+    <section id="paymentDetails" class="payment-details" hidden aria-label="Payment details">
+      <div class="recipient">
+        <span class="tag">Pay to configured merchant destination</span>
+        <strong id="payeeName">MILAN Pay</strong>
+        <code id="payeeVpa"></code>
+      </div>
+      <div class="payment-grid">
+        <div class="payment-actions">
+          <a id="milan-upi-link" class="primary" rel="noopener">Open UPI payment app</a>
+          <a id="milan-gpay-ios-link" class="secondary ios-gpay" rel="noopener">Open Google Pay on iPhone/iPad</a>
+          <button class="secondary copy-btn" id="copyVpa" type="button">Copy merchant UPI ID</button>
+          <button class="secondary copy-btn" id="copyAmount" type="button">Copy amount</button>
+          <button class="secondary copy-btn" id="copyOrderId" type="button">Copy order reference</button>
+        </div>
+        <div class="qr-card">
+          <img id="upiQr" alt="Dynamic UPI payment QR code" hidden>
+          <p id="qrHelp">On a computer or tablet, scan this order-specific QR with a UPI app on another device. Verify the payee and amount before paying.</p>
+        </div>
+      </div>
+      <p class="payment-help">Never enter a UPI PIN or OTP on this page. After paying, return here and submit your UTR. On iOS, you may need to switch back to Safari manually.</p>
+    </section>
     <form id="utrForm" hidden style="margin-top:18px;border-top:1px solid var(--line);padding-top:18px;">
       <h3 style="margin:0 0 8px;">Submit transaction reference</h3>
       <p id="orderSummary"></p>
@@ -61,6 +83,18 @@ main{max-width:760px;margin:0 auto;padding:28px 18px 60px}.top{display:flex;alig
   const utrInput = document.getElementById("utr");
   const submitUtr = document.getElementById("submitUtr");
   const orderSummary = document.getElementById("orderSummary");
+  const paymentDetails = document.getElementById("paymentDetails");
+  const payeeName = document.getElementById("payeeName");
+  const payeeVpa = document.getElementById("payeeVpa");
+  const upiQr = document.getElementById("upiQr");
+  const qrHelp = document.getElementById("qrHelp");
+  const upiLink = document.getElementById("milan-upi-link");
+  const googlePayIosLink = document.getElementById("milan-gpay-ios-link");
+  const copyVpaButton = document.getElementById("copyVpa");
+  const copyAmountButton = document.getElementById("copyAmount");
+  const copyOrderIdButton = document.getElementById("copyOrderId");
+  const isIOSDevice = /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   const token = () => localStorage.getItem("milan_token") || "";
   const validPlans = ["500mb", "1gb"];
   let plan = new URLSearchParams(location.search).get("plan") || "500mb";
@@ -72,6 +106,10 @@ main{max-width:760px;margin:0 auto;padding:28px 18px 60px}.top{display:flex;alig
   let currentOrderId = "";
   let currentOrderPlan = "";
   let currentUpiUri = "";
+  let currentMerchantVpa = "";
+  let currentMerchantName = "MILAN Pay";
+  let currentAmountInr = 0;
+  let currentGooglePayIosUri = "";
 
   function setStatus(message, error) {
     status.textContent = message || "";
@@ -91,27 +129,37 @@ main{max-width:760px;margin:0 auto;padding:28px 18px 60px}.top{display:flex;alig
     sessionStorage.removeItem("milanPaymentPlan");
   }
 
-  function showPendingOrder(orderId, upiUri, orderPlan, amount) {
+  function showPendingOrder(orderId, upiUri, orderPlan, amount, qrDataUrl, merchantVpa, merchantName, googlePayIosUri) {
     currentOrderId = orderId;
     currentUpiUri = upiUri;
     currentOrderPlan = orderPlan;
+    currentMerchantVpa = merchantVpa || "";
+    currentMerchantName = merchantName || "MILAN Pay";
+    currentAmountInr = Number(amount);
+    currentGooglePayIosUri = googlePayIosUri || "";
     pendingOrder = true;
 
     sessionStorage.setItem("milanPaymentOrderId", orderId);
-    sessionStorage.setItem("milanPaymentUri", upiUri);
     sessionStorage.setItem("milanPaymentPlan", orderPlan);
+    sessionStorage.removeItem("milanPaymentUri");
 
-    let link = document.getElementById("milan-upi-link");
-    if (!link) {
-      link = document.createElement("a");
-      link.id = "milan-upi-link";
-      link.className = "primary";
-      link.style.marginTop = "12px";
-      link.rel = "noopener";
-      link.textContent = "Open UPI payment app";
-      status.before(link);
+    upiLink.href = upiUri;
+    payeeName.textContent = currentMerchantName;
+    payeeVpa.textContent = currentMerchantVpa;
+    paymentDetails.hidden = false;
+    if (qrDataUrl && qrDataUrl.startsWith("data:image/png;base64,")) {
+      upiQr.src = qrDataUrl;
+      upiQr.alt = "UPI payment QR for ₹" + currentAmountInr + " payable to " + currentMerchantName;
+      upiQr.hidden = false;
+    } else {
+      upiQr.removeAttribute("src");
+      upiQr.hidden = true;
     }
-    link.href = upiUri;
+    googlePayIosLink.href = currentGooglePayIosUri || "#";
+    googlePayIosLink.classList.toggle("visible", Boolean(currentGooglePayIosUri) && isIOSDevice);
+    qrHelp.textContent = isIOSDevice
+      ? "If the Google Pay button is available, use it to launch GPay. Otherwise copy the merchant UPI ID and amount into your UPI app. QR is useful when another device is available."
+      : "On a computer or tablet, scan this order-specific QR with a UPI app on another device. On Android, you can also use Open UPI payment app. Verify the payee and amount before paying.";
 
     orderSummary.textContent =
       "Order ID: " + orderId +
@@ -138,15 +186,9 @@ main{max-width:760px;margin:0 auto;padding:28px 18px 60px}.top{display:flex;alig
 
   async function restorePendingOrder() {
     const savedId = sessionStorage.getItem("milanPaymentOrderId") || "";
-    const savedUri = sessionStorage.getItem("milanPaymentUri") || "";
     const savedPlan = sessionStorage.getItem("milanPaymentPlan") || "";
 
-    if (!savedId || !savedUri || !validPlans.includes(savedPlan) || !token()) {
-      return false;
-    }
-
-    if (!savedUri.startsWith("upi://pay?")) {
-      clearSavedOrder();
+    if (!savedId || !validPlans.includes(savedPlan) || !token()) {
       return false;
     }
 
@@ -161,6 +203,10 @@ main{max-width:760px;margin:0 auto;padding:28px 18px 60px}.top{display:flex;alig
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
+        if (response.status === 404) {
+          clearSavedOrder();
+          return false;
+        }
         setStatus(data.error || "Could not recheck the existing order. Retry after checking your connection.", true);
         pay.disabled = true;
         return true;
@@ -170,8 +216,14 @@ main{max-width:760px;margin:0 auto;padding:28px 18px 60px}.top{display:flex;alig
         clearSavedOrder();
         return false;
       }
+      if (typeof data.upiUri !== "string" || !data.upiUri.startsWith("upi://pay?") || !data.merchantVpa) {
+        setStatus("Server did not return checkout destination details. Do not pay; contact support.", true);
+        pay.disabled = true;
+        return true;
+      }
 
-      showPendingOrder(savedId, savedUri, savedPlan, data.amountInr);
+      // Never trust the payment URI from sessionStorage; reconstruct it from the authenticated server response.
+      showPendingOrder(savedId, data.upiUri, savedPlan, data.amountInr, data.qrDataUrl, data.merchantVpa, data.merchantName, data.googlePayIosUri);
       return true;
     } catch (_) {
       setStatus("Could not recheck the existing order. Refresh after restoring your connection.", true);
@@ -220,11 +272,13 @@ main{max-width:760px;margin:0 auto;padding:28px 18px 60px}.top{display:flex;alig
           !data.upiUri.startsWith("upi://pay?") ||
           !data.orderId ||
           data.plan !== plan ||
-          !Number.isFinite(Number(data.amountInr))) {
-        throw new Error("MILAN Pay returned invalid order details.");
+          !Number.isFinite(Number(data.amountInr)) ||
+          typeof data.merchantVpa !== "string" ||
+          !/^[A-Za-z0-9._-]{2,256}@[A-Za-z][A-Za-z0-9]{1,63}$/.test(data.merchantVpa)) {
+        throw new Error("MILAN Pay returned invalid order or receiver details.");
       }
 
-      showPendingOrder(data.orderId, data.upiUri, data.plan, data.amountInr);
+      showPendingOrder(data.orderId, data.upiUri, data.plan, data.amountInr, data.qrDataUrl, data.merchantVpa, data.merchantName, data.googlePayIosUri);
     } catch (error) {
       setStatus(error.message || "MILAN Pay is temporarily unavailable.", true);
       pay.disabled = !ready;
@@ -233,6 +287,36 @@ main{max-width:760px;margin:0 auto;padding:28px 18px 60px}.top{display:flex;alig
       busy = false;
     }
   });
+
+  async function copyPaymentValue(value, label) {
+    if (!value) {
+      setStatus("No " + label.toLowerCase() + " is available to copy.", true);
+      return;
+    }
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(String(value));
+      } else {
+        const area = document.createElement("textarea");
+        area.value = String(value);
+        area.setAttribute("readonly", "");
+        area.style.position = "fixed";
+        area.style.opacity = "0";
+        document.body.appendChild(area);
+        area.select();
+        const copied = document.execCommand("copy");
+        area.remove();
+        if (!copied) throw new Error("Copy is not available in this browser.");
+      }
+      setStatus(label + " copied. Verify the recipient and amount in your UPI app.");
+    } catch (_) {
+      setStatus("Could not copy " + label.toLowerCase() + ". Please select and copy it manually.", true);
+    }
+  }
+
+  copyVpaButton.addEventListener("click", () => copyPaymentValue(currentMerchantVpa, "Merchant UPI ID"));
+  copyAmountButton.addEventListener("click", () => copyPaymentValue(Number(currentAmountInr).toFixed(2), "Amount"));
+  copyOrderIdButton.addEventListener("click", () => copyPaymentValue(currentOrderId, "Order reference"));
 
   utrForm.addEventListener("submit", async event => {
     event.preventDefault();

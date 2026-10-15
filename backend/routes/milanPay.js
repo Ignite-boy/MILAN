@@ -2,6 +2,7 @@
 
 const express = require('express');
 const crypto = require('crypto');
+const QRCode = require('qrcode');
 const auth = require('../middleware/auth');
 const { createClient } = require('@supabase/supabase-js');
 
@@ -25,6 +26,12 @@ function merchantVpa() {
   return String(process.env.MILAN_PAY_UPI_ID || '').trim();
 }
 
+// The acquiring bank supplies the merchant category code (MCC). This is not a secret.
+function merchantMcc() {
+  const value = String(process.env.MILAN_PAY_MCC || '').trim();
+  return /^\d{4}$/.test(value) ? value : '';
+}
+
 function validVpa(value) {
   return /^[A-Za-z0-9._-]{2,256}@[A-Za-z][A-Za-z0-9]{1,63}$/.test(value);
 }
@@ -33,6 +40,44 @@ function makeOrderId(userId) {
   const user = String(userId || 'USER')
     .replace(/[^A-Za-z0-9_-]/g, '').slice(0, 8) || 'USER';
   return `MLNPAY_${user}_${Date.now().toString(36)}_${crypto.randomBytes(6).toString('hex')}`;
+}
+
+function makeUpiUri(vpa, orderId, plan) {
+  const params = new URLSearchParams({
+    pa: vpa,
+    pn: merchantName(),
+    tr: orderId,
+    tn: 'MILAN Pay ' + plan.name + ' ' + orderId,
+    am: plan.amountInr.toFixed(2),
+    cu: 'INR'
+  });
+  const mcc = merchantMcc();
+  if (mcc) params.set('mc', mcc);
+  return 'upi://pay?' + params.toString();
+}
+
+function makeGooglePayIosUri(vpa, orderId, plan) {
+  const mcc = merchantMcc();
+  if (!mcc) return null;
+  const params = new URLSearchParams({
+    pa: vpa,
+    pn: merchantName(),
+    tr: orderId,
+    tn: 'MILAN Pay ' + plan.name + ' ' + orderId,
+    am: plan.amountInr.toFixed(2),
+    cu: 'INR',
+    mc: mcc
+  });
+  return 'gpay://upi/pay?' + params.toString();
+}
+
+async function makeQrDataUrl(upiUri) {
+  return QRCode.toDataURL(upiUri, {
+    errorCorrectionLevel: 'M',
+    margin: 2,
+    width: 320,
+    color: { dark: '#08111f', light: '#ffffff' }
+  });
 }
 
 router.get('/config', (_req, res) => {
@@ -44,6 +89,11 @@ router.get('/config', (_req, res) => {
     ok: true,
     brand: 'MILAN Pay',
     merchantName: merchantName(),
+    merchantVpa: ready ? vpa : null,
+    merchantMccConfigured: Boolean(merchantMcc()),
+    googlePayIosAvailable: ready && Boolean(merchantMcc()),
+    qrPaymentsAvailable: ready,
+    verificationMode: 'manual-bank-verification',
     upiAvailable: ready,
     cardPaymentsAvailable: false,
     internationalPaymentsAvailable: false,
@@ -89,32 +139,91 @@ router.post('/orders', auth, async (req, res) => {
       return res.status(400).json({ ok: false, error: 'Invalid plan.' });
     }
 
+    const { data: pendingOrder, error: pendingOrderError } = await supabase
+      .from('payment_orders')
+      .select('order_id,plan,amount_inr,status,gateway_reference')
+      .eq('user_id', req.account.id)
+      .eq('gateway', 'milanpay')
+      .eq('status', 'pending')
+      .limit(1)
+      .maybeSingle();
+
+    if (pendingOrderError) throw pendingOrderError;
+    if (pendingOrder) {
+      if (pendingOrder.plan !== planKey || Number(pendingOrder.amount_inr) !== plan.amountInr) {
+        return res.status(409).json({
+          ok: false,
+          code: 'MILAN_PAY_PENDING_ORDER_EXISTS',
+          error: 'You already have a pending MILAN Pay order for a different plan. Resume or resolve that order first.'
+        });
+      }
+      if (pendingOrder.gateway_reference && !validVpa(pendingOrder.gateway_reference)) {
+        return res.status(409).json({
+          ok: false,
+          code: 'MILAN_PAY_PENDING_ORDER_RECIPIENT_INVALID',
+          error: 'The recipient saved for this pending order is invalid. Contact support; do not pay this order.'
+        });
+      }
+      const orderVpa = validVpa(pendingOrder.gateway_reference) ? pendingOrder.gateway_reference : vpa;
+      if (!pendingOrder.gateway_reference) {
+        const { error: pinError } = await supabase.from('payment_orders')
+          .update({ gateway_reference: orderVpa })
+          .eq('order_id', pendingOrder.order_id)
+          .eq('user_id', req.account.id)
+          .eq('status', 'pending')
+          .is('gateway_reference', null);
+        if (pinError) throw pinError;
+      }
+      const upiUri = makeUpiUri(orderVpa, pendingOrder.order_id, plan);
+      const qrDataUrl = await makeQrDataUrl(upiUri);
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(200).json({
+        ok: true,
+        brand: 'MILAN Pay',
+        orderId: pendingOrder.order_id,
+        amountInr: plan.amountInr,
+        currency: 'INR',
+        plan: planKey,
+        status: 'pending',
+        reusedOrder: true,
+        merchantName: merchantName(),
+        merchantVpa: orderVpa,
+        upiUri,
+        googlePayIosUri: makeGooglePayIosUri(orderVpa, pendingOrder.order_id, plan),
+        qrDataUrl,
+        message: 'Resuming your existing pending order. Complete payment in your UPI app and submit the UTR; storage remains pending until independent bank verification.'
+      });
+    }
+
     const orderId = makeOrderId(req.account.id);
+    const upiUri = makeUpiUri(vpa, orderId, plan);
+    const qrDataUrl = await makeQrDataUrl(upiUri);
     const { error } = await supabase.from('payment_orders').insert({
       user_id: req.account.id,
       order_id: orderId,
       plan: planKey,
       amount_inr: plan.amountInr,
       status: 'pending',
-      gateway: 'milanpay'
+      gateway: 'milanpay',
+      // While pending, pin the exact merchant VPA used in the payment intent.
+      // The approval RPC replaces this field with the verified UTR once paid.
+      gateway_reference: vpa
     });
 
     if (error) {
+      if (error.code === '23505') {
+        return res.status(409).json({
+          ok: false,
+          code: 'MILAN_PAY_PENDING_ORDER_EXISTS',
+          error: 'A pending order was created at the same time. Retry once to resume the existing order.'
+        });
+      }
       console.error('[MILAN Pay] Order insert failed:', error.message);
       return res.status(500).json({
         ok: false,
         error: 'Could not create payment order.'
       });
     }
-
-    const params = new URLSearchParams({
-      pa: vpa,
-      pn: merchantName(),
-      tr: orderId,
-      tn: 'MILAN Pay ' + plan.name + ' ' + orderId,
-      am: plan.amountInr.toFixed(2),
-      cu: 'INR'
-    });
 
     res.setHeader('Cache-Control', 'no-store');
     return res.status(201).json({
@@ -125,7 +234,12 @@ router.post('/orders', auth, async (req, res) => {
       currency: 'INR',
       plan: planKey,
       status: 'pending',
-      upiUri: 'upi://pay?' + params.toString(),
+      reusedOrder: false,
+      merchantName: merchantName(),
+      merchantVpa: vpa,
+      upiUri,
+      googlePayIosUri: makeGooglePayIosUri(vpa, orderId, plan),
+      qrDataUrl,
       message: 'Complete payment in your UPI app, then submit the UTR. Storage is upgraded only after independent bank verification.'
     });
   } catch (error) {
@@ -146,7 +260,7 @@ router.get('/orders/:orderId/status', auth, async (req, res) => {
 
     const { data, error } = await supabase
       .from('payment_orders')
-      .select('order_id,status,amount_inr,plan,gateway,paid_at')
+      .select('order_id,status,amount_inr,plan,gateway,gateway_reference,paid_at')
       .eq('order_id', orderId)
       .eq('user_id', req.account.id)
       .eq('gateway', 'milanpay')
@@ -155,6 +269,41 @@ router.get('/orders/:orderId/status', auth, async (req, res) => {
     if (error) throw error;
     if (!data) return res.status(404).json({ ok: false, error: 'Order not found.' });
 
+    const plan = PLANS[data.plan];
+    if (!plan || Number(data.amount_inr) !== plan.amountInr) {
+      return res.status(409).json({ ok: false, error: 'Stored order plan or amount is invalid.' });
+    }
+
+    let paymentDetails = {};
+    if (data.status === 'pending') {
+      if (data.gateway_reference && !validVpa(data.gateway_reference)) {
+        return res.status(409).json({ ok: false, code: 'MILAN_PAY_PENDING_ORDER_RECIPIENT_INVALID', error: 'The saved recipient for this pending order is invalid. Do not pay; contact support.' });
+      }
+      const configuredVpa = merchantVpa();
+      const vpa = validVpa(data.gateway_reference) ? data.gateway_reference : configuredVpa;
+      if (!validVpa(vpa)) {
+        return res.status(503).json({ ok: false, code: 'MILAN_PAY_NOT_CONFIGURED', error: 'Merchant UPI is not configured.' });
+      }
+      if (!data.gateway_reference) {
+        const { error: pinError } = await supabase.from('payment_orders')
+          .update({ gateway_reference: vpa })
+          .eq('order_id', data.order_id)
+          .eq('user_id', req.account.id)
+          .eq('status', 'pending')
+          .is('gateway_reference', null);
+        if (pinError) throw pinError;
+      }
+      const upiUri = makeUpiUri(vpa, data.order_id, plan);
+      const qrDataUrl = await makeQrDataUrl(upiUri);
+      paymentDetails = {
+        merchantName: merchantName(),
+        merchantVpa: vpa,
+        upiUri,
+        googlePayIosUri: makeGooglePayIosUri(vpa, data.order_id, plan),
+        qrDataUrl
+      };
+    }
+
     res.setHeader('Cache-Control', 'no-store');
     return res.json({
       ok: true,
@@ -162,7 +311,8 @@ router.get('/orders/:orderId/status', auth, async (req, res) => {
       status: data.status,
       amountInr: data.amount_inr,
       plan: data.plan,
-      paidAt: data.paid_at || null
+      paidAt: data.paid_at || null,
+      ...paymentDetails
     });
   } catch (error) {
     console.error('[MILAN Pay] Status lookup failed:', error.message);
