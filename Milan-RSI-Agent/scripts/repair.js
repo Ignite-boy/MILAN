@@ -158,10 +158,31 @@ SOURCE:
 ${sourceContext(worktree)}
 
 Return ONLY JSON with keys summary and patch. The patch must be a valid unified git diff with diff --git headers. Make the smallest correct production-quality fix and add a regression test when practical. Do not invent or expose secrets. Do not modify .github/workflows, .github/actions, environment/secret/credential files, keys, or certificates. A repair proposal is not a deployment.`;
-  const response = await client.responses.create({
-    model: process.env.RSI_MODEL || 'gpt-5',
-    input: prompt
-  });
+  // Create evidence before the API request so quota/network/model failures are visible
+  // in the workflow artifact rather than leaving an empty evidence directory.
+  writeEvidence(
+    evidenceDir,
+    'ANALYSIS_STARTED',
+    `Source evidence parsed. Preparing analysis request; failure rows: ${failures.length}.`
+  );
+
+  let response;
+  try {
+    response = await client.responses.create({
+      model: process.env.RSI_MODEL || 'gpt-5',
+      input: prompt
+    });
+  } catch (error) {
+    const status = Number(error.status || error.statusCode || 0);
+    const message = String(error.message || error).replace(/sk-[A-Za-z0-9_-]+/g, '[REDACTED_API_KEY]').slice(0, 1200);
+    writeEvidence(
+      evidenceDir,
+      'ANALYSIS_FAILED',
+      `OpenAI request failed (HTTP ${status || 'unknown'}): ${message}\n\nNo candidate patch was generated. Check API project billing, credits, permissions, and model access.`
+    );
+    throw error;
+  }
+
   const result = parseJson(response.output_text.trim());
   if (typeof result.patch !== 'string' || !result.patch.includes('diff --git ')) {
     throw new Error('No usable patch returned by the model.');
