@@ -123,7 +123,9 @@ jobs:
               && curl -fsSL --max-time 15 -o /dev/null https://milanlife.in/topics; then
               health_payload="$(curl -fsSL --max-time 15 https://milanlife.in/api/health)"
               printf '%s' "$health_payload" | node -e 'let raw="";process.stdin.on("data",c=>raw+=c);process.stdin.on("end",()=>{try{const p=JSON.parse(raw);if(p.healthSemantics?.level!=="liveness"||typeof p.healthSemantics?.realDwnProtocol!=="boolean")process.exit(1)}catch(_){process.exit(1)}})'
-              echo "🟢 LIVE — public UI, SEO routes and explicit health semantics are reachable"
+              pay_payload="$(curl -fsSL --max-time 15 https://milanlife.in/api/milan-pay/config)"
+              printf '%s' "$pay_payload" | node -e 'let raw="";process.stdin.on("data",c=>raw+=c);process.stdin.on("end",()=>{try{const p=JSON.parse(raw);if(p.ok!==true||p.verificationMode!=="manual-bank-verification"||p.automaticPaymentConfirmationAvailable!==false||typeof p.merchantVerificationStatus!=="string"||typeof p.upiAvailable!=="boolean"||typeof p.googlePayIosAvailable!=="boolean")process.exit(1)}catch(_){process.exit(1)}})'
+              echo "🟢 LIVE — public UI, health semantics and MILAN Pay status contract are reachable"
               {
                 echo "## 🟢 LIVE — Production"
                 echo ""
