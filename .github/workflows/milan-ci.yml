@@ -51,6 +51,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify RSI runtime, repair syntax, and failure semantics
+        run: |
+          node --check Milan-RSI-Agent/scripts/rsi-loop.js
+          node --check Milan-RSI-Agent/scripts/repair.js
+          npm test --prefix Milan-RSI-Agent
+
       - name: Run project build check
         run: npm run build
 
