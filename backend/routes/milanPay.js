@@ -141,7 +141,7 @@ router.post('/orders', auth, async (req, res) => {
 
     const { data: pendingOrder, error: pendingOrderError } = await supabase
       .from('payment_orders')
-      .select('order_id,plan,amount_inr,status')
+      .select('order_id,plan,amount_inr,status,gateway_reference')
       .eq('user_id', req.account.id)
       .eq('gateway', 'milanpay')
       .eq('status', 'pending')
@@ -157,7 +157,24 @@ router.post('/orders', auth, async (req, res) => {
           error: 'You already have a pending MILAN Pay order for a different plan. Resume or resolve that order first.'
         });
       }
-      const upiUri = makeUpiUri(vpa, pendingOrder.order_id, plan);
+      if (pendingOrder.gateway_reference && !validVpa(pendingOrder.gateway_reference)) {
+        return res.status(409).json({
+          ok: false,
+          code: 'MILAN_PAY_PENDING_ORDER_RECIPIENT_INVALID',
+          error: 'The recipient saved for this pending order is invalid. Contact support; do not pay this order.'
+        });
+      }
+      const orderVpa = validVpa(pendingOrder.gateway_reference) ? pendingOrder.gateway_reference : vpa;
+      if (!pendingOrder.gateway_reference) {
+        const { error: pinError } = await supabase.from('payment_orders')
+          .update({ gateway_reference: orderVpa })
+          .eq('order_id', pendingOrder.order_id)
+          .eq('user_id', req.account.id)
+          .eq('status', 'pending')
+          .is('gateway_reference', null);
+        if (pinError) throw pinError;
+      }
+      const upiUri = makeUpiUri(orderVpa, pendingOrder.order_id, plan);
       const qrDataUrl = await makeQrDataUrl(upiUri);
       res.setHeader('Cache-Control', 'no-store');
       return res.status(200).json({
@@ -170,9 +187,9 @@ router.post('/orders', auth, async (req, res) => {
         status: 'pending',
         reusedOrder: true,
         merchantName: merchantName(),
-        merchantVpa: vpa,
+        merchantVpa: orderVpa,
         upiUri,
-        googlePayIosUri: makeGooglePayIosUri(vpa, pendingOrder.order_id, plan),
+        googlePayIosUri: makeGooglePayIosUri(orderVpa, pendingOrder.order_id, plan),
         qrDataUrl,
         message: 'Resuming your existing pending order. Complete payment in your UPI app and submit the UTR; storage remains pending until independent bank verification.'
       });
@@ -187,10 +204,20 @@ router.post('/orders', auth, async (req, res) => {
       plan: planKey,
       amount_inr: plan.amountInr,
       status: 'pending',
-      gateway: 'milanpay'
+      gateway: 'milanpay',
+      // While pending, pin the exact merchant VPA used in the payment intent.
+      // The approval RPC replaces this field with the verified UTR once paid.
+      gateway_reference: vpa
     });
 
     if (error) {
+      if (error.code === '23505') {
+        return res.status(409).json({
+          ok: false,
+          code: 'MILAN_PAY_PENDING_ORDER_EXISTS',
+          error: 'A pending order was created at the same time. Retry once to resume the existing order.'
+        });
+      }
       console.error('[MILAN Pay] Order insert failed:', error.message);
       return res.status(500).json({
         ok: false,
@@ -233,7 +260,7 @@ router.get('/orders/:orderId/status', auth, async (req, res) => {
 
     const { data, error } = await supabase
       .from('payment_orders')
-      .select('order_id,status,amount_inr,plan,gateway,paid_at')
+      .select('order_id,status,amount_inr,plan,gateway,gateway_reference,paid_at')
       .eq('order_id', orderId)
       .eq('user_id', req.account.id)
       .eq('gateway', 'milanpay')
@@ -249,9 +276,22 @@ router.get('/orders/:orderId/status', auth, async (req, res) => {
 
     let paymentDetails = {};
     if (data.status === 'pending') {
-      const vpa = merchantVpa();
+      if (data.gateway_reference && !validVpa(data.gateway_reference)) {
+        return res.status(409).json({ ok: false, code: 'MILAN_PAY_PENDING_ORDER_RECIPIENT_INVALID', error: 'The saved recipient for this pending order is invalid. Do not pay; contact support.' });
+      }
+      const configuredVpa = merchantVpa();
+      const vpa = validVpa(data.gateway_reference) ? data.gateway_reference : configuredVpa;
       if (!validVpa(vpa)) {
         return res.status(503).json({ ok: false, code: 'MILAN_PAY_NOT_CONFIGURED', error: 'Merchant UPI is not configured.' });
+      }
+      if (!data.gateway_reference) {
+        const { error: pinError } = await supabase.from('payment_orders')
+          .update({ gateway_reference: vpa })
+          .eq('order_id', data.order_id)
+          .eq('user_id', req.account.id)
+          .eq('status', 'pending')
+          .is('gateway_reference', null);
+        if (pinError) throw pinError;
       }
       const upiUri = makeUpiUri(vpa, data.order_id, plan);
       const qrDataUrl = await makeQrDataUrl(upiUri);
