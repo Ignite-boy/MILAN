@@ -25,6 +25,9 @@ const checks = [
   ['Legacy payment route is not mounted', !server.includes("app.use('/api/payment', require('./routes/payment'));")],
   ['Legacy payment route file is removed', !fs.existsSync(path.join(root, 'backend/routes/payment.js'))],
   ['MILAN Pay config endpoint exists', payRoute.includes("router.get('/config'")],
+  ['Payment and storage verification responses are explicitly non-cacheable',
+    storageRoute.includes("router.use((_req, res, next) => {\n  res.setHeader('Cache-Control', 'no-store');") &&
+    payRoute.includes("router.post('/orders', auth, async (req, res) => {\n  res.setHeader('Cache-Control', 'no-store');")],
   ['Order creation requires authentication', payRoute.includes("router.post('/orders', auth")],
   ['Order status endpoint requires authentication', payRoute.includes("router.get('/orders/:orderId/status', auth")],
   ['New orders start pending', payRoute.includes("status: 'pending'")],
