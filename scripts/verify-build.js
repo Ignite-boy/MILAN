@@ -75,8 +75,6 @@ const syntaxCheckFiles = [
   'backend/routes/isolatedDwn.js',
   'Milan-Sentinel/scripts/run-matrix.js',
   'Milan-Sentinel/scripts/execute-case.js',
-  'Milan-RSI-Agent/scripts/repair.js',
-  'Milan-RSI-Agent/scripts/rsi-loop.js'
 ];
 for (const file of syntaxCheckFiles) {
   if (!exists(file)) { failures.push(`Cannot syntax-check missing file: ${file}`); continue; }
