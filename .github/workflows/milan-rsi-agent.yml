@@ -33,12 +33,86 @@ jobs:
       - name: Install RSI agent
         run: npm install --no-audit --no-fund
         working-directory: Milan-RSI-Agent
+      - name: Test RSI runtime and failure semantics
+        run: npm test
+        working-directory: Milan-RSI-Agent
+      - name: Download evidence from triggering Sentinel run
+        if: github.event_name == 'workflow_run'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: sentinel-*
+          path: sentinel-artifacts
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id }}
+      - name: Merge evidence from triggering Sentinel run
+        if: github.event_name == 'workflow_run'
+        shell: bash
+        env:
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+          SOURCE_RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+          from collections import Counter
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          artifact_root = Path("sentinel-artifacts")
+          files = sorted(artifact_root.rglob("latest-results.json"))
+          if not files:
+              sys.exit("ERROR: No latest-results.json found in artifacts from the triggering run; refusing to use stale evidence.")
+
+          results = []
+          source_files = []
+          theoretical_count = None
+          for file in files:
+              try:
+                  payload = json.loads(file.read_text())
+              except Exception as error:
+                  sys.exit(f"ERROR: Invalid JSON in {file}: {error}")
+              rows = payload.get("results") if isinstance(payload, dict) else None
+              if not isinstance(rows, list):
+                  continue
+              results.extend(rows)
+              source_files.append(str(file))
+              if payload.get("matrixCaseCount") is not None:
+                  theoretical_count = payload["matrixCaseCount"]
+
+          if not source_files or not results:
+              sys.exit("ERROR: Downloaded artifacts contain no valid result rows; refusing to use stale evidence.")
+
+          counts = Counter(str(row.get("status", "UNKNOWN")) for row in results if isinstance(row, dict))
+          output = Path("Milan-Sentinel/reports/latest-results.json")
+          output.parent.mkdir(parents=True, exist_ok=True)
+          report = {
+              "generatedAt": datetime.now(timezone.utc).isoformat(),
+              "sourceRunId": os.environ["SOURCE_RUN_ID"],
+              "sourceRunConclusion": os.environ["SOURCE_RUN_CONCLUSION"],
+              "sourceArtifacts": source_files,
+              "matrixCaseCount": theoretical_count,
+              "execution": {"mode": "merged-triggering-run-evidence", "sourceArtifactCount": len(source_files), "resultCount": len(results)},
+              "passed": counts.get("PASS", 0),
+              "failed": counts.get("FAIL", 0),
+              "skipped": counts.get("SKIP", 0),
+              "results": results
+          }
+          output.write_text(json.dumps(report, indent=2) + "\n")
+          print(f"Merged {len(source_files)} report file(s): {len(results)} result row(s).")
+          print(f"Source run: {report['sourceRunId']} ({report['sourceRunConclusion']})")
+          print(f"Status counts: PASS={report['passed']} FAIL={report['failed']} SKIP={report['skipped']}")
+          print(f"Wrote {output}")
+          PY
       - name: Analyze and propose one bounded repair cycle
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           MILAN_GH_TOKEN: ${{ secrets.MILAN_GH_TOKEN }}
           RSI_AUTO_PUSH: 'false'
           RSI_MODEL: ${{ vars.RSI_MODEL }}
+          RSI_TRIGGERED_BY_SENTINEL_FAILURE: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure' }}
         run: node scripts/rsi-loop.js
         working-directory: Milan-RSI-Agent
       - name: Upload Sentinel evidence
