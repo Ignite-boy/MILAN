@@ -179,6 +179,22 @@ router.post('/orders', auth, async (req, res) => {
           error: 'You already have a pending MILAN Pay order for a different plan. Resume or resolve that order first.'
         });
       }
+      // A linked verification request means payment was already submitted for this order.
+      // Fail closed even if the request/order statuses are inconsistent.
+      const { data: priorRequest, error: priorRequestError } = await supabase
+        .from('storage_upgrade_requests')
+        .select('id,status')
+        .eq('order_id', pendingOrder.order_id)
+        .limit(1)
+        .maybeSingle();
+      if (priorRequestError) throw priorRequestError;
+      if (priorRequest) {
+        return res.status(409).json({
+          ok: false,
+          code: 'MILAN_PAY_ORDER_VERIFICATION_ALREADY_SUBMITTED',
+          error: 'A verification request already exists for this order. Do not pay again; wait for bank-record review or contact support.'
+        });
+      }
       if (pendingOrder.gateway_reference && !validVpa(pendingOrder.gateway_reference)) {
         return res.status(409).json({
           ok: false,
