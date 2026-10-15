@@ -2,6 +2,11 @@ name: MILAN RSI Repair Agent
 
 on:
   workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Optional failed MILAN Sentinel run ID for a safe evidence-handoff replay"
+        required: false
+        type: string
   workflow_run:
     workflows: ["MILAN Sentinel"]
     types: [completed]
@@ -36,21 +41,61 @@ jobs:
       - name: Test RSI runtime and failure semantics
         run: npm test
         working-directory: Milan-RSI-Agent
-      - name: Download evidence from triggering Sentinel run
-        if: github.event_name == 'workflow_run'
+      - name: Validate source Sentinel run
+        id: source
+        if: github.event_name == 'workflow_run' || inputs.source_run_id != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DISPATCH_SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          EVENT_PATH: ${{ github.event_path }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = "workflow_run" ]; then
+            source_id="$(python3 -c 'import json,os; print(json.load(open(os.environ["EVENT_PATH"]))["workflow_run"]["id"])')"
+          else
+            source_id="$DISPATCH_SOURCE_RUN_ID"
+          fi
+          case "$source_id" in
+            ''|*[!0-9]*) echo "ERROR: source_run_id must be a numeric Actions run ID." >&2; exit 1 ;;
+          esac
+
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$source_id" > /tmp/rsi-source-run.json
+          workflow_id="$(python3 -c 'import json; print(json.load(open("/tmp/rsi-source-run.json"))["workflow_id"])')"
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow_id" > /tmp/rsi-source-workflow.json
+
+          python3 - <<'PY'
+          import json, os, sys
+          run = json.load(open("/tmp/rsi-source-run.json"))
+          workflow = json.load(open("/tmp/rsi-source-workflow.json"))
+          if run.get("head_branch") != "main":
+              sys.exit("ERROR: source Sentinel run must target main.")
+          if (run.get("head_repository") or {}).get("full_name", "").lower() != os.environ["GITHUB_REPOSITORY"].lower():
+              sys.exit("ERROR: source run must belong to this repository, not a fork.")
+          if run.get("conclusion") != "failure":
+              sys.exit("ERROR: source Sentinel run must have failed.")
+          if workflow.get("path") != ".github/workflows/milan-sentinel.yml" or workflow.get("name") != "MILAN Sentinel":
+              sys.exit("ERROR: source_run_id is not from the canonical MILAN Sentinel workflow.")
+          print(f"Validated failed Sentinel run {run['id']} ({run['html_url']}).")
+          PY
+          echo "source_run_id=$source_id" >> "$GITHUB_OUTPUT"
+          echo "source_conclusion=failure" >> "$GITHUB_OUTPUT"
+
+      - name: Download evidence from source Sentinel run
+        if: steps.source.outputs.source_run_id != ''
         uses: actions/download-artifact@v4
         with:
           pattern: sentinel-*
           path: sentinel-artifacts
           github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository }}
-          run-id: ${{ github.event.workflow_run.id }}
-      - name: Merge evidence from triggering Sentinel run
-        if: github.event_name == 'workflow_run'
+          run-id: ${{ steps.source.outputs.source_run_id }}
+      - name: Merge evidence from source Sentinel run
+        if: steps.source.outputs.source_run_id != ''
         shell: bash
         env:
-          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
-          SOURCE_RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          SOURCE_RUN_ID: ${{ steps.source.outputs.source_run_id }}
+          SOURCE_RUN_CONCLUSION: ${{ steps.source.outputs.source_conclusion }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -112,7 +157,7 @@ jobs:
           MILAN_GH_TOKEN: ${{ secrets.MILAN_GH_TOKEN }}
           RSI_AUTO_PUSH: 'false'
           RSI_MODEL: ${{ vars.RSI_MODEL }}
-          RSI_TRIGGERED_BY_SENTINEL_FAILURE: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure' }}
+          RSI_TRIGGERED_BY_SENTINEL_FAILURE: ${{ steps.source.outputs.source_run_id != '' }}
         run: node scripts/rsi-loop.js
         working-directory: Milan-RSI-Agent
       - name: Upload Sentinel evidence
