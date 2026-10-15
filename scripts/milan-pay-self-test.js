@@ -27,7 +27,7 @@ assert(page.includes('id="upiQr"') && page.includes('id="payeeVpa"'), 'Checkout 
 assert(page.includes('id="copyVpa"') && page.includes('id="copyAmount"') && page.includes('id="copyOrderId"'), 'Cross-device copy-payment fallbacks missing');
 assert(page.includes("Never trust the payment URI from sessionStorage"), 'Pending order restore must use the authenticated server-owned payment URI');
 assert(page.includes("navigator.clipboard") && page.includes('document.execCommand("copy")'), 'Clipboard fallback missing');
-assert(read('backend/.env.example').includes('MILAN_PAY_MCC='), 'Document bank-assigned MCC setting for iOS UPI intent');
+assert(fs.readFileSync('backend/.env.example', 'utf8').includes('MILAN_PAY_MCC='), 'Document bank-assigned MCC setting for iOS UPI intent');
 assert(storagePage.includes('href="/milan-pay"'), 'Storage page must link to MILAN Pay checkout');
 assert(storagePage.includes('/milan-pay?plan='), 'Upgrade Storage must open MILAN Pay');
 assert(page.includes('MILAN Pay'), 'Branded checkout missing');
