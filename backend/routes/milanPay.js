@@ -29,7 +29,7 @@ function merchantVpa() {
 // The acquiring bank supplies the merchant category code (MCC). This is not a secret.
 function merchantMcc() {
   const value = String(process.env.MILAN_PAY_MCC || '').trim();
-  return /^\\d{4}$/.test(value) ? value : '';
+  return /^\d{4}$/.test(value) ? value : '';
 }
 
 function validVpa(value) {
@@ -158,7 +158,7 @@ router.post('/orders', auth, async (req, res) => {
         });
       }
       const upiUri = makeUpiUri(vpa, pendingOrder.order_id, plan);
-      const [qrDataUrl] = await Promise.all([makeQrDataUrl(upiUri)]);
+      const qrDataUrl = await makeQrDataUrl(upiUri);
       res.setHeader('Cache-Control', 'no-store');
       return res.status(200).json({
         ok: true,
