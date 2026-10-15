@@ -186,16 +186,16 @@ router.post('/orders', auth, async (req, res) => {
           error: 'The recipient saved for this pending order is invalid. Contact support; do not pay this order.'
         });
       }
-      const orderVpa = validVpa(pendingOrder.gateway_reference) ? pendingOrder.gateway_reference : vpa;
+      // Legacy rows without a pinned recipient must be reconciled. Never attach the
+      // current environment VPA to an order that may have been created for another recipient.
       if (!pendingOrder.gateway_reference) {
-        const { error: pinError } = await supabase.from('payment_orders')
-          .update({ gateway_reference: orderVpa })
-          .eq('order_id', pendingOrder.order_id)
-          .eq('user_id', req.account.id)
-          .eq('status', 'pending')
-          .is('gateway_reference', null);
-        if (pinError) throw pinError;
+        return res.status(409).json({
+          ok: false,
+          code: 'MILAN_PAY_PENDING_ORDER_RECIPIENT_UNVERIFIED',
+          error: 'This older pending order has no saved recipient. For your safety, no payment link will be issued until support reconciles the order and bank records.'
+        });
       }
+      const orderVpa = pendingOrder.gateway_reference;
       const upiUri = makeUpiUri(orderVpa, pendingOrder.order_id, plan);
       const qrDataUrl = await makeQrDataUrl(upiUri);
       res.setHeader('Cache-Control', 'no-store');
@@ -345,20 +345,16 @@ router.get('/orders/:orderId/status', auth, async (req, res) => {
       if (data.gateway_reference && !validVpa(data.gateway_reference)) {
         return res.status(409).json({ ok: false, code: 'MILAN_PAY_PENDING_ORDER_RECIPIENT_INVALID', error: 'The saved recipient for this pending order is invalid. Do not pay; contact support.' });
       }
-      const configuredVpa = merchantVpa();
-      const vpa = validVpa(data.gateway_reference) ? data.gateway_reference : configuredVpa;
-      if (!validVpa(vpa)) {
-        return res.status(503).json({ ok: false, code: 'MILAN_PAY_NOT_CONFIGURED', error: 'Merchant UPI is not configured.' });
-      }
+      // A pending legacy order with no saved recipient cannot safely inherit today's
+      // environment setting: the merchant VPA may have changed since order creation.
       if (!data.gateway_reference) {
-        const { error: pinError } = await supabase.from('payment_orders')
-          .update({ gateway_reference: vpa })
-          .eq('order_id', data.order_id)
-          .eq('user_id', req.account.id)
-          .eq('status', 'pending')
-          .is('gateway_reference', null);
-        if (pinError) throw pinError;
+        return res.status(409).json({
+          ok: false,
+          code: 'MILAN_PAY_PENDING_ORDER_RECIPIENT_UNVERIFIED',
+          error: 'This older pending order has no saved recipient. For your safety, no payment link will be issued until support reconciles the order and bank records.'
+        });
       }
+      const vpa = data.gateway_reference;
       const upiUri = makeUpiUri(vpa, data.order_id, plan);
       const qrDataUrl = await makeQrDataUrl(upiUri);
       paymentDetails = {
