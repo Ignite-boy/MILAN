@@ -2,6 +2,7 @@
 
 const express = require('express');
 const crypto = require('crypto');
+const QRCode = require('qrcode');
 const auth = require('../middleware/auth');
 const { createClient } = require('@supabase/supabase-js');
 
@@ -25,6 +26,12 @@ function merchantVpa() {
   return String(process.env.MILAN_PAY_UPI_ID || '').trim();
 }
 
+// The acquiring bank supplies the merchant category code (MCC). This is not a secret.
+function merchantMcc() {
+  const value = String(process.env.MILAN_PAY_MCC || '').trim();
+  return /^\\d{4}$/.test(value) ? value : '';
+}
+
 function validVpa(value) {
   return /^[A-Za-z0-9._-]{2,256}@[A-Za-z][A-Za-z0-9]{1,63}$/.test(value);
 }
@@ -33,6 +40,44 @@ function makeOrderId(userId) {
   const user = String(userId || 'USER')
     .replace(/[^A-Za-z0-9_-]/g, '').slice(0, 8) || 'USER';
   return `MLNPAY_${user}_${Date.now().toString(36)}_${crypto.randomBytes(6).toString('hex')}`;
+}
+
+function makeUpiUri(vpa, orderId, plan) {
+  const params = new URLSearchParams({
+    pa: vpa,
+    pn: merchantName(),
+    tr: orderId,
+    tn: 'MILAN Pay ' + plan.name + ' ' + orderId,
+    am: plan.amountInr.toFixed(2),
+    cu: 'INR'
+  });
+  const mcc = merchantMcc();
+  if (mcc) params.set('mc', mcc);
+  return 'upi://pay?' + params.toString();
+}
+
+function makeGooglePayIosUri(vpa, orderId, plan) {
+  const mcc = merchantMcc();
+  if (!mcc) return null;
+  const params = new URLSearchParams({
+    pa: vpa,
+    pn: merchantName(),
+    tr: orderId,
+    tn: 'MILAN Pay ' + plan.name + ' ' + orderId,
+    am: plan.amountInr.toFixed(2),
+    cu: 'INR',
+    mc: mcc
+  });
+  return 'gpay://upi/pay?' + params.toString();
+}
+
+async function makeQrDataUrl(upiUri) {
+  return QRCode.toDataURL(upiUri, {
+    errorCorrectionLevel: 'M',
+    margin: 2,
+    width: 320,
+    color: { dark: '#08111f', light: '#ffffff' }
+  });
 }
 
 router.get('/config', (_req, res) => {
@@ -44,6 +89,11 @@ router.get('/config', (_req, res) => {
     ok: true,
     brand: 'MILAN Pay',
     merchantName: merchantName(),
+    merchantVpa: ready ? vpa : null,
+    merchantMccConfigured: Boolean(merchantMcc()),
+    googlePayIosAvailable: ready && Boolean(merchantMcc()),
+    qrPaymentsAvailable: ready,
+    verificationMode: 'manual-bank-verification',
     upiAvailable: ready,
     cardPaymentsAvailable: false,
     internationalPaymentsAvailable: false,
@@ -89,7 +139,48 @@ router.post('/orders', auth, async (req, res) => {
       return res.status(400).json({ ok: false, error: 'Invalid plan.' });
     }
 
+    const { data: pendingOrder, error: pendingOrderError } = await supabase
+      .from('payment_orders')
+      .select('order_id,plan,amount_inr,status')
+      .eq('user_id', req.account.id)
+      .eq('gateway', 'milanpay')
+      .eq('status', 'pending')
+      .limit(1)
+      .maybeSingle();
+
+    if (pendingOrderError) throw pendingOrderError;
+    if (pendingOrder) {
+      if (pendingOrder.plan !== planKey || Number(pendingOrder.amount_inr) !== plan.amountInr) {
+        return res.status(409).json({
+          ok: false,
+          code: 'MILAN_PAY_PENDING_ORDER_EXISTS',
+          error: 'You already have a pending MILAN Pay order for a different plan. Resume or resolve that order first.'
+        });
+      }
+      const upiUri = makeUpiUri(vpa, pendingOrder.order_id, plan);
+      const [qrDataUrl] = await Promise.all([makeQrDataUrl(upiUri)]);
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(200).json({
+        ok: true,
+        brand: 'MILAN Pay',
+        orderId: pendingOrder.order_id,
+        amountInr: plan.amountInr,
+        currency: 'INR',
+        plan: planKey,
+        status: 'pending',
+        reusedOrder: true,
+        merchantName: merchantName(),
+        merchantVpa: vpa,
+        upiUri,
+        googlePayIosUri: makeGooglePayIosUri(vpa, pendingOrder.order_id, plan),
+        qrDataUrl,
+        message: 'Resuming your existing pending order. Complete payment in your UPI app and submit the UTR; storage remains pending until independent bank verification.'
+      });
+    }
+
     const orderId = makeOrderId(req.account.id);
+    const upiUri = makeUpiUri(vpa, orderId, plan);
+    const qrDataUrl = await makeQrDataUrl(upiUri);
     const { error } = await supabase.from('payment_orders').insert({
       user_id: req.account.id,
       order_id: orderId,
@@ -107,15 +198,6 @@ router.post('/orders', auth, async (req, res) => {
       });
     }
 
-    const params = new URLSearchParams({
-      pa: vpa,
-      pn: merchantName(),
-      tr: orderId,
-      tn: 'MILAN Pay ' + plan.name + ' ' + orderId,
-      am: plan.amountInr.toFixed(2),
-      cu: 'INR'
-    });
-
     res.setHeader('Cache-Control', 'no-store');
     return res.status(201).json({
       ok: true,
@@ -125,7 +207,12 @@ router.post('/orders', auth, async (req, res) => {
       currency: 'INR',
       plan: planKey,
       status: 'pending',
-      upiUri: 'upi://pay?' + params.toString(),
+      reusedOrder: false,
+      merchantName: merchantName(),
+      merchantVpa: vpa,
+      upiUri,
+      googlePayIosUri: makeGooglePayIosUri(vpa, orderId, plan),
+      qrDataUrl,
       message: 'Complete payment in your UPI app, then submit the UTR. Storage is upgraded only after independent bank verification.'
     });
   } catch (error) {
@@ -155,6 +242,28 @@ router.get('/orders/:orderId/status', auth, async (req, res) => {
     if (error) throw error;
     if (!data) return res.status(404).json({ ok: false, error: 'Order not found.' });
 
+    const plan = PLANS[data.plan];
+    if (!plan || Number(data.amount_inr) !== plan.amountInr) {
+      return res.status(409).json({ ok: false, error: 'Stored order plan or amount is invalid.' });
+    }
+
+    let paymentDetails = {};
+    if (data.status === 'pending') {
+      const vpa = merchantVpa();
+      if (!validVpa(vpa)) {
+        return res.status(503).json({ ok: false, code: 'MILAN_PAY_NOT_CONFIGURED', error: 'Merchant UPI is not configured.' });
+      }
+      const upiUri = makeUpiUri(vpa, data.order_id, plan);
+      const qrDataUrl = await makeQrDataUrl(upiUri);
+      paymentDetails = {
+        merchantName: merchantName(),
+        merchantVpa: vpa,
+        upiUri,
+        googlePayIosUri: makeGooglePayIosUri(vpa, data.order_id, plan),
+        qrDataUrl
+      };
+    }
+
     res.setHeader('Cache-Control', 'no-store');
     return res.json({
       ok: true,
@@ -162,7 +271,8 @@ router.get('/orders/:orderId/status', auth, async (req, res) => {
       status: data.status,
       amountInr: data.amount_inr,
       plan: data.plan,
-      paidAt: data.paid_at || null
+      paidAt: data.paid_at || null,
+      ...paymentDetails
     });
   } catch (error) {
     console.error('[MILAN Pay] Status lookup failed:', error.message);
