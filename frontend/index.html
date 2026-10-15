@@ -116,8 +116,8 @@
       border-radius:17px;
     }
     #milan-pwa-install-v2 .pwa2-icon{width:42px;height:42px;border-radius:12px}
-    #milan-pwa-install-v2 .pwa2-title{font-size:12px}
-    #milan-pwa-install-v2 .pwa2-sub{font-size:9px}
+    #milan-pwa-install-v2 .pwa2-title{font-size:13px}
+    #milan-pwa-install-v2 .pwa2-sub{font-size:10px}
     #milan-pwa-install-v2 .pwa2-install{min-width:68px;min-height:36px;padding:0 11px}
     #milan-pwa-install-v2 .pwa2-close{width:32px;height:32px}
   }
@@ -234,11 +234,11 @@
   <link rel="stylesheet" href="/milan-login-ux.css">
 </head>
 <body class="mlp">
-<div id="milan-pwa-install-v2" aria-live="polite">
+<div id="milan-pwa-install-v2" role="region" aria-label="Install MILAN app" aria-live="polite">
   <img class="pwa2-icon" src="/assets/icon-192.png" alt="">
   <div class="pwa2-copy">
     <span class="pwa2-title">Install MILAN</span>
-    <span class="pwa2-sub">A faster, smoother app-like experience.</span>
+    <span class="pwa2-sub">Your MILAN space, one tap away.</span>
     <span class="pwa2-manual">Open your browser menu and choose <strong>Install app</strong> or <strong>Add to Home screen</strong>.</span>
   </div>
   <div class="pwa2-actions">
@@ -361,58 +361,108 @@
 
 <script id="milan-pwa-install-v2-logic">
 (() => {
+  "use strict";
+
   let deferredPrompt = null;
-  const prompt = () => document.getElementById("milan-pwa-install-v2");
+  const DISMISS_KEY = "milanPwaInstallDismissedUntil";
+  const COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+
+  const promptCard = () => document.getElementById("milan-pwa-install-v2");
   const button = () => document.getElementById("milan-pwa-install-v2-btn");
+
   const isStandalone = () =>
     window.matchMedia?.("(display-mode: standalone)").matches ||
     window.matchMedia?.("(display-mode: fullscreen)").matches ||
     window.navigator.standalone === true;
 
+  const isIOS = () =>
+    /iPad|iPhone|iPod/i.test(navigator.userAgent || "") ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+  const isAndroid = () => /Android/i.test(navigator.userAgent || "");
+
+  function dismissedRecently() {
+    try {
+      if (Number(localStorage.getItem(DISMISS_KEY) || 0) > Date.now()) {
+        return true;
+      }
+    } catch (_) {}
+
+    try {
+      return sessionStorage.getItem("milanPwaInstallDismissed") === "1";
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function rememberDismissal() {
+    const until = String(Date.now() + COOLDOWN_MS);
+    try { localStorage.setItem(DISMISS_KEY, until); } catch (_) {}
+    try { sessionStorage.setItem("milanPwaInstallDismissed", "1"); } catch (_) {}
+  }
+
   function show(mode) {
-    const el = prompt();
-    if (!el || isStandalone()) return;
-    el.classList.toggle("manual", mode === "manual");
+    const el = promptCard();
+    if (!el || isStandalone() || dismissedRecently()) return;
+
+    const manual = el.querySelector(".pwa2-manual");
+    if (manual) {
+      if (isIOS()) {
+        manual.innerHTML =
+          'In Safari, tap <strong>Share</strong> ↗, then ' +
+          '<strong>Add to Home Screen</strong>.';
+      } else if (isAndroid()) {
+        manual.innerHTML =
+          'Open the browser menu (⋮) and choose <strong>Install app</strong> ' +
+          'or <strong>Add to Home screen</strong>.';
+      } else {
+        manual.innerHTML =
+          'Use the install icon in your browser address bar or menu to install MILAN.';
+      }
+    }
+
+    el.classList.toggle("manual", mode !== "install");
+
     const btn = button();
     if (btn) btn.textContent = mode === "install" ? "Install" : "How to install";
+
     requestAnimationFrame(() => el.classList.add("is-visible"));
   }
 
   function hide() {
-    prompt()?.classList.remove("is-visible");
-  }
-
-  function dismissedThisSession() {
-    try { return sessionStorage.getItem("milanPwaInstallDismissed") === "1"; }
-    catch (_) { return false; }
+    promptCard()?.classList.remove("is-visible");
   }
 
   function dismiss() {
     hide();
-    try { sessionStorage.setItem("milanPwaInstallDismissed", "1"); } catch (_) {}
+    rememberDismissal();
   }
 
   if (!isStandalone()) {
     window.addEventListener("beforeinstallprompt", (event) => {
       event.preventDefault();
       deferredPrompt = event;
-      if (!dismissedThisSession()) {
-        window.setTimeout(() => show("install"), 500);
-      }
+
+      if (!dismissedRecently()) show("install");
     });
 
     window.addEventListener("appinstalled", () => {
       deferredPrompt = null;
       hide();
-      try { sessionStorage.setItem("milanPwaInstallDismissed", "1"); } catch (_) {}
+      rememberDismissal();
     });
 
     window.addEventListener("load", () => {
-      navigator.serviceWorker?.register("/sw.js", {scope:"/"}).catch(() => {});
+      navigator.serviceWorker?.register("/sw.js", { scope: "/" }).catch(() => {});
+
+      // Wait briefly for the browser's native install event before showing
+      // manual instructions as the fallback.
       window.setTimeout(() => {
-        if (!dismissedThisSession() && !isStandalone()) show("install");
-      }, 120);
-    }, {once:true});
+        if (!dismissedRecently() && !isStandalone()) {
+          show(deferredPrompt ? "install" : "manual");
+        }
+      }, 1600);
+    }, { once: true });
   }
 
   document.addEventListener("click", async (event) => {
@@ -420,6 +470,7 @@
       dismiss();
       return;
     }
+
     if (!event.target.closest?.("#milan-pwa-install-v2-btn")) return;
 
     if (!deferredPrompt) {
@@ -433,8 +484,11 @@
 
     try {
       await installEvent.prompt();
-      await installEvent.userChoice;
-    } catch (_) {}
+      const choice = await installEvent.userChoice;
+      if (choice?.outcome === "accepted") rememberDismissal();
+    } catch (_) {
+      show("manual");
+    }
   });
 })();
 </script>

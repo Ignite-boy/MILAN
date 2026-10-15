@@ -301,6 +301,7 @@
     }
 
     function show() {
+      if (document.getElementById("milan-pwa-install-v2")) return;
       if (!isMobile() || isInstalled()) {
         hide();
         return;
@@ -334,7 +335,7 @@
     }
 
     window.addEventListener("beforeinstallprompt", function (e) {
-      if (!isMobile() || isInstalled()) return;
+      if (document.getElementById("milan-pwa-install-v2") || !isMobile() || isInstalled()) return;
 
       e.preventDefault();
       deferred = e;
@@ -371,6 +372,7 @@
     /* Show the install CTA immediately on mobile when not installed.
        Android/Chrome upgrades it to the native prompt when available. */
     function init() {
+      if (document.getElementById("milan-pwa-install-v2")) return;
       if (!isMobile() || isInstalled()) {
         hide();
         return;
