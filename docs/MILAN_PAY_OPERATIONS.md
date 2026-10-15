@@ -15,6 +15,8 @@ The public configuration endpoint reports whether a VPA looks syntactically vali
 5. If there is no matching credit, verify the statement for the full relevant date/time window and confirm there is no linked verification request before resolving that exact order as failed. Do not bulk-expire all pending orders by age. Preserve the order ID and reconciliation outcome in an internal support/audit record.
 6. Re-run the audit SQL. The duplicate-group result must return **zero rows** before attempting the migration.
 
+**Legacy recipient safeguard:** pending orders with a null/blank `gateway_reference` are now blocked from payment-link reuse and status restoration. Do not fill them with the current `MILAN_PAY_UPI_ID` merely to unblock checkout. Reconcile the exact order and bank records first; only a confirmed historical recipient may be repaired through an approved, audited operator procedure. New orders already pin the VPA used at creation.
+
 Do not paste bank statements, account numbers, authentication headers, or secrets into chat or issues.
 
 ## 2. Apply and verify the database safeguard
