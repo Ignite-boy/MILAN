@@ -7,7 +7,8 @@
   "scripts": {
     "rsi": "node scripts/rsi-loop.js",
     "validate": "node ../Milan-Sentinel/scripts/run-matrix.js --validate",
-    "smoke": "node ../Milan-Sentinel/scripts/run-matrix.js --smoke"
+    "smoke": "node ../Milan-Sentinel/scripts/run-matrix.js --smoke",
+    "test": "node scripts/test-rsi-loop.js"
   },
   "dependencies": {
     "openai": "^5.12.2"
