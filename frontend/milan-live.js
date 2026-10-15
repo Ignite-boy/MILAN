@@ -12,12 +12,52 @@
    ========================================================================== */
 (function () {
   "use strict";
-  if (window.__milanLive) return;
-  window.__milanLive = 1;
+
+  if (!/\/app(\.html)?$/.test(location.pathname)) return;
+  if (window.__milanLiveState === "started") return;
 
   var token = "";
   try { token = localStorage.getItem("milan_token") || ""; } catch (_) {}
-  if (!token || !/\/app(\.html)?$/.test(location.pathname)) return;
+
+  // Login may finish after deferred scripts have executed.
+  // Wait for the token, then reload this client exactly once.
+  if (!token) {
+    if (window.__milanLiveState === "waiting") return;
+    window.__milanLiveState = "waiting";
+
+    var retryUrl = "/milan-live.js?v=20261015-networking-initfix";
+    try {
+      if (document.currentScript && document.currentScript.src) {
+        retryUrl = document.currentScript.src;
+      }
+    } catch (_) {}
+
+    function retryAfterLogin() {
+      var latestToken = "";
+      try { latestToken = localStorage.getItem("milan_token") || ""; } catch (_) {}
+
+      if (latestToken) {
+        window.__milanLiveState = "";
+        var script = document.createElement("script");
+        script.src = retryUrl;
+        script.async = false;
+        document.head.appendChild(script);
+        return;
+      }
+
+      if (/\/app(\.html)?$/.test(location.pathname)) {
+        window.setTimeout(retryAfterLogin, 1500);
+      } else {
+        window.__milanLiveState = "";
+      }
+    }
+
+    window.setTimeout(retryAfterLogin, 1500);
+    return;
+  }
+
+  window.__milanLiveState = "started";
+  window.__milanLive = 1;
 
   var url = location.origin + "/api/events?token=" + encodeURIComponent(token);
 
