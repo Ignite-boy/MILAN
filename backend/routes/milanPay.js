@@ -120,6 +120,7 @@ router.get('/config', (_req, res) => {
 });
 
 router.post('/orders', auth, async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
   try {
     const vpa = merchantVpa();
     if (!validVpa(vpa)) {
