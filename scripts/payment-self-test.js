@@ -49,6 +49,14 @@ const checks = [
   ['Existing pending order is reused to reduce duplicate orders', payRoute.includes("reusedOrder: true") && payRoute.includes("MILAN_PAY_PENDING_ORDER_EXISTS")],
   ['Concurrent order creation conflict is handled', payRoute.includes("A pending order was created at the same time")],
   ['Pending orders pin the selected merchant VPA', payRoute.includes("gateway_reference: vpa") && payRoute.includes("gateway_reference,paid_at")],
+  ['Legacy pending orders without a pinned recipient are blocked on order reuse and status restore',
+    payRoute.includes("code: 'MILAN_PAY_PENDING_ORDER_RECIPIENT_UNVERIFIED'") &&
+    payRoute.includes('if (!pendingOrder.gateway_reference)') &&
+    payRoute.includes('if (!data.gateway_reference)') &&
+    !payRoute.includes('const orderVpa = validVpa(pendingOrder.gateway_reference) ? pendingOrder.gateway_reference : vpa') &&
+    !payRoute.includes('const vpa = validVpa(data.gateway_reference) ? data.gateway_reference : configuredVpa') &&
+    !payRoute.includes('.update({ gateway_reference: orderVpa })') &&
+    !payRoute.includes('.update({ gateway_reference: vpa })')],
   ['Migration checks for duplicate pending orders before indexing', pendingOrdersMigration.includes("HAVING COUNT(*) > 1") && pendingOrdersMigration.includes("Multiple pending MILAN Pay orders exist")],
   ['Migration enforces one pending MILAN Pay order per user', pendingOrdersMigration.includes("payment_orders_one_pending_milanpay_per_user_uidx") && pendingOrdersMigration.includes("gateway = 'milanpay' AND status = 'pending'")],
   ['Order creation and restore fail closed when duplicate pending orders exist', payRoute.includes("MILAN_PAY_PENDING_ORDER_RECONCILIATION_REQUIRED") && payRoute.includes(".limit(2)")],
