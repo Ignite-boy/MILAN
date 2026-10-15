@@ -26,7 +26,7 @@ CREATE OR REPLACE FUNCTION public.admin_approve_milan_pay_storage_request(
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, pg_temp
+SET search_path = pg_catalog, public, pg_temp
 AS $function$
 DECLARE
   v_request public.storage_upgrade_requests%ROWTYPE;
@@ -192,7 +192,7 @@ CREATE OR REPLACE FUNCTION public.admin_reject_milan_pay_storage_request(
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, pg_temp
+SET search_path = pg_catalog, public, pg_temp
 AS $function$
 DECLARE
   v_request public.storage_upgrade_requests%ROWTYPE;
