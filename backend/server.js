@@ -28,11 +28,11 @@ app.use((req, res, next) => {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'camera=(), geolocation=(self)');
-  // --- Enterprise security headers (HSTS + CSP; Paytm Business Checkout allow-list) ---
+  // --- Enterprise security headers (HSTS + CSP) ---
   res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
   res.setHeader('X-DNS-Prefetch-Control', 'on');
   res.setHeader('Origin-Agent-Cluster', '?1');
-  // CSP tuned for MILAN's stack (inline app scripts, YouTube player, Google Fonts, Audius, Razorpay checkout).
+  // CSP tuned for MILAN's first-party UI and required media/font services.
   res.setHeader('Content-Security-Policy', "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.youtube.com https://s.ytimg.com  ; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https:  ; frame-src https://www.youtube.com https://www.youtube-nocookie.com  ; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests");
   next();
 });
