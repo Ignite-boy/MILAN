@@ -17,6 +17,8 @@ The public configuration endpoint reports whether a VPA looks syntactically vali
 
 **Legacy recipient safeguard:** pending orders with a null/blank `gateway_reference` are now blocked from payment-link reuse and status restoration. Do not fill them with the current `MILAN_PAY_UPI_ID` merely to unblock checkout. Reconcile the exact order and bank records first; only a confirmed historical recipient may be repaired through an approved, audited operator procedure. New orders already pin the VPA used at creation.
 
+**Submitted-UTR safeguard:** when any verification request is already linked to a pending order, order creation returns a conflict instead of issuing another QR. If the request/order statuses disagree, reconcile the records; do not ask the customer to pay again.
+
 Do not paste bank statements, account numbers, authentication headers, or secrets into chat or issues.
 
 ## 2. Apply and verify the database safeguard
