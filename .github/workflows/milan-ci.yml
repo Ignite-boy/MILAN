@@ -57,7 +57,7 @@ jobs:
       - name: Verify chat architecture
         run: npm run test:chat
 
-      - name: Verify Paytm payment architecture
+      - name: Verify MILAN Pay architecture
         run: npm run test:payment
 
       - name: Verify critical frontend files

@@ -17,7 +17,7 @@ This file documents names and minimum intent. It contains no production secrets.
 ## Optional providers
 
 - Email: configure a supported mail-provider API key or SMTP credentials; otherwise mail features may skip sending.
-- Payments: verify Cashfree/Cashfree environment and price configuration in provider dashboards; an example file with `sandbox` is not proof of live payment readiness.
+- Payments: MILAN Pay uses direct UPI intent and QR checkout with manual bank verification. Confirm the receiving VPA and prices before use. Automatic bank confirmation is not enabled; it requires an authorised bank/acquirer integration.
 - AI: API keys enable providers but do not make every AI route available or accurate.
 - `MILAN_DATA_ROOT` / `MILAN_CLOUD_DWN_ROOT`: file/cache location settings. On serverless storage, local disk is not a durability guarantee.
 

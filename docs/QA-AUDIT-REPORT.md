@@ -5,7 +5,7 @@ _Date: 2026-06-27 · Scope: static code audit of `milan-app` (frontend + backend
 ## How this audit was done (and its limits)
 
 A true "click every button" manual QA pass needs the app running live in a
-browser against its real backend and external services (DWN nodes, Razorpay,
+browser against its real backend and external services (DWN nodes, UPI payment services,
 SMTP/Resend/SendGrid, OpenAI/Gemini/Anthropic, YouTube API). That could not be
 done in this environment, so this pass is a **static code audit**: reading the
 actual source, hunting for concrete defects, and fixing the safe, clear-cut
@@ -74,7 +74,7 @@ These require the live app + browser and should be walked through before launch:
 - Auth flows end-to-end: signup, email verify, login, password reset, logout, session expiry, "sign out everywhere".
 - File / image / video upload (size limits, type validation, failure handling).
 - Feed: like, comment, share, follow, pagination / infinite scroll, real-time updates.
-- Payments / premium (Razorpay) — never test with real money; use sandbox keys.
+- Payments / MILAN Pay — direct UPI intent and QR checkout are present; manual bank verification is required. Real-device payment and bank-credit reconciliation still need explicit testing.
 - Notifications, chat/messaging, search, filters.
 - Responsiveness on real mobile / tablet / desktop widths.
 - Console-error sweep and network-failure / offline / slow-connection behavior.
