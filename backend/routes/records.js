@@ -797,7 +797,7 @@ async function streamMedia(req, res) {
           if (req.method === 'HEAD') return res.end();
           const bodyStream = Readable.fromWeb(upstream.body);
           bodyStream.on('error', err => { try { if (!res.headersSent) res.status(502); res.destroy(err); } catch (_) {} });
-          req.on('close', () => { try { bodyStream.destroy(); } catch (_) {} });
+          res.on('close', () => { if (!res.writableEnded) { try { bodyStream.destroy(); } catch (_) {} } });
           return bodyStream.pipe(res);
         }
         if (!media.fallbackFullPath) return res.status(upstream.status).json({ error: `Remote DWN media read failed: ${upstream.status}` });
