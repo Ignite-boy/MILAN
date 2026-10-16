@@ -94,9 +94,11 @@ Promise.allSettled([
       .map(el=>[String(el.id||"").replace(/^post-/,""),el])
   );
 
+  const savedSet = new Set(savedIds());
+
   rows.forEach((record,index)=>{
     const id=String(record.id||"");
-    const html=postHtml(record);
+    const html=postHtml(record,savedSet);
     const current=existing.get(id);
 
     if(current){
@@ -182,7 +184,7 @@ function initMilanMediaObserver(){
   ).forEach(el=>window.__milanMediaObserver.observe(el));
 }
 
-function postHtml(r){
+function postHtml(r,savedSet){
   const p={
     ...(r.ownerProfile||{})
   };
@@ -269,8 +271,7 @@ function postHtml(r){
   const mine=
     r.social?.reactions?.mine;
 
-  const saved=
-    savedIds().includes(r.id);
+  const saved=(savedSet||new Set(savedIds())).has(r.id);
 
   const ownerControls=owner
     ? `
