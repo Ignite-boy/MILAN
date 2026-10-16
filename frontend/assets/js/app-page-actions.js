@@ -458,7 +458,7 @@
     bind('.icon-btn[title="Chat"]', () => go("/chat"));
     bind('.icon-btn[title="Music"]', () => go("/music"));
 
-    document.querySelectorAll(".nav button").forEach(button => {
+    document.querySelectorAll(".nav button, .m8-nav button").forEach(button => {
       const text = button.textContent.trim();
 
       if (button.dataset.navBound) return;
