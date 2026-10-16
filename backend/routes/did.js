@@ -762,7 +762,7 @@ router.post(
       error: userError
     } = await supabaseDb
       .from('users')
-      .select('id,email,name,did')
+      .select('id,email,name,did,email_verified')
       .eq(
         'id',
         storedCredential.user_id
@@ -773,6 +773,14 @@ router.post(
       return res.status(401).json({
         error:
           'ID3 account could not be resolved'
+      });
+    }
+
+    if (user.email_verified !== true) {
+      return res.status(403).json({
+        error: 'Please verify your email before using ID3 login.',
+        emailVerificationRequired: true,
+        email: user.email
       });
     }
 
@@ -794,7 +802,7 @@ router.post(
       did: user.did,
       profile: {},
       settings: {},
-      emailVerified: true,
+      emailVerified: user.email_verified === true,
       twoFactorEnabled: false,
       id3: true
     });

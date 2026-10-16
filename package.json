@@ -6,8 +6,8 @@
   "scripts": {
     "start": "node -r ./backend/services/avatar-hydration-guard.js backend/server.js",
     "dev": "node -r ./backend/services/avatar-hydration-guard.js backend/server.js",
-    "mail:test": "node scripts/test-mail.js",
-    "mail:diagnose": "node scripts/smtp-diagnose.js",
+    "mail:test": "node backend/scripts/test-mail.js",
+    "mail:diagnose": "node backend/scripts/smtp-diagnose.js",
     "build": "node scripts/verify-build.js",
     "test:chat": "node scripts/chat-self-test.js",
     "test:payment": "node scripts/payment-self-test.js",

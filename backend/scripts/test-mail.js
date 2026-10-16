@@ -10,7 +10,12 @@
  * real test email from support@milanlife.in to the address you pass.
  */
 
-require('dotenv').config();
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const preferredEnv = path.join(os.homedir(), '.config/milan/backend.env');
+const fallbackEnv = path.join(__dirname, '..', '.env');
+require('dotenv').config({ path: fs.existsSync(preferredEnv) ? preferredEnv : fallbackEnv });
 const { mailStatus, sendTestEmail } = require('../services/mailService');
 
 (async () => {

@@ -87,7 +87,7 @@ Verify sender/domain, create an API key, set `SENDGRID_API_KEY=SG.xxxx`.
 ### Behaviour toggles
 ```
 MAIL_LOGIN_ALERTS=true          # set false to stop the "new sign-in" email
-MAIL_REQUIRE_VERIFICATION=false # verification email always sends regardless
+MAIL_REQUIRE_VERIFICATION=true  # New accounts must verify before login; existing accounts are grandfathered
 PUBLIC_BASE_URL=https://milanlife.in   # builds the verify/reset links
 ADMIN_TOKEN=change-this-admin-token    # protects the admin dashboard + mail test
 ```

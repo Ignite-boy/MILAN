@@ -10,22 +10,34 @@
  * No email is sent — this only logs in.
  */
 
-require('dotenv').config();
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const preferredEnv = path.join(os.homedir(), '.config/milan/backend.env');
+const fallbackEnv = path.join(__dirname, '..', '.env');
+require('dotenv').config({ path: fs.existsSync(preferredEnv) ? preferredEnv : fallbackEnv });
 let nodemailer;
 try { nodemailer = require('nodemailer'); }
 catch (_) { console.error('Run `npm install` first (nodemailer missing).'); process.exit(1); }
 
-const HOST = process.env.SMTP_HOST || 'smtp.titan.email';
+const HOST = process.env.SMTP_HOST || '';
 const USER = process.env.SMTP_USER || '';
 const PASS = process.env.SMTP_PASS || '';
+const PORT = Number(process.env.SMTP_PORT || 587);
+const SECURE = String(process.env.SMTP_SECURE || '') === 'true';
 
 console.log('\n── SMTP diagnostic ───────────────────────────────');
-console.log('  host :', HOST);
-console.log('  user :', USER);
-console.log('  pass :', PASS ? `set (${PASS.length} chars)` : 'MISSING');
+console.log('  host :', HOST || 'MISSING');
+console.log('  port :', PORT);
+console.log('  TLS  :', SECURE ? 'implicit TLS' : 'STARTTLS/unencrypted initial connection');
+console.log('  user configured:', Boolean(USER));
+console.log('  password configured:', Boolean(PASS));
 console.log('──────────────────────────────────────────────────');
 
-if (!USER || !PASS) { console.error('✖ SMTP_USER / SMTP_PASS not set in .env'); process.exit(1); }
+if (!HOST || !USER || !PASS || !Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
+  console.error('SMTP_HOST, SMTP_USER, SMTP_PASS and a valid SMTP_PORT are required.');
+  process.exit(1);
+}
 
 async function tryLogin(port, secure) {
   const t = nodemailer.createTransport({ host: HOST, port, secure, auth: { user: USER, pass: PASS }, connectionTimeout: 12000, greetingTimeout: 12000 });
@@ -39,18 +51,25 @@ async function tryLogin(port, secure) {
 }
 
 (async () => {
-  const a = await tryLogin(587, false); // STARTTLS (your current setting)
-  const b = await tryLogin(465, true);  // SSL (Titan alternate)
-  console.log('\nResult:');
-  if (a || b) {
-    console.log('  ✓ Login succeeded. If 587 failed but 465 worked, set in .env:');
-    console.log('      SMTP_PORT=465');
-    console.log('      SMTP_SECURE=true');
-  } else {
-    console.log('  ✖ Both ports rejected the login → the PASSWORD or MAILBOX is the problem, not the code.');
-    console.log('    1) Log in to https://app.titan.email as ' + USER + ' with the same password.');
-    console.log('    2) If that fails, reset the mailbox password in your hosting/Titan panel and update SMTP_PASS.');
-    console.log('    3) If webmail works but this does not, the mailbox may still be activating, or SMTP access is off.');
+  const primaryOk = await tryLogin(PORT, SECURE);
+  let alternateOk = false;
+  let alternatePort = null;
+
+  if (!primaryOk && (PORT === 587 || PORT === 465)) {
+    alternatePort = PORT === 587 ? 465 : 587;
+    alternateOk = await tryLogin(alternatePort, alternatePort === 465);
   }
-  process.exit(a || b ? 0 : 2);
+
+  console.log('\nResult:');
+  if (primaryOk) {
+    console.log('  ✓ SMTP authentication succeeded on the configured port.');
+  } else if (alternateOk) {
+    console.log('  ✓ SMTP authentication succeeded on alternate port', alternatePort);
+    console.log('    Review SMTP_PORT and SMTP_SECURE in the backend environment.');
+  } else {
+    console.log('  ✖ SMTP authentication failed on the tested configuration.');
+    console.log('    Check the mailbox credentials, SMTP host, port and provider SMTP access.');
+  }
+
+  process.exit(primaryOk || alternateOk ? 0 : 2);
 })();

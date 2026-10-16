@@ -169,6 +169,11 @@ router.post('/register', authThrottle(10, 60_000), asyncRoute(async (req, res) =
 
   const id = uuidv4();
   const displayName = name || email.split('@')[0];
+  const verificationToken = makeToken();
+  const verificationCode = sixDigit();
+  const verificationExpiresAt = new Date(
+    Date.now() + 24 * 60 * 60 * 1000
+  ).toISOString();
 
   // Create the user's cryptographic identity and persist the account in Supabase.
   const passwordHashPromise = bcrypt.hash(password, 10);
@@ -185,7 +190,11 @@ router.post('/register', authThrottle(10, 60_000), asyncRoute(async (req, res) =
     did,
     space_id: spaceId,
     portable_did: portableDid || null,
-    dwn_quota_bytes: 1073741824
+    dwn_quota_bytes: 1073741824,
+    email_verified: false,
+    email_verification_token_hash: sha256(verificationToken),
+    email_verification_code_hash: sha256(verificationCode),
+    email_verification_expires_at: verificationExpiresAt
   };
 
   // Some existing MILAN Supabase projects may still have the older core-only
@@ -214,7 +223,11 @@ router.post('/register', authThrottle(10, 60_000), asyncRoute(async (req, res) =
         password_hash: passwordHash,
         name: displayName,
         did,
-        portable_did: portableDid || null
+        portable_did: portableDid || null,
+        email_verified: false,
+        email_verification_token_hash: sha256(verificationToken),
+        email_verification_code_hash: sha256(verificationCode),
+        email_verification_expires_at: verificationExpiresAt
       }));
   }
 
@@ -231,15 +244,37 @@ router.post('/register', authThrottle(10, 60_000), asyncRoute(async (req, res) =
 
   console.log('[auth] account created in Supabase:', email, id);
 
-  // Fast registration: Supabase is the authoritative user store.
-  // Do not block registration on legacy DWN/users.json provisioning.
+  const verifyUrl =
+    `${APP_URL()}/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`;
+
+  let emailSent = false;
+  try {
+    const mailResult = await sendVerificationEmail({
+      to: email,
+      name: displayName,
+      verifyUrl,
+      code: verificationCode
+    });
+    emailSent = mailResult?.ok === true;
+    if (!emailSent) {
+      console.warn('[MILAN mail] Verification email was not accepted by the provider.');
+    }
+  } catch (err) {
+    console.warn('[MILAN mail] Registration verification email failed:', err.message);
+  }
+
   return res.status(201).json({
-    message: 'Registered successfully',
+    message: emailSent
+      ? 'Account created. Check your email to verify your address.'
+      : 'Account created, but the verification email could not be sent. Please retry from the verification page.',
     id,
     email,
     name: displayName,
     did,
     spaceId,
+    emailVerified: false,
+    emailVerificationRequired: true,
+    emailSent,
     real: true
   });
 }));
@@ -266,6 +301,13 @@ router.post('/login', authThrottle(15, 60_000), asyncRoute(async (req, res) => {
   if (!user.password_hash) return res.status(401).json({ error: 'Invalid credentials' });
   if (!(await bcrypt.compare(password, user.password_hash))) return res.status(401).json({ error: 'Invalid credentials' });
 
+  if (user.email_verified !== true) {
+    return res.status(403).json({
+      error: 'Please verify your email before logging in.',
+      emailVerificationRequired: true
+    });
+  }
+
   const token = jwt.sign(
     { userId: user.id, email: user.email },
     secret(),
@@ -288,7 +330,7 @@ router.post('/login', authThrottle(15, 60_000), asyncRoute(async (req, res) => {
     dwnQuotaBytes: Number(user.dwn_quota_bytes || 1073741824),
     profile: { display_name: String(user.name || '').trim() },
     settings: {},
-    emailVerified: true,
+    emailVerified: user.email_verified === true,
     twoFactorEnabled: false
   });
 }));
@@ -310,6 +352,13 @@ router.get('/me', auth, asyncRoute(async (req, res) => {
 
   if (!dbUser) return res.status(404).json({ error: 'User not found' });
 
+  if (dbUser.email_verified !== true) {
+    return res.status(403).json({
+      error: 'Please verify your email before continuing.',
+      emailVerificationRequired: true
+    });
+  }
+
   // MILAN ONE:
   // auth/me is identity-only. Avatar persistence has exactly one source:
   // GET /api/profile -> persistent DWN profile.
@@ -328,34 +377,306 @@ router.get('/me', auth, asyncRoute(async (req, res) => {
     // every client instead of falling back to the email local-part
     profile: { display_name: String(dbUser.name || '').trim() },
     settings: {},
-    emailVerified: true,
+    emailVerified: dbUser.email_verified === true,
     twoFactorEnabled: false
   });
 }));
 
 router.post('/verify-email', asyncRoute(async (req, res) => {
-  const email = String(req.body.email || '').trim().toLowerCase(); const token = String(req.body.token || ''); const code = String(req.body.code || '').trim();
-  if (!email || (!token && !code)) return res.status(400).json({ error: 'Email and token or code required' });
-  const { users } = await loadUsersFromDwnDetailed(); const entry = findUserEntryByEmail(users, email);
-  if (!entry) return res.status(400).json({ error: 'Invalid or expired verification link' });
-  const [, user] = entry; if (user.emailVerified) return res.json({ ok: true, alreadyVerified: true, message: 'Email already verified' });
-  const ev = user.emailVerification; if (!ev || !ev.expires || Date.now() > ev.expires) return res.status(400).json({ error: 'Verification link expired. Please request a new one.' });
-  const ok = (token && safeEqual(ev.tokenHash, sha256(token))) || (code && safeEqual(ev.codeHash, sha256(code))); if (!ok) return res.status(400).json({ error: 'Invalid verification token or code' });
-  user.emailVerified = true; user.emailVerifiedAt = new Date().toISOString(); delete user.emailVerification; users[email] = user; await persistUsersAuthoritatively(users); addActivity(user.id, 'auth.email_verified', { email }); res.json({ ok: true, message: 'Email verified successfully' });
+  const email = String(req.body.email || '').trim().toLowerCase();
+  const token = String(req.body.token || '');
+  const code = String(req.body.code || '').trim();
+
+  if (!email || (!token && !code)) {
+    return res.status(400).json({ error: 'Email and token or code required' });
+  }
+
+  const { data: user, error: lookupError } = await supabaseDb
+    .from('users')
+    .select('id,email,name,email_verified,email_verification_token_hash,email_verification_code_hash,email_verification_expires_at')
+    .eq('email', email)
+    .maybeSingle();
+
+  if (lookupError) {
+    console.error('[auth] Email verification lookup failed:', lookupError.message);
+    return res.status(500).json({ error: 'Account database unavailable' });
+  }
+  if (!user) {
+    return res.status(400).json({ error: 'Invalid or expired verification link' });
+  }
+  if (user.email_verified === true) {
+    return res.json({ ok: true, alreadyVerified: true, message: 'Email already verified' });
+  }
+
+  const expiresAt = Date.parse(user.email_verification_expires_at || '');
+  if (!Number.isFinite(expiresAt) || Date.now() > expiresAt) {
+    return res.status(400).json({ error: 'Verification link expired. Please request a new one.' });
+  }
+
+  const column = token
+    ? 'email_verification_token_hash'
+    : 'email_verification_code_hash';
+  const proofHash = sha256(token || code);
+  const storedHash = token
+    ? user.email_verification_token_hash
+    : user.email_verification_code_hash;
+
+  if (!safeEqual(storedHash, proofHash)) {
+    return res.status(400).json({ error: 'Invalid verification token or code' });
+  }
+
+  const now = new Date().toISOString();
+  const { data: updated, error: updateError } = await supabaseDb
+    .from('users')
+    .update({
+      email_verified: true,
+      email_verified_at: now,
+      email_verification_token_hash: null,
+      email_verification_code_hash: null,
+      email_verification_expires_at: null
+    })
+    .eq('id', user.id)
+    .eq('email_verified', false)
+    .eq(column, proofHash)
+    .gt('email_verification_expires_at', now)
+    .select('id,email,name')
+    .maybeSingle();
+
+  if (updateError) {
+    console.error('[auth] Email verification update failed:', updateError.message);
+    return res.status(500).json({ error: 'Could not complete email verification. Please try again.' });
+  }
+
+  if (!updated) {
+    const { data: latest, error: latestError } = await supabaseDb
+      .from('users')
+      .select('email_verified')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (!latestError && latest?.email_verified === true) {
+      return res.json({ ok: true, alreadyVerified: true, message: 'Email already verified' });
+    }
+    return res.status(400).json({ error: 'Invalid or expired verification link' });
+  }
+
+  addActivity(updated.id, 'auth.email_verified', { email: updated.email });
+  sendWelcomeEmail({
+    to: updated.email,
+    name: updated.name || updated.email.split('@')[0]
+  }).catch(err => console.warn('[MILAN mail] Welcome email failed:', err.message));
+
+  return res.json({ ok: true, message: 'Email verified successfully' });
 }));
+
 
 router.post('/resend-verification', authThrottle(6, 60_000), asyncRoute(async (req, res) => {
-  const email = String(req.body.email || '').trim().toLowerCase(); if (!email) return res.status(400).json({ error: 'Email required' }); const { users } = await loadUsersFromDwnDetailed(); const entry = findUserEntryByEmail(users, email); if (!entry) return res.json({ ok: true, message: 'If that account exists, a verification email has been sent.' }); const [, user] = entry; if (user.emailVerified) return res.json({ ok: true, alreadyVerified: true, message: 'Email already verified' }); const tokenRaw = makeToken(); const codeRaw = sixDigit(); user.emailVerification = { tokenHash: sha256(tokenRaw), codeHash: sha256(codeRaw), expires: Date.now() + 24 * 60 * 60 * 1000 }; users[email] = user; await persistUsersAuthoritatively(users); const verifyUrl = `${APP_URL()}/verify-email?token=${tokenRaw}&email=${encodeURIComponent(email)}`; sendVerificationEmail({ to: email, name: user.profile?.display_name || email.split('@')[0], verifyUrl, code: codeRaw }).catch(err => console.warn('[MILAN mail] resend verification error:', err.message)); res.json({ ok: true, message: 'If that account exists, a verification email has been sent.' });
+  const email = String(req.body.email || '').trim().toLowerCase();
+  if (!email) return res.status(400).json({ error: 'Email required' });
+
+  const { data: user, error: lookupError } = await supabaseDb
+    .from('users')
+    .select('id,email,name,email_verified')
+    .eq('email', email)
+    .maybeSingle();
+
+  if (lookupError) {
+    console.error('[auth] Verification resend lookup failed:', lookupError.message);
+    return res.status(500).json({ error: 'Could not process verification request. Please try again.' });
+  }
+
+  // Keep the response generic so the endpoint does not reveal account existence.
+  if (!user || user.email_verified === true) {
+    return res.json({
+      ok: true,
+      message: 'If the account exists and needs verification, a verification email will be sent.'
+    });
+  }
+
+  const tokenRaw = makeToken();
+  const codeRaw = sixDigit();
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+  const { data: updated, error: updateError } = await supabaseDb
+    .from('users')
+    .update({
+      email_verification_token_hash: sha256(tokenRaw),
+      email_verification_code_hash: sha256(codeRaw),
+      email_verification_expires_at: expiresAt
+    })
+    .eq('id', user.id)
+    .eq('email_verified', false)
+    .select('id')
+    .maybeSingle();
+
+  if (updateError) {
+    console.error('[auth] Verification resend update failed:', updateError.message);
+    return res.status(500).json({ error: 'Could not process verification request. Please try again.' });
+  }
+
+  if (updated) {
+    const verifyUrl =
+      `${APP_URL()}/verify-email?token=${tokenRaw}&email=${encodeURIComponent(email)}`;
+    try {
+      const result = await sendVerificationEmail({
+        to: email,
+        name: user.name || email.split('@')[0],
+        verifyUrl,
+        code: codeRaw
+      });
+      if (result?.ok !== true) {
+        console.warn('[MILAN mail] Resend verification email was not accepted by the provider.');
+      }
+    } catch (err) {
+      console.warn('[MILAN mail] Resend verification email failed:', err.message);
+    }
+  }
+
+  return res.json({
+    ok: true,
+    message: 'If the account exists and needs verification, a verification email will be sent.'
+  });
 }));
 
+
 router.post('/forgot-password', authThrottle(8, 60_000), asyncRoute(async (req, res) => {
-  const email = String(req.body.email || '').trim().toLowerCase(); if (!email || !/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ error: 'Valid email required' }); const { users } = await loadUsersFromDwnDetailed(); const entry = findUserEntryByEmail(users, email); if (entry) { const [, user] = entry; const tokenRaw = makeToken(); const codeRaw = sixDigit(); user.passwordReset = { tokenHash: sha256(tokenRaw), codeHash: sha256(codeRaw), expires: Date.now() + 60 * 60 * 1000 }; users[email] = user; await persistUsersAuthoritatively(users); addActivity(user.id, 'auth.password_reset_requested', { email }); const resetUrl = `${APP_URL()}/reset-password?token=${tokenRaw}&email=${encodeURIComponent(email)}`; sendPasswordResetEmail({ to: email, name: user.profile?.display_name || email.split('@')[0], resetUrl, code: codeRaw }).catch(err => console.warn('[MILAN mail] reset email error:', err.message)); } res.json({ ok: true, message: 'If that account exists, a password-reset email has been sent.' });
+  const email = String(req.body.email || '').trim().toLowerCase();
+  if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+    return res.status(400).json({ error: 'Valid email required' });
+  }
+
+  const { data: user, error: lookupError } = await supabaseDb
+    .from('users')
+    .select('id,email,name')
+    .eq('email', email)
+    .maybeSingle();
+
+  if (lookupError) {
+    console.error('[auth] Password reset lookup failed:', lookupError.message);
+    return res.status(503).json({ error: 'Password reset is temporarily unavailable. Please try again.' });
+  }
+
+  // Use a generic response so callers cannot discover whether an account exists.
+  if (user) {
+    const tokenRaw = makeToken();
+    const codeRaw = sixDigit();
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+    const { data: updated, error: updateError } = await supabaseDb
+      .from('users')
+      .update({
+        password_reset_token_hash: sha256(tokenRaw),
+        password_reset_code_hash: sha256(codeRaw),
+        password_reset_expires_at: expiresAt
+      })
+      .eq('id', user.id)
+      .select('id')
+      .maybeSingle();
+
+    if (updateError || !updated) {
+      console.error('[auth] Password reset credential persistence failed:', updateError?.message || 'No row updated');
+      return res.status(503).json({ error: 'Password reset is temporarily unavailable. Please try again.' });
+    }
+
+    addActivity(user.id, 'auth.password_reset_requested', { email });
+    const resetUrl =
+      `${APP_URL()}/reset-password?token=${tokenRaw}&email=${encodeURIComponent(email)}`;
+
+    try {
+      const mailResult = await sendPasswordResetEmail({
+        to: email,
+        name: user.name || email.split('@')[0],
+        resetUrl,
+        code: codeRaw
+      });
+
+      if (mailResult?.ok !== true) {
+        console.warn('[MILAN mail] Password-reset email was not accepted by the provider.');
+      }
+    } catch (err) {
+      console.warn('[MILAN mail] Password-reset email failed:', err.message);
+    }
+  }
+
+  return res.json({
+    ok: true,
+    message: 'If that account exists, a password-reset email has been sent.'
+  });
 }));
 
 router.post('/reset-password', authThrottle(15, 60_000), asyncRoute(async (req, res) => {
-  const email = String(req.body.email || '').trim().toLowerCase(); const token = String(req.body.token || ''); const code = String(req.body.code || '').trim(); const password = String(req.body.password || '');
-  if (!email || (!token && !code)) return res.status(400).json({ error: 'Email and reset token or code required' }); if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
-  const { users } = await loadUsersFromDwnDetailed(); const entry = findUserEntryByEmail(users, email); if (!entry) return res.status(400).json({ error: 'Invalid or expired reset link' }); const [, user] = entry; const pr = user.passwordReset; if (!pr || !pr.expires || Date.now() > pr.expires) return res.status(400).json({ error: 'Reset link expired. Please request a new one.' }); const ok = (token && safeEqual(pr.tokenHash, sha256(token))) || (code && safeEqual(pr.codeHash, sha256(code))); if (!ok) return res.status(400).json({ error: 'Invalid password reset token or code' }); user.password_hash = await bcrypt.hash(password, 10); delete user.passwordReset; users[email] = user; await persistUsersAuthoritatively(users); addActivity(user.id, 'auth.password_reset', { email }); res.json({ ok: true, message: 'Password reset successfully' });
+  const email = String(req.body.email || '').trim().toLowerCase();
+  const token = String(req.body.token || '');
+  const code = String(req.body.code || '').trim();
+  const password = String(req.body.password || '');
+
+  if (!email || (!token && !code)) {
+    return res.status(400).json({ error: 'Email and reset token or code required' });
+  }
+  if (password.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  }
+
+  const { data: user, error: lookupError } = await supabaseDb
+    .from('users')
+    .select('id,email,password_reset_token_hash,password_reset_code_hash,password_reset_expires_at')
+    .eq('email', email)
+    .maybeSingle();
+
+  if (lookupError) {
+    console.error('[auth] Password reset validation lookup failed:', lookupError.message);
+    return res.status(503).json({ error: 'Password reset is temporarily unavailable. Please try again.' });
+  }
+  if (!user) {
+    return res.status(400).json({ error: 'Invalid or expired reset link' });
+  }
+
+  const expiresAt = Date.parse(user.password_reset_expires_at || '');
+  if (!Number.isFinite(expiresAt) || Date.now() > expiresAt) {
+    return res.status(400).json({ error: 'Reset link expired. Please request a new one.' });
+  }
+
+  const column = token ? 'password_reset_token_hash' : 'password_reset_code_hash';
+  const proofHash = sha256(token || code);
+  const storedHash = token
+    ? user.password_reset_token_hash
+    : user.password_reset_code_hash;
+
+  if (!safeEqual(storedHash, proofHash)) {
+    return res.status(400).json({ error: 'Invalid password reset token or code' });
+  }
+
+  const passwordHash = await bcrypt.hash(password, 10);
+  const now = new Date().toISOString();
+
+  // The proof and expiry are checked again during the update, preventing
+  // a consumed or expired credential from changing the password a second time.
+  const { data: updated, error: updateError } = await supabaseDb
+    .from('users')
+    .update({
+      password_hash: passwordHash,
+      password_reset_token_hash: null,
+      password_reset_code_hash: null,
+      password_reset_expires_at: null,
+      updated_at: now
+    })
+    .eq('id', user.id)
+    .eq(column, proofHash)
+    .gt('password_reset_expires_at', now)
+    .select('id')
+    .maybeSingle();
+
+  if (updateError) {
+    console.error('[auth] Password reset update failed:', updateError.message);
+    return res.status(503).json({ error: 'Could not reset the password. Please try again.' });
+  }
+  if (!updated) {
+    return res.status(400).json({ error: 'Invalid or expired reset link' });
+  }
+
+  addActivity(user.id, 'auth.password_reset', { email });
+  return res.json({ ok: true, message: 'Password reset successfully' });
 }));
+
 
 module.exports = router;

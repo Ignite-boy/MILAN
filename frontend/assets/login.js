@@ -47,6 +47,8 @@ async function api(path, options = {}) {
   if (!response.ok) {
     const error = new Error(data.error || `Request failed (${response.status})`);
     error.status = response.status;
+    error.emailVerificationRequired = data.emailVerificationRequired === true;
+    error.email = typeof data.email === "string" ? data.email : "";
     throw error;
   }
   return data;
@@ -102,6 +104,25 @@ async function loginWithID3() {
     setToken(result.token);
     window.location.replace("/app.html?login=" + Date.now());
   } catch (error) {
+    if (error?.emailVerificationRequired) {
+      const email = String(
+        error.email ||
+        localStorage.getItem("milanLastAuthEmail") ||
+        localStorage.getItem("rememberedEmail") ||
+        ""
+      ).trim().toLowerCase();
+
+      if (email) {
+        window.location.replace(
+          "/verify-email?email=" + encodeURIComponent(email)
+        );
+        return;
+      }
+
+      showMessage(error?.message || "Please verify your email before logging in.", true);
+      return;
+    }
+
     if (
       error?.status === 401 &&
       /this id3 credential is not registered with milan/i.test(error?.message || "")
@@ -204,18 +225,12 @@ function bind() {
         await registerUser(name, email, password);
         localStorage.setItem("milanLastAuthEmail", email);
 
-        // Fast registration: account is saved in Supabase, then
-        // immediately switch the user to the Login tab.
-        const loginTab = document.querySelector('[data-auth="login"]');
-        if (loginTab) loginTab.click();
-
-        const loginEmail = document.getElementById("loginEmail");
-        if (loginEmail) loginEmail.value = email;
-
-        const loginPass = document.getElementById("loginPass");
-        if (loginPass) loginPass.value = "";
-
-        showMessage("✅ Account created. Please login.", false);
+        // New accounts must verify their email before signing in.
+        // The verification page supports both code entry and resending.
+        window.location.replace(
+          "/verify-email?email=" + encodeURIComponent(email)
+        );
+        return;
       } catch (error) {
         showMessage(error?.message || String(error) || "Registration failed.", true);
       } finally {
@@ -271,6 +286,14 @@ function bind() {
         window.location.replace("/app.html?login=" + Date.now());
       } catch (error) {
         clearToken();
+
+        if (error?.emailVerificationRequired) {
+          window.location.replace(
+            "/verify-email?email=" + encodeURIComponent(email)
+          );
+          return;
+        }
+
         showMessage(error?.message || String(error) || "Login failed.", true);
         loginBtn.disabled = false;
         loginBtn.textContent = "Login →";
