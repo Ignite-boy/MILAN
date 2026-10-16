@@ -202,6 +202,114 @@
   }
   </script>
 <link rel="stylesheet" href="/milan-core.css?v=20261016-uiux-batch-1">
+
+<style id="dwn-content-visibility-fix">
+  /* DWN CONTENT VISIBILITY OVERRIDE — 2026-10-16
+     Intentionally loaded after shared CSS to protect this page's content. */
+  .wrap,
+  .wrap main,
+  .wrap article,
+  .wrap article > section,
+  .wrap .hero,
+  .wrap .hero-grid,
+  .wrap .panel,
+  .wrap .signal {
+    box-sizing: border-box !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  .wrap .hero {
+    overflow: visible !important;
+    clip-path: none !important;
+    contain: none !important;
+  }
+
+  .wrap h1,
+  .wrap h2,
+  .wrap h3,
+  .wrap p,
+  .wrap li,
+  .wrap summary,
+  .wrap td,
+  .wrap th,
+  .wrap .eyebrow,
+  .wrap .lead,
+  .wrap .chip,
+  .wrap .signal span,
+  .wrap .toc a,
+  .wrap .crumbs {
+    max-width: 100% !important;
+    max-height: none !important;
+    height: auto !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+    -webkit-line-clamp: unset !important;
+    line-clamp: unset !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  @media (max-width: 800px) {
+    .wrap .hero-grid,
+    .wrap main {
+      grid-template-columns: minmax(0, 1fr) !important;
+    }
+    .wrap .toc {
+      position: static !important;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .wrap {
+      width: calc(100% - 24px) !important;
+      padding-top: 16px !important;
+    }
+    .wrap .hero {
+      padding: 22px 0 30px !important;
+    }
+    .wrap h1 {
+      font-size: clamp(30px, 8.5vw, 42px) !important;
+      line-height: 1.18 !important;
+      letter-spacing: -.025em !important;
+    }
+    .wrap h2 {
+      font-size: clamp(23px, 6.5vw, 29px) !important;
+      line-height: 1.28 !important;
+      letter-spacing: -.015em !important;
+    }
+    .wrap h3 {
+      font-size: 20px !important;
+      line-height: 1.35 !important;
+    }
+    .wrap p,
+    .wrap li {
+      font-size: 16px !important;
+      line-height: 1.75 !important;
+    }
+    .wrap .lead {
+      font-size: 17px !important;
+      line-height: 1.7 !important;
+    }
+    .wrap .hero-grid,
+    .wrap main {
+      gap: 16px !important;
+    }
+    .wrap .panel {
+      padding: 16px !important;
+    }
+    .wrap .compare {
+      max-width: 100% !important;
+      overflow-x: auto !important;
+      -webkit-overflow-scrolling: touch;
+    }
+  }
+</style>
+
 </head>
 <body>
 <div class="wrap">
