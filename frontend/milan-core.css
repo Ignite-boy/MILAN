@@ -1684,3 +1684,61 @@ body {
     transition-duration: .01ms !important;
   }
 }
+
+
+/* MILAN CROSS-PAGE UI/UX POLISH — 2026-10-16 — additive shared visual polish */
+:root {
+  --milan-polish-easing: cubic-bezier(.22,.68,0,1);
+}
+:where(.card,.panel,.surface,.feature-card,.post-card,.feed-card,
+       .settings-card,.stat-card,.metric-card,.dashboard-card,
+       .hero-card,.data-card,.music-card,.profile-card,.auth-card,.login-card) {
+  min-width: 0;
+  transition: border-color 180ms var(--milan-polish-easing),
+              box-shadow 180ms var(--milan-polish-easing),
+              background-color 180ms var(--milan-polish-easing);
+}
+@media (hover:hover) and (pointer:fine) {
+  :where(.card,.panel,.surface,.feature-card,.post-card,.feed-card,
+         .settings-card,.stat-card,.metric-card,.dashboard-card,
+         .hero-card,.data-card,.music-card,.profile-card,.auth-card,.login-card):hover {
+    border-color: rgba(148,163,184,.28);
+    box-shadow: 0 10px 28px rgba(0,0,0,.12);
+  }
+  :where(button:not(:disabled),.btn:not(:disabled),a.button,
+         input[type="button"]:not(:disabled),
+         input[type="submit"]:not(:disabled),
+         [role="button"]:not([aria-disabled="true"])) {
+    transition: filter 160ms var(--milan-polish-easing),
+                box-shadow 160ms var(--milan-polish-easing),
+                border-color 160ms var(--milan-polish-easing);
+  }
+  :where(button:not(:disabled),.btn:not(:disabled),a.button,
+         input[type="button"]:not(:disabled),
+         input[type="submit"]:not(:disabled),
+         [role="button"]:not([aria-disabled="true"])):hover {
+    filter: brightness(1.035);
+  }
+}
+:where(input[type="text"],input[type="email"],input[type="password"],
+       input[type="search"],input[type="url"],input[type="tel"],
+       input[type="number"],textarea,select) {
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+:where(h1,h2,h3,.page-title,.hero-title,.section-title) {
+  text-wrap: balance;
+}
+@media (max-width:680px) {
+  :where(.card,.panel,.surface,.feature-card,.post-card,.feed-card,
+         .settings-card,.data-card,.music-card,.profile-card,.auth-card,.login-card) {
+    max-width: 100%;
+  }
+}
+@media (prefers-reduced-motion:reduce) {
+  :where(.card,.panel,.surface,.feature-card,.post-card,.feed-card,
+         .settings-card,.stat-card,.metric-card,.dashboard-card,.hero-card,
+         .data-card,.music-card,.profile-card,.auth-card,.login-card,
+         button,input,select,textarea,a.button) {
+    transition: none !important;
+  }
+}

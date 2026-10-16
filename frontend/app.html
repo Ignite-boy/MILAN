@@ -29,7 +29,7 @@
   <meta name="apple-mobile-web-app-title" content="MILAN">
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/assets/icon-192.png">
-  <link rel="stylesheet" href="/milan-core.css?v=20261009-ux2">
+  <link rel="stylesheet" href="/milan-core.css?v=20261016-uiux-batch-1">
   <!-- NOTE: the /milan-ui.css link was removed here. That file has never
        existed in this repo, so every app-page load produced a 404 and the
        stylesheet contributed nothing. The remaining sheets carry the layout. -->
@@ -3002,6 +3002,12 @@ body.map #privacyBar{
 </head>
 <body class="map">
 <div class="app">
+<div id="map-bg" aria-hidden="true">
+  <div class="map-grid"></div>
+  <div class="map-blob map-blob--a"></div>
+  <div class="map-blob map-blob--b"></div>
+  <div class="map-blob map-blob--c"></div>
+</div>
 <header class="topbar">
   <div class="brand">
     <div class="brand-logo" role="link" tabindex="0" title="Home"><img class="brand-logo-img" src="/assets/milan-logo-circle.png" alt="Milan Home"></div>
