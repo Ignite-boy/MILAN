@@ -7,8 +7,11 @@
   <meta name="description" content="Learn what a Decentralized Web Node (DWN) is, how DWN relates to DID, and how MILAN uses a user-centered DWN data layer for decentralized social networking.">
   <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
   <link rel="canonical" href="https://milanlife.in/decentralized-web-node">
-  <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="/assets/milan-logo-circle.png?v=2" sizes="180x180">
+  <link rel="icon" href="/favicon.svg?v=20261016-dwn-1" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico?v=20261016-dwn-1" type="image/x-icon" sizes="any">
+  <link rel="icon" href="/favicon.png?v=20261016-dwn-1" type="image/png" sizes="48x48">
+  <link rel="apple-touch-icon" href="/assets/milan-logo-circle.png?v=20261016-dwn-1" sizes="180x180">
+  <link rel="manifest" href="/manifest.json">
 
   <meta property="og:type" content="article">
   <meta property="og:site_name" content="MILAN">
@@ -98,6 +101,42 @@
       .wrap{width:min(100% - 24px,1100px)}.panel{padding:20px}.lead{font-size:18px}h2{font-size:29px}
       nav{gap:11px}.top{flex-direction:column}
     }
+
+    /* PAGE-SCOPED MOBILE READABILITY FIX — 2026-10-16 */
+    html, body { max-width: 100%; }
+    body { overflow-x: clip; overflow-wrap: break-word; }
+    .wrap, .hero, .hero-grid, main, article, .panel, .toc, .signal, .compare {
+      min-width: 0;
+    }
+    .hero { overflow: visible; }
+    h1, h2, h3, p, li, summary, td, th, .eyebrow, .lead, .chip,
+    .signal span, .toc a, .crumbs {
+      overflow-wrap: anywhere;
+    }
+    img, svg, video, iframe { max-width: 100%; }
+    @media (max-width: 560px) {
+      .wrap { width: calc(100% - 24px); padding-top: 18px; }
+      .hero { padding: 24px 0 30px; }
+      h1 {
+        font-size: clamp(2rem, 10.5vw, 3.25rem);
+        line-height: 1.08;
+        letter-spacing: -.035em;
+      }
+      .lead { font-size: 17px; line-height: 1.65; }
+      .hero-grid, main { grid-template-columns: minmax(0, 1fr); }
+      .panel { padding: 16px; }
+      .panel h2, h2 {
+        font-size: clamp(1.4rem, 6.5vw, 1.8rem);
+        line-height: 1.22;
+      }
+      .eyebrow { letter-spacing: .08em; line-height: 1.7; }
+      .chips { align-items: flex-start; }
+      .chip { max-width: 100%; white-space: normal; border-radius: 12px; }
+      nav { justify-content: flex-start; max-width: 100%; gap: 10px 14px; }
+      .cta { max-width: 100%; white-space: normal; }
+      .compare { max-width: 100%; overflow-x: auto; }
+    }
+
   </style>
 
   <script type="application/ld+json">
