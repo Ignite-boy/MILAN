@@ -195,6 +195,8 @@
 
   /* ---------------- Install prompt (A2HS) ---------------- */
   function installPrompt() {
+    // Keep install UI off authentication pages so email flows stay unobstructed.
+    if (/^\/(?:verify-email|reset-password)(?:\.html)?\/?$/.test(window.location.pathname)) return;
     var deferred = null;
 
     function isInstalled() {
