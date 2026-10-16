@@ -72,12 +72,26 @@ Promise.allSettled([
   updatePrivacyScore();
   renderSaved();
 
-})()}catch(e){$("feed").innerHTML='<div class="empty">'+esc(e.message)+"</div>"}}function formatBytes(n){if(!(n=Number(n||0)))return"";const u=["B","KB","MB","GB"];let i=0;for(;n>=1024&&i<u.length-1;)n/=1024,i++;return n.toFixed(i?1:0)+" "+u[i]}function fileIcon(cat,mime){return"image"===cat?"🖼️":"video"===cat?"🎬":"audio"===cat?"🎧":"pdf"===cat?"📄":(mime||"").includes("zip")?"🗜️":"📎"}function fileCardHtml(m,url,extra=""){const name=esc(m.fileName||"MILAN file"),mime=esc(m.mimeType||"file"),size=formatBytes(m.sizeBytes),open=esc(mediaSrc(url)),down=esc(mediaDownloadSrc(url));return`<div class="fileCard ${extra}"><div class="fileIcon">${fileIcon(m.previewCategory||"",m.mimeType)}</div><div class="fileMeta"><b>${name}</b><div class="mini">${mime}${size?" • "+esc(size):""}</div>${m.compatibilityWarning?`<div class="mini">${esc(m.compatibilityWarning)}</div>`:""}</div><div class="fileActions"><a href="${open}" target="_blank" rel="noopener">Open</a><a href="${down}" download>Download</a></div></div>`}function mediaHtml(r){const d=r.data||{},m=d.media||{},raw=r.mediaUrl||m.mediaUrl||d.mediaUrl||"",url=mediaSrc(raw);if(!url)return'';const mt=(m.mimeType||r.dataFormat||"application/octet-stream").toLowerCase(),cat=(m.previewCategory||r.mediaCompatibility?.previewCategory||(mt.startsWith("image/")?"image":mt.startsWith("video/")?"video":mt.startsWith("audio/")?"audio":"application/pdf"===mt?"pdf":mt.startsWith("text/")?"text":"file")).toLowerCase(),id=esc(r.id||""),err='<div class="mini mediaLoadError hidden">Preview is loading...</div>',onErr=`milanMediaError('${id}',this)`,onLoaded="clearMediaError(this)";if("image"===cat)return`<div class="media" data-record-id="${id}"><img loading="lazy" decoding="async" data-milan-observe="1" src="${esc(url)}" alt="${esc(r.title||"media")}" onload="${onLoaded}" onerror="${onErr}">${err}${fileCardHtml(m,raw,"hidden")}</div>`;if("video"===cat){const vurl=videoMediaSrc(raw),mime=!1===m.browserPlayable?"video/mp4":mt||"video/mp4";return`<div class="media" data-record-id="${id}"><video controls preload="none" data-milan-observe="1" playsinline webkit-playsinline x5-playsinline data-milan-inline-only="1" controlsList="nofullscreen nodownload noremoteplayback" onloadedmetadata="${onLoaded}" oncanplay="${onLoaded}" onplaying="${onLoaded}" onerror="${onErr}"><source src="${esc(vurl)}" type="${esc("video/quicktime"===mime?"video/mp4":mime)}"></video>${err}${fileCardHtml(m,raw,"hidden")}</div>`}return"audio"===cat?`<div class="media audioBox" data-record-id="${id}"><audio controls preload="metadata" src="${esc(url)}" type="${esc(mt||"audio/mpeg")}" onloadedmetadata="${onLoaded}" oncanplay="${onLoaded}" onplaying="${onLoaded}" onerror="${onErr}"></audio>${err}${fileCardHtml(m,raw,"hidden")}</div>`:"pdf"===cat?`<div class="media" data-record-id="${id}"><iframe loading="lazy" data-milan-observe="1" data-milan-src="${esc(url)}" title="${esc(m.fileName||r.title||"PDF")}" onload="${onLoaded}"></iframe>${err}${fileCardHtml(m,raw)}</div>`:`<div class="media" data-record-id="${id}">${fileCardHtml(m,raw)}${"video"===cat?'<div class="mini" style="padding:0 16px 14px">Video uploaded safely. Preview is still preparing or conversion is unavailable; use Open/Download and refresh after a few seconds.</div>':""}</div>`}function postText(r){const d=r.data||{};return"string"==typeof d?d:"media"===d.kind?d.caption||"":d.text||d.note||d.caption||""}function renderFeed(){
+})()}catch(e){$("feed").innerHTML='<div class="empty">'+esc(e.message)+"</div>"}}function formatBytes(n){if(!(n=Number(n||0)))return"";const u=["B","KB","MB","GB"];let i=0;for(;n>=1024&&i<u.length-1;)n/=1024,i++;return n.toFixed(i?1:0)+" "+u[i]}function fileIcon(cat,mime){return"image"===cat?"🖼️":"video"===cat?"🎬":"audio"===cat?"🎧":"pdf"===cat?"📄":(mime||"").includes("zip")?"🗜️":"📎"}function fileCardHtml(m,url,extra=""){const name=esc(m.fileName||"MILAN file"),mime=esc(m.mimeType||"file"),size=formatBytes(m.sizeBytes),open=esc(mediaSrc(url)),down=esc(mediaDownloadSrc(url));return`<div class="fileCard ${extra}"><div class="fileIcon">${fileIcon(m.previewCategory||"",m.mimeType)}</div><div class="fileMeta"><b>${name}</b><div class="mini">${mime}${size?" • "+esc(size):""}</div>${m.compatibilityWarning?`<div class="mini">${esc(m.compatibilityWarning)}</div>`:""}</div><div class="fileActions"><a href="${open}" target="_blank" rel="noopener">Open</a><a href="${down}" download>Download</a></div></div>`}function mediaHtml(r){const d=r.data||{},m=d.media||{},raw=r.mediaUrl||m.mediaUrl||d.mediaUrl||"",url=mediaSrc(raw);if(!url)return'';const mt=(m.mimeType||r.dataFormat||"application/octet-stream").toLowerCase(),cat=(m.previewCategory||r.mediaCompatibility?.previewCategory||(mt.startsWith("image/")?"image":mt.startsWith("video/")?"video":mt.startsWith("audio/")?"audio":"application/pdf"===mt?"pdf":mt.startsWith("text/")?"text":"file")).toLowerCase(),id=esc(r.id||""),err='<div class="mini mediaLoadError hidden">Preview is loading...</div>',onErr=`milanMediaError('${id}',this)`,onLoaded="clearMediaError(this)";if("image"===cat)return`<div class="media" data-record-id="${id}"><img loading="lazy" decoding="async" data-milan-observe="1" src="${esc(url)}" alt="${esc(r.title||"media")}" onload="${onLoaded}" onerror="${onErr}">${err}${fileCardHtml(m,raw,"hidden")}</div>`;if("video"===cat){const vurl=videoMediaSrc(raw),mime=!1===m.browserPlayable?"video/mp4":mt||"video/mp4";return`<div class="media" data-record-id="${id}"><video controls preload="none" data-milan-observe="1" playsinline webkit-playsinline x5-playsinline data-milan-inline-only="1" controlsList="nofullscreen nodownload noremoteplayback" onloadedmetadata="${onLoaded}" oncanplay="${onLoaded}" onplaying="${onLoaded}" onerror="${onErr}"><source src="${esc(vurl)}" type="${esc("video/quicktime"===mime?"video/mp4":mime)}"></video>${err}${fileCardHtml(m,raw,"hidden")}</div>`}return"audio"===cat?`<div class="media audioBox" data-record-id="${id}"><audio controls preload="metadata" src="${esc(url)}" type="${esc(mt||"audio/mpeg")}" onloadedmetadata="${onLoaded}" oncanplay="${onLoaded}" onplaying="${onLoaded}" onerror="${onErr}"></audio>${err}${fileCardHtml(m,raw,"hidden")}</div>`:"pdf"===cat?`<div class="media" data-record-id="${id}"><iframe loading="lazy" data-milan-observe="1" data-milan-src="${esc(url)}" title="${esc(m.fileName||r.title||"PDF")}" onload="${onLoaded}"></iframe>${err}${fileCardHtml(m,raw)}</div>`:`<div class="media" data-record-id="${id}">${fileCardHtml(m,raw)}${"video"===cat?'<div class="mini" style="padding:0 16px 14px">Video uploaded safely. Preview is still preparing or conversion is unavailable; use Open/Download and refresh after a few seconds.</div>':""}</div>`}function postText(r){const d=r.data||{};return"string"==typeof d?d:"media"===d.kind?d.caption||"":d.text||d.note||d.caption||""}function milanPostRenderFingerprint(value, contextKey){
+  const serialized=JSON.stringify(value)||"";
+  let a=2166136261;
+  let b=0x9e3779b9;
+  for(let i=0;i<serialized.length;i++){
+    const code=serialized.charCodeAt(i);
+    a=Math.imul(a^code,16777619);
+    b=Math.imul(b^code,2246822519);
+    b^=b>>>13;
+  }
+  return serialized.length+":"+(a>>>0).toString(36)+":"+(b>>>0).toString(36)+":"+(contextKey||"");
+}
+
+function renderFeed(){
   const feedEl=$("feed");
   if(!feedEl)return;
 
   if(!currentFeed.length){
     feedEl.innerHTML='<div class="empty">No posts found. Try creating one or changing filters.</div>';
+    if(window.__milanPostRenderCache instanceof Map) window.__milanPostRenderCache.clear();
     return;
   }
 
@@ -95,30 +109,63 @@ Promise.allSettled([
   );
 
   const savedSet = new Set(savedIds());
+  const renderContextKey = milanPostRenderFingerprint([
+    me?.did || me?.user?.did || me?.data?.user?.did || "",
+    me?.email || me?.user?.email || me?.profile?.email || "",
+    me?.profile?.display_name || me?.profile?.name || me?.name || me?.display_name || "",
+    me?.profile?.avatar || "",
+    window.__milanPersistentAvatar || "",
+    (()=>{try{return localStorage.getItem("milanAvatar")||"";}catch(_){return "";}})()
+  ], "");
+  const renderCache = window.__milanPostRenderCache instanceof Map
+    ? window.__milanPostRenderCache
+    : (window.__milanPostRenderCache = new Map());
 
   rows.forEach((record,index)=>{
     const id=String(record.id||"");
-    const html=postHtml(record,savedSet);
     const current=existing.get(id);
+    const hasStableDate=Boolean(record.dateModified || record.dateCreated);
+    const renderKey=hasStableDate
+      ? milanPostRenderFingerprint(record, renderContextKey + "|saved:" + (savedSet.has(record.id) ? "1" : "0"))
+      : null;
+
+    /* Skip HTML generation and DOM parsing when this post is unchanged. */
+    if(current && renderKey && renderCache.get(id)===renderKey){
+      existing.delete(id);
+      return;
+    }
+
+    const html=postHtml(record,savedSet);
 
     if(current){
       const wrapper=document.createElement("div");
       wrapper.innerHTML=html;
       const fresh=wrapper.firstElementChild;
-      if(fresh && current.outerHTML!==fresh.outerHTML){
-        current.replaceWith(fresh);
+      if(fresh){
+        if(current.outerHTML!==fresh.outerHTML) current.replaceWith(fresh);
+        if(renderKey) renderCache.set(id,renderKey);
+        else renderCache.delete(id);
+      }else{
+        renderCache.delete(id);
       }
       existing.delete(id);
     }else{
       const wrapper=document.createElement("div");
       wrapper.innerHTML=html;
       const fresh=wrapper.firstElementChild;
-      if(fresh)feedEl.appendChild(fresh);
+      if(fresh){
+        feedEl.appendChild(fresh);
+        if(renderKey) renderCache.set(id,renderKey);
+        else renderCache.delete(id);
+      }else{
+        renderCache.delete(id);
+      }
     }
   });
 
-  /* Remove posts no longer present. */
-  existing.forEach(el=>el.remove());
+  /* Remove posts no longer present, and release their cache entries. */
+  existing.forEach((el,id)=>{el.remove();renderCache.delete(id);});
+  renderCache.forEach((_,id)=>{if(!wantedIds.has(id))renderCache.delete(id);});
 
   /* Keep server order without moving every post on every refresh.
      Re-append only when a node is actually out of position; this avoids
