@@ -21,10 +21,14 @@ function invalidateAuthCache() { _cache = null; _cacheAt = 0; }
 module.exports = async (req, res, next) => {
   const header = req.headers.authorization || '';
   const bearerToken = header.startsWith('Bearer ') ? header.slice(7) : null;
-  // EventSource cannot attach Authorization headers; allow a query token only for this exact GET endpoint.
+  // EventSource cannot attach Authorization headers. Native video elements also
+  // cannot set Authorization, so query tokens are allowed only on narrow read-only routes.
   const requestPath = String(req.originalUrl || '').split('?')[0];
   const isSseGet = req.method === 'GET' && requestPath === '/api/events';
-  const queryToken = isSseGet && req.query && req.query.token ? String(req.query.token) : null;
+  const isMediaStreamGet = (req.method === 'GET' || req.method === 'HEAD') &&
+    /^\/api\/records\/[^/]+\/media(?:\/(?:play\.mp4|(?!status(?:\/|$)|repair(?:\/|$)|debug(?:\/|$))[^/]+))?$/.test(requestPath);
+  const queryToken = (isSseGet || isMediaStreamGet) && req.query && req.query.token
+    ? String(req.query.token) : null;
   const token = bearerToken || queryToken;
   if (!token) return res.status(401).json({ error: 'No token provided' });
 
