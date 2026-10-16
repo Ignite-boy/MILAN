@@ -855,6 +855,43 @@ router.get('/:id/media/status', auth, async (req, res) => {
   } catch (err) { handleError(res, err); }
 });
 
+router.get('/:id/media/playback-url', auth, async (req, res) => {
+  try {
+    const u = await current(req);
+    if (!u) return res.status(404).json({ error: 'User not found' });
+
+    // Match the existing play.mp4 preparation path before signing the
+    // cloud URL, so repaired browser-safe MP4s are streamed directly too.
+    try {
+      await dwnStore.ensureMediaPlayableForStream(
+        req.userId,
+        u.user.did,
+        req.params.id,
+        {
+          waitMs: Number(process.env.MILAN_V83_STREAM_REPAIR_WAIT_MS || 45000),
+          maxBytes: Number(process.env.MILAN_V83_STREAM_REPAIR_MAX_BYTES || 768 * 1024 * 1024)
+        }
+      );
+    } catch (err) {
+      try { console.warn('Direct playback preparation skipped:', err.message); } catch (_) {}
+    }
+
+    const playback = await dwnStore.getDirectMediaPlaybackUrl(
+      req.params.id,
+      u.user.did
+    );
+    res.setHeader('Cache-Control', 'private, no-store, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    return res.json({
+      ok: true,
+      url: playback.url,
+      expiresIn: playback.expiresIn || 3600
+    });
+  } catch (err) {
+    return handleError(res, err);
+  }
+});
+
 router.head('/:id/media/play.mp4', auth, streamMedia);
 router.get('/:id/media/play.mp4', auth, streamMedia);
 router.head('/:id/media/:fileName', auth, streamMedia);

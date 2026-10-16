@@ -1751,6 +1751,8 @@ async function getAuthoritativeCloudMedia(id, did) {
       remoteUrl = signed?.data?.signedUrl || '';
     } catch (_) {}
 
+    // Keep the legacy URL fallback for authenticated backend-proxied streams.
+    // Direct playback separately requires a signed URL containing a token.
     if (!remoteUrl) {
       try {
         const pub = supabaseAuthoritative.storage
@@ -1777,6 +1779,53 @@ async function getAuthoritativeCloudMedia(id, did) {
     console.warn('[MILAN] authoritative cloud media lookup failed:', err.message);
     return null;
   }
+}
+
+async function getDirectMediaPlaybackUrl(id, did) {
+  const recordId = String(id || '').trim();
+  const readerDid = String(did || '').trim();
+  if (!recordId || !readerDid) {
+    const err = new Error('Video playback URL unavailable');
+    err.status = 404;
+    throw err;
+  }
+
+  // Reads authoritative DWN metadata and checks current access permissions
+  // before returning a time-limited Storage URL. No video bytes pass here.
+  const media = await getAuthoritativeCloudMedia(recordId, readerDid);
+  if (!media || !media.remoteUrl) {
+    const err = new Error('Video playback URL unavailable');
+    err.status = 404;
+    throw err;
+  }
+
+  const mimeType = String(media.mimeType || '').split(';')[0].toLowerCase();
+  const fileName = String(media.fileName || '');
+  const isVideo = mimeType.startsWith('video/') ||
+    /\.(mp4|m4v|mov|webm|mkv|avi|mpeg|mpg|3gp)$/i.test(fileName);
+
+  if (!isVideo) {
+    const err = new Error('Direct playback is only available for video media');
+    err.status = 415;
+    throw err;
+  }
+
+  let signedUrl;
+  try {
+    signedUrl = new URL(media.remoteUrl);
+  } catch (_) {}
+
+  if (
+    !signedUrl ||
+    !/^https?:$/.test(signedUrl.protocol) ||
+    !signedUrl.searchParams.has('token')
+  ) {
+    const err = new Error('Signed video playback is unavailable');
+    err.status = 503;
+    throw err;
+  }
+
+  return { url: signedUrl.toString(), expiresIn: 3600 };
 }
 
 async function getMediaStream(id, did) {
@@ -1855,6 +1904,7 @@ module.exports = {
   listSharedWithMe,
   getRecord,
   getMediaStream,
+  getDirectMediaPlaybackUrl,
   getOwnedRecords,
   createRecord,
   createMediaRecordFromFile,
