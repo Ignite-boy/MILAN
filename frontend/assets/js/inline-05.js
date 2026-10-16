@@ -624,7 +624,7 @@ async function loadPeople(){try{const q=($("peopleSearch")?.value||$("globalSear
       if(!token || document.hidden || mediaPlaying())return;
       loadPeople().catch(()=>{});
     };
-    window.__milanPeopleTick=setInterval(refreshPeople,3000);
+    window.__milanPeopleTick=setInterval(refreshPeople,15000);
   }
 
   document.addEventListener("visibilitychange",()=>{
