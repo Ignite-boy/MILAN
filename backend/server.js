@@ -33,7 +33,7 @@ app.use((req, res, next) => {
   res.setHeader('X-DNS-Prefetch-Control', 'on');
   res.setHeader('Origin-Agent-Cluster', '?1');
   // CSP tuned for MILAN's first-party UI and required media/font services.
-  res.setHeader('Content-Security-Policy', "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.youtube.com https://s.ytimg.com  ; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https:  ; frame-src https://www.youtube.com https://www.youtube-nocookie.com  ; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests");
+  res.setHeader('Content-Security-Policy', "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.youtube.com https://s.ytimg.com https://sdk.cashfree.com https://*.cashfree.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https: https://*.cashfree.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://sdk.cashfree.com https://*.cashfree.com; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests");
   next();
 });
 const apiRateLimiter = require('./middleware/apiRateLimiter')({
@@ -96,7 +96,15 @@ app.use(compression({
 }));
 // Media uploads are streamed directly on /api/records/media.
 // Keep JSON body small for speed and protection on mobile/production.
-app.use(express.json({ limit: process.env.JSON_LIMIT || '25mb' }));
+app.use(express.json({
+  limit: process.env.JSON_LIMIT || '25mb',
+  verify: (req, _res, buf) => {
+    // Cashfree signs the exact request bytes; capture before JSON parsing mutates them.
+    if (req.originalUrl?.split('?')[0] === '/api/payment/webhook') {
+      req.rawBody = buf.toString('utf8');
+    }
+  }
+}));
 app.use(express.urlencoded({ extended: true, limit: process.env.URLENCODED_LIMIT || '10mb' }));
 
 // MILAN storage rule: Supabase is authoritative for persistent user data, records, and media.
@@ -316,7 +324,7 @@ const cloudDwnRouter = require('./routes/cloudDwn');
 app.use('/api/cloud-dwn', cloudDwnRouter);
 app.use('/api/isolated-dwn', require('./routes/isolatedDwn'));
 app.use('/api/storage', require('./routes/storage'));
-app.use('/api/milan-pay', require('./routes/milanPay'));
+app.use('/api/payment', require('./routes/payment'));
 app.use('/api/profile', require('./routes/profile'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/music', require('./routes/music'));
@@ -724,6 +732,12 @@ app.use((err, _req, res, next) => {
   return res.status(err.status || 500).json({ error: err.message || 'Server error' });
 });
 
+// Retire legacy MILAN Pay checkout URLs while preserving historical source files.
+app.get(['/milan-pay', '/milan-pay.html'], (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  return res.status(404).send('Payment page not found');
+});
+
 app.use(express.static(path.join(__dirname, '../frontend'), {
   maxAge: process.env.STATIC_CACHE_MAX_AGE || '0',
   etag: true,
@@ -758,10 +772,6 @@ app.get('/app', (_req, res) => {
 </html>`);
 });
 // Unknown URL → real 404 (correct status for Google; no soft-404 / duplicate-content issues)
-app.get('/milan-pay', (_req, res) => {
-  res.setHeader('Cache-Control', 'no-store');
-  res.sendFile(path.join(__dirname, '../frontend/milan-pay.html'));
-});
 
 // Unknown URL → real 404 (correct status for Google; no soft-404 / duplicate-content issues)
 app.get('*', (_req, res) => {

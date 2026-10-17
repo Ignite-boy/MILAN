@@ -156,7 +156,7 @@
     drawer.appendChild(more);
 
     var extras = document.createElement("div");
-    extras.innerHTML = '<a href="/music">🎵 Music</a><a href="/settings">⚙️ Settings</a><a href="/about">ℹ️ About</a>';
+    extras.innerHTML = '<a href="/storage-upgrade.html#payment">💳 Payment Update</a><a href="/music">🎵 Music</a><a href="/settings">⚙️ Settings</a><a href="/about">ℹ️ About</a>';
     extras.style.cssText = "display:flex;flex-direction:column;gap:5px";
     extras.querySelectorAll("a").forEach(function (a) {
       a.style.cssText = "display:flex;align-items:center;min-height:46px;padding:11px 14px;box-sizing:border-box;border:1px solid transparent;border-radius:12px;background:#111c31;color:#dce5f5;text-decoration:none;font:600 14px/1.25 system-ui,sans-serif";

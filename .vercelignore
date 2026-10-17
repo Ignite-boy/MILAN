@@ -13,3 +13,4 @@ backend/**/DATASTORE/
 backend/**/LOCK
 *.log
 .env
+frontend/milan-pay.html

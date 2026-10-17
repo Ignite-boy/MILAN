@@ -9,7 +9,6 @@
       "source": "/reset-password",
       "destination": "/reset-password.html"
     },
-
     {
       "source": "/topics",
       "destination": "/keywords.html"
@@ -113,10 +112,6 @@
     {
       "source": "/cookie-policy",
       "destination": "/cookie-policy.html"
-    },
-    {
-      "source": "/milan-pay",
-      "destination": "/milan-pay.html"
     },
     {
       "source": "/(.*)",

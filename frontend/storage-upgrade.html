@@ -11,18 +11,18 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>MILAN Storage Plans — 100 MB Free, 500 MB & 1 GB</title>
-<meta name="description" content="MILAN storage plans: 100 MB free, 500 MB for ₹250 or 1 GB for ₹500. Direct UPI payments require bank verification.">
+<meta name="description" content="MILAN storage plans: 100 MB free, 500 MB for ₹250 or 1 GB for ₹500. Pay securely through Cashfree with server-side payment verification.">
 <meta name="robots" content="index,follow,max-image-preview:large">
 <link rel="canonical" href="https://milanlife.in/storage-upgrade.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Milan">
 <meta property="og:title" content="MILAN Storage Plans — 100 MB Free, 500 MB & 1 GB">
-<meta property="og:description" content="MILAN storage plans: 100 MB free, 500 MB for ₹250 or 1 GB for ₹500. Direct UPI payments require bank verification.">
+<meta property="og:description" content="MILAN storage plans: 100 MB free, 500 MB for ₹250 or 1 GB for ₹500. Pay securely through Cashfree with server-side payment verification.">
 <meta property="og:url" content="https://milanlife.in/storage-upgrade.html">
 <meta property="og:image" content="https://milanlife.in/assets/og-cover.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="MILAN Storage Plans — 100 MB Free, 500 MB & 1 GB">
-<meta name="twitter:description" content="MILAN storage plans: 100 MB free, 500 MB for ₹250 or 1 GB for ₹500. Direct UPI payments require bank verification.">
+<meta name="twitter:description" content="MILAN storage plans: 100 MB free, 500 MB for ₹250 or 1 GB for ₹500. Pay securely through Cashfree with server-side payment verification.">
 <meta name="twitter:image" content="https://milanlife.in/assets/og-cover.png">
 <script type="application/ld+json">
 {
@@ -31,7 +31,7 @@
   "@id": "https://milanlife.in/storage-upgrade.html#webpage",
   "url": "https://milanlife.in/storage-upgrade.html",
   "name": "MILAN Storage Plans — 100 MB Free, 500 MB & 1 GB",
-  "description": "MILAN storage plans: 100 MB free, 500 MB for ₹250 or 1 GB for ₹500. Direct UPI payments require bank verification.",
+  "description": "MILAN storage plans: 100 MB free, 500 MB for ₹250 or 1 GB for ₹500. Pay securely through Cashfree with server-side payment verification.",
   "isPartOf": {
     "@type": "WebSite",
     "@id": "https://milanlife.in/#website",
@@ -668,7 +668,7 @@ border-color:#8b5cf6;
   </div>
 
   <div class="hero-note">
-    Secure MILAN Pay payment checkout • Manual bank verification required • Your existing MILAN account remains unchanged
+    Cashfree hosted checkout • Server-side payment verification • Your existing MILAN account remains unchanged
   </div>
 </section>
 
@@ -707,8 +707,8 @@ border-color:#8b5cf6;
       <ul class="features">
         <li>500 MB personal storage quota</li>
         <li>5× the Free plan capacity</li>
-        <li>MILAN Pay Checkout</li>
-        <li>Independent payment verification required</li>
+        <li>Cashfree hosted checkout</li>
+        <li>Server-side payment verification</li>
       </ul>
       <button class="plan-button" type="button" onclick="selectPlan('500mb')">Choose 500 MB →</button>
     </article>
@@ -721,8 +721,8 @@ border-color:#8b5cf6;
       <ul class="features">
         <li>1 GB personal storage quota</li>
         <li>10× the Free plan capacity</li>
-        <li>MILAN Pay Checkout</li>
-        <li>Independent payment verification required</li>
+        <li>Cashfree hosted checkout</li>
+        <li>Server-side payment verification</li>
       </ul>
       <button class="plan-button" type="button" onclick="selectPlan('1gb')">Choose 1 GB →</button>
     </article>
@@ -775,21 +775,21 @@ border-color:#8b5cf6;
         <tr>
           <td>Payment</td>
           <td>None</td>
-          <td>₹250 MILAN Pay</td>
-          <td>₹500 MILAN Pay</td>
+          <td>₹250 via Cashfree</td>
+          <td>₹500 via Cashfree</td>
         </tr>
         <tr>
           <td>Verification</td>
           <td>Not required</td>
-          <td>Manual bank verification before activation</td>
-          <td>Manual bank verification before activation</td>
+          <td>Cashfree server-side verification before activation</td>
+          <td>Cashfree server-side verification before activation</td>
         </tr>
       </tbody>
     </table>
   </div>
 
   <div class="note-box">
-    Storage upgrades change the account quota only. Direct UPI checkout does not automatically verify payment. Independently verify the transaction before applying a storage upgrade.
+    Storage upgrades change the account quota only. Eligible Cashfree payments are verified server-side before the storage quota is activated.
   </div>
 </section>
 
@@ -797,10 +797,10 @@ border-color:#8b5cf6;
   <div class="section-head">
     <div class="kicker">Payment</div>
     <h2>Upgrade your storage securely.</h2>
-    <p>Choose your plan and continue through MILAN Pay Checkout.</p>
+    <p>Choose your plan and continue through secure Cashfree checkout.</p>
     <p style="margin-top:12px;">
-      <a href="/milan-pay" style="display:inline-block;padding:11px 15px;border:1px solid #76e4bb;border-radius:10px;color:#76e4bb;text-decoration:none;font-weight:700;">
-        Open MILAN Pay branded checkout →
+      <a id="cashfreeCheckoutLink" href="/storage-upgrade-cashfree.html?plan=500mb" style="display:inline-block;margin-left:8px;margin-top:8px;padding:11px 15px;border:1px solid #a78bfa;border-radius:10px;color:#c4b5fd;text-decoration:none;font-weight:700;">
+        Continue with Cashfree →
       </a>
     </p>
   </div>
@@ -813,7 +813,7 @@ border-color:#8b5cf6;
       <div class="summary">
         <div class="row"><span>Selected plan</span><strong id="summaryPlan">500 MB</strong></div>
         <div class="row"><span>New storage quota</span><strong id="summaryQuota">500 MB</strong></div>
-        <div class="row"><span>Payment gateway</span><strong>MILAN Pay</strong></div>
+        <div class="row"><span>Payment gateway</span><strong>Cashfree</strong></div>
         <div class="row"><span>Payment methods</span><strong>Available at checkout</strong></div>
         <div class="row"><span>Total</span><strong class="amount" id="summaryAmount">₹250</strong></div>
       </div>
@@ -821,28 +821,28 @@ border-color:#8b5cf6;
 
     <div class="card">
       <h3>Secure checkout</h3>
-      <p>MILAN Pay uses direct UPI checkout for this flow. Payments remain pending until an administrator independently verifies the UTR, amount, beneficiary, and settled credit against bank records. Cards and international payments are not enabled.</p>
+      <p>Cashfree securely processes checkout. Storage is activated only after the server validates the payment status, transaction reference, currency, and exact amount.</p>
 
       <div class="payment-panel">
         <div class="payment-topline">
           <div>
             <span class="payment-label">PAYMENT</span>
-            <strong>MILAN · MILAN Pay</strong>
+            <strong>MILAN · Cashfree Checkout</strong>
           </div>
         </div>
 
         <div class="payment-subline">
-          Direct UPI orders remain pending until payment is independently verified.
+          Payment status is verified by the MILAN server using Cashfree.
         </div>
 
         <div class="payment-subline" style="margin-top:16px;">
-          No phone number is required for direct UPI checkout. After paying in your UPI app, submit the transaction reference in MILAN Pay for manual bank-record review.
+          Enter the requested checkout details and complete payment through Cashfree. Do not retry repeatedly if the payment status is pending; allow verification to complete.
         </div>
 
         <div class="payment-mini-steps" style="margin-top:16px;">
           <div><b>01</b><span>Choose plan</span></div>
-          <div><b>02</b><span>Open MILAN Pay</span></div>
-          <div><b>03</b><span>Pay & verify</span></div>
+          <div><b>02</b><span>Open Cashfree</span></div>
+          <div><b>03</b><span>Pay securely</span></div>
         </div>
       </div>
 
@@ -866,18 +866,18 @@ border-color:#8b5cf6;
     </article>
     <article class="step">
       <div class="step-num">02</div>
-      <h3>Pay with UPI</h3>
-      <p>Use the payment methods presented by MILAN Pay Checkout.</p>
+      <h3>Pay securely</h3>
+      <p>Use the payment methods available in your Cashfree checkout.</p>
     </article>
     <article class="step">
       <div class="step-num">03</div>
-      <h3>Manual bank review</h3>
-      <p>Direct UPI checkout does not verify payment automatically. An administrator must confirm the UTR, exact amount, beneficiary, and settled credit against bank records before activation.</p>
+      <h3>Payment verification</h3>
+      <p>The MILAN server verifies the Cashfree payment before activating your selected storage quota.</p>
     </article>
     <article class="step">
       <div class="step-num">04</div>
       <h3>Storage activated</h3>
-      <p>Your existing account quota is updated only after an administrator independently verifies the transaction against bank records.</p>
+      <p>Your existing account quota is updated only after the MILAN server verifies successful payment with Cashfree.</p>
     </article>
   </div>
 </section>
@@ -903,11 +903,11 @@ border-color:#8b5cf6;
     </details>
     <details>
       <summary>How is the payment verified?</summary>
-      <p>Direct UPI payments are not verified automatically. Submit the UTR only after payment, and wait while an administrator checks the UTR, amount, beneficiary, and settled credit against bank records.</p>
+      <p>Cashfree payments are verified by the MILAN server. If the payment is pending, wait for the final status instead of paying again.</p>
     </details>
     <details>
       <summary>What happens after approval?</summary>
-      <p>Your account's storage quota is updated to the selected plan.</p>
+      <p>Your account's storage quota is updated only after successful server-side payment verification.</p>
     </details>
   </div>
 </section>
@@ -915,7 +915,7 @@ border-color:#8b5cf6;
 <section class="final">
   <div class="kicker">MILAN STORAGE</div>
   <h2>Ready for more room?</h2>
-  <p>Choose the capacity that fits your MILAN account and complete payment through MILAN Pay Checkout.</p>
+  <p>Choose the capacity that fits your MILAN account and complete payment through Cashfree Checkout.</p>
   <a class="btn primary" href="#plans">Choose a storage plan →</a>
 </section>
 
@@ -939,6 +939,7 @@ border-color:#8b5cf6;
   const summaryQuota = document.getElementById("summaryQuota");
   const summaryAmount = document.getElementById("summaryAmount");
   const payButton = document.getElementById("payButton");
+  const cashfreeCheckoutLink = document.getElementById("cashfreeCheckoutLink");
   const status = document.getElementById("status");
 
   let selected = new URLSearchParams(location.search).get("plan");
@@ -956,6 +957,9 @@ border-color:#8b5cf6;
 
   function render() {
     const plan = plans[selected];
+    if (cashfreeCheckoutLink) {
+      cashfreeCheckoutLink.href = "/storage-upgrade-cashfree.html?plan=" + encodeURIComponent(selected);
+    }
     if (summaryPlan) summaryPlan.textContent = plan.label;
     if (summaryQuota) summaryQuota.textContent = plan.quota;
     if (summaryAmount) {
@@ -970,7 +974,7 @@ border-color:#8b5cf6;
 
     if (payButton) {
       payButton.disabled = false;
-      payButton.textContent = token() ? "Continue to MILAN Pay" : "Login to pay with MILAN Pay";
+      payButton.textContent = token() ? "Continue to Cashfree" : "Login to pay with Cashfree";
     }
   }
 
@@ -985,22 +989,22 @@ border-color:#8b5cf6;
     render();
   };
 
-  async function checkMilanPaySetup() {
+  async function checkCashfreeSetup() {
     try {
-      const response = await fetch("/api/milan-pay/config", { cache: "no-store" });
+      const response = await fetch("/api/payment/config", { cache: "no-store" });
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error("MILAN Pay setup could not be checked.");
+        throw new Error("Cashfree setup could not be checked.");
       }
 
-      if (data.upiAvailable) {
-        setStatus("MILAN Pay UPI checkout is available.");
+      if (data.configured) {
+        setStatus("Cashfree checkout is available (" + data.environment + ").");
       } else {
-        setStatus("MILAN Pay is not yet configured to receive payments. Please try again later.");
+        setStatus("Cashfree is not configured for this environment yet. Please try again later.", true);
       }
     } catch (_) {
-      setStatus("MILAN Pay is temporarily unavailable. Please try again later.", true);
+      setStatus("Cashfree is temporarily unavailable. Please try again later.", true);
     }
   }
 
@@ -1010,12 +1014,12 @@ border-color:#8b5cf6;
         location.href = "/login";
         return;
       }
-      location.href = "/milan-pay?plan=" + encodeURIComponent(selected);
+      location.href = "/storage-upgrade-cashfree.html?plan=" + encodeURIComponent(selected);
     });
   }
 
   render();
-  checkMilanPaySetup();
+  checkCashfreeSetup();
 })();
 </script>
 </body>
