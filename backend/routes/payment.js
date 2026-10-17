@@ -365,19 +365,12 @@ router.post('/create-order', createOrderRateLimiter, auth, async (req, res) => {
           { method: 'GET' }
         );
 
-        if (String(providerOrder?.order_status || '').toUpperCase() === 'PAID') {
-          // Recover the webhook-late case by verifying the provider's actual payment
-          // record; never infer that money was collected from order status alone.
-          const transactions = await getPayments(existing.order_id);
-          const successPayment = (Array.isArray(transactions) ? transactions : []).find(payment =>
-            String(payment.payment_status || '').toUpperCase() === 'SUCCESS' &&
-            String(payment.cf_payment_id || '').trim() &&
-            payment.payment_amount !== undefined &&
-            payment.payment_amount !== null &&
-            Number.isFinite(Number(payment.payment_amount)) &&
-            Number(payment.payment_amount) > 0 &&
-            String(payment.payment_currency || '').trim().toUpperCase() === 'INR'
-          );
+        const providerOrderStatus = String(providerOrder?.order_status || '').trim().toUpperCase();
+
+        if (providerOrderStatus === 'PAID') {
+          // Recover the webhook-late case by verifying Cashfree's payment list;
+          // never infer successful payment from the order status alone.
+          const successPayment = findSuccessfulPayment(await getPayments(existing.order_id));
 
           if (successPayment) {
             const activation = await activatePaidOrder({
@@ -404,6 +397,72 @@ router.post('/create-order', createOrderRateLimiter, auth, async (req, res) => {
               currency: 'INR'
             });
           }
+
+          return res.status(409).json({
+            error: 'Cashfree reports this order as paid, but no successful INR payment record could be verified yet. Do not pay again; retry status verification or contact support.',
+            code: 'cashfree_paid_order_payment_unconfirmed'
+          });
+        }
+
+        if (['EXPIRED', 'TERMINATED'].includes(providerOrderStatus)) {
+          const transactions = await getPayments(existing.order_id);
+          const successPayment = findSuccessfulPayment(transactions);
+
+          if (successPayment) {
+            const activation = await activatePaidOrder({
+              orderId: existing.order_id,
+              paymentId: String(successPayment.cf_payment_id).trim(),
+              amountInr: Number(successPayment.payment_amount)
+            });
+
+            if (!activation.ok) {
+              return res.status(activation.status || 409).json({
+                error: activation.error || 'Cashfree payment recovery needs reconciliation.',
+                code: 'cashfree_paid_order_recovery_failed'
+              });
+            }
+
+            return res.json({
+              ok: true,
+              alreadyPaid: true,
+              status: 'paid',
+              orderId: existing.order_id,
+              plan: existing.plan,
+              name: existingPlan.name,
+              amountInr: existingPlan.amountInr,
+              currency: 'INR'
+            });
+          }
+
+          if (hasPendingPaymentAttempt(transactions)) {
+            return res.status(409).json({
+              error: 'The Cashfree order is no longer active, but a payment attempt is still pending. Do not pay again; retry status verification or contact support.',
+              code: 'cashfree_terminal_order_pending_payment'
+            });
+          }
+
+          const { data: closedOrder, error: closeError } = await supabase
+            .from('payment_orders')
+            .update({ status: 'failed' })
+            .eq('order_id', existing.order_id)
+            .eq('user_id', req.account.id)
+            .eq('gateway', 'cashfree')
+            .eq('status', 'pending')
+            .select('order_id')
+            .maybeSingle();
+
+          if (closeError) throw closeError;
+          if (!closedOrder) {
+            return res.status(409).json({
+              error: 'The order status changed while it was being reconciled. Refresh payment status before trying again.',
+              code: 'cashfree_order_reconciliation_race'
+            });
+          }
+
+          return res.status(409).json({
+            error: 'This Cashfree checkout expired without a successful payment. No payment was confirmed; click Pay & Upgrade again to create a fresh checkout.',
+            code: 'cashfree_order_expired'
+          });
         }
 
         if (existing.plan !== planKey || Number(existing.amount_inr) !== plan.amountInr) {
@@ -582,18 +641,18 @@ router.post('/verify', verifyRateLimiter, auth, async (req, res) => {
     if (order.status === 'paid') {
       return res.json({ ok: true, status: 'paid', message: 'Payment already verified.' });
     }
+    if (order.status === 'failed') {
+      return res.json({
+        ok: true,
+        status: 'failed',
+        message: 'This checkout is closed. Start a new checkout to try again.'
+      });
+    }
+    if (order.status !== 'pending') {
+      return res.status(409).json({ error: 'This payment order is not in a verifiable state.' });
+    }
 
-    const payments = await getPayments(orderId);
-    const transactions = Array.isArray(payments) ? payments : [];
-    const successPayment = transactions.find(payment =>
-      String(payment.payment_status || '').toUpperCase() === 'SUCCESS' &&
-      String(payment.cf_payment_id || '').trim() &&
-      payment.payment_amount !== undefined &&
-      payment.payment_amount !== null &&
-      Number.isFinite(Number(payment.payment_amount)) &&
-      Number(payment.payment_amount) > 0 &&
-      String(payment.payment_currency || '').trim().toUpperCase() === 'INR'
-    );
+    const successPayment = findSuccessfulPayment(await getPayments(orderId));
 
     if (successPayment) {
       const result = await activatePaidOrder({
