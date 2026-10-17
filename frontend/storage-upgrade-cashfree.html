@@ -840,6 +840,7 @@ border-color:#8b5cf6;
 
       <button class="submit" id="payButton" type="button">Pay & Upgrade</button>
       <div class="status" id="status" role="status" aria-live="polite"></div>
+      <button class="plan-button" id="checkStatusButton" type="button" hidden>Check payment status</button>
     </div>
   </div>
 </section>
@@ -858,18 +859,18 @@ border-color:#8b5cf6;
     </article>
     <article class="step">
       <div class="step-num">02</div>
-      <h3>Pay with UPI</h3>
+      <h3>Complete secure checkout</h3>
       <p>Use the payment methods presented by Cashfree Checkout.</p>
     </article>
     <article class="step">
       <div class="step-num">03</div>
-      <h3>Enter your UTR</h3>
+      <h3>Automatic verification</h3>
       <p>Complete the payment and MILAN will verify it automatically.</p>
     </article>
     <article class="step">
       <div class="step-num">04</div>
       <h3>Verification</h3>
-      <p>The request is reviewed and the storage quota is updated after approval.</p>
+      <p>MILAN verifies the successful INR payment with Cashfree and updates your storage quota automatically.</p>
     </article>
   </div>
 </section>
@@ -895,11 +896,11 @@ border-color:#8b5cf6;
     </details>
     <details>
       <summary>How is the payment verified?</summary>
-      <p>This testing flow uses Cashfree Checkout with automatic server-side payment verification.</p>
+      <p>MILAN checks payment status directly with Cashfree. Browser callbacks alone never activate storage.</p>
     </details>
     <details>
       <summary>What happens after approval?</summary>
-      <p>Your account's storage quota is updated to the selected plan.</p>
+      <p>Your account's storage quota is updated after Cashfree confirms the successful payment.</p>
     </details>
   </div>
 </section>
@@ -931,6 +932,7 @@ border-color:#8b5cf6;
   const customerPhone = document.getElementById("customerPhone");
   const payButton = document.getElementById("payButton");
   const status = document.getElementById("status");
+  const checkStatusButton = document.getElementById("checkStatusButton");
 
   let plans = { ...fallbackPlans };
   let selected = new URLSearchParams(location.search).get("plan");
@@ -938,14 +940,27 @@ border-color:#8b5cf6;
 
   let cashfree = null;
   let busy = false;
+  let paymentComplete = false;
 
   function token() {
     return localStorage.getItem("milan_token") || "";
   }
 
+  function orderToRecover() {
+    const params = new URLSearchParams(location.search);
+    return params.get("order_id") || sessionStorage.getItem("milanPaymentOrderId") || "";
+  }
+
+  function updateCheckStatusButton() {
+    if (!checkStatusButton) return;
+    checkStatusButton.hidden = !token() || !orderToRecover() || paymentComplete;
+    checkStatusButton.disabled = busy;
+  }
+
   function setStatus(message, error = false) {
     status.textContent = message || "";
     status.classList.toggle("error", !!error);
+    updateCheckStatusButton();
   }
 
   function normalizePhone(value) {
@@ -958,10 +973,13 @@ border-color:#8b5cf6;
     summaryPlan.textContent = plan.label;
     summaryQuota.textContent = plan.quota;
     summaryAmount.textContent = "₹" + Number(plan.amount).toLocaleString("en-IN");
-    payButton.disabled = busy;
-    payButton.textContent = busy
-      ? "Preparing Secure Checkout..."
-      : (token() ? "Pay & Upgrade" : "Login to Pay");
+    payButton.disabled = busy || paymentComplete;
+    payButton.textContent = paymentComplete
+      ? "Payment Complete ✓"
+      : busy
+        ? "Preparing Secure Checkout..."
+        : (token() ? (orderToRecover() ? "Resume Existing Checkout" : "Pay & Upgrade") : "Login to Pay");
+    updateCheckStatusButton();
   }
 
   async function loadConfig() {
@@ -1060,9 +1078,11 @@ border-color:#8b5cf6;
         const result = await verifyOrder(orderId);
 
         if (result?.status === "paid") {
+          paymentComplete = true;
           setStatus("✅ Payment confirmed. Storage upgraded.");
           payButton.textContent = "Payment Complete ✓";
           sessionStorage.removeItem("milanPaymentOrderId");
+          updateCheckStatusButton();
           return true;
         }
 
@@ -1118,6 +1138,7 @@ border-color:#8b5cf6;
       const order = await createOrder(phone);
 
       sessionStorage.setItem("milanPaymentOrderId", order.orderId);
+      render();
       setStatus("Opening Cashfree secure checkout...");
 
       const result = await cashfree.checkout({
@@ -1179,6 +1200,22 @@ border-color:#8b5cf6;
   };
 
   payButton.addEventListener("click", openCheckout);
+
+  checkStatusButton.addEventListener("click", async () => {
+    const orderId = orderToRecover();
+    if (!orderId || !token()) {
+      setStatus("Sign in and open the original checkout to check payment status.", true);
+      return;
+    }
+
+    checkStatusButton.disabled = true;
+    setStatus("Checking payment status directly with Cashfree...");
+    try {
+      await recoverPayment(orderId);
+    } finally {
+      render();
+    }
+  });
 
   async function handleReturn() {
     const params = new URLSearchParams(location.search);
