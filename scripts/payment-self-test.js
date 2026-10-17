@@ -143,15 +143,34 @@ const checks = [
     cashfreeRoute.includes("providerOrder.payment_session_id") &&
     cashfreeRoute.includes(".limit(2)")],
   ['Cashfree recovers provider-paid pending orders after a missed webhook before unpaid-order guards',
-    cashfreeRoute.includes("order_status || '').toUpperCase() === 'PAID'") &&
-    cashfreeRoute.includes("const transactions = await getPayments(existing.order_id)") &&
+    cashfreeRoute.includes("providerOrderStatus === 'PAID'") &&
+    cashfreeRoute.includes("findSuccessfulPayment(await getPayments(existing.order_id))") &&
     cashfreeRoute.includes("code: 'cashfree_paid_order_recovery_failed'") &&
-    cashfreeRoute.indexOf("order_status || '').toUpperCase() === 'PAID'") <
+    cashfreeRoute.indexOf("providerOrderStatus === 'PAID'") <
       cashfreeRoute.indexOf("if (existing.plan !== planKey") &&
-    cashfreeRoute.indexOf("order_status || '').toUpperCase() === 'PAID'") <
+    cashfreeRoute.indexOf("providerOrderStatus === 'PAID'") <
       cashfreeRoute.indexOf("if (currentQuotaBytes >= plan.quotaBytes)") &&
     cashfreePage.includes('data.status === "paid" && data.alreadyPaid === true') &&
     cashfreePage.includes('selected = order.plan')],
+  ['Cashfree expired orders are only closed after checking for successful or pending payments',
+    cashfreeRoute.includes("['EXPIRED', 'TERMINATED'].includes(providerOrderStatus)") &&
+    cashfreeRoute.includes("const successPayment = findSuccessfulPayment(transactions)") &&
+    cashfreeRoute.includes("hasPendingPaymentAttempt(transactions)") &&
+    cashfreeRoute.includes("code: 'cashfree_order_expired'") &&
+    cashfreeRoute.includes(".eq('status', 'pending')")],
+  ['Cashfree verification reports terminally closed orders as failed, not pending',
+    cashfreeRoute.includes("if (order.status === 'failed')") &&
+    cashfreeRoute.includes("status: 'failed'") &&
+    cashfreeRoute.includes("if (order.status !== 'pending')")],
+  ['Checkout clears stale order_id/payment URL parameters after paid or expired recovery',
+    cashfreePage.includes('function clearRecoverableOrder()') &&
+    cashfreePage.includes('params.delete("order_id")') &&
+    cashfreePage.includes('params.delete("payment")') &&
+    cashfreePage.includes('error.code === "cashfree_order_expired"')],
+  ['Cashfree customer name is sanitized to the provider field contract',
+    cashfreeRoute.includes('function normalizeCustomerName(value)') &&
+    cashfreeRoute.includes(".replace(/[^A-Za-z0-9 ]/g, ' ')") &&
+    cashfreeRoute.includes("customer_name: normalizeCustomerName(req.account.name)")],
   ['Cashfree return URL preserves the selected plan for accurate order recovery',
     cashfreeRoute.includes("return_url: BASE_URL + '/storage-upgrade-cashfree.html?plan=' + encodeURIComponent(planKey)") &&
     cashfreeRoute.includes("&payment=return&order_id={order_id}")],
