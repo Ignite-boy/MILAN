@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('node:fs');
+const crypto = require('node:crypto');
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 
@@ -37,6 +38,11 @@ const payRoute = read('backend/routes/milanPay.js');
 const cashfreeRoute = read('backend/routes/payment.js');
 const cashfreePage = read('frontend/storage-upgrade-cashfree.html');
 const normalizeCashfreePhone = require(path.join(root, 'frontend/assets/js/cashfree-phone.js'));
+const idempotencyFnStart = cashfreeRoute.indexOf('function cashfreeIdempotencyKey(orderId) {');
+const idempotencyFnEnd = cashfreeRoute.indexOf('\nasync function cashfreeRequest(path, options = {}) {', idempotencyFnStart);
+const cashfreeIdempotencyKey = idempotencyFnStart >= 0 && idempotencyFnEnd > idempotencyFnStart
+  ? new Function('crypto', 'Buffer', cashfreeRoute.slice(idempotencyFnStart, idempotencyFnEnd) + '\nreturn cashfreeIdempotencyKey;')(crypto, Buffer)
+  : null;
 const cashfreeMigration = read('backend/migrations/20261018_cashfree_atomic_activation.sql');
 const storageRoute = read('backend/routes/storage.js');
 const storagePage = read('frontend/storage-upgrade.html');
@@ -185,11 +191,11 @@ const checks = [
     cashfreeRoute.includes("require('../../frontend/assets/js/cashfree-phone.js')") &&
     cashfreePage.includes('src="/assets/js/cashfree-phone.js"')],
   ['Cashfree order creation sends a stable UUID idempotency key tied to the MILAN order ID',
+    cashfreeIdempotencyKey &&
     cashfreeRoute.includes("headers: { 'x-idempotency-key': cashfreeIdempotencyKey(orderId) }") &&
-    cashfreeRoute.includes("function cashfreeIdempotencyKey(orderId)") &&
-    cashfreeRoute.includes("digest[6] = (digest[6] & 0x0f) | 0x50") &&
-    cashfreeRoute.includes("digest[8] = (digest[8] & 0x3f) | 0x80") &&
-    cashfreeRoute.includes("crypto.createHash('sha1')")],
+    cashfreeIdempotencyKey('MLN_TEST_1234') === cashfreeIdempotencyKey('MLN_TEST_1234') &&
+    cashfreeIdempotencyKey('MLN_TEST_1234') !== cashfreeIdempotencyKey('MLN_TEST_5678') &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(cashfreeIdempotencyKey('MLN_TEST_1234'))],
   ['Cashfree Preview uses its own deployment URL and cannot run live mode',
     cashfreeRoute.includes('process.env.VERCEL_ENV === \'preview\'') &&
     cashfreeRoute.includes('process.env.VERCEL_URL') &&
