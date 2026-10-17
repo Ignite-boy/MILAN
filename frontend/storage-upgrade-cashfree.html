@@ -952,6 +952,15 @@ border-color:#8b5cf6;
     return params.get("order_id") || sessionStorage.getItem("milanPaymentOrderId") || "";
   }
 
+  function clearRecoverableOrder() {
+    sessionStorage.removeItem("milanPaymentOrderId");
+    const params = new URLSearchParams(location.search);
+    params.delete("order_id");
+    params.delete("payment");
+    const query = params.toString();
+    history.replaceState({}, "", location.pathname + (query ? "?" + query : "") + location.hash);
+  }
+
   function updateCheckStatusButton() {
     if (!checkStatusButton) return;
     checkStatusButton.hidden = !token() || !orderToRecover() || paymentComplete;
@@ -1039,7 +1048,9 @@ border-color:#8b5cf6;
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      throw new Error(data.error || "Could not create payment order.");
+      const error = new Error(data.error || "Could not create payment order.");
+      error.code = String(data.code || "");
+      throw error;
     }
 
     if (!data.orderId) {
@@ -1085,10 +1096,11 @@ border-color:#8b5cf6;
 
         if (result?.status === "paid") {
           paymentComplete = true;
+          clearRecoverableOrder();
           setStatus("✅ Payment confirmed. Storage upgraded.");
           payButton.textContent = "Payment Complete ✓";
-          sessionStorage.removeItem("milanPaymentOrderId");
           updateCheckStatusButton();
+          render();
           return true;
         }
 
@@ -1097,7 +1109,9 @@ border-color:#8b5cf6;
         }
 
         if (result?.status === "failed") {
-          setStatus("Payment was not completed.", true);
+          clearRecoverableOrder();
+          setStatus("This checkout is closed. Your storage has not changed; start a new checkout to try again.", true);
+          render();
           return false;
         }
       } catch (error) {
@@ -1192,7 +1206,13 @@ border-color:#8b5cf6;
         );
       }
     } catch (error) {
-      setStatus(error.message || "Payment could not be started.", true);
+      if (error.code === "cashfree_order_expired") {
+        clearRecoverableOrder();
+        setStatus(error.message || "The previous checkout expired. Start a new checkout to try again.", true);
+        render();
+      } else {
+        setStatus(error.message || "Payment could not be started.", true);
+      }
     } finally {
       busy = false;
       render();
