@@ -802,7 +802,7 @@ border-color:#8b5cf6;
       <a href="/milan-pay" style="display:inline-block;padding:11px 15px;border:1px solid #76e4bb;border-radius:10px;color:#76e4bb;text-decoration:none;font-weight:700;">
         Open MILAN Pay branded checkout →
       </a>
-      <a href="/storage-upgrade-cashfree.html" style="display:inline-block;margin-left:8px;margin-top:8px;padding:11px 15px;border:1px solid #a78bfa;border-radius:10px;color:#c4b5fd;text-decoration:none;font-weight:700;">
+      <a id="cashfreeCheckoutLink" href="/storage-upgrade-cashfree.html?plan=500mb" style="display:inline-block;margin-left:8px;margin-top:8px;padding:11px 15px;border:1px solid #a78bfa;border-radius:10px;color:#c4b5fd;text-decoration:none;font-weight:700;">
         Open Cashfree hosted checkout →
       </a>
     </p>
@@ -942,6 +942,7 @@ border-color:#8b5cf6;
   const summaryQuota = document.getElementById("summaryQuota");
   const summaryAmount = document.getElementById("summaryAmount");
   const payButton = document.getElementById("payButton");
+  const cashfreeCheckoutLink = document.getElementById("cashfreeCheckoutLink");
   const status = document.getElementById("status");
 
   let selected = new URLSearchParams(location.search).get("plan");
@@ -959,6 +960,9 @@ border-color:#8b5cf6;
 
   function render() {
     const plan = plans[selected];
+    if (cashfreeCheckoutLink) {
+      cashfreeCheckoutLink.href = "/storage-upgrade-cashfree.html?plan=" + encodeURIComponent(selected);
+    }
     if (summaryPlan) summaryPlan.textContent = plan.label;
     if (summaryQuota) summaryQuota.textContent = plan.quota;
     if (summaryAmount) {
