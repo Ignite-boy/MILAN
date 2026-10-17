@@ -907,6 +907,7 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
       media: {
         fileName: originalName,
         mimeType,
+        storageLayoutVersion: 2,
         originalMimeType: String(meta.mimeType || '').split(';')[0].toLowerCase() || detected.mimeType || '',
         sizeBytes,
         stored: true,
@@ -1748,6 +1749,7 @@ async function getAuthoritativeCloudMedia(id, did, options = {}) {
     const validStoredPath = (storedParts.length === 3 || storedParts.length === 4) &&
       storedParts[0] === safeName(spaceId) && storedParts[1] === safeName(recordId) &&
       storedParts.every(part => /^[A-Za-z0-9._-]+$/.test(part) && part !== '.' && part !== '..');
+    if (Number(media.storageLayoutVersion || 0) >= 2 && !validStoredPath) return null;
     const objectPath = validStoredPath ? storedObjectPath : legacyObjectPath;
 
     // Access was checked above. Scope bearer URLs to reader, bucket, and exact object path.

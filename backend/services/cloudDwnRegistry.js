@@ -480,6 +480,7 @@ async function pushRecordToCloudDwn(record, user) {
             storageBucket: record.data.media.storageBucket || '',
             storageObjectPath: record.data.media.storageObjectPath || '',
             storageContentHash: record.data.media.storageContentHash || '',
+            storageLayoutVersion: Number(record.data.media.storageLayoutVersion || 0),
             mediaUrl: record.data.media.mediaUrl || '/api/records/' + encodeURIComponent(recordId) + '/media'
           }
         : null
