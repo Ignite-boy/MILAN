@@ -86,7 +86,8 @@ BEGIN
   END IF;
 
   IF v_order.status = 'paid' THEN
-    IF v_order.gateway_reference IS NOT DISTINCT FROM p_payment_id THEN
+    IF v_order.gateway_reference IS NOT DISTINCT FROM p_payment_id
+       AND v_order.amount_inr IS NOT DISTINCT FROM p_amount_inr THEN
       RETURN jsonb_build_object(
         'ok', true, 'alreadyPaid', true,
         'orderId', p_order_id
@@ -95,7 +96,7 @@ BEGIN
 
     RETURN jsonb_build_object(
       'ok', false, 'httpStatus', 409,
-      'error', 'Order is already paid with a different payment reference.'
+      'error', 'Paid order does not match this payment reference and amount.'
     );
   END IF;
 
@@ -146,8 +147,17 @@ BEGIN
   UPDATE public.users
      SET dwn_quota_bytes = GREATEST(v_current_quota, v_target_quota),
          storage_plan = CASE
-           WHEN v_current_quota >= 1073741824 THEN '1gb'
-           WHEN v_current_quota >= 524288000 AND v_target_quota <= 524288000 THEN '500mb'
+           WHEN v_current_quota >= v_target_quota
+             AND v_current_plan IN ('500mb', '1gb')
+             AND CASE v_current_plan
+                   WHEN '1gb' THEN 2
+                   WHEN '500mb' THEN 1
+                   ELSE 0
+                 END > CASE v_target_plan
+                         WHEN '1gb' THEN 2
+                         ELSE 1
+                       END
+             THEN v_current_plan
            ELSE v_target_plan
          END
    WHERE id = v_order.user_id;
