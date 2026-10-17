@@ -139,7 +139,8 @@ const checks = [
     cashfreeRoute.includes("CASHFREE_ENVIRONMENT === 'sandbox' || CASHFREE_ENVIRONMENT === 'production'")],
   ['Cashfree order creation blocks duplicate pending orders and attempts safe resume',
     cashfreeRoute.includes("cashfree_pending_orders_reconciliation_required") &&
-    cashfreeRoute.includes("providerOrder.payment_session_id")],
+    cashfreeRoute.includes("providerOrder.payment_session_id") &&
+    cashfreeRoute.includes(".limit(2)")],
   ['Cashfree recovers provider-paid pending orders after a missed webhook',
     cashfreeRoute.includes("order_status || '').toUpperCase() === 'PAID'") &&
     cashfreeRoute.includes("const transactions = await getPayments(existing.order_id)") &&
