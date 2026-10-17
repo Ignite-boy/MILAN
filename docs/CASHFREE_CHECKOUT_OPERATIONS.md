@@ -1,6 +1,6 @@
 # Cashfree Hosted Checkout Operations
 
-This integration adds a separate Cashfree hosted checkout for MILAN storage plans. It does not replace the existing MILAN Pay direct-UPI/manual-bank-verification flow.
+Cashfree is the active hosted checkout for MILAN storage plans. MILAN Pay checkout routes and upgrade-page links have been retired; legacy source files and historical payment records are preserved. Existing historical payments must not be deleted or reset.
 
 ## Configuration
 

@@ -325,7 +325,6 @@ app.use('/api/cloud-dwn', cloudDwnRouter);
 app.use('/api/isolated-dwn', require('./routes/isolatedDwn'));
 app.use('/api/storage', require('./routes/storage'));
 app.use('/api/payment', require('./routes/payment'));
-app.use('/api/milan-pay', require('./routes/milanPay'));
 app.use('/api/profile', require('./routes/profile'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/music', require('./routes/music'));
@@ -733,6 +732,12 @@ app.use((err, _req, res, next) => {
   return res.status(err.status || 500).json({ error: err.message || 'Server error' });
 });
 
+// Retire legacy MILAN Pay checkout URLs while preserving historical source files.
+app.get(['/milan-pay', '/milan-pay.html'], (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  return res.status(404).send('Payment page not found');
+});
+
 app.use(express.static(path.join(__dirname, '../frontend'), {
   maxAge: process.env.STATIC_CACHE_MAX_AGE || '0',
   etag: true,
@@ -767,10 +772,6 @@ app.get('/app', (_req, res) => {
 </html>`);
 });
 // Unknown URL → real 404 (correct status for Google; no soft-404 / duplicate-content issues)
-app.get('/milan-pay', (_req, res) => {
-  res.setHeader('Cache-Control', 'no-store');
-  res.sendFile(path.join(__dirname, '../frontend/milan-pay.html'));
-});
 
 // Unknown URL → real 404 (correct status for Google; no soft-404 / duplicate-content issues)
 app.get('*', (_req, res) => {

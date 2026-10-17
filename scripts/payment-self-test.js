@@ -48,7 +48,7 @@ const pendingAudit = read('scripts/milan-pay-pending-audit.sql');
 const paymentOpsDoc = read('docs/MILAN_PAY_OPERATIONS.md');
 
 const checks = [
-  ['MILAN Pay route is mounted', server.includes("app.use('/api/milan-pay', require('./routes/milanPay'));")],
+  ['MILAN Pay API route is disabled', !server.includes("app.use('/api/milan-pay', require('./routes/milanPay'));")],
   ['MILAN Pay config endpoint exists', payRoute.includes("router.get('/config'")],
   ['Payment and storage verification responses are explicitly non-cacheable',
     storageRoute.includes("router.use((_req, res, next) => {\n  res.setHeader('Cache-Control', 'no-store');") &&
@@ -120,7 +120,7 @@ const checks = [
   ['Google Pay iOS intent requires configured bank MCC', payRoute.includes("gpay://upi/pay?") && payRoute.includes("merchantMcc()") && payRoute.includes("MILAN_PAY_MCC")],
   ['Copy-payment fallback available for VPA amount and order reference', payPage.includes('id="copyVpa"') && payPage.includes('id="copyAmount"') && payPage.includes('id="copyOrderId"')],
   ['Restored checkout URI is rebuilt by the server', payPage.includes("Never trust the payment URI from sessionStorage") && payPage.includes("data.upiUri")],
-  ['Storage page links to MILAN Pay', storagePage.includes('/milan-pay?plan=')],
+  ['Storage page routes to Cashfree, not MILAN Pay', storagePage.includes('/storage-upgrade-cashfree.html?plan=') && !storagePage.includes('/milan-pay')],
   ['Server and Cashfree route pass Node syntax checks',
     syntaxOk('backend/server.js') && syntaxOk('backend/routes/payment.js')],
   ['Cashfree route loads with test-only environment values and no external calls',
@@ -128,9 +128,9 @@ const checks = [
   ['Storage plan selection is carried into the Cashfree checkout link',
     storagePage.includes('id="cashfreeCheckoutLink"') &&
     storagePage.includes('cashfreeCheckoutLink.href = "/storage-upgrade-cashfree.html?plan=" + encodeURIComponent(selected)')],
-  ['Cashfree hosted-checkout route is mounted independently of MILAN Pay',
+  ['Cashfree route is mounted and MILAN Pay API is disabled',
     server.includes("app.use('/api/payment', require('./routes/payment'))") &&
-    server.includes("app.use('/api/milan-pay', require('./routes/milanPay'))")],
+    !server.includes("app.use('/api/milan-pay', require('./routes/milanPay'))")],
   ['Cashfree route requires rate limiting and authentication for private endpoints',
     cashfreeRoute.includes("router.post('/create-order', createOrderRateLimiter, auth") &&
     cashfreeRoute.includes("router.post('/verify', verifyRateLimiter, auth") &&
@@ -170,10 +170,12 @@ const checks = [
   ['Cashfree SDK domains are included in server CSP',
     server.includes('https://sdk.cashfree.com') &&
     server.includes('https://*.cashfree.com')],
-  ['Cashfree hosted checkout is a separate page and leaves direct UPI route unchanged',
+  ['Cashfree checkout is primary and legacy UPI source remains preserved',
     cashfreePage.includes('https://sdk.cashfree.com/js/v3/cashfree.js') &&
     cashfreePage.includes('/api/payment/create-order') &&
-    storagePage.includes('href="/milan-pay"') &&
+    storagePage.includes('/storage-upgrade-cashfree.html?plan=') &&
+    !storagePage.includes('/milan-pay') &&
+    !server.includes("app.use('/api/milan-pay'") &&
     payRoute.includes("router.post('/orders'")],
   ['Direct UPI merchant setting is documented', env.includes('MILAN_PAY_UPI_ID=')],
   ['No dedicated hosted-payment SDK dependency is declared', !Object.keys({ ...pkg.dependencies, ...pkg.devDependencies }).some(name => /(?:payment|gateway|checkout).*(?:sdk|client)|(?:sdk|client).*(?:payment|gateway|checkout)/i.test(name))],
