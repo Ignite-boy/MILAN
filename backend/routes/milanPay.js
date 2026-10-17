@@ -5,8 +5,12 @@ const crypto = require('crypto');
 const QRCode = require('qrcode');
 const auth = require('../middleware/auth');
 const { createClient } = require('@supabase/supabase-js');
+const createApiRateLimiter = require('../middleware/apiRateLimiter');
 
 const router = express.Router();
+
+const createOrderRateLimiter = createApiRateLimiter({ limit: 8, windowMs: 60_000, maxBuckets: 10_000 });
+const orderStatusRateLimiter = createApiRateLimiter({ limit: 60, windowMs: 60_000, maxBuckets: 10_000 });
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
@@ -119,7 +123,7 @@ router.get('/config', (_req, res) => {
   });
 });
 
-router.post('/orders', auth, async (req, res) => {
+router.post('/orders', createOrderRateLimiter, auth, async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   try {
     const vpa = merchantVpa();
@@ -290,7 +294,7 @@ router.post('/orders', auth, async (req, res) => {
   }
 });
 
-router.get('/orders/:orderId/status', auth, async (req, res) => {
+router.get('/orders/:orderId/status', orderStatusRateLimiter, auth, async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   try {
     const orderId = String(req.params.orderId || '').trim();

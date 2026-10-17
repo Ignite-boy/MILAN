@@ -11,8 +11,10 @@ assert(server.includes("app.get('/milan-pay'"), 'Short MILAN Pay URL must be reg
 assert(server.includes("app.use('/api/milan-pay', require('./routes/milanPay'));"),
   'MILAN Pay API route must be mounted');
 assert(route.includes("router.get('/config'"), 'Public configuration endpoint missing');
-assert(route.includes("router.post('/orders', auth"), 'Order creation must require authentication');
-assert(route.includes("router.get('/orders/:orderId/status', auth"), 'Order status must require authentication');
+assert(route.includes("router.post('/orders', createOrderRateLimiter, auth"), 'Order creation must require authentication after rate limiting');
+assert(route.includes("createApiRateLimiter({ limit: 8, windowMs: 60_000"), 'Order creation rate limit missing');
+assert(route.includes("router.get('/orders/:orderId/status', orderStatusRateLimiter, auth"), 'Order status must require authentication after rate limiting');
+assert(route.includes("createApiRateLimiter({ limit: 60, windowMs: 60_000"), 'Order status rate limit missing');
 assert(route.includes("gateway: 'milanpay'"), 'Orders must be marked with the MILAN Pay identifier');
 assert(route.includes("status: 'pending'"), 'New orders must start pending');
 assert(!/status:\s*['"]paid['"]/.test(route), 'Intent-only flow must never mark orders paid automatically');

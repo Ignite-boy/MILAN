@@ -3,6 +3,7 @@
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 const auth = require('../middleware/auth');
+const createApiRateLimiter = require('../middleware/apiRateLimiter');
 
 const router = express.Router();
 
@@ -10,6 +11,9 @@ const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
 );
+
+const submitUpgradeRequestLimiter = createApiRateLimiter({ limit: 6, windowMs: 60_000, maxBuckets: 10_000 });
+const adminStorageActionLimiter = createApiRateLimiter({ limit: 30, windowMs: 60_000, maxBuckets: 10_000 });
 
 const PLANS = {
   '500mb': { name: '500 MB', quotaBytes: 524288000, amountInr: 250 },
@@ -48,7 +52,7 @@ router.use((_req, res, next) => {
   next();
 });
 
-router.post('/upgrade-request', auth, async (req, res) => {
+router.post('/upgrade-request', submitUpgradeRequestLimiter, auth, async (req, res) => {
   try {
     const planKey = String(req.body?.plan || '').trim();
     const orderId = String(req.body?.orderId || '').trim();
@@ -195,7 +199,7 @@ router.get('/upgrade-status', auth, async (req, res) => {
   }
 });
 
-router.get('/admin/requests', adminRequired, async (_req, res) => {
+router.get('/admin/requests', adminStorageActionLimiter, adminRequired, async (_req, res) => {
   try {
     const { data, error } = await supabase
       .from('storage_upgrade_requests')
@@ -211,7 +215,7 @@ router.get('/admin/requests', adminRequired, async (_req, res) => {
   }
 });
 
-router.post('/admin/requests/:id/approve', adminRequired, async (req, res) => {
+router.post('/admin/requests/:id/approve', adminStorageActionLimiter, adminRequired, async (req, res) => {
   try {
     if (req.body?.bankVerified !== true) {
       return res.status(400).json({
@@ -248,7 +252,7 @@ router.post('/admin/requests/:id/approve', adminRequired, async (req, res) => {
   }
 });
 
-router.post('/admin/requests/:id/reject', adminRequired, async (req, res) => {
+router.post('/admin/requests/:id/reject', adminStorageActionLimiter, adminRequired, async (req, res) => {
   try {
     const requestId = String(req.params.id || '').trim();
     const note = String(req.body?.note || '').trim().slice(0, 500);

@@ -27,9 +27,22 @@ const checks = [
   ['MILAN Pay config endpoint exists', payRoute.includes("router.get('/config'")],
   ['Payment and storage verification responses are explicitly non-cacheable',
     storageRoute.includes("router.use((_req, res, next) => {\n  res.setHeader('Cache-Control', 'no-store');") &&
-    payRoute.includes("router.post('/orders', auth, async (req, res) => {\n  res.setHeader('Cache-Control', 'no-store');")],
-  ['Order creation requires authentication', payRoute.includes("router.post('/orders', auth")],
-  ['Order status endpoint requires authentication', payRoute.includes("router.get('/orders/:orderId/status', auth")],
+    payRoute.includes("router.post('/orders', createOrderRateLimiter, auth, async (req, res) => {\n  res.setHeader('Cache-Control', 'no-store');")],
+  ['Order creation requires authentication after rate limiting',
+    payRoute.includes("router.post('/orders', createOrderRateLimiter, auth")],
+  ['Order status endpoint requires authentication after rate limiting',
+    payRoute.includes("router.get('/orders/:orderId/status', orderStatusRateLimiter, auth")],
+  ['Order creation has an 8-per-minute route limit',
+    payRoute.includes("createApiRateLimiter({ limit: 8, windowMs: 60_000")],
+  ['Order status has a 60-per-minute route limit',
+    payRoute.includes("createApiRateLimiter({ limit: 60, windowMs: 60_000")],
+  ['UTR submission has a 6-per-minute route limit',
+    storageRoute.includes("createApiRateLimiter({ limit: 6, windowMs: 60_000") &&
+    storageRoute.includes("router.post('/upgrade-request', submitUpgradeRequestLimiter, auth")],
+  ['Admin storage actions have a 30-per-minute route limit',
+    storageRoute.includes("createApiRateLimiter({ limit: 30, windowMs: 60_000") &&
+    storageRoute.includes("router.post('/admin/requests/:id/approve', adminStorageActionLimiter, adminRequired") &&
+    storageRoute.includes("router.post('/admin/requests/:id/reject', adminStorageActionLimiter, adminRequired")],
   ['New orders start pending', payRoute.includes("status: 'pending'")],
   ['Order creation checks pending manual requests', payRoute.includes("from('storage_upgrade_requests')")],
   ['Storage request validates the order ID', storageRoute.includes("req.body?.orderId")],
