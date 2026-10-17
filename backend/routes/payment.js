@@ -50,7 +50,13 @@ function cashfreeWebhookUrl() {
   ).trim();
   try {
     const parsed = new URL(value);
-    if (parsed.protocol !== 'https:' || parsed.username || parsed.password) return '';
+    if (
+      parsed.protocol !== 'https:' ||
+      parsed.username ||
+      parsed.password ||
+      parsed.search ||
+      parsed.hash
+    ) return '';
     return parsed.toString();
   } catch {
     return '';
@@ -421,6 +427,12 @@ router.post('/create-order', createOrderRateLimiter, auth, async (req, res) => {
 
         if (['EXPIRED', 'TERMINATED'].includes(providerOrderStatus)) {
           const transactions = await getPayments(existing.order_id);
+          if (!Array.isArray(transactions)) {
+            return res.status(409).json({
+              error: 'Cashfree returned an unreadable payment list for this closed order. It was left pending for safe reconciliation.',
+              code: 'cashfree_payment_list_unavailable'
+            });
+          }
           const successPayment = findSuccessfulPayment(transactions);
 
           if (successPayment) {
