@@ -13,6 +13,23 @@ const syntaxOk = file => {
   return result.status === 0;
 };
 
+const runtimeLoadOk = file => {
+  const env = {
+    ...process.env,
+    SUPABASE_URL: 'https://cashfree-self-test.supabase.co',
+    SUPABASE_SERVICE_KEY: 'test-only-placeholder-key',
+    MILAN_PAY_SHARED_RATE_LIMIT_ENABLED: 'false'
+  };
+  const script = 'require(' + JSON.stringify(path.join(root, file)) + ');';
+  const result = spawnSync(process.execPath, ['-e', script], {
+    cwd: root,
+    env,
+    encoding: 'utf8'
+  });
+  if (result.status !== 0) console.error(result.stderr || result.error || ('Runtime load failed for ' + file));
+  return result.status === 0;
+};
+
 const server = read('backend/server.js');
 const adminRoute = read('backend/routes/admin.js');
 const adminPage = read('frontend/admin-users.html');
@@ -106,6 +123,11 @@ const checks = [
   ['Storage page links to MILAN Pay', storagePage.includes('/milan-pay?plan=')],
   ['Server and Cashfree route pass Node syntax checks',
     syntaxOk('backend/server.js') && syntaxOk('backend/routes/payment.js')],
+  ['Cashfree route loads with test-only environment values and no external calls',
+    runtimeLoadOk('backend/routes/payment.js')],
+  ['Storage plan selection is carried into the Cashfree checkout link',
+    storagePage.includes('id="cashfreeCheckoutLink"') &&
+    storagePage.includes('cashfreeCheckoutLink.href = "/storage-upgrade-cashfree.html?plan=" + encodeURIComponent(selected)')],
   ['Cashfree hosted-checkout route is mounted independently of MILAN Pay',
     server.includes("app.use('/api/payment', require('./routes/payment'))") &&
     server.includes("app.use('/api/milan-pay', require('./routes/milanPay'))")],
