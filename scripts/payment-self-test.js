@@ -142,6 +142,10 @@ const checks = [
     cashfreeRoute.includes("providerOrder.payment_session_id")],
   ['Cashfree provider requests have a bounded timeout',
     cashfreeRoute.includes('AbortSignal.timeout(12000)')],
+  ['Cashfree Preview uses its own deployment URL and cannot run live mode',
+    cashfreeRoute.includes('process.env.VERCEL_ENV === \'preview\'') &&
+    cashfreeRoute.includes('process.env.VERCEL_URL') &&
+    cashfreeRoute.includes('previewIsSandboxOnly')],
   ['Cashfree prevents charging for storage the account already has',
     cashfreeRoute.includes(".select('dwn_quota_bytes')") &&
     cashfreeRoute.includes('cashfree_storage_already_available_pending_order') &&
