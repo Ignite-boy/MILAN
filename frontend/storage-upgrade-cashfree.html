@@ -1044,7 +1044,15 @@ border-color:#8b5cf6;
       throw new Error(data.error || "Could not create payment order.");
     }
 
-    if (!data.orderId || !data.paymentSessionId) {
+    if (!data.orderId) {
+      throw new Error("Cashfree order ID was not returned.");
+    }
+
+    if (data.status === "paid" && data.alreadyPaid === true) {
+      return data;
+    }
+
+    if (!data.paymentSessionId) {
       throw new Error("Cashfree payment session was not returned.");
     }
 
@@ -1136,6 +1144,14 @@ border-color:#8b5cf6;
       initCashfree(config.environment);
 
       const order = await createOrder(phone);
+
+      if (order.status === "paid" && order.alreadyPaid === true) {
+        paymentComplete = true;
+        sessionStorage.removeItem("milanPaymentOrderId");
+        render();
+        setStatus("✅ Your earlier payment has been confirmed. Storage upgraded.");
+        return;
+      }
 
       sessionStorage.setItem("milanPaymentOrderId", order.orderId);
       render();
