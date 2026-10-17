@@ -33,7 +33,7 @@ The migration adds a Cashfree-only unique transaction-reference index, a service
 - [ ] Confirm the order becomes paid and quota changes once; re-delivery of the same signed webhook must be idempotent.
 - [ ] Verify wrong signatures, missing payment ID/amount, wrong currency, amount mismatches, and non-Cashfree order IDs do not activate storage.
 - [ ] Verify a failed payment attempt alone does not terminally fail the whole Cashfree order.
-- [ ] Test repeated order creation: one existing active pending order may be resumed; multiple/stale pending orders return a reconciliation response without creating a duplicate or deleting records.
+- [ ] Test pending-order recovery: resume an active provider order, verify and atomically activate a provider-paid order after a missed webhook, and require reconciliation for multiple/stale pending rows without deleting records.
 - [ ] Test two simultaneous checkout requests for the same account; the database reservation lock must allow at most one new pending Cashfree order.
 - [ ] Run `npm run test:payment`, `npm run test:milan-pay`, `npm run test:security`, and `npm run build`.
 
