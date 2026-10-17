@@ -466,7 +466,7 @@ router.post('/create-order', createOrderRateLimiter, auth, async (req, res) => {
             customer_phone: customerPhone
           },
           order_meta: {
-            return_url: BASE_URL + '/storage-upgrade-cashfree.html?payment=return&order_id={order_id}',
+            return_url: BASE_URL + '/storage-upgrade-cashfree.html?plan=' + encodeURIComponent(planKey) + '&payment=return&order_id={order_id}',
             notify_url: BASE_URL + '/api/payment/webhook'
           },
           order_note: 'MILAN Storage Upgrade - ' + plan.name
