@@ -23,6 +23,12 @@ const requiredFiles = [
   'backend/server.js',
   'backend/middleware/auth.js',
   'backend/services/cloudDwnRegistry.js',
+  'backend/services/dwnService.js',
+  'backend/services/signedMediaUrlCache.js',
+  'backend/routes/records.js',
+  'frontend/assets/js/inline-07.js',
+  'scripts/video-playback-self-test.js',
+  'docs/VIDEO_DELIVERY.md',
   'vercel.json',
   'Milan-Sentinel/scripts/run-matrix.js',
   'Milan-Sentinel/scripts/execute-case.js',
@@ -40,6 +46,8 @@ check(pkg && pkg.engines && pkg.engines.node && Number.parseInt(pkg.engines.node
   'Root package must declare Node.js 22+.');
 check(pkg && pkg.scripts && pkg.scripts.build === 'node scripts/verify-build.js',
   'Root build script must run the real repository integrity verifier.');
+check(pkg && pkg.scripts && pkg.scripts['test:video'] === 'node --test scripts/video-playback-self-test.js',
+  'Video delivery self-tests must be available through npm run test:video.');
 check(vercel && vercel.outputDirectory === 'frontend', 'Vercel outputDirectory must remain frontend/.');
 check(vercel && Array.isArray(vercel.rewrites) && !vercel.rewrites.some(rule => String(rule.destination || '').startsWith('/api/seo/')),
   'Vercel config contains rewrites to missing /api/seo/* functions.');
@@ -72,6 +80,11 @@ const syntaxCheckFiles = [
   'backend/server.js',
   'backend/middleware/auth.js',
   'backend/services/cloudDwnRegistry.js',
+  'backend/services/dwnService.js',
+  'backend/services/signedMediaUrlCache.js',
+  'backend/routes/records.js',
+  'frontend/assets/js/inline-07.js',
+  'scripts/video-playback-self-test.js',
   'backend/routes/isolatedDwn.js',
   'Milan-Sentinel/scripts/run-matrix.js',
   'Milan-Sentinel/scripts/execute-case.js',

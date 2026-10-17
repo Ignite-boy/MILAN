@@ -878,14 +878,16 @@ router.get('/:id/media/playback-url', auth, async (req, res) => {
 
     const playback = await dwnStore.getDirectMediaPlaybackUrl(
       req.params.id,
-      u.user.did
+      u.user.did,
+      { forceRefresh: String(req.query.refresh || '') === '1' }
     );
     res.setHeader('Cache-Control', 'private, no-store, max-age=0');
     res.setHeader('Pragma', 'no-cache');
     return res.json({
       ok: true,
       url: playback.url,
-      expiresIn: playback.expiresIn || 3600
+      expiresIn: playback.expiresIn || 3600,
+      contentVersion: playback.contentVersion || ''
     });
   } catch (err) {
     return handleError(res, err);
