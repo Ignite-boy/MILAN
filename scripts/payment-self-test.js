@@ -140,6 +140,12 @@ const checks = [
   ['Cashfree order creation blocks duplicate pending orders and attempts safe resume',
     cashfreeRoute.includes("cashfree_pending_orders_reconciliation_required") &&
     cashfreeRoute.includes("providerOrder.payment_session_id")],
+  ['Cashfree provider requests have a bounded timeout',
+    cashfreeRoute.includes('AbortSignal.timeout(12000)')],
+  ['Cashfree prevents charging for storage the account already has',
+    cashfreeRoute.includes(".select('dwn_quota_bytes')") &&
+    cashfreeRoute.includes('cashfree_storage_already_available_pending_order') &&
+    cashfreeRoute.includes('cashfree_storage_already_available')],
   ['Cashfree quota activation is atomic and calls a restricted RPC',
     cashfreeRoute.includes("'confirm_cashfree_storage_payment'") &&
     cashfreeMigration.includes('SECURITY DEFINER') &&
@@ -154,11 +160,14 @@ const checks = [
   ['Cashfree webhook captures exact raw body before route handling',
     server.includes("req.rawBody = buf.toString('utf8')") &&
     server.indexOf("req.rawBody = buf.toString('utf8')") < server.indexOf("app.use('/api/payment', require('./routes/payment'))")],
-  ['Cashfree webhook requires payment SUCCESS, ID and actual amount',
+  ['Cashfree webhook requires payment SUCCESS, ID, amount and explicit INR currency',
     cashfreeRoute.includes("if (paymentStatus !== 'SUCCESS')") &&
     cashfreeRoute.includes("Number(payment?.payment_amount)") &&
+    cashfreeRoute.includes("currency !== 'INR'") &&
     cashfreeRoute.includes("paymentId") &&
     !cashfreeRoute.includes("orderEntity?.order_amount")],
+  ['Cashfree verification requires explicit INR currency',
+    cashfreeRoute.includes("String(payment.payment_currency || '').trim().toUpperCase() === 'INR'")],
   ['Failed Cashfree payment attempts are not treated as terminal failed orders',
     cashfreeRoute.slice(cashfreeRoute.indexOf("router.post('/webhook'")).includes("Do not mark the order terminally failed") &&
     !cashfreeRoute.slice(cashfreeRoute.indexOf("router.post('/webhook'")).includes(".update({")],
@@ -167,6 +176,13 @@ const checks = [
     env.includes('CASHFREE_CLIENT_ID=') &&
     env.includes('CASHFREE_CLIENT_SECRET=') &&
     env.includes('CASHFREE_API_VERSION=2025-01-01')],
+  ['Cashfree status can be rechecked without creating a new order',
+    cashfreePage.includes('id="checkStatusButton"') &&
+    cashfreePage.includes('checkStatusButton.addEventListener') &&
+    cashfreePage.includes('orderToRecover()')],
+  ['Cashfree checkout copy does not direct customers to enter a UTR or wait for manual approval',
+    !cashfreePage.includes('<h3>Enter your UTR</h3>') &&
+    cashfreePage.includes('<h3>Automatic verification</h3>')],
   ['Cashfree SDK domains are included in server CSP',
     server.includes('https://sdk.cashfree.com') &&
     server.includes('https://*.cashfree.com')],
@@ -215,5 +231,5 @@ if (failed) {
   console.log('Some MILAN Pay integration checks failed.');
   process.exitCode = 1;
 } else {
-  console.log('All MILAN Pay manual-verification integration checks passed.');
+  console.log('All Cashfree and legacy MILAN Pay integration checks passed.');
 }
