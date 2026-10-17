@@ -184,8 +184,12 @@ const checks = [
     normalizeCashfreePhone('12345') === null &&
     cashfreeRoute.includes("require('../../frontend/assets/js/cashfree-phone.js')") &&
     cashfreePage.includes('src="/assets/js/cashfree-phone.js"')],
-  ['Cashfree order creation sends an idempotency key tied to the MILAN order ID',
-    cashfreeRoute.includes("headers: { 'x-idempotency-key': orderId }")],
+  ['Cashfree order creation sends a stable UUID idempotency key tied to the MILAN order ID',
+    cashfreeRoute.includes("headers: { 'x-idempotency-key': cashfreeIdempotencyKey(orderId) }") &&
+    cashfreeRoute.includes("function cashfreeIdempotencyKey(orderId)") &&
+    cashfreeRoute.includes("digest[6] = (digest[6] & 0x0f) | 0x50") &&
+    cashfreeRoute.includes("digest[8] = (digest[8] & 0x3f) | 0x80") &&
+    cashfreeRoute.includes("crypto.createHash('sha1')")],
   ['Cashfree Preview uses its own deployment URL and cannot run live mode',
     cashfreeRoute.includes('process.env.VERCEL_ENV === \'preview\'') &&
     cashfreeRoute.includes('process.env.VERCEL_URL') &&
