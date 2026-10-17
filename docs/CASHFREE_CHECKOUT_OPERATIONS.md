@@ -12,7 +12,7 @@ Set these values in the hosting provider's secret manager, never in frontend cod
 
 The configured environment must be exactly `sandbox` or `production`. Vercel Preview deployments are sandbox-only and use their own `VERCEL_URL` as the Cashfree return/webhook host, avoiding cross-environment callbacks to the production domain. The `/api/payment/config` endpoint returns only the client ID and public plan details; it never returns the client secret.
 
-The checkout supports the server-defined 500 MB plan for ₹250 and 1 GB plan for ₹500. Prices are deliberately fixed in both application code and the atomic database function. Do not change only one side of that contract.
+The checkout supports the server-defined 500 MB plan for ₹250 and 1 GB plan for ₹500. Prices are deliberately fixed in both application code and the atomic database function. Do not change only one side of that contract. Cashfree's `customer_phone` contract is 10 digits; checkout accepts 10 digits, strips a `+91` prefix or leading `0`, and rejects unsupported lengths before order creation. Customer names are sanitized before being sent to Cashfree.
 
 ## Before applying the database migration
 
@@ -34,6 +34,7 @@ The migration adds a Cashfree-only unique transaction-reference index, a service
 - [ ] Verify wrong signatures, missing payment ID/amount, wrong currency, amount mismatches, and non-Cashfree order IDs do not activate storage.
 - [ ] Verify a failed payment attempt alone does not terminally fail the whole Cashfree order.
 - [ ] Test pending-order recovery: resume an active provider order, verify and atomically activate a provider-paid order after a missed webhook, and require reconciliation for multiple/stale pending rows without deleting records.
+- [ ] Verify an `EXPIRED` or `TERMINATED` Cashfree order is marked failed only after the provider payment list has no `SUCCESS` or `PENDING` payment; the customer can then create a new order without stale return URL parameters.
 - [ ] Test two simultaneous checkout requests for the same account; the database reservation lock must allow at most one new pending Cashfree order.
 - [ ] Run `npm run test:payment`, `npm run test:milan-pay`, `npm run test:security`, and `npm run build`.
 
