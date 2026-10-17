@@ -146,6 +146,9 @@ const checks = [
     cashfreeRoute.includes("const transactions = await getPayments(existing.order_id)") &&
     cashfreeRoute.includes("code: 'cashfree_paid_order_recovery_failed'") &&
     cashfreePage.includes('data.status === "paid" && data.alreadyPaid === true')],
+  ['Cashfree return URL preserves the selected plan for accurate order recovery',
+    cashfreeRoute.includes("return_url: BASE_URL + '/storage-upgrade-cashfree.html?plan=' + encodeURIComponent(planKey)") &&
+    cashfreeRoute.includes("&payment=return&order_id={order_id}")],
   ['Cashfree provider requests have a bounded timeout',
     cashfreeRoute.includes('AbortSignal.timeout(12000)')],
   ['Cashfree Preview uses its own deployment URL and cannot run live mode',
