@@ -141,11 +141,16 @@ const checks = [
     cashfreeRoute.includes("cashfree_pending_orders_reconciliation_required") &&
     cashfreeRoute.includes("providerOrder.payment_session_id") &&
     cashfreeRoute.includes(".limit(2)")],
-  ['Cashfree recovers provider-paid pending orders after a missed webhook',
+  ['Cashfree recovers provider-paid pending orders after a missed webhook before unpaid-order guards',
     cashfreeRoute.includes("order_status || '').toUpperCase() === 'PAID'") &&
     cashfreeRoute.includes("const transactions = await getPayments(existing.order_id)") &&
     cashfreeRoute.includes("code: 'cashfree_paid_order_recovery_failed'") &&
-    cashfreePage.includes('data.status === "paid" && data.alreadyPaid === true')],
+    cashfreeRoute.indexOf("order_status || '').toUpperCase() === 'PAID'") <
+      cashfreeRoute.indexOf("if (existing.plan !== planKey") &&
+    cashfreeRoute.indexOf("order_status || '').toUpperCase() === 'PAID'") <
+      cashfreeRoute.indexOf("if (currentQuotaBytes >= plan.quotaBytes)") &&
+    cashfreePage.includes('data.status === "paid" && data.alreadyPaid === true') &&
+    cashfreePage.includes('selected = order.plan')],
   ['Cashfree return URL preserves the selected plan for accurate order recovery',
     cashfreeRoute.includes("return_url: BASE_URL + '/storage-upgrade-cashfree.html?plan=' + encodeURIComponent(planKey)") &&
     cashfreeRoute.includes("&payment=return&order_id={order_id}")],
