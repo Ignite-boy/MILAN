@@ -343,6 +343,47 @@ router.post('/create-order', createOrderRateLimiter, auth, async (req, res) => {
           '/orders/' + encodeURIComponent(existing.order_id),
           { method: 'GET' }
         );
+        if (String(providerOrder?.order_status || '').toUpperCase() === 'PAID') {
+          // Recover the webhook-late case by verifying the provider's actual payment
+          // record; never infer that money was collected from order status alone.
+          const transactions = await getPayments(existing.order_id);
+          const successPayment = (Array.isArray(transactions) ? transactions : []).find(payment =>
+            String(payment.payment_status || '').toUpperCase() === 'SUCCESS' &&
+            String(payment.cf_payment_id || '').trim() &&
+            payment.payment_amount !== undefined &&
+            payment.payment_amount !== null &&
+            Number.isFinite(Number(payment.payment_amount)) &&
+            Number(payment.payment_amount) > 0 &&
+            String(payment.payment_currency || '').trim().toUpperCase() === 'INR'
+          );
+
+          if (successPayment) {
+            const activation = await activatePaidOrder({
+              orderId: existing.order_id,
+              paymentId: String(successPayment.cf_payment_id).trim(),
+              amountInr: Number(successPayment.payment_amount)
+            });
+
+            if (!activation.ok) {
+              return res.status(activation.status || 409).json({
+                error: activation.error || 'Cashfree payment recovery needs reconciliation.',
+                code: 'cashfree_paid_order_recovery_failed'
+              });
+            }
+
+            return res.json({
+              ok: true,
+              alreadyPaid: true,
+              status: 'paid',
+              orderId: existing.order_id,
+              plan: planKey,
+              name: plan.name,
+              amountInr: plan.amountInr,
+              currency: 'INR'
+            });
+          }
+        }
+
         if (
           String(providerOrder?.order_status || '').toUpperCase() === 'ACTIVE' &&
           String(providerOrder?.order_currency || '').toUpperCase() === 'INR' &&
