@@ -618,6 +618,7 @@ border-color:#8b5cf6;
 }
 </style>
   <link rel="stylesheet" href="/milan-core.css?v=20261009-ux2">
+  <script src="/assets/js/cashfree-phone.js"></script>
   <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
 </head>
 
@@ -963,12 +964,7 @@ border-color:#8b5cf6;
     updateCheckStatusButton();
   }
 
-  function normalizePhone(value) {
-    let digits = String(value || "").replace(/\D/g, "");
-    if (digits.length === 12 && digits.startsWith("91")) digits = digits.slice(2);
-    else if (digits.length === 11 && digits.startsWith("0")) digits = digits.slice(1);
-    return /^\d{10}$/.test(digits) ? digits : "";
-  }
+  const normalizePhone = window.MilanNormalizeCashfreePhone || (() => null);
 
   function render() {
     const plan = plans[selected];
