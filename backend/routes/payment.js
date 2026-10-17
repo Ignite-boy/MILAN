@@ -43,6 +43,20 @@ const BASE_URL = String(
   'https://milanlife.in'
 ).replace(/\/+$/, '');
 
+function cashfreeWebhookUrl() {
+  const value = String(
+    process.env.CASHFREE_WEBHOOK_URL ||
+    (BASE_URL + '/api/payment/webhook')
+  ).trim();
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== 'https:' || parsed.username || parsed.password) return '';
+    return parsed.toString();
+  } catch {
+    return '';
+  }
+}
+
 const CASHFREE_ENVIRONMENT =
   String(process.env.CASHFREE_ENVIRONMENT || 'sandbox').trim().toLowerCase();
 
@@ -84,7 +98,8 @@ function webhookSecret() {
 function configured() {
   const supportedEnvironment = CASHFREE_ENVIRONMENT === 'sandbox' || CASHFREE_ENVIRONMENT === 'production';
   const previewIsSandboxOnly = process.env.VERCEL_ENV !== 'preview' || CASHFREE_ENVIRONMENT === 'sandbox';
-  return supportedEnvironment && previewIsSandboxOnly && Boolean(clientId() && clientSecret());
+  return supportedEnvironment && previewIsSandboxOnly &&
+    Boolean(clientId() && clientSecret() && cashfreeWebhookUrl());
 }
 
 function safeEqual(a, b) {
@@ -564,7 +579,7 @@ router.post('/create-order', createOrderRateLimiter, auth, async (req, res) => {
           },
           order_meta: {
             return_url: BASE_URL + '/storage-upgrade-cashfree.html?plan=' + encodeURIComponent(planKey) + '&payment=return&order_id={order_id}',
-            notify_url: BASE_URL + '/api/payment/webhook'
+            notify_url: cashfreeWebhookUrl()
           },
           order_note: 'MILAN Storage Upgrade - ' + plan.name
         })
