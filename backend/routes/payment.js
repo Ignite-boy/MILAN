@@ -384,20 +384,29 @@ router.post('/create-order', createOrderRateLimiter, auth, async (req, res) => {
     }
 
     orderId = createOrderId(req.account.id);
-    const { error: insertError } = await supabase
-      .from('payment_orders')
-      .insert({
-        user_id: req.account.id,
-        order_id: orderId,
-        plan: planKey,
-        amount_inr: plan.amountInr,
-        status: 'pending',
-        gateway: 'cashfree'
-      });
+    const { data: reservation, error: reservationError } = await supabase.rpc(
+      'reserve_cashfree_storage_order',
+      {
+        p_user_id: String(req.account.id),
+        p_order_id: orderId,
+        p_plan: planKey,
+        p_amount_inr: plan.amountInr
+      }
+    );
 
-    if (insertError) {
-      console.error('[payment] Supabase order insert failed:', insertError.message);
-      return res.status(500).json({ error: 'Could not save the payment order.' });
+    if (reservationError) {
+      console.error('[payment] Atomic Cashfree order reservation failed:', reservationError.message);
+      return res.status(503).json({
+        error: 'Cashfree order storage is not ready. No checkout was started.',
+        code: 'cashfree_order_reservation_unavailable'
+      });
+    }
+
+    if (!reservation || reservation.ok !== true) {
+      return res.status(Number(reservation?.httpStatus) || 409).json({
+        error: String(reservation?.error || 'The Cashfree order could not be reserved.'),
+        code: String(reservation?.code || 'cashfree_order_reservation_rejected')
+      });
     }
 
     let cashfreeOrder;
