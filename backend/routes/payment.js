@@ -326,16 +326,11 @@ router.post('/create-order', createOrderRateLimiter, auth, async (req, res) => {
 
     if ((pendingOrders || []).length === 1) {
       const existing = pendingOrders[0];
-      if (currentQuotaBytes >= plan.quotaBytes) {
+      const existingPlan = PLANS[existing.plan];
+      if (!existingPlan || Number(existing.amount_inr) !== existingPlan.amountInr) {
         return res.status(409).json({
-          error: 'Your account already has this storage capacity or more. An existing pending order needs reconciliation before any further payment.',
-          code: 'cashfree_storage_already_available_pending_order'
-        });
-      }
-      if (existing.plan !== planKey || Number(existing.amount_inr) !== plan.amountInr) {
-        return res.status(409).json({
-          error: 'A pending Cashfree order exists for a different plan. Complete or reconcile it before starting another checkout.',
-          code: 'cashfree_pending_order_plan_mismatch'
+          error: 'The existing pending Cashfree order has invalid plan or amount data and needs reconciliation.',
+          code: 'cashfree_pending_order_data_mismatch'
         });
       }
 
@@ -344,6 +339,7 @@ router.post('/create-order', createOrderRateLimiter, auth, async (req, res) => {
           '/orders/' + encodeURIComponent(existing.order_id),
           { method: 'GET' }
         );
+
         if (String(providerOrder?.order_status || '').toUpperCase() === 'PAID') {
           // Recover the webhook-late case by verifying the provider's actual payment
           // record; never infer that money was collected from order status alone.
@@ -377,18 +373,32 @@ router.post('/create-order', createOrderRateLimiter, auth, async (req, res) => {
               alreadyPaid: true,
               status: 'paid',
               orderId: existing.order_id,
-              plan: planKey,
-              name: plan.name,
-              amountInr: plan.amountInr,
+              plan: existing.plan,
+              name: existingPlan.name,
+              amountInr: existingPlan.amountInr,
               currency: 'INR'
             });
           }
         }
 
+        if (existing.plan !== planKey || Number(existing.amount_inr) !== plan.amountInr) {
+          return res.status(409).json({
+            error: 'A pending Cashfree order exists for a different plan. Complete or reconcile it before starting another checkout.',
+            code: 'cashfree_pending_order_plan_mismatch'
+          });
+        }
+
+        if (currentQuotaBytes >= plan.quotaBytes) {
+          return res.status(409).json({
+            error: 'Your account already has this storage capacity or more. An existing pending order needs reconciliation before any further payment.',
+            code: 'cashfree_storage_already_available_pending_order'
+          });
+        }
+
         if (
           String(providerOrder?.order_status || '').toUpperCase() === 'ACTIVE' &&
           String(providerOrder?.order_currency || '').toUpperCase() === 'INR' &&
-          Number(providerOrder?.order_amount) === plan.amountInr &&
+          Number(providerOrder?.order_amount) === existingPlan.amountInr &&
           typeof providerOrder?.payment_session_id === 'string' &&
           providerOrder.payment_session_id.trim()
         ) {
@@ -398,9 +408,9 @@ router.post('/create-order', createOrderRateLimiter, auth, async (req, res) => {
             orderId: existing.order_id,
             paymentSessionId: providerOrder.payment_session_id,
             paymentSessionIdAlias: providerOrder.payment_session_id,
-            plan: planKey,
-            name: plan.name,
-            amountInr: plan.amountInr,
+            plan: existing.plan,
+            name: existingPlan.name,
+            amountInr: existingPlan.amountInr,
             currency: 'INR',
             environment: CASHFREE_ENVIRONMENT,
             clientId: clientId()
