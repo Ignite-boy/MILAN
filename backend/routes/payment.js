@@ -161,6 +161,36 @@ async function getPayments(orderId) {
   );
 }
 
+function findSuccessfulPayment(payments) {
+  const transactions = Array.isArray(payments) ? payments : [];
+  return transactions.find(payment =>
+    String(payment.payment_status || '').toUpperCase() === 'SUCCESS' &&
+    String(payment.cf_payment_id || '').trim() &&
+    payment.payment_amount !== undefined &&
+    payment.payment_amount !== null &&
+    Number.isFinite(Number(payment.payment_amount)) &&
+    Number(payment.payment_amount) > 0 &&
+    String(payment.payment_currency || '').trim().toUpperCase() === 'INR'
+  ) || null;
+}
+
+function hasPendingPaymentAttempt(payments) {
+  return Array.isArray(payments) && payments.some(payment =>
+    String(payment.payment_status || '').toUpperCase() === 'PENDING'
+  );
+}
+
+function normalizeCustomerName(value) {
+  const name = String(value || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 100);
+  return name || 'MILAN User';
+}
+
 async function activatePaidOrder({ orderId, paymentId, amountInr }) {
   const normalizedOrderId = String(orderId || '').trim();
   const normalizedPaymentId = String(paymentId || '').trim();
@@ -469,7 +499,7 @@ router.post('/create-order', createOrderRateLimiter, auth, async (req, res) => {
           order_id: orderId,
           customer_details: {
             customer_id: String(req.account.id),
-            customer_name: String(req.account.name || 'MILAN User').slice(0, 100),
+            customer_name: normalizeCustomerName(req.account.name),
             customer_email: String(req.account.email || '').slice(0, 100),
             customer_phone: customerPhone
           },
