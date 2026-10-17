@@ -71,3 +71,43 @@ The current UPI intent/QR protocol does not provide a trusted server-to-server s
 Only after those are available should an adapter be implemented with: authenticated signature/mTLS verification as required by the bank, strict amount/currency/order/reference matching, idempotent duplicate event handling, replay protection, pending/failed/paid state transitions inside a transaction, reconciliation jobs for delayed callbacks, secure audit logs, and alerting. No endpoint should accept a client-supplied `bankVerified` value as proof of settlement.
 
 Until that integration exists, report automatic confirmation as **not available** and keep manual bank verification fail-closed. This is a genuine external dependency, not something a code-only change can safely fake.
+
+## 6. Shared API rate limiting rollout and rollback
+
+Sensitive payment and storage routes support an optional shared PostgreSQL rate limiter. Until explicitly enabled, they continue using the existing process-local limiter.
+
+Configured per-IP, per-route limits:
+- MILAN Pay order creation: 8 requests per 60 seconds.
+- MILAN Pay order status: 60 requests per 60 seconds.
+- Storage upgrade / UTR submission: 6 requests per 60 seconds.
+- Admin storage actions: 30 requests per 60 seconds.
+
+### Prerequisites
+
+1. Review `backend/migrations/20261017_distributed_api_rate_limit.sql` against the intended production Supabase project before applying it.
+2. Apply the migration through the production Supabase SQL Editor using an appropriately privileged database role. Do not execute it against an unverified project.
+3. Verify that `public.api_rate_limit_buckets` exists, RLS is enabled, and the `public.consume_api_rate_limit(text, integer, integer)` function exists.
+4. Verify permissions: `anon` and `authenticated` must not execute the RPC or access the bucket table directly. Only `service_role` should receive the RPC execute grant; the function owner must retain the required table access.
+5. Generate a random HMAC secret with at least 32 characters using a secure local generator. Store it in Vercel's Production environment as `MILAN_PAY_RATE_LIMIT_HMAC_SECRET`. Never commit it or paste it into chat, logs, issues, or this runbook.
+6. Keep `MILAN_PAY_SHARED_RATE_LIMIT_ENABLED=false` or unset while deploying the reviewed code and verifying the migration and secret configuration.
+
+### Controlled enablement
+
+1. Confirm the migration and permissions checks passed, and that the deployed code contains the shared middleware.
+2. Set `MILAN_PAY_RATE_LIMIT_HMAC_SECRET` and `MILAN_PAY_SHARED_RATE_LIMIT_ENABLED=true` in the intended Vercel Production environment, then trigger a production deployment so the function runtime receives those values.
+3. Verify a normal unauthenticated request to a protected endpoint is still rejected by authentication, while the response includes rate-limit headers. Do not perform repeated high-volume tests on the live production domain.
+4. Validate threshold and cross-instance behavior in a staging environment or with an approved low-impact test plan. Mocked unit tests alone do not establish that the production PostgreSQL RPC works.
+5. Monitor HTTP 429 and 503 responses, Supabase RPC/database errors, latency, and table growth. A 503 in shared mode means the limiter could not validate the request; it must not be bypassed.
+
+The middleware uses an HMAC-derived key, not the raw IP, in database rows. The secret must remain stable during normal operation; rotating it creates new bucket identities and should be planned. Validate that Express `req.ip` represents the intended client address behind Vercel's proxy before relying on per-IP limits.
+
+### Rollback
+
+If shared rate limiting causes unexpected 503s or database errors:
+
+1. Set `MILAN_PAY_SHARED_RATE_LIMIT_ENABLED=false` in the Production environment and redeploy.
+2. Confirm that protected endpoints return to the existing process-local rate limiter and retain authentication checks.
+3. Keep the migration table and function in place during investigation. Do not drop them as an emergency rollback.
+4. Investigate database connectivity, RPC permissions, the configured HMAC secret, proxy/IP behavior, and rate-limit latency before attempting enablement again.
+
+Turning the flag off restores local per-instance limits; it does not provide distributed enforcement. Keep the existing global API limiter and the route authentication middleware in place throughout rollback and recovery.

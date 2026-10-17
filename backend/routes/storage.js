@@ -3,7 +3,7 @@
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 const auth = require('../middleware/auth');
-const createApiRateLimiter = require('../middleware/apiRateLimiter');
+const createDistributedApiRateLimiter = require('../middleware/distributedApiRateLimiter');
 
 const router = express.Router();
 
@@ -12,8 +12,9 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 );
 
-const submitUpgradeRequestLimiter = createApiRateLimiter({ limit: 6, windowMs: 60_000, maxBuckets: 10_000 });
-const adminStorageActionLimiter = createApiRateLimiter({ limit: 30, windowMs: 60_000, maxBuckets: 10_000 });
+const submitUpgradeRequestLimiter = createDistributedApiRateLimiter({ limit: 6, windowMs: 60_000, scope: 'storage-upgrade-request', supabase });
+const adminStorageActionLimiter = createDistributedApiRateLimiter({ limit: 30, windowMs: 60_000, scope: 'storage-admin-actions', supabase });
+
 
 const PLANS = {
   '500mb': { name: '500 MB', quotaBytes: 524288000, amountInr: 250 },

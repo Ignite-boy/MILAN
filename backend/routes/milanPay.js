@@ -5,16 +5,17 @@ const crypto = require('crypto');
 const QRCode = require('qrcode');
 const auth = require('../middleware/auth');
 const { createClient } = require('@supabase/supabase-js');
-const createApiRateLimiter = require('../middleware/apiRateLimiter');
+const createDistributedApiRateLimiter = require('../middleware/distributedApiRateLimiter');
 
 const router = express.Router();
 
-const createOrderRateLimiter = createApiRateLimiter({ limit: 8, windowMs: 60_000, maxBuckets: 10_000 });
-const orderStatusRateLimiter = createApiRateLimiter({ limit: 60, windowMs: 60_000, maxBuckets: 10_000 });
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
 );
+
+const createOrderRateLimiter = createDistributedApiRateLimiter({ limit: 8, windowMs: 60_000, scope: 'milan-pay-order-create', supabase });
+const orderStatusRateLimiter = createDistributedApiRateLimiter({ limit: 60, windowMs: 60_000, scope: 'milan-pay-order-status', supabase });
 
 const PLANS = {
   '500mb': { name: '500 MB Storage', amountInr: 250 },

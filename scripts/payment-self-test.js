@@ -33,14 +33,14 @@ const checks = [
   ['Order status endpoint requires authentication after rate limiting',
     payRoute.includes("router.get('/orders/:orderId/status', orderStatusRateLimiter, auth")],
   ['Order creation has an 8-per-minute route limit',
-    payRoute.includes("createApiRateLimiter({ limit: 8, windowMs: 60_000")],
+    payRoute.includes("createDistributedApiRateLimiter({ limit: 8, windowMs: 60_000")],
   ['Order status has a 60-per-minute route limit',
-    payRoute.includes("createApiRateLimiter({ limit: 60, windowMs: 60_000")],
+    payRoute.includes("createDistributedApiRateLimiter({ limit: 60, windowMs: 60_000")],
   ['UTR submission has a 6-per-minute route limit',
-    storageRoute.includes("createApiRateLimiter({ limit: 6, windowMs: 60_000") &&
+    storageRoute.includes("createDistributedApiRateLimiter({ limit: 6, windowMs: 60_000") &&
     storageRoute.includes("router.post('/upgrade-request', submitUpgradeRequestLimiter, auth")],
   ['Admin storage actions have a 30-per-minute route limit',
-    storageRoute.includes("createApiRateLimiter({ limit: 30, windowMs: 60_000") &&
+    storageRoute.includes("createDistributedApiRateLimiter({ limit: 30, windowMs: 60_000") &&
     storageRoute.includes("router.post('/admin/requests/:id/approve', adminStorageActionLimiter, adminRequired") &&
     storageRoute.includes("router.post('/admin/requests/:id/reject', adminStorageActionLimiter, adminRequired")],
   ['New orders start pending', payRoute.includes("status: 'pending'")],
