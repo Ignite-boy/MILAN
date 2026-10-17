@@ -12,6 +12,7 @@ function assert(condition, message) {
 const server = fs.readFileSync('backend/server.js', 'utf8');
 const storagePage = fs.readFileSync('frontend/storage-upgrade.html', 'utf8');
 const cashfreePage = fs.readFileSync('frontend/storage-upgrade-cashfree.html', 'utf8');
+const mobileNav = fs.readFileSync('frontend/milan-mobile.js', 'utf8');
 
 assert(!server.includes("app.use('/api/milan-pay', require('./routes/milanPay'));"),
   'MILAN Pay API is not mounted');
@@ -23,6 +24,12 @@ assert(storagePage.includes('/storage-upgrade-cashfree.html?plan='),
   'Storage upgrade opens Cashfree checkout');
 assert(!storagePage.includes('/milan-pay'),
   'Storage upgrade contains no MILAN Pay checkout link');
+assert(mobileNav.includes('href="/storage-upgrade.html#payment">💳 Payment Update'),
+  'Mobile hamburger Payment Update opens the Cashfree payment section');
+assert(!/MILAN Pay|Direct UPI|Manual bank verification/.test(storagePage),
+  'Storage upgrade page contains no stale MILAN Pay or manual-UPI messaging');
+assert(storagePage.includes('Cashfree hosted checkout') && storagePage.includes('server-side payment verification'),
+  'Storage upgrade clearly identifies Cashfree and server-side verification');
 assert(cashfreePage.includes('https://sdk.cashfree.com/js/v3/cashfree.js'),
   'Cashfree hosted checkout SDK remains configured');
 assert(fs.existsSync('backend/routes/milanPay.js'),
