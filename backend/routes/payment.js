@@ -115,8 +115,11 @@ function safeEqual(a, b) {
 }
 
 function createOrderId(userId) {
+  const safeUser = String(userId || 'USER')
+    .replace(/[^A-Za-z0-9_-]/g, '')
+    .slice(0, 8) || 'USER';
   return 'MLN-' +
-    String(userId).slice(0, 8) +
+    safeUser +
     '-' +
     Date.now().toString(36) +
     '-' +
@@ -592,6 +595,7 @@ router.post('/create-order', createOrderRateLimiter, auth, async (req, res) => {
       });
     }
 
+    const customerEmail = String(req.account.email || '').trim().slice(0, 100);
     let cashfreeOrder;
     try {
       cashfreeOrder = await cashfreeRequest('/orders', {
@@ -605,7 +609,7 @@ router.post('/create-order', createOrderRateLimiter, auth, async (req, res) => {
           customer_details: {
             customer_id: String(req.account.id),
             customer_name: normalizeCustomerName(req.account.name),
-            customer_email: String(req.account.email || '').slice(0, 100),
+            ...(customerEmail ? { customer_email: customerEmail } : {}),
             customer_phone: customerPhone
           },
           order_meta: {
