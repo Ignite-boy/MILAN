@@ -10,7 +10,7 @@ Set these values in the hosting provider's secret manager, never in frontend cod
 - `CASHFREE_CLIENT_ID` and `CASHFREE_CLIENT_SECRET` from the Cashfree sandbox dashboard.
 - `CASHFREE_API_VERSION=2025-01-01`.
 
-The configured environment must be exactly `sandbox` or `production`. The `/api/payment/config` endpoint returns only the client ID and public plan details; it never returns the client secret.
+The configured environment must be exactly `sandbox` or `production`. Vercel Preview deployments are sandbox-only and use their own `VERCEL_URL` as the Cashfree return/webhook host, avoiding cross-environment callbacks to the production domain. The `/api/payment/config` endpoint returns only the client ID and public plan details; it never returns the client secret.
 
 The checkout supports the server-defined 500 MB plan for ₹250 and 1 GB plan for ₹500. Prices are deliberately fixed in both application code and the atomic database function. Do not change only one side of that contract.
 
