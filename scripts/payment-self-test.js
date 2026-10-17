@@ -140,6 +140,11 @@ const checks = [
   ['Cashfree order creation blocks duplicate pending orders and attempts safe resume',
     cashfreeRoute.includes("cashfree_pending_orders_reconciliation_required") &&
     cashfreeRoute.includes("providerOrder.payment_session_id")],
+  ['Cashfree recovers provider-paid pending orders after a missed webhook',
+    cashfreeRoute.includes("order_status || '').toUpperCase() === 'PAID'") &&
+    cashfreeRoute.includes("const transactions = await getPayments(existing.order_id)") &&
+    cashfreeRoute.includes("code: 'cashfree_paid_order_recovery_failed'") &&
+    cashfreePage.includes('data.status === "paid" && data.alreadyPaid === true')],
   ['Cashfree provider requests have a bounded timeout',
     cashfreeRoute.includes('AbortSignal.timeout(12000)')],
   ['Cashfree Preview uses its own deployment URL and cannot run live mode',
