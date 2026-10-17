@@ -150,6 +150,12 @@ const checks = [
     cashfreeRoute.includes(".select('dwn_quota_bytes')") &&
     cashfreeRoute.includes('cashfree_storage_already_available_pending_order') &&
     cashfreeRoute.includes('cashfree_storage_already_available')],
+  ['Cashfree order creation reserves orders in an atomic user-row-locked RPC',
+    cashfreeRoute.includes("'reserve_cashfree_storage_order'") &&
+    cashfreeMigration.includes('CREATE OR REPLACE FUNCTION public.reserve_cashfree_storage_order') &&
+    cashfreeMigration.includes('FOR UPDATE') &&
+    cashfreeMigration.includes("status = 'pending'") &&
+    cashfreeMigration.includes('TO service_role')],
   ['Cashfree quota activation is atomic and calls a restricted RPC',
     cashfreeRoute.includes("'confirm_cashfree_storage_payment'") &&
     cashfreeMigration.includes('SECURITY DEFINER') &&
