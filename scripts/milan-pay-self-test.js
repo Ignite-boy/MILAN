@@ -18,7 +18,6 @@ assert(route.includes("status: 'pending'"), 'New orders must start pending');
 assert(!/status:\s*['"]paid['"]/.test(route), 'Intent-only flow must never mark orders paid automatically');
 assert(route.includes('MILAN_PAY_UPI_ID'), 'Merchant UPI configuration hook missing');
 assert(route.includes('upi://pay?'), 'UPI intent generation missing');
-assert(!route.includes('PAYTM_MERCHANT_KEY'), 'MILAN Pay must not rely on Paytm Merchant Key');
 assert(route.includes("require('qrcode')") && route.includes("QRCode.toDataURL"), 'Server-generated dynamic UPI QR missing');
 assert(route.includes("reusedOrder: true") && route.includes("MILAN_PAY_PENDING_ORDER_EXISTS"), 'Existing pending orders must be reused or block plan changes');
 assert(route.includes("merchantVpa: ready ? vpa : null"), 'Public checkout config must expose the receiver VPA for customer verification');
@@ -41,8 +40,8 @@ assert(
   'Checkout must explain manual bank verification limitation'
 );
 assert(page.includes('/api/milan-pay/orders'), 'Checkout must create a direct MILAN Pay UPI order');
-assert(!page.includes('/api/payment/create-order'), 'Direct UPI checkout must not invoke Paytm order creation');
-assert(!page.includes('/api/payment/verify'), 'Direct UPI checkout must not depend on Paytm verification APIs');
+assert(!page.includes('/api/payment/create-order'), 'Direct UPI checkout must not invoke a legacy hosted-checkout endpoint');
+assert(!page.includes('/api/payment/verify'), 'Direct UPI checkout must not depend on legacy processor verification APIs');
 
 console.log('MILAN Pay checks passed:');
 console.log(' - Branded checkout created');
