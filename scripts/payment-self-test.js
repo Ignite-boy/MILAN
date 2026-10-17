@@ -177,6 +177,10 @@ const checks = [
     cashfreeRoute.includes('function normalizeCustomerName(value)') &&
     cashfreeRoute.includes(".replace(/[^A-Za-z0-9 ]/g, ' ')") &&
     cashfreeRoute.includes("customer_name: normalizeCustomerName(req.account.name)")],
+  ['Cashfree omits invalid empty email and restricts generated order IDs to provider-safe characters',
+    cashfreeRoute.includes("...(customerEmail ? { customer_email: customerEmail } : {})") &&
+    cashfreeRoute.includes(".replace(/[^A-Za-z0-9_-]/g, '')") &&
+    cashfreeRoute.includes("const safeUser = String(userId || 'USER')")],
   ['Cashfree return URL preserves the selected plan for accurate order recovery',
     cashfreeRoute.includes("return_url: BASE_URL + '/storage-upgrade-cashfree.html?plan=' + encodeURIComponent(planKey)") &&
     cashfreeRoute.includes("&payment=return&order_id={order_id}")],
