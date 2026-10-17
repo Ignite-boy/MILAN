@@ -30,12 +30,14 @@ CREATE OR REPLACE FUNCTION public.consume_api_rate_limit(
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = pg_catalog, public, pg_temp
+SET search_path = pg_catalog, pg_temp
 AS $function$
 DECLARE
-  v_now timestamptz := clock_timestamp();
+  v_now timestamptz;
+  v_cleanup_cutoff timestamptz := clock_timestamp();
   v_window_started_at timestamptz;
   v_request_count integer;
+  v_rows_inserted integer := 0;
   v_reset_at timestamptz;
 BEGIN
   IF p_key_hash IS NULL
@@ -53,34 +55,51 @@ BEGIN
      WHERE ctid IN (
        SELECT ctid
          FROM public.api_rate_limit_buckets
-        WHERE updated_at < v_now - interval '2 days'
+        WHERE updated_at < v_cleanup_cutoff - interval '2 days'
         ORDER BY updated_at
         LIMIT 500
         FOR UPDATE SKIP LOCKED
      );
   END IF;
 
-  -- The upsert serializes concurrent requests for the same bucket.
-  INSERT INTO public.api_rate_limit_buckets AS bucket (
+  -- Insert a new bucket if absent. Existing-key requests are serialized below.
+  INSERT INTO public.api_rate_limit_buckets (
     key_hash, window_started_at, request_count, updated_at
   )
-  VALUES (p_key_hash, v_now, 1, v_now)
-  ON CONFLICT (key_hash) DO UPDATE
-    SET window_started_at = CASE
-          WHEN bucket.window_started_at
-               + make_interval(secs => p_window_seconds::double precision) <= v_now
-            THEN v_now
-          ELSE bucket.window_started_at
-        END,
-        request_count = CASE
-          WHEN bucket.window_started_at
-               + make_interval(secs => p_window_seconds::double precision) <= v_now
-            THEN 1
-          ELSE LEAST(bucket.request_count + 1, p_limit + 1)
-        END,
-        updated_at = v_now
-  RETURNING bucket.window_started_at, bucket.request_count
-       INTO v_window_started_at, v_request_count;
+  VALUES (
+    p_key_hash, clock_timestamp(), 1, clock_timestamp()
+  )
+  ON CONFLICT (key_hash) DO NOTHING;
+
+  GET DIAGNOSTICS v_rows_inserted = ROW_COUNT;
+
+  SELECT bucket.window_started_at, bucket.request_count
+    INTO v_window_started_at, v_request_count
+    FROM public.api_rate_limit_buckets AS bucket
+   WHERE bucket.key_hash = p_key_hash
+   FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Rate-limit bucket disappeared during update.';
+  END IF;
+
+  -- Capture time after the row lock, so contention cannot reuse a stale timestamp.
+  v_now := clock_timestamp();
+
+  IF v_rows_inserted > 0
+     OR v_window_started_at
+          + make_interval(secs => p_window_seconds::double precision) <= v_now THEN
+    v_window_started_at := v_now;
+    v_request_count := 1;
+  ELSE
+    v_request_count := LEAST(v_request_count + 1, p_limit + 1);
+  END IF;
+
+  UPDATE public.api_rate_limit_buckets
+     SET window_started_at = v_window_started_at,
+         request_count = v_request_count,
+         updated_at = v_now
+   WHERE key_hash = p_key_hash;
 
   v_reset_at := v_window_started_at
     + make_interval(secs => p_window_seconds::double precision);

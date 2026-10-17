@@ -1,6 +1,8 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const createDistributedApiRateLimiter = require('../backend/middleware/distributedApiRateLimiter');
 
 function makeResponse() {
@@ -55,6 +57,45 @@ async function main() {
     );
     console.log('PASS invalid configuration is rejected');
     passed += 1;
+
+    const migrationPath = path.join(
+      __dirname, '..', 'backend', 'migrations',
+      '20261017_distributed_api_rate_limit.sql'
+    );
+    const migration = fs.readFileSync(migrationPath, 'utf8');
+
+    await check('SQL migration enables RLS and revokes direct counter-table access', async () => {
+      assert.match(migration, /ALTER TABLE public\.api_rate_limit_buckets ENABLE ROW LEVEL SECURITY;/);
+      assert.match(migration, /REVOKE ALL ON TABLE public\.api_rate_limit_buckets\s+FROM PUBLIC, anon, authenticated, service_role;/);
+    });
+
+    await check('SQL RPC is owned by postgres and executable only by service_role', async () => {
+      assert.match(migration, /SET search_path = pg_catalog, pg_temp/);
+      assert.doesNotMatch(migration, /SET search_path = pg_catalog, public, pg_temp/);
+      assert.match(migration, /ALTER FUNCTION public\.consume_api_rate_limit\(text, integer, integer\) OWNER TO postgres;/);
+      assert.match(migration, /REVOKE ALL ON FUNCTION\s+public\.consume_api_rate_limit\(text, integer, integer\)\s+FROM PUBLIC, anon, authenticated;/);
+      assert.match(migration, /GRANT EXECUTE ON FUNCTION\s+public\.consume_api_rate_limit\(text, integer, integer\)\s+TO service_role;/);
+    });
+
+    await check('SQL captures the time window after acquiring the counter row lock', async () => {
+      assert.doesNotMatch(migration, /v_now timestamptz\s*:=\s*clock_timestamp\(\)/);
+      const selectAt = migration.indexOf('SELECT bucket.window_started_at, bucket.request_count');
+      const lockAt = migration.indexOf('FOR UPDATE;', selectAt);
+      const clockAt = migration.indexOf('v_now := clock_timestamp();', lockAt);
+      assert.ok(selectAt >= 0 && lockAt > selectAt && clockAt > lockAt);
+    });
+
+    await check('SQL counter update follows conflict handling and row locking', async () => {
+      const insertAt = migration.indexOf('ON CONFLICT (key_hash) DO NOTHING;');
+      const diagnosticsAt = migration.indexOf('GET DIAGNOSTICS v_rows_inserted = ROW_COUNT;', insertAt);
+      const lockAt = migration.indexOf('FOR UPDATE;', diagnosticsAt);
+      const updateAt = migration.indexOf('UPDATE public.api_rate_limit_buckets', lockAt);
+      assert.ok(insertAt >= 0 && diagnosticsAt > insertAt && lockAt > diagnosticsAt && updateAt > lockAt);
+    });
+
+    await check('SQL stale cleanup is bounded and skips locked rows', async () => {
+      assert.match(migration, /LIMIT 500\s+FOR UPDATE SKIP LOCKED/);
+    });
 
     process.env.MILAN_PAY_SHARED_RATE_LIMIT_ENABLED = 'false';
 
