@@ -30,7 +30,12 @@ const statusRateLimiter = createDistributedApiRateLimiter({
   limit: 60, windowMs: 60_000, scope: 'cashfree-payment-status', supabase
 });
 
+const VERCEL_PREVIEW_BASE_URL = process.env.VERCEL_ENV === 'preview' && process.env.VERCEL_URL
+  ? 'https://' + String(process.env.VERCEL_URL).replace(/^https?:\/\//i, '').replace(/\/+$/, '')
+  : '';
+
 const BASE_URL = String(
+  VERCEL_PREVIEW_BASE_URL ||
   process.env.PUBLIC_BASE_URL ||
   process.env.APP_PUBLIC_URL ||
   process.env.SEO_CANONICAL_URL ||
@@ -76,8 +81,9 @@ function webhookSecret() {
 }
 
 function configured() {
-  return (CASHFREE_ENVIRONMENT === 'sandbox' || CASHFREE_ENVIRONMENT === 'production') &&
-    Boolean(clientId() && clientSecret());
+  const supportedEnvironment = CASHFREE_ENVIRONMENT === 'sandbox' || CASHFREE_ENVIRONMENT === 'production';
+  const previewIsSandboxOnly = process.env.VERCEL_ENV !== 'preview' || CASHFREE_ENVIRONMENT === 'sandbox';
+  return supportedEnvironment && previewIsSandboxOnly && Boolean(clientId() && clientSecret());
 }
 
 function safeEqual(a, b) {
@@ -565,6 +571,10 @@ router.get('/status', statusRateLimiter, auth, async (req, res) => {
 // server.js must preserve req.rawBody before JSON parsing.
 router.post('/webhook', async (req, res) => {
   try {
+    if (!configured()) {
+      return res.status(503).json({ error: 'Cashfree webhook is not configured for this environment.' });
+    }
+
     const signature = String(req.headers['x-webhook-signature'] || '').trim();
     const timestamp = String(req.headers['x-webhook-timestamp'] || '').trim();
     const rawBody = typeof req.rawBody === 'string'
