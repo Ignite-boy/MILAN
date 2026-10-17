@@ -36,6 +36,7 @@ const adminPage = read('frontend/admin-users.html');
 const payRoute = read('backend/routes/milanPay.js');
 const cashfreeRoute = read('backend/routes/payment.js');
 const cashfreePage = read('frontend/storage-upgrade-cashfree.html');
+const normalizeCashfreePhone = require(path.join(root, 'frontend/assets/js/cashfree-phone.js'));
 const cashfreeMigration = read('backend/migrations/20261018_cashfree_atomic_activation.sql');
 const storageRoute = read('backend/routes/storage.js');
 const storagePage = read('frontend/storage-upgrade.html');
@@ -156,6 +157,14 @@ const checks = [
     cashfreeRoute.includes("&payment=return&order_id={order_id}")],
   ['Cashfree provider requests have a bounded timeout',
     cashfreeRoute.includes('AbortSignal.timeout(12000)')],
+  ['Cashfree phone normalization is consistent for local and +91 input',
+    normalizeCashfreePhone('9876543210') === '9876543210' &&
+    normalizeCashfreePhone('+91 98765 43210') === '9876543210' &&
+    normalizeCashfreePhone('09876543210') === '9876543210' &&
+    normalizeCashfreePhone('+1 415 555 2671') === null &&
+    normalizeCashfreePhone('12345') === null &&
+    cashfreeRoute.includes("require('../../frontend/assets/js/cashfree-phone.js')") &&
+    cashfreePage.includes('src="/assets/js/cashfree-phone.js"')],
   ['Cashfree order creation sends an idempotency key tied to the MILAN order ID',
     cashfreeRoute.includes("headers: { 'x-idempotency-key': orderId }")],
   ['Cashfree Preview uses its own deployment URL and cannot run live mode',
