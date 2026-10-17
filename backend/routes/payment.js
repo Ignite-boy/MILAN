@@ -465,6 +465,9 @@ router.post('/create-order', createOrderRateLimiter, auth, async (req, res) => {
     try {
       cashfreeOrder = await cashfreeRequest('/orders', {
         method: 'POST',
+        // Cashfree supports this header on order creation. Reuse the MILAN order ID
+        // so a retried provider request cannot create a second Cashfree order.
+        headers: { 'x-idempotency-key': orderId },
         body: JSON.stringify({
           order_amount: plan.amountInr,
           order_currency: 'INR',
