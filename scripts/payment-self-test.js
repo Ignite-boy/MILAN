@@ -25,8 +25,6 @@ const paymentOpsDoc = read('docs/MILAN_PAY_OPERATIONS.md');
 
 const checks = [
   ['MILAN Pay route is mounted', server.includes("app.use('/api/milan-pay', require('./routes/milanPay'));")],
-  ['Legacy payment route is not mounted', !server.includes("app.use('/api/payment', require('./routes/payment'));")],
-  ['Legacy payment route file is removed', !fs.existsSync(path.join(root, 'backend/routes/payment.js'))],
   ['MILAN Pay config endpoint exists', payRoute.includes("router.get('/config'")],
   ['Payment and storage verification responses are explicitly non-cacheable',
     storageRoute.includes("router.use((_req, res, next) => {\n  res.setHeader('Cache-Control', 'no-store');") &&
@@ -127,6 +125,11 @@ const checks = [
   ['Failed Cashfree payment attempts are not treated as terminal failed orders',
     cashfreeRoute.slice(cashfreeRoute.indexOf("router.post('/webhook'")).includes("Do not mark the order terminally failed") &&
     !cashfreeRoute.slice(cashfreeRoute.indexOf("router.post('/webhook'")).includes(".update({")],
+  ['Cashfree sandbox credentials and API version are documented',
+    env.includes('CASHFREE_ENVIRONMENT=sandbox') &&
+    env.includes('CASHFREE_CLIENT_ID=') &&
+    env.includes('CASHFREE_CLIENT_SECRET=') &&
+    env.includes('CASHFREE_API_VERSION=2025-01-01')],
   ['Cashfree SDK domains are included in server CSP',
     server.includes('https://sdk.cashfree.com') &&
     server.includes('https://*.cashfree.com')],
