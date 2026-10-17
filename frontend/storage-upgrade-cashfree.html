@@ -824,10 +824,10 @@ border-color:#8b5cf6;
             inputmode="tel"
             autocomplete="tel"
             maxlength="20"
-            placeholder="+91 9876543210"
+            placeholder="9876543210"
           >
           <small style="display:block;margin-top:7px;opacity:.72;">
-            Use the country code for international numbers.
+            Enter a 10-digit mobile number. A +91 prefix or leading 0 is removed automatically.
           </small>
         </label>
 
@@ -964,8 +964,10 @@ border-color:#8b5cf6;
   }
 
   function normalizePhone(value) {
-    const digits = String(value || "").replace(/\D/g, "");
-    return digits.length >= 10 && digits.length <= 15 ? digits : "";
+    let digits = String(value || "").replace(/\D/g, "");
+    if (digits.length === 12 && digits.startsWith("91")) digits = digits.slice(2);
+    else if (digits.length === 11 && digits.startsWith("0")) digits = digits.slice(1);
+    return /^\d{10}$/.test(digits) ? digits : "";
   }
 
   function render() {
@@ -1125,7 +1127,7 @@ border-color:#8b5cf6;
     const phone = normalizePhone(customerPhone.value);
 
     if (!phone) {
-      setStatus("Enter a valid phone number, including country code for international numbers.", true);
+      setStatus("Enter a valid 10-digit mobile number. A +91 prefix or leading 0 is accepted and removed automatically.", true);
       customerPhone.focus();
       return;
     }
