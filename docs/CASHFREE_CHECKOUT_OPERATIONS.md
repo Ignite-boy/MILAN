@@ -22,7 +22,7 @@ The checkout supports the server-defined 500 MB plan for ₹250 and 1 GB plan fo
 4. Review `backend/migrations/20261018_cashfree_atomic_activation.sql` and apply it as a controlled database change. It is **not** run by the app at startup or by this branch.
 5. Do not create a one-pending-order-per-user index for Cashfree: historical pending orders must be preserved and reconciled, not deleted or reset.
 
-The migration adds a Cashfree-only unique transaction-reference index and a service-role-only RPC that atomically locks the order and user, validates the stored plan and actual provider amount, upgrades quota, and marks the order paid. MILAN Pay references are outside that index.
+The migration adds a Cashfree-only unique transaction-reference index, a service-role-only order-reservation RPC that locks the user row to serialize concurrent checkout requests, and a service-role-only activation RPC that atomically locks the order and user, validates the stored plan and actual provider amount, upgrades quota, and marks the order paid. MILAN Pay references are outside the Cashfree-only index. The reservation RPC rejects an account that already has sufficient quota and returns a reconciliation conflict when another pending Cashfree order exists.
 
 ## Sandbox verification checklist
 
@@ -34,6 +34,7 @@ The migration adds a Cashfree-only unique transaction-reference index and a serv
 - [ ] Verify wrong signatures, missing payment ID/amount, wrong currency, amount mismatches, and non-Cashfree order IDs do not activate storage.
 - [ ] Verify a failed payment attempt alone does not terminally fail the whole Cashfree order.
 - [ ] Test repeated order creation: one existing active pending order may be resumed; multiple/stale pending orders return a reconciliation response without creating a duplicate or deleting records.
+- [ ] Test two simultaneous checkout requests for the same account; the database reservation lock must allow at most one new pending Cashfree order.
 - [ ] Run `npm run test:payment`, `npm run test:milan-pay`, `npm run test:security`, and `npm run build`.
 
 ## Production go-live gate
