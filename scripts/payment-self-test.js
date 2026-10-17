@@ -10,6 +10,9 @@ const server = read('backend/server.js');
 const adminRoute = read('backend/routes/admin.js');
 const adminPage = read('frontend/admin-users.html');
 const payRoute = read('backend/routes/milanPay.js');
+const cashfreeRoute = read('backend/routes/payment.js');
+const cashfreePage = read('frontend/storage-upgrade-cashfree.html');
+const cashfreeMigration = read('backend/migrations/20261018_cashfree_atomic_activation.sql');
 const storageRoute = read('backend/routes/storage.js');
 const storagePage = read('frontend/storage-upgrade.html');
 const payPage = read('frontend/milan-pay.html');
@@ -96,7 +99,42 @@ const checks = [
   ['Copy-payment fallback available for VPA amount and order reference', payPage.includes('id="copyVpa"') && payPage.includes('id="copyAmount"') && payPage.includes('id="copyOrderId"')],
   ['Restored checkout URI is rebuilt by the server', payPage.includes("Never trust the payment URI from sessionStorage") && payPage.includes("data.upiUri")],
   ['Storage page links to MILAN Pay', storagePage.includes('/milan-pay?plan=')],
-  ['Legacy hosted-payment route is not mounted', !server.includes("app.use('/api/payment'")],
+  ['Cashfree hosted-checkout route is mounted independently of MILAN Pay',
+    server.includes("app.use('/api/payment', require('./routes/payment'))") &&
+    server.includes("app.use('/api/milan-pay', require('./routes/milanPay'))")],
+  ['Cashfree route requires rate limiting and authentication for private endpoints',
+    cashfreeRoute.includes("router.post('/create-order', createOrderRateLimiter, auth") &&
+    cashfreeRoute.includes("router.post('/verify', verifyRateLimiter, auth") &&
+    cashfreeRoute.includes("router.get('/status', statusRateLimiter, auth")],
+  ['Cashfree configuration rejects unknown environment names',
+    cashfreeRoute.includes("CASHFREE_ENVIRONMENT === 'sandbox' || CASHFREE_ENVIRONMENT === 'production'")],
+  ['Cashfree order creation blocks duplicate pending orders and attempts safe resume',
+    cashfreeRoute.includes("cashfree_pending_orders_reconciliation_required") &&
+    cashfreeRoute.includes("providerOrder.payment_session_id")],
+  ['Cashfree quota activation is atomic and calls a restricted RPC',
+    cashfreeRoute.includes("'confirm_cashfree_storage_payment'") &&
+    cashfreeMigration.includes('SECURITY DEFINER') &&
+    cashfreeMigration.includes('TO service_role') &&
+    cashfreeMigration.includes("gateway = 'cashfree'")],
+  ['Cashfree webhook captures exact raw body before route handling',
+    server.includes("req.rawBody = buf.toString('utf8')") &&
+    server.indexOf("req.rawBody = buf.toString('utf8')") < server.indexOf("app.use('/api/payment', require('./routes/payment'))")],
+  ['Cashfree webhook requires payment SUCCESS, ID and actual amount',
+    cashfreeRoute.includes("if (paymentStatus !== 'SUCCESS')") &&
+    cashfreeRoute.includes("Number(payment?.payment_amount)") &&
+    cashfreeRoute.includes("paymentId") &&
+    !cashfreeRoute.includes("orderEntity?.order_amount")],
+  ['Failed Cashfree payment attempts are not treated as terminal failed orders',
+    cashfreeRoute.slice(cashfreeRoute.indexOf("router.post('/webhook'")).includes("Do not mark the order terminally failed") &&
+    !cashfreeRoute.slice(cashfreeRoute.indexOf("router.post('/webhook'")).includes(".update({")],
+  ['Cashfree SDK domains are included in server CSP',
+    server.includes('https://sdk.cashfree.com') &&
+    server.includes('https://*.cashfree.com')],
+  ['Cashfree hosted checkout is a separate page and leaves direct UPI route unchanged',
+    cashfreePage.includes('https://sdk.cashfree.com/js/v3/cashfree.js') &&
+    cashfreePage.includes('/api/payment/create-order') &&
+    storagePage.includes('href="/milan-pay"') &&
+    payRoute.includes("router.post('/orders'")],
   ['Direct UPI merchant setting is documented', env.includes('MILAN_PAY_UPI_ID=')],
   ['No dedicated hosted-payment SDK dependency is declared', !Object.keys({ ...pkg.dependencies, ...pkg.devDependencies }).some(name => /(?:payment|gateway|checkout).*(?:sdk|client)|(?:sdk|client).*(?:payment|gateway|checkout)/i.test(name))],
   ['Migration adds the order link column', migration.includes('ADD COLUMN IF NOT EXISTS order_id')],
