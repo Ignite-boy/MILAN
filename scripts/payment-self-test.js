@@ -156,6 +156,8 @@ const checks = [
     cashfreeRoute.includes("&payment=return&order_id={order_id}")],
   ['Cashfree provider requests have a bounded timeout',
     cashfreeRoute.includes('AbortSignal.timeout(12000)')],
+  ['Cashfree order creation sends an idempotency key tied to the MILAN order ID',
+    cashfreeRoute.includes("headers: { 'x-idempotency-key': orderId }")],
   ['Cashfree Preview uses its own deployment URL and cannot run live mode',
     cashfreeRoute.includes('process.env.VERCEL_ENV === \'preview\'') &&
     cashfreeRoute.includes('process.env.VERCEL_URL') &&
