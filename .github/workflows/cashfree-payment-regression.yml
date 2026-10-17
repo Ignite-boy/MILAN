@@ -1,0 +1,61 @@
+name: Cashfree Payment Regression
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "backend/routes/payment.js"
+      - "backend/server.js"
+      - "backend/migrations/**"
+      - "frontend/storage-upgrade*.html"
+      - "scripts/payment-self-test.js"
+      - "scripts/milan-pay-self-test.js"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/cashfree-payment-regression.yml"
+  push:
+    branches:
+      - main
+      - agent/cashfree-checkout-hardening-20261017
+    paths:
+      - "backend/routes/payment.js"
+      - "backend/server.js"
+      - "backend/migrations/**"
+      - "frontend/storage-upgrade*.html"
+      - "scripts/payment-self-test.js"
+      - "scripts/milan-pay-self-test.js"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/cashfree-payment-regression.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cashfree-payment-regression-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  payment-regression:
+    name: Payment Regression Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run Cashfree and legacy payment assertions
+        run: npm run test:payment
+      - name: Verify legacy payment decommissioning
+        run: npm run test:milan-pay
+      - name: Run security regression suite
+        run: npm run test:security
+      - name: Verify production build
+        run: npm run build
