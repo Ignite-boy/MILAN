@@ -104,6 +104,9 @@ function createOrderId(userId) {
 async function cashfreeRequest(path, options = {}) {
   const response = await fetch(CASHFREE_BASE_URL + '/pg' + path, {
     ...options,
+    // Bound upstream latency so a stalled gateway cannot hang the checkout request indefinitely.
+    // If order creation times out, retain the pending row and reconcile it on the next attempt.
+    signal: options.signal || AbortSignal.timeout(12000),
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/json',
@@ -282,6 +285,21 @@ router.post('/create-order', createOrderRateLimiter, auth, async (req, res) => {
       return res.status(400).json({ error: 'A valid customer phone number is required for payment.' });
     }
 
+    const { data: currentStorage, error: storageError } = await supabase
+      .from('users')
+      .select('dwn_quota_bytes')
+      .eq('id', req.account.id)
+      .maybeSingle();
+
+    if (storageError) throw storageError;
+    if (!currentStorage) {
+      return res.status(404).json({ error: 'Account storage record was not found.' });
+    }
+
+    const currentQuotaBytes = Number(currentStorage.dwn_quota_bytes) > 0
+      ? Number(currentStorage.dwn_quota_bytes)
+      : 104857600;
+
     const { data: pendingOrders, error: pendingError } = await supabase
       .from('payment_orders')
       .select('order_id,plan,amount_inr,status,gateway')
@@ -301,6 +319,12 @@ router.post('/create-order', createOrderRateLimiter, auth, async (req, res) => {
 
     if ((pendingOrders || []).length === 1) {
       const existing = pendingOrders[0];
+      if (currentQuotaBytes >= plan.quotaBytes) {
+        return res.status(409).json({
+          error: 'Your account already has this storage capacity or more. An existing pending order needs reconciliation before any further payment.',
+          code: 'cashfree_storage_already_available_pending_order'
+        });
+      }
       if (existing.plan !== planKey || Number(existing.amount_inr) !== plan.amountInr) {
         return res.status(409).json({
           error: 'A pending Cashfree order exists for a different plan. Complete or reconcile it before starting another checkout.',
@@ -343,6 +367,13 @@ router.post('/create-order', createOrderRateLimiter, auth, async (req, res) => {
       return res.status(409).json({
         error: 'A pending Cashfree order exists but could not be safely resumed. Support must reconcile it; no duplicate order was created.',
         code: 'cashfree_pending_order_reconciliation_required'
+      });
+    }
+
+    if (currentQuotaBytes >= plan.quotaBytes) {
+      return res.status(409).json({
+        error: 'Your account already has this storage capacity or more. No new payment order was created.',
+        code: 'cashfree_storage_already_available'
       });
     }
 
@@ -466,7 +497,7 @@ router.post('/verify', verifyRateLimiter, auth, async (req, res) => {
       payment.payment_amount !== null &&
       Number.isFinite(Number(payment.payment_amount)) &&
       Number(payment.payment_amount) > 0 &&
-      (!payment.payment_currency || String(payment.payment_currency).toUpperCase() === 'INR')
+      String(payment.payment_currency || '').trim().toUpperCase() === 'INR'
     );
 
     if (successPayment) {
@@ -566,14 +597,14 @@ router.post('/webhook', async (req, res) => {
     }
 
     const webhookAmount = Number(payment?.payment_amount);
-    const currency = String(payment?.payment_currency || '').toUpperCase();
+    const currency = String(payment?.payment_currency || '').trim().toUpperCase();
     if (
       !paymentId ||
       payment?.payment_amount === undefined ||
       payment?.payment_amount === null ||
       !Number.isFinite(webhookAmount) ||
       webhookAmount <= 0 ||
-      (currency && currency !== 'INR')
+      currency !== 'INR'
     ) {
       return res.status(400).json({
         error: 'Webhook is missing a valid payment ID, amount, or currency.'
