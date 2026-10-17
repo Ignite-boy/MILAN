@@ -145,6 +145,12 @@ const checks = [
     cashfreeMigration.includes('SECURITY DEFINER') &&
     cashfreeMigration.includes('TO service_role') &&
     cashfreeMigration.includes("gateway = 'cashfree'")],
+  ['Cashfree payment retries require the same transaction reference and exact amount',
+    cashfreeMigration.includes("AND v_order.amount_inr IS NOT DISTINCT FROM p_amount_inr") &&
+    cashfreeMigration.includes("Paid order does not match this payment reference and amount.")],
+  ['Atomic activation preserves an existing higher recognized storage plan',
+    cashfreeMigration.includes("v_current_quota >= v_target_quota") &&
+    cashfreeMigration.includes("v_current_plan IN ('500mb', '1gb')")],
   ['Cashfree webhook captures exact raw body before route handling',
     server.includes("req.rawBody = buf.toString('utf8')") &&
     server.indexOf("req.rawBody = buf.toString('utf8')") < server.indexOf("app.use('/api/payment', require('./routes/payment'))")],
