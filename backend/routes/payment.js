@@ -312,7 +312,8 @@ router.post('/create-order', createOrderRateLimiter, auth, async (req, res) => {
       .eq('user_id', req.account.id)
       .eq('gateway', 'cashfree')
       .eq('status', 'pending')
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: true })
+      .limit(2);
 
     if (pendingError) throw pendingError;
 
