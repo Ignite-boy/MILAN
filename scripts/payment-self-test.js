@@ -1,10 +1,17 @@
 'use strict';
 
 const fs = require('node:fs');
+const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
+
+const syntaxOk = file => {
+  const result = spawnSync(process.execPath, ['--check', path.join(root, file)], { encoding: 'utf8' });
+  if (result.status !== 0) console.error(result.stderr || result.error || ('Syntax check failed for ' + file));
+  return result.status === 0;
+};
 
 const server = read('backend/server.js');
 const adminRoute = read('backend/routes/admin.js');
@@ -97,6 +104,8 @@ const checks = [
   ['Copy-payment fallback available for VPA amount and order reference', payPage.includes('id="copyVpa"') && payPage.includes('id="copyAmount"') && payPage.includes('id="copyOrderId"')],
   ['Restored checkout URI is rebuilt by the server', payPage.includes("Never trust the payment URI from sessionStorage") && payPage.includes("data.upiUri")],
   ['Storage page links to MILAN Pay', storagePage.includes('/milan-pay?plan=')],
+  ['Server and Cashfree route pass Node syntax checks',
+    syntaxOk('backend/server.js') && syntaxOk('backend/routes/payment.js')],
   ['Cashfree hosted-checkout route is mounted independently of MILAN Pay',
     server.includes("app.use('/api/payment', require('./routes/payment'))") &&
     server.includes("app.use('/api/milan-pay', require('./routes/milanPay'))")],
