@@ -93,9 +93,14 @@ function safeEqual(a, b) {
 }
 
 function normalizePhone(value) {
-  const digits = String(value || '').replace(/[^\d]/g, '');
-  if (digits.length < 10 || digits.length > 15) return null;
-  return digits;
+  let digits = String(value || '').replace(/[^\d]/g, '');
+
+  // Cashfree PG's customer_phone field uses a 10-digit number. Accept
+  // common Indian input formats and strip +91 / leading trunk zero.
+  if (digits.length === 12 && digits.startsWith('91')) digits = digits.slice(2);
+  else if (digits.length === 11 && digits.startsWith('0')) digits = digits.slice(1);
+
+  return /^\d{10}$/.test(digits) ? digits : null;
 }
 
 function createOrderId(userId) {
