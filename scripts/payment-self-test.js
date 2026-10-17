@@ -190,11 +190,16 @@ const checks = [
     cashfreeRoute.includes('process.env.VERCEL_ENV === \'preview\'') &&
     cashfreeRoute.includes('process.env.VERCEL_URL') &&
     cashfreeRoute.includes('previewIsSandboxOnly')],
-  ['Cashfree webhook URL can be set separately and must use HTTPS',
+  ['Cashfree webhook URL can be set separately, must use HTTPS, and rejects query/fragment tokens',
     cashfreeRoute.includes('process.env.CASHFREE_WEBHOOK_URL') &&
     cashfreeRoute.includes("parsed.protocol !== 'https:'") &&
+    cashfreeRoute.includes('parsed.search') &&
+    cashfreeRoute.includes('parsed.hash') &&
     cashfreeRoute.includes('notify_url: cashfreeWebhookUrl()') &&
     env.includes('CASHFREE_WEBHOOK_URL=')],
+  ['Expired Cashfree orders stay pending if the payment list response is unreadable',
+    cashfreeRoute.includes("if (!Array.isArray(transactions))") &&
+    cashfreeRoute.includes("code: 'cashfree_payment_list_unavailable'")],
   ['Cashfree prevents charging for storage the account already has',
     cashfreeRoute.includes(".select('dwn_quota_bytes')") &&
     cashfreeRoute.includes('cashfree_storage_already_available_pending_order') &&
