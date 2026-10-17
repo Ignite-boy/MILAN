@@ -1146,6 +1146,10 @@ border-color:#8b5cf6;
       const order = await createOrder(phone);
 
       if (order.status === "paid" && order.alreadyPaid === true) {
+        if (plans[order.plan]) {
+          selected = order.plan;
+          history.replaceState({}, "", "/storage-upgrade-cashfree.html?plan=" + encodeURIComponent(selected));
+        }
         paymentComplete = true;
         sessionStorage.removeItem("milanPaymentOrderId");
         render();
