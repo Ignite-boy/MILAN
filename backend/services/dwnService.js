@@ -7,6 +7,7 @@ const { BROWSER_SAFE_MEDIA, detectMimeFromFile, extForMime, categoryForMime, nor
 const { getDwnInfo, pushRecordToCloudDwn, deleteRecordFromCloudDwn, pushMediaToCloudDwn, storageRootFor, dwnRoot, databaseRoot, isolatedRoot, persistenceInfo, cloudRemoteBase, isEmbeddedSelfEndpoint } = require('./cloudDwnRegistry');
 const { assertCloudSyncSucceeded } = require('./dwnSyncGuard');
 const { commitResumableMedia } = require('./resumableMediaCommit');
+const { signedMediaUrlCache } = require('./signedMediaUrlCache');
 
 const { createClient } = require('@supabase/supabase-js');
 
@@ -906,6 +907,7 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
       media: {
         fileName: originalName,
         mimeType,
+        storageLayoutVersion: 2,
         originalMimeType: String(meta.mimeType || '').split(';')[0].toLowerCase() || detected.mimeType || '',
         sizeBytes,
         stored: true,
@@ -1005,7 +1007,7 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
   } else {
     runBackground(async () => {
       try {
-        runBackground(() => markCloudSync(record, ownerDid));
+        await markCloudSync(record, ownerDid);
       } catch (err) {
         record.cloudDwn = record.cloudDwn || {};
         record.cloudDwn.sync = {
@@ -1019,6 +1021,11 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
 
       try {
         const syncedMedia = await pushMediaToCloudDwn(record, ownerUser, mediaFile);
+        if (syncedMedia?.pushed) {
+          // Push the final storage path only after upload has succeeded; record metadata and media sync remain ordered.
+          try { await markCloudSync(record, ownerDid); }
+          catch (syncErr) { console.error('[MILAN media path metadata sync failed]', record?.id, syncErr?.message || syncErr); }
+        }
         record.cloudDwn = record.cloudDwn || {};
         record.cloudDwn.mediaSync = syncedMedia;
       } catch (err) {
@@ -1208,6 +1215,7 @@ async function repairMediaForBrowserUnlocked(userId, did, id) {
     await markCloudSync(found.record, did);
     const ownerUser = userByDid(did);
     mediaSync = await pushMediaToCloudDwn(found.record, ownerUser, newPath);
+    if (mediaSync?.pushed) await markCloudSync(found.record, did);
     found.record.cloudDwn = found.record.cloudDwn || {};
     found.record.cloudDwn.mediaSync = mediaSync;
     persistFoundRecord(found);
@@ -1668,7 +1676,7 @@ async function statsFor(did) {
 }
 
 
-async function getAuthoritativeCloudMedia(id, did) {
+async function getAuthoritativeCloudMedia(id, did, options = {}) {
   const recordId = String(id || '').trim();
   const readerDid = String(did || '').trim();
   if (!recordId || !readerDid) return null;
@@ -1735,21 +1743,39 @@ async function getAuthoritativeCloudMedia(id, did) {
       .replace(/[^a-zA-Z0-9._-]/g, '_')
       .slice(0, 180) || 'milan-media';
 
-    const objectPath = [
-      safeName(spaceId),
-      safeName(recordId),
-      fileName
-    ].join('/');
+    const legacyObjectPath = [safeName(spaceId), safeName(recordId), fileName].join('/');
+    const storedObjectPath = String(media.storageObjectPath || '');
+    const storedParts = storedObjectPath.split('/');
+    const validStoredPath = (storedParts.length === 3 || storedParts.length === 4) &&
+      storedParts[0] === safeName(spaceId) && storedParts[1] === safeName(recordId) &&
+      storedParts.every(part => /^[A-Za-z0-9._-]+$/.test(part) && part !== '.' && part !== '..');
+    if (Number(media.storageLayoutVersion || 0) >= 2 && !validStoredPath) return null;
+    const objectPath = validStoredPath ? storedObjectPath : legacyObjectPath;
 
-    let remoteUrl = '';
+    // Access was checked above. Scope bearer URLs to reader, bucket, and exact object path.
+    const cacheKey = JSON.stringify([readerDid, bucket, objectPath]);
+    if (options.forceRefresh === true) signedMediaUrlCache.delete(cacheKey);
+    const cachedSignedUrl = options.forceRefresh === true ? null : signedMediaUrlCache.get(cacheKey);
+    let remoteUrl = cachedSignedUrl?.url || '';
+    let expiresAt = cachedSignedUrl?.expiresAt || null;
 
-    try {
-      const signed = await supabaseAuthoritative.storage
-        .from(bucket)
-        .createSignedUrl(objectPath, 60 * 60);
-
-      remoteUrl = signed?.data?.signedUrl || '';
-    } catch (_) {}
+    if (!remoteUrl) {
+      try {
+        const signed = await supabaseAuthoritative.storage
+          .from(bucket)
+          .createSignedUrl(objectPath, 60 * 60);
+        remoteUrl = signed?.data?.signedUrl || '';
+        if (remoteUrl) {
+          try {
+            const parsedSigned = new URL(remoteUrl);
+            if (parsedSigned.searchParams.has('token')) {
+              const cached = signedMediaUrlCache.set(cacheKey, remoteUrl);
+              expiresAt = cached?.expiresAt || null;
+            }
+          } catch (_) {}
+        }
+      } catch (_) {}
+    }
 
     // Keep the legacy URL fallback for authenticated backend-proxied streams.
     // Direct playback separately requires a signed URL containing a token.
@@ -1773,7 +1799,9 @@ async function getAuthoritativeCloudMedia(id, did) {
       fallbackFullPath: null,
       authoritativeCloud: true,
       bucket,
-      objectPath
+      objectPath,
+      expiresAt,
+      storageContentHash: String(media.storageContentHash || '')
     };
   } catch (err) {
     console.warn('[MILAN] authoritative cloud media lookup failed:', err.message);
@@ -1781,7 +1809,7 @@ async function getAuthoritativeCloudMedia(id, did) {
   }
 }
 
-async function getDirectMediaPlaybackUrl(id, did) {
+async function getDirectMediaPlaybackUrl(id, did, options = {}) {
   const recordId = String(id || '').trim();
   const readerDid = String(did || '').trim();
   if (!recordId || !readerDid) {
@@ -1792,7 +1820,7 @@ async function getDirectMediaPlaybackUrl(id, did) {
 
   // Reads authoritative DWN metadata and checks current access permissions
   // before returning a time-limited Storage URL. No video bytes pass here.
-  const media = await getAuthoritativeCloudMedia(recordId, readerDid);
+  const media = await getAuthoritativeCloudMedia(recordId, readerDid, options);
   if (!media || !media.remoteUrl) {
     const err = new Error('Video playback URL unavailable');
     err.status = 404;
@@ -1825,7 +1853,8 @@ async function getDirectMediaPlaybackUrl(id, did) {
     throw err;
   }
 
-  return { url: signedUrl.toString(), expiresIn: 3600 };
+  const expiresIn = media.expiresAt ? Math.max(1, Math.floor((media.expiresAt - Date.now()) / 1000)) : 3600;
+  return { url: signedUrl.toString(), expiresIn, contentVersion: media.storageContentHash || '' };
 }
 
 async function getMediaStream(id, did) {

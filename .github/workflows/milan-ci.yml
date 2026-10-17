@@ -54,6 +54,9 @@ jobs:
       - name: Run project build check
         run: npm run build
 
+      - name: Verify video delivery cache and preload policy
+        run: npm run test:video
+
       - name: Verify chat architecture
         run: npm run test:chat
 

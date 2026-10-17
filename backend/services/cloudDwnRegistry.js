@@ -477,6 +477,10 @@ async function pushRecordToCloudDwn(record, user) {
             sizeBytes: Number(record.data.media.sizeBytes || 0),
             previewCategory: record.data.media.previewCategory || '',
             browserPlayable: typeof record.data.media.browserPlayable === 'boolean' ? record.data.media.browserPlayable : undefined,
+            storageBucket: record.data.media.storageBucket || '',
+            storageObjectPath: record.data.media.storageObjectPath || '',
+            storageContentHash: record.data.media.storageContentHash || '',
+            storageLayoutVersion: Number(record.data.media.storageLayoutVersion || 0),
             mediaUrl: record.data.media.mediaUrl || '/api/records/' + encodeURIComponent(recordId) + '/media'
           }
         : null
@@ -579,13 +583,15 @@ async function pushMediaToCloudDwn(record, user, absoluteFilePath) {
       .replace(/[^a-zA-Z0-9._-]/g, '_')
       .slice(0, 180) || 'milan-media';
 
+    const fileBuffer = fs.readFileSync(absoluteFilePath);
+    const contentHash = crypto.createHash('sha256').update(fileBuffer).digest('hex').slice(0, 20);
+    // A content-addressed path gives each replacement its own CDN cache key.
     const objectPath = [
       safeName(info.spaceId || user?.did || 'unknown'),
       safeName(record.id),
+      contentHash,
       safeFileName
     ].join('/');
-
-    const fileBuffer = fs.readFileSync(absoluteFilePath);
 
     let uploadError = null;
     const uploadAttempts = Math.max(
@@ -613,6 +619,12 @@ async function pushMediaToCloudDwn(record, user, absoluteFilePath) {
     }
 
     if (uploadError) throw uploadError;
+
+    record.data = record.data || {};
+    record.data.media = record.data.media || {};
+    record.data.media.storageBucket = bucket;
+    record.data.media.storageObjectPath = objectPath;
+    record.data.media.storageContentHash = contentHash;
 
     const { data: publicData } = supabase.storage
       .from(bucket)

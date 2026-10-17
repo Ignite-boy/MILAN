@@ -32,6 +32,7 @@ Requirements: Node.js 22 or newer.
 npm ci
 npm run build
 npm run test:chat
+npm run test:video
 npm --prefix Milan-Sentinel ci
 npm --prefix Milan-Sentinel run validate
 npm --prefix Milan-Sentinel run smoke
@@ -41,6 +42,8 @@ npm --prefix Milan-Sentinel run smoke
 - `Milan-Sentinel run validate` verifies the test-space definition; it does not execute 10 million tests.
 - `Milan-Sentinel run smoke` executes a small, representative set of supported adapters and reports unsupported cases as SKIP.
 - Production smoke tests are limited to endpoints explicitly listed in the workflow; a green check does not prove every product flow or external provider works.
+
+See [Video delivery and playback optimization](docs/VIDEO_DELIVERY.md) for signed-URL caching, bounded preloading, diagnostics, and remaining HLS work.
 
 ## Environment and deployment
 
