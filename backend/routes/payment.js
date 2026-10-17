@@ -4,6 +4,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const auth = require('../middleware/auth');
+const normalizePhone = require('../../frontend/assets/js/cashfree-phone.js');
 const { createClient } = require('@supabase/supabase-js');
 const { sendPaymentSuccessEmail } = require('../services/mailService');
 const createDistributedApiRateLimiter = require('../middleware/distributedApiRateLimiter');
@@ -90,17 +91,6 @@ function safeEqual(a, b) {
   const left = Buffer.from(String(a || ''));
   const right = Buffer.from(String(b || ''));
   return left.length === right.length && crypto.timingSafeEqual(left, right);
-}
-
-function normalizePhone(value) {
-  let digits = String(value || '').replace(/[^\d]/g, '');
-
-  // Cashfree PG's customer_phone field uses a 10-digit number. Accept
-  // common Indian input formats and strip +91 / leading trunk zero.
-  if (digits.length === 12 && digits.startsWith('91')) digits = digits.slice(2);
-  else if (digits.length === 11 && digits.startsWith('0')) digits = digits.slice(1);
-
-  return /^\d{10}$/.test(digits) ? digits : null;
 }
 
 function createOrderId(userId) {
