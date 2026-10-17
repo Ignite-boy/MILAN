@@ -139,20 +139,6 @@ ensureFile(path.join(DATA_DIR, 'DATABASE_MANIFEST.json'), { app: 'MILAN', versio
 
 app.get('/health', (_req, res) => res.json({ ok: dwnStore.getStatus().storageOperational === true, app: 'MILAN', version: APP_VERSION, storage: { dwnRoot: DWN_ROOT, databaseDir: DATA_DIR, cloud: persistenceInfo() }, time: new Date().toISOString() }));
 
-// TEMPORARY: remove after verifying the Production Supabase project reference.
-app.get('/api/_ops/supabase-project-ref-check', (_req, res) => {
-  res.setHeader('Cache-Control', 'no-store');
-  let projectRef = '';
-  try {
-    const hostname = new URL(String(process.env.SUPABASE_URL || '')).hostname;
-    projectRef = hostname.match(/^([a-z0-9]+)\.supabase\.co$/i)?.[1] || '';
-  } catch {}
-  if (!projectRef) {
-    return res.status(503).json({ ok: false, projectRef: null });
-  }
-  return res.json({ ok: true, projectRef });
-});
-
 app.get('/api/health', (_req, res) => {
   const cloud = persistenceInfo();
   res.json({
