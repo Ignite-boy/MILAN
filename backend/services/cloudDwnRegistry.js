@@ -477,7 +477,10 @@ async function pushRecordToCloudDwn(record, user) {
             sizeBytes: Number(record.data.media.sizeBytes || 0),
             previewCategory: record.data.media.previewCategory || '',
             browserPlayable: typeof record.data.media.browserPlayable === 'boolean' ? record.data.media.browserPlayable : undefined,
-            mediaUrl: record.data.media.mediaUrl || '/api/records/' + encodeURIComponent(recordId) + '/media'
+            processing: !!record.data.media.processing,
+            processingStatus: record.data.media.processingStatus || (record.data.media.processing ? 'processing' : 'ready'),
+            compatibilityWarning: record.data.media.compatibilityWarning || record.mediaCompatibility?.warning || '',
+            mediaUrl: record.data.media.mediaUrl || '/api/records/' + encodeURIComponent(recordId) + '/media
           }
         : null
     };
@@ -548,6 +551,49 @@ async function pushRecordToCloudDwn(record, user) {
   }
 }
 
+function supabaseResumableEndpoint() {
+  const raw = String(process.env.SUPABASE_URL || '').trim();
+  if (!raw) throw new Error('SUPABASE_URL is required for resumable media upload.');
+  const url = new URL(raw);
+  if (/\.supabase\.co$/i.test(url.hostname) && !/\.storage\.supabase\.co$/i.test(url.hostname)) {
+    url.hostname = url.hostname.replace(/\.supabase\.co$/i, '.storage.supabase.co');
+  }
+  return url.origin + '/storage/v1/upload/resumable';
+}
+
+function uploadLargeMediaWithTus(filePath, bucket, objectPath, contentType, sizeBytes) {
+  const tus = require('tus-js-client');
+  const serviceKey = String(process.env.SUPABASE_SERVICE_KEY || '').trim();
+  if (!serviceKey) throw new Error('SUPABASE_SERVICE_KEY is required for resumable media upload.');
+  const chunkSize = 6 * 1024 * 1024;
+  return new Promise((resolve, reject) => {
+    const input = fs.createReadStream(filePath, { highWaterMark: chunkSize });
+    input.on('error', reject);
+    const upload = new tus.Upload(input, {
+      endpoint: supabaseResumableEndpoint(),
+      uploadSize: sizeBytes,
+      chunkSize,
+      retryDelays: [0, 3000, 5000, 10000, 20000],
+      headers: {
+        authorization: 'Bearer ' + serviceKey,
+        apikey: serviceKey,
+        'x-upsert': 'true'
+      },
+      metadata: {
+        bucketName: bucket,
+        objectName: objectPath,
+        contentType,
+        cacheControl: '3600'
+      },
+      uploadDataDuringCreation: true,
+      removeFingerprintOnSuccess: true,
+      onError: reject,
+      onSuccess: resolve
+    });
+    upload.start();
+  });
+}
+
 async function pushMediaToCloudDwn(record, user, absoluteFilePath) {
   const info = getDwnInfo(user);
   const now = new Date().toISOString();
@@ -585,7 +631,8 @@ async function pushMediaToCloudDwn(record, user, absoluteFilePath) {
       safeFileName
     ].join('/');
 
-    const fileBuffer = fs.readFileSync(absoluteFilePath);
+    const fileSizeBytes = fs.statSync(absoluteFilePath).size;
+    const contentType = String(record.dataFormat || record?.data?.media?.mimeType || 'application/octet-stream');
 
     let uploadError = null;
     const uploadAttempts = Math.max(
@@ -594,15 +641,25 @@ async function pushMediaToCloudDwn(record, user, absoluteFilePath) {
     );
 
     for (let attempt = 1; attempt <= uploadAttempts; attempt++) {
-      const result = await supabase.storage
-        .from(bucket)
-        .upload(objectPath, fileBuffer, {
-          upsert: true,
-          contentType: record.dataFormat || 'application/octet-stream',
-          cacheControl: '3600'
-        });
+      try {
+        if (fileSizeBytes > 6 * 1024 * 1024) {
+          await uploadLargeMediaWithTus(absoluteFilePath, bucket, objectPath, contentType, fileSizeBytes);
+          uploadError = null;
+        } else {
+          const fileBuffer = fs.readFileSync(absoluteFilePath);
+          const result = await supabase.storage
+            .from(bucket)
+            .upload(objectPath, fileBuffer, {
+              upsert: true,
+              contentType,
+              cacheControl: '3600'
+            });
+          uploadError = result.error || null;
+        }
+      } catch (err) {
+        uploadError = err;
+      }
 
-      uploadError = result.error || null;
       if (!uploadError) break;
 
       if (attempt < uploadAttempts) {
@@ -627,7 +684,7 @@ async function pushMediaToCloudDwn(record, user, absoluteFilePath) {
       mode: 'supabase',
       spaceId: info.spaceId || '',
       mediaUrl: publicData?.publicUrl || '',
-      dataSize: fileBuffer.length,
+      dataSize: fileSizeBytes,
       pushedAt: now
     };
   } catch (err) {
