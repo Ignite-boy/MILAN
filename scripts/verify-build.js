@@ -13,6 +13,24 @@ const check = (condition, message) => { if (!condition) failures.push(message); 
 const read = relative => fs.readFileSync(path.join(root, relative), 'utf8');
 const exists = relative => fs.existsSync(path.join(root, relative));
 
+const syntaxCheckFiles = [
+  'backend/services/cloudDwnRegistry.js',
+  'backend/services/dwnService.js',
+  'backend/routes/records.js',
+  'frontend/assets/js/inline-05.js',
+  'frontend/assets/js/inline-07.js'
+];
+for (const relative of syntaxCheckFiles) {
+  if (!exists(relative)) {
+    check(false, `JavaScript syntax-check target is missing: ${relative}`);
+    continue;
+  }
+  const result = spawnSync(process.execPath, ['--check', path.join(root, relative)], {
+    encoding: 'utf8'
+  });
+  check(result.status === 0, `JavaScript syntax check failed for ${relative}: ${(result.stderr || result.stdout || '').trim()}`);
+}
+
 const requiredFiles = [
   'frontend/index.html',
   'frontend/app.html',
