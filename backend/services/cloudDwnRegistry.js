@@ -480,7 +480,7 @@ async function pushRecordToCloudDwn(record, user) {
             processing: !!record.data.media.processing,
             processingStatus: record.data.media.processingStatus || (record.data.media.processing ? 'processing' : 'ready'),
             compatibilityWarning: record.data.media.compatibilityWarning || record.mediaCompatibility?.warning || '',
-            mediaUrl: record.data.media.mediaUrl || '/api/records/' + encodeURIComponent(recordId) + '/media
+            mediaUrl: record.data.media.mediaUrl || '/api/records/' + encodeURIComponent(recordId) + '/media'
           }
         : null
     };
