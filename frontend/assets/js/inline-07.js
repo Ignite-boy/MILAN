@@ -14,6 +14,11 @@ if(result&&result.ready===false&&result.processing===true){
  throw new Error("Video conversion is taking too long");
 }
 const direct=String(result&&result.url||"");
+if(result&&result.ready===false&&result.processing===false){
+ const terminalError=new Error("Browser-safe video is unavailable");
+ terminalError.milanTerminal=true;
+ throw terminalError;
+}
 if(!result||result.ready!==true||!/^https?:\/\/\S+$/i.test(direct))throw new Error("Browser-safe video is not ready");
 if(video.dataset.milanDirectFallback==="1")return;
 const source=video.querySelector("source[data-milan-direct-source],source");
@@ -25,7 +30,11 @@ video.dataset.milanDirectStorageReady="1";
 video.dataset.milanVercelFallback=proxy;
 showLoading(video,false);
 video.load();
-}catch(_){
+}catch(err){
+if(!(err&&err.milanTerminal)&&attempt<10){
+ setTimeout(()=>loadDirectMedia(video,id,attempt+1),Number(err&&err.retryAfterMs)||2500);
+ return;
+}
 const source=video.querySelector("source[data-milan-direct-source],source");
 const proxy=video.getAttribute("data-base-src")||"";
 if(source&&proxy){
