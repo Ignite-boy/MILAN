@@ -35,7 +35,7 @@ function attachVideoStallRecovery(video,id){
 if(!video||video.dataset.milanStallRecoveryAttached==="1")return;
 video.dataset.milanStallRecoveryAttached="1";
 const clearTimer=()=>{if(video.__milanStallTimer){clearTimeout(video.__milanStallTimer);video.__milanStallTimer=null}};
-const recovered=()=>{clearTimer();if(!video.paused)showLoading(video,false)};
+const recovered=()=>{clearTimer();if(!video.paused){showLoading(video,false);markFailed(video,false)}};
 video.addEventListener("playing",recovered);
 video.addEventListener("canplay",()=>{if(video.readyState>=3)recovered()});
 const onStall=()=>{
@@ -52,12 +52,23 @@ video.dataset.milanStallFallbackTried="1";
 video.dataset.milanDirectFallback="1";
 const position=Number.isFinite(video.currentTime)?video.currentTime:0;
 const shouldResume=!video.paused;
-video.addEventListener("loadedmetadata",function restorePlayback(){
+let fallbackSettled=false;
+const fallbackTimer=setTimeout(()=>{
+if(fallbackSettled)return;
+fallbackSettled=true;
+video.removeEventListener("loadedmetadata",restorePlayback);
+markFailed(video,true);
+},8000);
+function restorePlayback(){
+if(fallbackSettled)return;
+fallbackSettled=true;
+clearTimeout(fallbackTimer);
 try{
 if(Number.isFinite(position)&&position>0&&Number.isFinite(video.duration)&&position<video.duration)video.currentTime=position;
 }catch(_){}
 if(shouldResume){const p=video.play();if(p&&typeof p.catch==="function")p.catch(()=>{})}
-},{once:true});
+}
+video.addEventListener("loadedmetadata",restorePlayback,{once:true});
 setVideoSrc(video,base);
 },12000);
 };
