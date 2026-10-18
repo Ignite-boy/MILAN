@@ -147,8 +147,8 @@ function streamRangeOrWholeFile(req, res, fullPath, media, sourceLabel = '') {
 // Facebook-style reliable upload layer: split large videos into small resumable chunks.
 // This avoids one huge mobile request timing out while the app is deployed behind proxies.
 const RESUMABLE_ROOT = path.join(os.tmpdir(), 'milan-resumable-media-uploads');
-const DEFAULT_CHUNK_BYTES = Number(process.env.MILAN_UPLOAD_CHUNK_BYTES || 4 * 1024 * 1024);
-const MAX_CHUNK_BYTES = Number(process.env.MILAN_UPLOAD_MAX_CHUNK_BYTES || 4 * 1024 * 1024);
+const DEFAULT_CHUNK_BYTES = Number(process.env.MILAN_UPLOAD_CHUNK_BYTES || 8 * 1024 * 1024);
+const MAX_CHUNK_BYTES = Number(process.env.MILAN_UPLOAD_MAX_CHUNK_BYTES || 8 * 1024 * 1024);
 const SESSION_TTL_MS = Number(process.env.MILAN_UPLOAD_SESSION_TTL_MS || 24 * 60 * 60 * 1000);
 
 function ensureUploadRoot() { fs.mkdirSync(RESUMABLE_ROOT, { recursive: true }); }
