@@ -1081,8 +1081,6 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
       }
     });
   }
-  if (isRemoteOnlyMode() && !mediaSync.pushed) {    });
-  }
   if (isRemoteOnlyMode() && !mediaSync.pushed) {
     try { removeRecordFile(userId, record.id); } catch (_) {}
     try { if (fs.existsSync(mediaFile)) fs.unlinkSync(mediaFile); } catch (_) {}
