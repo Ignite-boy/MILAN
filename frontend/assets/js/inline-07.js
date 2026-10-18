@@ -1,4 +1,9 @@
-!function(){if(window.__milanUniversalVideoV66)return;window.__milanUniversalVideoV66=!0;const originalMediaHtml=window.mediaHtml,healing={};try{const st=document.createElement("style");st.textContent=".milanUniversalPlayer{position:relative;background:#050915;overflow:hidden}.milanUniversalPlayer video{display:block;width:100%;max-height:72vh;min-height:220px;background:#020617;object-fit:contain}.milanVideoOverlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:18px;color:#e5e7eb;background:linear-gradient(180deg,rgba(2,6,23,.28),rgba(2,6,23,.70));pointer-events:none}.milanUniversalPlayer.loading .milanVideoOverlay{display:flex}.milanVideoOverlay .loader{width:42px;height:42px;border-radius:50%;border:4px solid rgba(255,255,255,.25);border-top-color:#fff;margin:0 auto 10px;animation:milanSpin .9s linear infinite}.milanVideoFallback{display:none;padding:10px 14px;border-top:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--muted)}.milanUniversalPlayer.failed .milanVideoFallback{display:block}.milanVideoFallback a{display:inline-flex;margin:8px 8px 0 0;border:1px solid var(--line);border-radius:999px;padding:8px 12px;color:var(--text);text-decoration:none}.milanUniversalPlayer .fileCard{display:none!important}@keyframes milanSpin{to{transform:rotate(360deg)}}",document.head.appendChild(st)}catch(e){}function addParam(url,key,value){const u=String(url||"");return u?u+(u.includes("?")?"&":"?")+encodeURIComponent(key)+"="+encodeURIComponent(null==value?"":value):""}function playerBox(video){return video&&video.closest?video.closest(".milanUniversalPlayer"):null}function showLoading(video,yes){try{const box=playerBox(video);box&&box.classList.toggle("loading",!!yes)}catch(_){}}function markFailed(video,yes){try{const box=playerBox(video);box&&(box.classList.toggle("failed",!!yes),box.classList.toggle("loading",!1))}catch(_){}}function playable(video){try{const d=Number(video.duration);return video.readyState>=1&&Number.isFinite(d)&&d>0}catch(_){return!1}}function setVideoSrc(video,src){try{const source=video.querySelector("source"),next=addParam(src,"r",Date.now());source?source.setAttribute("src",next):video.setAttribute("src",next),video.load()}catch(_){}}function updateRecordFromResponse(id,res){try{if(!res||!res.record||typeof updateRecordLocal!=="function")return;const el=document.getElementById("post-"+id),video=el&&el.querySelector(".milanUniversalPlayer video"),box=video&&video.closest(".milanUniversalPlayer"),preserveVideo=!!(video&&(!video.paused||box&&box.classList.contains("loading")||video.dataset.watchdogStarted==="1"||video.dataset.healReloaded==="1"||video.dataset.errorCount));updateRecordLocal(id,res.record,{preserveVideo})}catch(_){}}async function loadDirectMedia(video,id,attempt){
+!function(){if(window.__milanUniversalVideoV66)return;window.__milanUniversalVideoV66=!0;const originalMediaHtml=window.mediaHtml,healing={};try{const st=document.createElement("style");st.textContent=".milanUniversalPlayer{position:relative;background:#050915;overflow:hidden}.milanUniversalPlayer video{display:block;width:100%;max-height:72vh;min-height:220px;background:#020617;object-fit:contain}.milanVideoOverlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:18px;color:#e5e7eb;background:linear-gradient(180deg,rgba(2,6,23,.28),rgba(2,6,23,.70));pointer-events:none}.milanUniversalPlayer.loading .milanVideoOverlay{display:flex}.milanVideoOverlay .loader{width:42px;height:42px;border-radius:50%;border:4px solid rgba(255,255,255,.25);border-top-color:#fff;margin:0 auto 10px;animation:milanSpin .9s linear infinite}.milanVideoFallback{display:none;padding:10px 14px;border-top:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--muted)}.milanUniversalPlayer.failed .milanVideoFallback{display:block}.milanVideoFallback a{display:inline-flex;margin:8px 8px 0 0;border:1px solid var(--line);border-radius:999px;padding:8px 12px;color:var(--text);text-decoration:none}.milanUniversalPlayer .fileCard{display:none!important}.milanUniversalPlayer.loading[data-milan-loading-message] .milanVideoOverlay::after{content:attr(data-milan-loading-message);position:absolute;left:5%;right:5%;bottom:13%;font-size:14px;font-weight:600;line-height:1.35;text-shadow:0 1px 5px #000}@keyframes milanSpin{to{transform:rotate(360deg)}}",document.head.appendChild(st)}catch(e){}function addParam(url,key,value){const u=String(url||"");return u?u+(u.includes("?")?"&":"?")+encodeURIComponent(key)+"="+encodeURIComponent(null==value?"":value):""}function playerBox(video){return video&&video.closest?video.closest(".milanUniversalPlayer"):null}function showLoading(video,yes){try{const box=playerBox(video);box&&box.classList.toggle("loading",!!yes)}catch(_){}}function markFailed(video,yes){try{const box=playerBox(video);box&&(box.classList.toggle("failed",!!yes),box.classList.toggle("loading",!1))}catch(_){}}function playable(video){try{const d=Number(video.duration);return video.readyState>=1&&Number.isFinite(d)&&d>0}catch(_){return!1}}const temporaryPlaybackUrls=new Map();
+function releaseTemporaryPlayback(video){try{const old=video&&video.dataset&&video.dataset.milanTempBlobUrl;if(old){URL.revokeObjectURL(old);temporaryPlaybackUrls.delete(old);delete video.dataset.milanTempBlobUrl}}catch(_){}}
+function setTemporaryDownloadMessage(video,message){try{const box=playerBox(video);if(!box)return;if(message)box.setAttribute("data-milan-loading-message",message);else box.removeAttribute("data-milan-loading-message")}catch(_){}}
+function cleanupTemporaryPlayback(){try{for(const [url,video] of temporaryPlaybackUrls){if(!video||!video.isConnected){try{URL.revokeObjectURL(url)}catch(_){}temporaryPlaybackUrls.delete(url);if(video&&video.dataset)delete video.dataset.milanTempBlobUrl}}}catch(_){}}
+try{if(typeof MutationObserver==="function"&&document.documentElement)new MutationObserver(cleanupTemporaryPlayback).observe(document.documentElement,{childList:true,subtree:true});window.addEventListener("pagehide",event=>{if(event&&event.persisted)return;for(const [url] of temporaryPlaybackUrls){try{URL.revokeObjectURL(url)}catch(_){}}temporaryPlaybackUrls.clear()})}catch(_){}
+function setVideoSrc(video,src){try{releaseTemporaryPlayback(video);const source=video.querySelector("source"),next=addParam(src,"r",Date.now());source?source.setAttribute("src",next):video.setAttribute("src",next),video.load()}catch(_){}}function updateRecordFromResponse(id,res){try{if(!res||!res.record||typeof updateRecordLocal!=="function")return;const el=document.getElementById("post-"+id),video=el&&el.querySelector(".milanUniversalPlayer video"),box=video&&video.closest(".milanUniversalPlayer"),preserveVideo=!!(video&&(!video.paused||box&&box.classList.contains("loading")||video.dataset.watchdogStarted==="1"||video.dataset.healReloaded==="1"||video.dataset.errorCount));updateRecordLocal(id,res.record,{preserveVideo})}catch(_){}}async function loadDirectMedia(video,id,attempt){
 attempt=Number(attempt||0);
 if(!video||!id||video.dataset.milanDirectLoading==="1"||video.dataset.milanDirectReady==="1"||video.dataset.milanDirectFallback==="1")return;
 video.dataset.milanDirectLoading="1";
@@ -64,8 +69,57 @@ if(!video||video.dataset.milanStallRecoveryAttached==="1")return;
 video.dataset.milanStallRecoveryAttached="1";
 const clearTimer=()=>{if(video.__milanStallTimer){clearTimeout(video.__milanStallTimer);video.__milanStallTimer=null}};
 const recovered=()=>{clearTimer();if(!video.paused){showLoading(video,false);markFailed(video,false)}};
-video.addEventListener("playing",recovered);
+video.addEventListener("playing",()=>{setTemporaryDownloadMessage(video,"");recovered()});
 video.addEventListener("canplay",()=>{if(video.readyState>=3)recovered()});
+video.addEventListener("play",()=>{
+if(video.dataset.milanTempDownloadAttempted==="1"||video.dataset.milanDirectReady!=="1"||video.dataset.milanDirectFallback==="1")return;
+const source=video.querySelector("source[data-milan-direct-source],source");
+const direct=String(source&&source.getAttribute("src")||"");
+if(!/^https?:\/\//i.test(direct)||typeof fetch!=="function"||typeof URL.createObjectURL!=="function")return;
+video.dataset.milanTempDownloadAttempted="1";
+video.pause();
+showLoading(video,true);
+setTemporaryDownloadMessage(video,"Downloading video for smooth, uninterrupted playback…");
+const configuredLimit=Number(window.MILAN_TEMP_PLAYBACK_MAX_BYTES)||128*1024*1024;
+const lowMemory=Number(navigator.deviceMemory||0)>0&&Number(navigator.deviceMemory)<=4;
+const limit=Math.min(configuredLimit,lowMemory?64*1024*1024:128*1024*1024);
+const resumeStreaming=()=>{
+setTemporaryDownloadMessage(video,"");
+showLoading(video,false);
+if(!video.isConnected)return;
+try{const pending=video.play();if(pending&&typeof pending.catch==="function")pending.catch(()=>{})}catch(_){}
+};
+(async()=>{
+let response=null;
+try{
+response=await fetch(direct,{method:"GET",cache:"no-store",credentials:"omit"});
+if(!response.ok||!response.body)throw new Error("Temporary video download failed");
+const length=Number(response.headers.get("content-length")||0);
+if(!Number.isFinite(length)||length<=0||length>limit){
+try{await response.body.cancel()}catch(_){}
+return resumeStreaming();
+}
+const blob=await response.blob();
+if(!blob.size||blob.size>limit)return resumeStreaming();
+releaseTemporaryPlayback(video);
+const blobUrl=URL.createObjectURL(blob);
+temporaryPlaybackUrls.set(blobUrl,video);
+video.dataset.milanTempBlobUrl=blobUrl;
+video.dataset.milanTempDownloadComplete="1";
+source.setAttribute("src",blobUrl);
+setTemporaryDownloadMessage(video,"");
+showLoading(video,false);
+video.load();
+try{
+const pending=video.play();
+if(pending&&typeof pending.catch==="function")pending.catch(()=>{
+showLoading(video,false);
+setTemporaryDownloadMessage(video,"Video is downloaded. Tap play to watch.");
+});
+}catch(_){showLoading(video,false);setTemporaryDownloadMessage(video,"Video is downloaded. Tap play to watch.")}
+}catch(_){resumeStreaming()}
+})();
+});
 const onStall=()=>{
 if(video.paused)return;
 showLoading(video,true);
