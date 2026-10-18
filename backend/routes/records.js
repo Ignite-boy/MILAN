@@ -883,7 +883,7 @@ router.get('/:id/media/playback-url', auth, async (req, res) => {
     res.setHeader('Pragma', 'no-cache');
     return res.json({
       ok: true,
-      url: playback.url,
+      ...playback,
       expiresIn: playback.expiresIn || 3600
     });
   } catch (err) {
