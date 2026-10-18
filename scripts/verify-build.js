@@ -72,7 +72,11 @@ const syntaxCheckFiles = [
   'backend/server.js',
   'backend/middleware/auth.js',
   'backend/services/cloudDwnRegistry.js',
+  'backend/services/dwnService.js',
+  'backend/routes/records.js',
   'backend/routes/isolatedDwn.js',
+  'frontend/assets/js/inline-05.js',
+  'frontend/assets/js/inline-07.js',
   'Milan-Sentinel/scripts/run-matrix.js',
   'Milan-Sentinel/scripts/execute-case.js',
 ];

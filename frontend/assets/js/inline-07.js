@@ -49,7 +49,7 @@ if(source&&proxy){
 }
 }finally{delete video.dataset.milanDirectLoading}
 }
-const directObserver=const directObserver=typeof IntersectionObserver==="function"?new IntersectionObserver(entries=>{
+const directObserver=typeof IntersectionObserver==="function"?new IntersectionObserver(entries=>{
 entries.forEach(entry=>{
 if(!entry.isIntersecting)return;
 directObserver.unobserve(entry.target);
