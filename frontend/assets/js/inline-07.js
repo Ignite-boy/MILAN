@@ -44,7 +44,7 @@ showLoading(video,true);
 clearTimer();
 video.__milanStallTimer=setTimeout(()=>{
 video.__milanStallTimer=null;
-if(video.paused||video.readyState>=3)return;
+if(video.paused)return;
 if(video.dataset.milanStallFallbackTried==="1")return;
 const base=video.getAttribute("data-base-src")||"";
 if(!base)return;
