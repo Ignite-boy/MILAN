@@ -1020,22 +1020,30 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
   } else {
     runBackground(async () => {
       try {
-        runBackground(() => markCloudSync(record, ownerDid));
-      } catch (err) {
-        record.cloudDwn = record.cloudDwn || {};
-        record.cloudDwn.sync = {
-          ok: false,
-          status: 'failed',
-          failedAt: new Date().toISOString(),
-          error: String(err?.message || err || 'DWN sync failed').slice(0, 500)
-        };
-        console.error('[Background Supabase record sync failed]', record?.id, err?.message || err);
-      }
-
-      try {
+        // Upload bytes before publishing ready metadata. A signed URL must never point
+        // to an object whose Storage upload is still pending.
         const syncedMedia = await pushMediaToCloudDwn(record, ownerUser, mediaFile);
         record.cloudDwn = record.cloudDwn || {};
         record.cloudDwn.mediaSync = syncedMedia;
+        if (!syncedMedia || syncedMedia.pushed !== true) {
+          const failedVideo = record.data?.media?.previewCategory === 'video';
+          if (failedVideo) {
+            record.data.media.browserPlayable = false;
+            record.data.media.browserSafe = false;
+            record.data.media.processing = false;
+            record.data.media.processingStatus = 'preview-unavailable';
+            record.data.media.compatibilityWarning = String(syncedMedia?.error || syncedMedia?.skipped || 'Video upload to cloud storage failed.');
+            record.mediaCompatibility = {
+              ...(record.mediaCompatibility || {}),
+              browserPlayable: false,
+              browserSafe: false,
+              processing: false,
+              processingStatus: 'preview-unavailable',
+              warning: record.data.media.compatibilityWarning
+            };
+          }
+        }
+        await markCloudSync(record, ownerDid);
       } catch (err) {
         record.cloudDwn = record.cloudDwn || {};
         record.cloudDwn.mediaSync = {
@@ -1045,6 +1053,24 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
           failedAt: new Date().toISOString(),
           error: String(err?.message || err || 'Media sync failed').slice(0, 500)
         };
+        if (record.data?.media?.previewCategory === 'video') {
+          record.data.media.browserPlayable = false;
+          record.data.media.browserSafe = false;
+          record.data.media.processing = false;
+          record.data.media.processingStatus = 'preview-unavailable';
+          record.data.media.compatibilityWarning = String(err?.message || err || 'Media sync failed').slice(0, 500);
+          record.mediaCompatibility = {
+            ...(record.mediaCompatibility || {}),
+            browserPlayable: false,
+            browserSafe: false,
+            processing: false,
+            processingStatus: 'preview-unavailable',
+            warning: record.data.media.compatibilityWarning
+          };
+          try { await markCloudSync(record, ownerDid); } catch (syncErr) {
+            console.error('[Background failed-media metadata sync failed]', record?.id, syncErr?.message || syncErr);
+          }
+        }
         console.error('[Background Supabase media sync failed]', record?.id, err?.message || err);
       }
 
@@ -1054,6 +1080,8 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
         console.error('[Background cloud-sync status persist failed]', record?.id, persistErr?.message || persistErr);
       }
     });
+  }
+  if (isRemoteOnlyMode() && !mediaSync.pushed) {    });
   }
   if (isRemoteOnlyMode() && !mediaSync.pushed) {
     try { removeRecordFile(userId, record.id); } catch (_) {}
@@ -1238,6 +1266,11 @@ async function repairMediaForBrowserUnlocked(userId, did, id) {
     persistFoundRecord(found);
   } catch (err) {
     const warning = 'Video converted locally, but cloud playback preparation failed: ' + String(err?.message || err);
+    // Keep metadata pointed at the original object if the normalized MP4 did not reach Storage.
+    found.record.dataFormat = currentMime;
+    found.record.data.media.fileName = originalName;
+    found.record.data.media.mimeType = currentMime;
+    found.record.data.media.sizeBytes = beforeSize;
     setRecordMediaProcessing(found, {
       processing: false,
       status: 'preview-unavailable',
@@ -1840,6 +1873,29 @@ async function getDirectMediaPlaybackUrl(id, did) {
 
   const media = await getAuthoritativeCloudMedia(recordId, readerDid);
   if (!media || !media.remoteUrl) {
+    const local = findRecordRaw(recordId);
+    if (local && canRead(local.record, readerDid)) {
+      const localMedia = local.record.data?.media || {};
+      const localStatus = String(localMedia.processingStatus || local.record.mediaCompatibility?.processingStatus || '').toLowerCase();
+      if (['preview-unavailable', 'failed', 'error', 'timeout'].includes(localStatus)) {
+        return {
+          url: '',
+          ready: false,
+          processing: false,
+          processingStatus: localStatus,
+          retryAfterMs: 2500,
+          warning: localMedia.compatibilityWarning || local.record.mediaCompatibility?.warning || 'Video preview is unavailable.'
+        };
+      }
+      return {
+        url: '',
+        ready: false,
+        processing: true,
+        processingStatus: localStatus || 'processing',
+        retryAfterMs: 2500,
+        warning: 'Video is still syncing to Storage.'
+      };
+    }
     const err = new Error('Video playback URL unavailable');
     err.status = 404;
     throw err;
