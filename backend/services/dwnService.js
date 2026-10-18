@@ -1276,41 +1276,39 @@ async function ensureMediaPlayableForStream(userId, did, id, options = {}) {
   if (!full || !fs.existsSync(full)) return { touched: false, reason: 'local-file-missing' };
   const size = fs.statSync(full).size;
   const maxBytes = Number(options.maxBytes || process.env.MILAN_UNIVERSAL_STREAM_FIX_BYTES || 512 * 1024 * 1024);
-  if (size > maxBytes) {
-    // Do not block the player for huge videos. Queue background fix and stream the original.
-    try { scheduleMediaBackgroundProcessing(found.userId, found.record.owner || did, found.record.id, 'universal-stream-large-video'); } catch (_) {}
-    return { touched: false, reason: 'too-large-background-queued', size, maxBytes };
-  }
-
   const lockKey = mediaJobKey(found.userId, found.record.id);
   const repairIsActive = mediaRepairLocks.has(lockKey);
   const repairIsQueued = mediaProcessingQueue.has(lockKey);
   const processing = media.processing === true || compat.processing === true ||
     status === 'processing' || status === 'queued' || status === 'checking';
 
-  // Video playback is a hot path: never make the player wait for a background
-  // compatibility job (or launch a duplicate repair) before it can start.
-  // Keep repair running in the background; serve the currently available source.
-  if (repairIsActive || repairIsQueued || processing) {
-    if (!repairIsActive && !repairIsQueued) {
-      try {
-        scheduleMediaBackgroundProcessing(found.userId, found.record.owner || did, found.record.id, 'playback-background-repair');
-      } catch (_) {}
-    }
-    return {
-      touched: false,
-      reason: repairIsActive ? 'repair-in-progress-playback-not-blocked' : 'repair-queued-background'
-    };
+  // Never transcode/remux inline on a playback request. Forward the stream now
+  // and let the compatibility repair run in the background.
+  if (!repairIsActive && !repairIsQueued) {
+    try {
+      scheduleMediaBackgroundProcessing(
+        found.userId,
+        found.record.owner || did,
+        found.record.id,
+        size > maxBytes ? 'universal-stream-large-video' : 'universal-stream-background-repair'
+      );
+    } catch (_) {}
   }
 
-  try {
-    const result = await repairMediaForBrowser(found.userId, found.record.owner || did, found.record.id);
-    return { touched: !!result?.repaired, reason: result?.repaired ? 'repaired-before-stream' : 'checked-before-stream', result };
-  } catch (err) {
-    // Streaming must never fail just because automatic healing failed. The raw file remains available.
-    audit('dwn.media.universal.stream.heal.failed', { userId, recordId: id, error: err.message });
-    return { touched: false, reason: 'repair-failed', error: err.message };
-  }
+  return {
+    touched: false,
+    reason: repairIsActive
+      ? 'repair-in-progress-playback-not-blocked'
+      : repairIsQueued
+        ? 'repair-already-queued-playback-not-blocked'
+        : processing
+          ? 'stale-processing-requeued'
+          : size > maxBytes
+            ? 'too-large-background-queued'
+            : 'background-repair-queued',
+    size,
+    maxBytes
+  };
 }
 
 async function importRecords(userId, ownerDid, records = []) {

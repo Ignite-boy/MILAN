@@ -744,10 +744,9 @@ async function streamMedia(req, res) {
   try {
     const u = await current(req);
     if (!u) return res.status(404).json({ error: 'User not found' });
-    // V83 urgent video rule: when the player asks for the dedicated play.mp4/universal
-    // route, make one best-effort browser-safe MP4 pass before streaming. This fixes the
-    // "audio plays but video is black/not visible" case caused by unsupported video codecs
-    // or non-faststart mobile files, while still falling back to the original if repair fails.
+    // Keep the play.mp4/universal streaming path non-blocking: compatibility
+    // remux/transcode work is queued in the background, while available media bytes
+    // begin streaming immediately through this Vercel endpoint.
     if (req.method !== 'HEAD' && (/play\.mp4$/i.test(req.path || '') || String(req.query.universal || '') === '1' || String(req.query.play || '') === 'v83')) {
       try {
         await dwnStore.ensureMediaPlayableForStream(req.userId, u.user.did, req.params.id, {
@@ -860,8 +859,8 @@ router.get('/:id/media/playback-url', auth, async (req, res) => {
     const u = await current(req);
     if (!u) return res.status(404).json({ error: 'User not found' });
 
-    // Match the existing play.mp4 preparation path before signing the
-    // cloud URL, so repaired browser-safe MP4s are streamed directly too.
+    // Compatibility work is queued non-blockingly. This legacy endpoint can
+    // still mint a signed Storage URL for explicit direct-origin fallback callers.
     try {
       await dwnStore.ensureMediaPlayableForStream(
         req.userId,

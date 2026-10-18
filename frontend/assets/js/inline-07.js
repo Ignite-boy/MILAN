@@ -2,14 +2,24 @@
 if(!video||!id||video.dataset.milanDirectLoading==="1"||video.dataset.milanDirectReady==="1"||video.dataset.milanDirectFallback==="1")return;
 video.dataset.milanDirectLoading="1";
 try{
-if(typeof api!=="function")throw new Error("Playback API unavailable");
-const result=await api("/records/"+encodeURIComponent(id)+"/media/playback-url");
-const direct=String(result&&result.url||"");if("1"===video.dataset.milanDirectFallback)return;
-if(!/^https?:\/\/\S+$/i.test(direct))throw new Error("Invalid playback URL");
 const source=video.querySelector("source[data-milan-direct-source],source");
 if(!source)throw new Error("Video source unavailable");
-source.setAttribute("src",direct);
+const base=String(video.getAttribute("data-base-src")||"");
+if(!base)throw new Error("Vercel video stream unavailable");
+let currentToken="";
+try{currentToken=localStorage.getItem("milan_token")||""}catch(_){}
+const baseUrl=new URL(base,window.location.origin);
+if(!currentToken&&baseUrl.origin===window.location.origin)currentToken=baseUrl.searchParams.get("token")||"";
+const streamUrl=new URL("/api/records/"+encodeURIComponent(id)+"/media/play.mp4",window.location.origin);
+if(currentToken)streamUrl.searchParams.set("token",currentToken);
+streamUrl.searchParams.set("universal","1");
+streamUrl.searchParams.set("player","v98");
+streamUrl.searchParams.set("mv","59");
+const streamPath=streamUrl.pathname+streamUrl.search;
+video.setAttribute("data-base-src",streamPath);
+source.setAttribute("src",streamPath);
 video.dataset.milanDirectReady="1";
+video.dataset.milanVercelStreamReady="1";
 video.load();
 }catch(_){
 const source=video.querySelector("source[data-milan-direct-source],source");
