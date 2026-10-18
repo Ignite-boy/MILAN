@@ -1306,7 +1306,6 @@ async function ensureMediaPlayableForStream(userId, did, id, options = {}) {
   try {
     const result = await repairMediaForBrowser(found.userId, found.record.owner || did, found.record.id);
     return { touched: !!result?.repaired, reason: result?.repaired ? 'repaired-before-stream' : 'checked-before-stream', result };
-  }
   } catch (err) {
     // Streaming must never fail just because automatic healing failed. The raw file remains available.
     audit('dwn.media.universal.stream.heal.failed', { userId, recordId: id, error: err.message });
