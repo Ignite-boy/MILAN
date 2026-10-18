@@ -1282,24 +1282,31 @@ async function ensureMediaPlayableForStream(userId, did, id, options = {}) {
     return { touched: false, reason: 'too-large-background-queued', size, maxBytes };
   }
 
-  try {
-    const lockKey = mediaJobKey(found.userId, found.record.id);
-    if (mediaRepairLocks.has(lockKey)) {
-      const activeJob = mediaRepairLocks.get(lockKey);
-      const waitMs = Number(options.waitMs || process.env.MILAN_UNIVERSAL_STREAM_WAIT_MS || 60000);
-      await Promise.race([
-        activeJob.catch(() => null),
-        new Promise(resolve => setTimeout(resolve, waitMs))
-      ]);
-      const latest = findRecordRaw(id)?.record || found.record;
-      const latestMedia = latest.data?.media || {};
-      const latestCompat = latest.mediaCompatibility || {};
-      if (latestMedia.browserPlayable === true || latestCompat.browserPlayable === true) {
-        return { touched: true, reason: 'active-repair-finished-before-stream' };
-      }
+  const lockKey = mediaJobKey(found.userId, found.record.id);
+  const repairIsActive = mediaRepairLocks.has(lockKey);
+  const repairIsQueued = mediaProcessingQueue.has(lockKey);
+  const processing = media.processing === true || compat.processing === true ||
+    status === 'processing' || status === 'queued' || status === 'checking';
+
+  // Video playback is a hot path: never make the player wait for a background
+  // compatibility job (or launch a duplicate repair) before it can start.
+  // Keep repair running in the background; serve the currently available source.
+  if (repairIsActive || repairIsQueued || processing) {
+    if (!repairIsActive && !repairIsQueued) {
+      try {
+        scheduleMediaBackgroundProcessing(found.userId, found.record.owner || did, found.record.id, 'playback-background-repair');
+      } catch (_) {}
     }
+    return {
+      touched: false,
+      reason: repairIsActive ? 'repair-in-progress-playback-not-blocked' : 'repair-queued-background'
+    };
+  }
+
+  try {
     const result = await repairMediaForBrowser(found.userId, found.record.owner || did, found.record.id);
     return { touched: !!result?.repaired, reason: result?.repaired ? 'repaired-before-stream' : 'checked-before-stream', result };
+  }
   } catch (err) {
     // Streaming must never fail just because automatic healing failed. The raw file remains available.
     audit('dwn.media.universal.stream.heal.failed', { userId, recordId: id, error: err.message });
