@@ -1,8 +1,6 @@
 const express = require('express');
 const multer = require('multer');
 const sharp = require('sharp');
-const { uploadToDWN, downloadFromDWN } = require('../utils/dwnStorage');
-const { createClient } = require('@supabase/supabase-js');
 const auth = require('../middleware/auth');
 const { readJson, writeJson, writeJsonAndSync, findUserById, addActivity } = require('../utils/store');
 const { ensureUserDwn, pushRecordToCloudDwn, deleteRecordFromCloudDwn } = require('../services/cloudDwnRegistry');
@@ -15,10 +13,6 @@ const uploadDp = multer({
   }
 });
 
-const supabaseDb = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-);
 
 async function resolveAccount(req, users) {
   if (req.account?.id && req.account?.did && req.account?.spaceId) {
@@ -67,58 +61,45 @@ async function resolveAccount(req, users) {
     };
   }
 
-  const byId = await supabaseDb
-    .from('users')
-    .select('id,email,name,did')
-    .eq('id', req.userId)
-    .maybeSingle();
+  let account = null;
+  try {
+    if (userId) {
+      const byId = await require('../services/milanDb').query(
+        'SELECT user_id AS id, email, name, did FROM public.users WHERE user_id = $1 LIMIT 1',
+        [userId]
+      );
+      account = byId.rows[0] || null;
+    }
 
-  if (!byId.error && byId.data) {
-    const localEntry = users[byId.data.email];
+    if (!account && email) {
+      const byEmail = await require('../services/milanDb').query(
+        'SELECT user_id AS id, email, name, did FROM public.users WHERE lower(email) = $1 LIMIT 1',
+        [email]
+      );
+      account = byEmail.rows[0] || null;
+    }
+  } catch (error) {
+    console.error('[profile] Voroa account lookup failed:', error.message);
+    throw error;
+  }
+
+  if (account) {
+    const localEntry = users[account.email];
     const sameAccountLocal =
-      localEntry &&
-      String(localEntry.id || '') === String(byId.data.id || '')
+      localEntry && String(localEntry.id || '') === String(account.id || '')
         ? localEntry
         : {};
 
     return {
-      email: byId.data.email,
+      email: account.email,
       user: {
         ...sameAccountLocal,
-        id: byId.data.id,
-        email: byId.data.email,
-        name: byId.data.name,
-        did: byId.data.did
+        id: account.id,
+        email: account.email,
+        name: account.name,
+        did: account.did
       }
     };
-  }
-
-  if (email) {
-    const byEmail = await supabaseDb
-      .from('users')
-      .select('id,email,name,did')
-      .eq('email', email)
-      .maybeSingle();
-
-    if (!byEmail.error && byEmail.data) {
-      const localEntry = users[byEmail.data.email];
-      const sameAccountLocal =
-        localEntry &&
-        String(localEntry.id || '') === String(byEmail.data.id || '')
-          ? localEntry
-          : {};
-
-      return {
-        email: byEmail.data.email,
-        user: {
-          ...sameAccountLocal,
-          id: byEmail.data.id,
-          email: byEmail.data.email,
-          name: byEmail.data.name,
-          did: byEmail.data.did
-        }
-      };
-    }
   }
 
   return null;
@@ -190,7 +171,7 @@ async function writeProfilePicture(did, file, user) {
   if (!result?.pushed) {
     throw new Error(
       result?.error ||
-      'Supabase DWN profile picture write failed.'
+      'Voroa PostgreSQL DWN profile picture write failed.'
     );
   }
 
@@ -201,7 +182,7 @@ async function writeProfilePicture(did, file, user) {
     mime: file.mimetype || 'image/jpeg',
     fileName: file.originalname || `${recordId}.jpg`,
     persistedInDwn: true,
-    source: 'supabase-dwn',
+    source: 'voroa-dwn',
     status: 200,
     dataSize: result.dataSize || file.buffer.length
   };
@@ -236,6 +217,7 @@ async function readProfilePicture(user) {
   const spaceId = String(
     user?.dwn?.spaceId ||
     user?.settings?.dwnSpaceId ||
+    user?.spaceId ||
     ''
   ).trim();
 
@@ -243,38 +225,35 @@ async function readProfilePicture(user) {
   if (!spaceId) throw new Error('User DWN space is missing.');
 
   const recordId = profileRecordId(did);
+  const milanDb = require('../services/milanDb');
+  const result = await milanDb.query(
+    `SELECT schema_uri, data_format, metadata, data_bytes, data_size, deleted
+     FROM public.dwn_storage
+     WHERE component_type = 'record'
+       AND did = $1 AND space_id = $2 AND item_key = $3
+     LIMIT 1`,
+    [did, spaceId, recordId]
+  );
 
-  const { data: record, error: recordError } = await supabaseDb
-    .from('dwn_records')
-    .select('record_id,owner_did,data_format,data_size,deleted,metadata')
-    .eq('record_id', recordId)
-    .eq('owner_did', did)
-    .maybeSingle();
+  const record = result.rows[0];
+  if (!record || record.deleted || record.schema_uri !== 'profile-picture') return null;
 
-  if (recordError) throw recordError;
-  if (!record || record.deleted) return null;
-
-  const { data: row, error: dataError } = await supabaseDb
-    .from('dwn_record_data')
-    .select('data')
-    .eq('record_id', recordId)
-    .maybeSingle();
-
-  if (dataError) throw dataError;
-  if (!row?.data) return null;
-
-  const bytes = dwnByteaToBuffer(row.data);
+  const bytes = record.data_bytes == null ? null : Buffer.from(record.data_bytes);
   if (!bytes?.length) return null;
 
-  const mime = record.data_format || 'image/jpeg';
+  let metadata = record.metadata || {};
+  if (typeof metadata === 'string') {
+    try { metadata = JSON.parse(metadata); } catch (_) { metadata = {}; }
+  }
+  const mime = record.data_format || metadata.mimeType || 'image/jpeg';
 
   return {
     recordId,
     avatar: `data:${mime};base64,${bytes.toString('base64')}`,
     mime,
-    source: 'supabase-dwn',
+    source: 'voroa-dwn',
     spaceId,
-    dataSize: record.data_size || bytes.length
+    dataSize: Number(record.data_size || bytes.length)
   };
 }
 

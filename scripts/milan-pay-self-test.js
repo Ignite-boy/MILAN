@@ -12,10 +12,15 @@ assert(server.includes("app.use('/api/milan-pay', require('./routes/milanPay'));
   'MILAN Pay API route must be mounted');
 assert(route.includes("router.get('/config'"), 'Public configuration endpoint missing');
 assert(route.includes("router.post('/orders', createOrderRateLimiter, auth"), 'Order creation must require authentication after rate limiting');
-assert(route.includes("createDistributedApiRateLimiter({ limit: 8, windowMs: 60_000"), 'Order creation rate limit missing');
+assert(route.includes("limit: 8, windowMs: 60_000"), 'Order creation rate limit missing');
 assert(route.includes("router.get('/orders/:orderId/status', orderStatusRateLimiter, auth"), 'Order status must require authentication after rate limiting');
-assert(route.includes("createDistributedApiRateLimiter({ limit: 60, windowMs: 60_000"), 'Order status rate limit missing');
-assert(route.includes("gateway: 'milanpay'"), 'Orders must be marked with the MILAN Pay identifier');
+assert(route.includes("limit: 60, windowMs: 60_000"), 'Order status rate limit missing');
+assert(
+  route.includes("gateway = 'milanpay'") &&
+  route.includes("(user_id, order_id, plan, amount_inr, gateway, gateway_reference)") &&
+  route.includes("VALUES ($1, $2, $3, $4, 'milanpay', $5)"),
+  'Order queries and inserts must use the MILAN Pay gateway identifier and omit caller-controlled status'
+);
 assert(route.includes("status: 'pending'"), 'New orders must start pending');
 assert(!/status:\s*['"]paid['"]/.test(route), 'Intent-only flow must never mark orders paid automatically');
 assert(route.includes('MILAN_PAY_UPI_ID'), 'Merchant UPI configuration hook missing');

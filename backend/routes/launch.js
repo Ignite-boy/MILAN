@@ -29,7 +29,7 @@ function readiness() {
   const checks = {
     apiOnline: true,
     dwnStorageOperational: dwn.storageOperational === true,
-    supabaseAuthoritativeStorage: dwn.mode === 'supabase' && dwn.storageOperational === true,
+    voroaPostgresqlPrimaryMode: dwn.mode === 'voroa-postgresql',
     userRegistrationAvailable: true,
     loginAvailable: true,
     privateByDefault: true,

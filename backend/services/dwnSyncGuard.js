@@ -10,7 +10,13 @@ function assertCloudSyncSucceeded(record) {
     'Supabase DWN record sync was not confirmed'
   );
   const error = new Error(message);
-  error.status = 502;
+  const status = Number(syncResult?.status);
+  error.status = Number.isInteger(status) && status >= 400 && status <= 599
+    ? status
+    : 502;
+  if (typeof syncResult?.code === 'string' && syncResult.code) {
+    error.code = syncResult.code;
+  }
   throw error;
 }
 

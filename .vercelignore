@@ -13,3 +13,9 @@ backend/**/DATASTORE/
 backend/**/LOCK
 *.log
 .env
+
+# Local recovery backups — never deploy
+**/*.bak*
+**/*.broken-*
+**/*.failed-*
+**/*.pre-*

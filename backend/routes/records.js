@@ -5,12 +5,6 @@ const path = require('path');
 const auth = require('../middleware/auth');
 const { readJson, findUserById, findUserByDid, addActivity } = require('../utils/store');
 const dwnStore = require('../services/dwnService');
-const { createClient } = require('@supabase/supabase-js');
-
-const supabaseDb = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-);
 const { Readable } = require('stream');
 const crypto = require('crypto');
 const { detectMimeFromFile } = require('../utils/mediaCompat');
@@ -144,6 +138,49 @@ function streamRangeOrWholeFile(req, res, fullPath, media, sourceLabel = '') {
   return fs.createReadStream(fullPath, { highWaterMark: 1024 * 1024 }).pipe(res);
 }
 
+
+function streamRangeOrBuffer(req, res, media, sourceLabel = 'voroa-postgresql') {
+  const buffer = media.buffer;
+  const total = buffer.length;
+  let contentType = browserServeMime(media, media.fileName || '');
+  const videoPlayRequest = isVideoMime(contentType) &&
+    (/play\\.mp4$/i.test(req.path || '') ||
+     String(req.query.universal || '') === '1' ||
+     String(req.query.native_direct || '') === '1');
+  if (videoPlayRequest) contentType = 'video/mp4';
+
+  res.setHeader('Accept-Ranges', 'bytes');
+  res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges, X-Milan-Media-Source');
+  res.setHeader('Cache-Control', isVideoMime(contentType) ? 'private, max-age=86400, no-transform' : 'private, max-age=3600, immutable');
+  res.setHeader('Content-Type', contentType);
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  res.setHeader('Timing-Allow-Origin', '*');
+  res.setHeader('Content-Disposition', contentDisposition(req, media.fileName || 'milan-media'));
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.setHeader('X-Milan-Media-Source', sourceLabel);
+
+  if (req.method === 'HEAD') {
+    res.setHeader('Content-Length', total);
+    return res.status(200).end();
+  }
+
+  if (req.headers.range) {
+    const parsed = parseByteRange(req.headers.range, total);
+    if (!parsed || parsed.invalid) {
+      res.setHeader('Content-Range', `bytes */${total}`);
+      return res.status(416).end();
+    }
+    res.status(206);
+    res.setHeader('Content-Range', `bytes ${parsed.start}-${parsed.end}/${total}`);
+    res.setHeader('Content-Length', parsed.end - parsed.start + 1);
+    return res.end(buffer.subarray(parsed.start, parsed.end + 1));
+  }
+
+  res.status(200);
+  res.setHeader('Content-Length', total);
+  return res.end(buffer);
+}
+
 // Facebook-style reliable upload layer: split large videos into small resumable chunks.
 // This avoids one huge mobile request timing out while the app is deployed behind proxies.
 const RESUMABLE_ROOT = path.join(os.tmpdir(), 'milan-resumable-media-uploads');
@@ -228,6 +265,7 @@ router.post('/media/chunk/init', auth, async (req, res) => {
       recordId: crypto.randomUUID(),
       userId: req.userId,
       ownerDid: u.user.did,
+      spaceId: u.user.spaceId,
       sizeBytes,
       chunkBytes,
       totalChunks,
@@ -761,6 +799,10 @@ async function streamMedia(req, res) {
     const media = await dwnStore.getMediaStream(req.params.id, u.user.did);
     if (!media) return res.status(404).json({ error: 'Media not found' });
 
+    if (Buffer.isBuffer(media.buffer)) {
+      return streamRangeOrBuffer(req, res, media, media.backend || 'voroa-postgresql');
+    }
+
     const streamLocalFile = (fullPath, sourceLabel = 'app-cache') => streamRangeOrWholeFile(req, res, fullPath, media, sourceLabel);
 
     if (media.remoteOnly) {
@@ -912,7 +954,7 @@ router.post('/', auth, async (req, res) => {
   try {
     const u = await current(req);
     if (!u) return res.status(404).json({ error: 'User not found' });
-    const record = await dwnStore.createRecord(req.userId, u.user.did, req.body);
+    const record = await dwnStore.createRecord(req.userId, u.user.did, { ...req.body, awaitCloudSync: true });
     addActivity(req.userId, 'record.created.in.dwn', { title: record.title, accessMode: record.accessMode, dwnRecordId: record.dwnRecordId });
     res.status(201).json(record);
   } catch (err) { handleError(res, err); }

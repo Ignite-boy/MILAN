@@ -1,7 +1,7 @@
 const { createClient } = require('@supabase/supabase-js');
 const BUCKET = process.env.SUPABASE_BUCKET || 'milan-dwn-storage';
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
-console.log('✅ DWN: Supabase Permanent Active');
+console.log('ℹ️ MILAN: Legacy Supabase client initialized for remaining integrations');
 async function uploadToDWN(spaceId, fileName, fileBuffer) {
   const path = `${spaceId}/${fileName}`;
   const { error } = await supabase.storage.from(BUCKET).upload(path, fileBuffer, { upsert: true });

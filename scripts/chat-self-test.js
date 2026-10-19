@@ -55,8 +55,26 @@ assert(chat.includes("mailboxRole: 'sender'"), 'Sender mailbox role missing.');
 assert(chat.includes('function decodeStoredData(value)'), 'Stored mailbox decoder must be synchronous.');
 assert(!chat.includes('async function decodeStoredData'), 'Stored mailbox decoder cannot return an unchecked Promise.');
 assert(chat.includes('withChatWriteLock'), 'Concurrent message/receipt write guard missing.');
-assert(chat.includes(".eq('owner_did', meDid)"), 'Conversation reads must be limited to the caller mailbox.');
-assert(chat.includes(".eq('owner_did', currentDid)"), 'Conversation list must be limited to the caller mailbox.');
+  const conversationMessagesStart = chat.indexOf('async function conversationMessages(');
+  const listConversationsStart = chat.indexOf('async function listConversations(');
+  const peopleRouteStart = chat.indexOf("router.get('/people', auth");
+  assert(conversationMessagesStart >= 0 &&
+         listConversationsStart > conversationMessagesStart &&
+         peopleRouteStart > listConversationsStart,
+    'Voroa conversation reader functions are missing.');
+
+  const callerMailboxSql = source =>
+    source.includes("component_type = 'record'") &&
+    source.includes('AND did = $1') &&
+    source.includes('AND space_id = (SELECT space_id FROM public.users WHERE did = $1 LIMIT 1)');
+
+  assert(callerMailboxSql(chat.slice(conversationMessagesStart, listConversationsStart)),
+    'Conversation reads must be limited to the caller-owned Voroa mailbox and tenant space.');
+  assert(callerMailboxSql(chat.slice(listConversationsStart, peopleRouteStart)),
+    'Conversation list must be limited to the caller-owned Voroa mailbox and tenant space.');
+  assert(!chat.includes('@supabase/supabase-js') && !/supabase\s*\n\s*\.from\(/.test(chat),
+    'Chat route must not instantiate a direct Supabase client.');
+
 assert(chat.includes('livePush.push(req.userId'), 'Sender other-device push missing.');
 
 assert(social.includes('function isChatRecord(record)'), 'Feed chat-record guard missing.');

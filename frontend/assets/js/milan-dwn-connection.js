@@ -35,7 +35,7 @@
     el.textContent = labels[state] || "Cloud storage status unknown";
     el.dataset.dwnConnection = state;
     el.title = state === "connected"
-      ? "Supabase-backed storage is configured. Signed DWN protocol execution is not integrated."
+      ? "Voroa PostgreSQL core storage is reachable. Signed DWN protocol execution is not integrated."
       : "Cloud storage configuration or authenticated profile check needs attention.";
   };
 
@@ -68,12 +68,12 @@
       if (
         !response.ok ||
         health?.ok !== true ||
-        health?.mode !== "supabase" ||
-        health?.storage?.mode !== "supabase" ||
-        health?.storage?.remoteWriteEnabled !== true
+        health?.mode !== "voroa-postgresql" ||
+        health?.storage?.mode !== "voroa-postgresql" ||
+        health?.storage?.voroaDatabaseReachable !== true
       ) {
         throw new Error(
-          "Supabase cloud storage is not configured or reachable (HTTP " +
+          "Voroa PostgreSQL core storage is not reachable (HTTP " +
           response.status + ")."
         );
       }

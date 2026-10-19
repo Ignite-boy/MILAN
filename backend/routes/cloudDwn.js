@@ -38,7 +38,7 @@ router.get('/health', auth, async (req, res) => {
         state: 'disconnected',
         did: found.user.did,
         spaceId: info.spaceId,
-        reason: node.error || node.reason || 'Supabase tenant unavailable',
+        reason: node.error || node.reason || 'Voroa DID/space mapping unavailable',
         checkedAt: new Date().toISOString()
       });
     }
@@ -50,11 +50,12 @@ router.get('/health', auth, async (req, res) => {
       spaceId: info.spaceId,
       dwn: {
         nodeReady: node.nodeReady === true,
-        backend: 'supabase',
-        mode: 'supabase',
-        remoteConfigured: false,
+        backend: 'voroa',
+        mode: 'voroa-postgresql',
+        remoteConfigured: node.storageReady === true,
         remoteReachable: null,
-        endpoint: process.env.SUPABASE_URL || null
+        endpoint: null,
+        protocolReady: false
       },
       checkedAt: new Date().toISOString()
     });
@@ -68,23 +69,53 @@ router.get('/health', auth, async (req, res) => {
   }
 });
 
-router.get('/status', (_req, res) => {
+router.get('/status', async (_req, res) => {
   const storage = persistenceInfo();
-  res.json({
-    ok: storage.mode === 'supabase' && storage.remoteWriteEnabled === true,
-    backend: 'supabase',
-    mode: 'supabase',
-    storage,
-    cloudDwn: {
-      mode: 'supabase',
-      backend: 'supabase',
-      root: storage.root,
-      endpoint: storage.remoteEndpoint || '',
-      realDwnProtocol: false,
-      authoritative: true,
-      localFilesystemRole: 'compatibility/cache'
-    }
-  });
+
+  try {
+    const probe = await require('../services/milanDb').query('SELECT 1 AS ok');
+    const reachable = probe.rowCount === 1;
+    const currentStorage = { ...storage, voroaDatabaseReachable: reachable };
+
+    return res.json({
+      ok: reachable,
+      backend: 'voroa',
+      mode: 'voroa-postgresql',
+      storage: currentStorage,
+      cloudDwn: {
+        mode: 'voroa-postgresql',
+        backend: 'voroa',
+        root: storage.root,
+        endpoint: '',
+        realDwnProtocol: false,
+        protocolReady: false,
+        authoritative: false,
+        authorityScope: 'Core snapshots, records, and media only',
+        legacySupabaseIntegrationsRemain: true,
+        localFilesystemRole: 'compatibility/cache'
+      }
+    });
+  } catch (_) {
+    return res.status(503).json({
+      ok: false,
+      backend: 'voroa',
+      mode: 'voroa-postgresql',
+      storage: { ...storage, voroaDatabaseReachable: false },
+      cloudDwn: {
+        mode: 'voroa-postgresql',
+        backend: 'voroa',
+        root: storage.root,
+        endpoint: '',
+        realDwnProtocol: false,
+        protocolReady: false,
+        authoritative: false,
+        authorityScope: 'Core snapshots, records, and media only',
+        legacySupabaseIntegrationsRemain: true,
+        localFilesystemRole: 'compatibility/cache'
+      },
+      error: 'Voroa PostgreSQL connectivity check failed'
+    });
+  }
 });
 
 module.exports = router;

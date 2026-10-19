@@ -135,7 +135,7 @@ global.notificationsFile = migrateLegacyJson('notifications.json', {});
 global.socialSavesFile = migrateLegacyJson('socialSaves.json', {});
 global.feedbackFile = migrateLegacyJson('feedback.json', []);
 global.securityReportsFile = migrateLegacyJson('securityReports.json', []);
-ensureFile(path.join(DATA_DIR, 'DATABASE_MANIFEST.json'), { app: 'MILAN', version: APP_VERSION, storage: 'supabase-authoritative/database', cloud: persistenceInfo(), createdAt: new Date().toISOString() });
+ensureFile(path.join(DATA_DIR, 'DATABASE_MANIFEST.json'), { app: 'MILAN', version: APP_VERSION, storage: 'voroa-postgresql-primary/core-records-media-snapshots', cloud: persistenceInfo(), createdAt: new Date().toISOString() });
 
 app.get('/health', (_req, res) => res.json({ ok: dwnStore.getStatus().storageOperational === true, app: 'MILAN', version: APP_VERSION, storage: { dwnRoot: DWN_ROOT, databaseDir: DATA_DIR, cloud: persistenceInfo() }, time: new Date().toISOString() }));
 
@@ -147,17 +147,17 @@ app.get('/api/health', (_req, res) => {
     healthSemantics: {
       level: 'liveness',
       supabaseCredentialsConfigured: !!cloud.remoteWriteEnabled && !!cloud.apiKeyConfigured,
-      authoritativePersistence: 'supabase',
+      authoritativePersistence: 'voroa-postgresql-core-storage; legacy Supabase payment/storage integrations remain',
       realDwnProtocol: cloud.realDwnProtocol === true,
       realDwnProtocolStatus: cloud.realDwnProtocol === true ? 'integrated' : 'not-integrated'
     },
     app: 'MILAN - Your Space .Your People',
     version: APP_VERSION,
-    mode: 'supabase-authoritative-did-scoped-user-spaces',
+    mode: 'voroa-postgresql-primary-did-scoped-user-spaces',
     time: new Date().toISOString(),
     dwn: dwnStore.getStatus(),
-    storage: { dwnRoot: DWN_ROOT, databaseDir: DATA_DIR, cloud, rule: 'Supabase authoritative; local filesystem is compatibility/cache only' },
-    features: ['Integrated universal video player', 'automatic browser-safe MP4 stream healing', 'MILAN branding', 'DID auth', 'DID-scoped logical user spaces (Supabase)', 'Supabase-backed user records', 'privacy modes', 'DID sharing', 'access requests', 'backup', 'activity', 'crypto helper', 'reel viewer', 'bulk actions', 'analytics dashboard', 'PWA shell', 'streaming uploads', 'video range streaming', 'rate limiting', 'security headers', 'social home feed', 'people discovery', 'friend requests', 'reactions', 'comments', 'notifications', 'Milan-style private social UI with Supabase-authoritative privacy', 'V3 Avatar Jaadu', 'V3 Gamification Engine', 'V3 XP & Levels', 'V3 Mystery Rewards', 'V3 Badge Wall', 'V3 AI Chips', 'V3 500-Technique Engagement System']
+    storage: { dwnRoot: DWN_ROOT, databaseDir: DATA_DIR, cloud, rule: 'Voroa PostgreSQL is primary for core snapshots, records, and media; legacy payment/storage integrations still depend on Supabase' },
+    features: ['Integrated universal video player', 'automatic browser-safe MP4 stream healing', 'MILAN branding', 'DID auth', 'DID-scoped logical user spaces (Voroa PostgreSQL)', 'Voroa PostgreSQL-backed user records', 'privacy modes', 'DID sharing', 'access requests', 'backup', 'activity', 'crypto helper', 'reel viewer', 'bulk actions', 'analytics dashboard', 'PWA shell', 'streaming uploads', 'video range streaming', 'rate limiting', 'security headers', 'social home feed', 'people discovery', 'friend requests', 'reactions', 'comments', 'notifications', 'Milan-style private social UI with explicit DID-scoped permissions', 'V3 Avatar Jaadu', 'V3 Gamification Engine', 'V3 XP & Levels', 'V3 Mystery Rewards', 'V3 Badge Wall', 'V3 AI Chips', 'V3 500-Technique Engagement System']
   });
 });
 

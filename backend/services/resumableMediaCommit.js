@@ -3,7 +3,8 @@
 async function commitResumableMedia({
   record, ownerDid, ownerUser, mediaFile,
   pushMediaToCloudDwn, markCloudSync,
-  assertCloudSyncSucceeded, persistCommitState
+  assertCloudSyncSucceeded, persistCommitState,
+  commitMode = 'synchronous-resumable'
 }) {
   let uploadedMedia;
   try {
@@ -26,7 +27,7 @@ async function commitResumableMedia({
     record.cloudDwn.mediaSync = {
       ...(uploadedMedia || {}),
       backend: 'supabase',
-      mode: 'synchronous-resumable',
+      mode: commitMode,
       pending: false,
       pushed: false,
       failedAt: new Date().toISOString(),
@@ -35,13 +36,19 @@ async function commitResumableMedia({
     persistCommitState();
 
     const error = new Error(message);
-    error.status = 502;
+    const status = Number(uploadedMedia?.status);
+    error.status = Number.isInteger(status) && status >= 400 && status <= 599
+      ? status
+      : 502;
+    if (typeof uploadedMedia?.code === 'string' && uploadedMedia.code) {
+      error.code = uploadedMedia.code;
+    }
     throw error;
   }
 
   const mediaSync = {
     ...uploadedMedia,
-    mode: 'synchronous-resumable',
+    mode: commitMode,
     pending: false,
     pushed: true
   };

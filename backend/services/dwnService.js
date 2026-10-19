@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const milanDb = require('./milanDb');
 const uuidv4 = () => crypto.randomUUID();
 const { readJson, writeJson, findUserByDid } = require('../utils/store');
 const { BROWSER_SAFE_MEDIA, detectMimeFromFile, extForMime, categoryForMime, normalizeUploadedMedia } = require('../utils/mediaCompat');
@@ -8,12 +9,6 @@ const { getDwnInfo, pushRecordToCloudDwn, deleteRecordFromCloudDwn, pushMediaToC
 const { assertCloudSyncSucceeded } = require('./dwnSyncGuard');
 const { commitResumableMedia } = require('./resumableMediaCommit');
 
-const { createClient } = require('@supabase/supabase-js');
-
-const supabaseAuthoritative = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-);
 
 // Vercel Functions can keep non-critical work alive after the response.
 // Local/other Node runtimes fall back to a normal background promise.
@@ -320,6 +315,7 @@ function canRead(record, did) {
 function toClient(record, did, options = {}) {
   const baseRecord = options.summary ? compactMediaForList(record) : compactMediaForList(record);
   const mode = modeOf(baseRecord);
+  const engine = baseRecord.storageEngine || 'supabase';
   return {
     ...baseRecord,
     accessMode: mode,
@@ -330,7 +326,7 @@ function toClient(record, did, options = {}) {
     canManageAccess: baseRecord.owner === did,
     storage: 'DWN',
     storageProof: {
-      engine: 'supabase',
+      engine,
       sdkReady: dwnInitStatus.sdkReady,
       dwnEndpoint: baseRecord.dwnEndpoint || dwnInfoForDid(baseRecord.owner).endpoint,
       dwnMode: baseRecord.dwnMode || dwnInfoForDid(baseRecord.owner).mode,
@@ -467,9 +463,9 @@ async function initDwn() {
   compactExistingIndex();
   repairIndexFromRecordFiles();
 
-  // Users are assigned an isolated Supabase-backed space.
+  // Users are assigned an isolated Voroa-backed space for core storage.
   dwnInstance = {
-    type: 'supabase-backed-isolated-space-cache',
+    type: 'voroa-postgresql-backed-isolated-space-cache',
     directory: DWN_DIR,
     startedAt: new Date().toISOString()
   };
@@ -503,7 +499,7 @@ function getStatus() {
       maxTextBytes: MAX_TEXT_BYTES
     },
     cloud: persistenceInfo(),
-    note: 'MILAN Supabase mode. Supabase is authoritative for user snapshots, records, and media; local files are compatibility/cache storage.'
+    note: 'Voroa PostgreSQL is primary for core user snapshots, records, and media; local files are compatibility/cache storage. Legacy payment/storage integrations still use Supabase. Signed DWN protocol execution is not integrated.'
   };
 }
 
@@ -611,7 +607,39 @@ async function createRecord(userId, ownerDid, body = {}) {
         }
       }
     }
-    if (lastError) throw lastError;
+    if (lastError) {
+      // Only remove a newly created local record when quota rejection is explicit.
+      // Reload the index and match the generated DWN id to avoid overwriting newer data.
+      if (lastError.code === 'STORAGE_QUOTA_EXCEEDED' && Number(lastError.status) === 413) {
+        try {
+          const latestIndex = readIndex();
+          const latestList = Array.isArray(latestIndex[userId])
+            ? latestIndex[userId]
+            : [];
+          const failedIndex = latestList.findIndex(
+            item => String(item?.id || '') === id &&
+              item?.dwnRecordId === record.dwnRecordId
+          );
+
+          if (failedIndex >= 0) {
+            latestList.splice(failedIndex, 1);
+            latestIndex[userId] = latestList;
+            writeIndex(latestIndex);
+
+            const storedRecord = readJsonFile(recordFile(userId, id), null);
+            if (storedRecord?.dwnRecordId === record.dwnRecordId) {
+              removeRecordFile(userId, id);
+            }
+          }
+        } catch (cleanupErr) {
+          console.error(
+            'Failed to clean up locally cached quota-rejected record:',
+            cleanupErr.message
+          );
+        }
+      }
+      throw lastError;
+    }
   } else {
     // Return the persisted record immediately; Supabase cloud sync continues in background.
     runBackground(() => markCloudSync(record, ownerDid)
@@ -827,10 +855,11 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
   const id = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestedRecordId)
     ? requestedRecordId
     : uuidv4();
+  const uploadAttemptId = uuidv4();
   let ext = mediaExtFromMime(mimeType) || path.extname(originalName) || '.bin';
   const mediaUserDir = path.join(userIsolatedRoot(userId), 'media');
   ensureDir(mediaUserDir);
-  let mediaFile = path.join(mediaUserDir, `${safeName(id)}${ext}`);
+  let mediaFile = path.join(mediaUserDir, `${safeName(id)}.${uploadAttemptId}${ext}`);
   try {
     fs.renameSync(tempPath, mediaFile);
   } catch (err) {
@@ -868,7 +897,7 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
     mimeType = compatibility.mimeType || 'video/mp4';
     originalName = compatibility.originalName || originalName.replace(/\.[^.]*$/, '') + '.mp4';
     ext = mediaExtFromMime(mimeType) || path.extname(originalName) || '.mp4';
-    const finalPath = path.join(mediaUserDir, `${safeName(id)}${ext}`);
+    const finalPath = path.join(mediaUserDir, `${safeName(id)}.${uploadAttemptId}${ext}`);
     if (finalPath !== mediaFile) {
       try { fs.renameSync(mediaFile, finalPath); mediaFile = finalPath; } catch (_) {}
     }
@@ -967,8 +996,8 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
   };
   applyAccess(record, access.mode, access.dids);
 
-  // Publish critical path: persist locally first. Remote record/media sync must
-  // never delay the HTTP response after the upload has been received.
+  // Persist a local staging copy first, but do not report upload success until
+  // Voroa's authoritative quota-checked media+record transaction has completed.
   record.cloudDwn = record.cloudDwn || {};
   record.cloudDwn.sync = {
     ok: false,
@@ -978,45 +1007,100 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
 
   // Stable upload IDs make retrying a failed cloud commit idempotent.
   const priorRecordIndex = list.findIndex(item => String(item?.id || '') === id);
+  const priorRecordSnapshot = priorRecordIndex >= 0
+    ? JSON.parse(JSON.stringify(list[priorRecordIndex]))
+    : null;
   if (priorRecordIndex >= 0) list.splice(priorRecordIndex, 1);
   list.unshift(record);
+  if (record.data?.media) delete record.data.media.dataUrl;
   persistRecord(userId, record);
   all[userId] = list;
   writeIndex(all);
 
   const ownerUser = userByDid(ownerDid);
-  const durableResumableUpload =
-    String(meta.uploadMode || '') === 'resumable-chunked' &&
-    (Boolean(process.env.VERCEL) ||
-      String(process.env.MILAN_UPLOAD_STORAGE_BACKEND || '').toLowerCase() === 'supabase');
+  // Every permanent Voroa media write must finish before the request can succeed.
+  const synchronousVoroaCommit = true;
 
   let mediaSync = {
     pushed: false,
     backend: 'supabase',
-    mode: durableResumableUpload ? 'synchronous-resumable' : 'background',
+    mode: String(meta.uploadMode || '') === 'resumable-chunked' ? 'synchronous-resumable' : 'synchronous-voroa',
     pending: true,
     queuedAt: new Date().toISOString()
   };
   record.cloudDwn.mediaSync = mediaSync;
   persistRecord(userId, record);
 
-  if (durableResumableUpload) {
+  if (synchronousVoroaCommit) {
     const persistCommitState = () => {
       persistRecord(userId, record);
       all[userId] = list;
       writeIndex(all);
     };
 
-    mediaSync = await commitResumableMedia({
-      record,
-      ownerDid,
-      ownerUser,
-      mediaFile,
-      pushMediaToCloudDwn,
-      markCloudSync,
-      assertCloudSyncSucceeded,
-      persistCommitState
-    });
+    try {
+      mediaSync = await commitResumableMedia({
+        record,
+        ownerDid,
+        ownerUser,
+        mediaFile,
+        pushMediaToCloudDwn,
+        markCloudSync,
+        assertCloudSyncSucceeded,
+        persistCommitState,
+        commitMode: String(meta.uploadMode || '') === 'resumable-chunked'
+          ? 'synchronous-resumable'
+          : 'synchronous-voroa'
+      });
+    } catch (commitErr) {
+      // A definitive quota rejection means neither permanent DB row committed.
+      // Restore the previous local record and remove only this attempt's unique file.
+      if (commitErr?.code === 'STORAGE_QUOTA_EXCEEDED' &&
+          Number(commitErr.status) === 413) {
+        try {
+          const latestIndex = readIndex();
+          const latestList = Array.isArray(latestIndex[userId])
+            ? latestIndex[userId]
+            : [];
+          const rejectedIndex = latestList.findIndex(
+            item => String(item?.id || '') === String(record.id || '') &&
+              item?.dwnRecordId === record.dwnRecordId
+          );
+
+          if (rejectedIndex >= 0) {
+            if (priorRecordSnapshot) {
+              latestList[rejectedIndex] = priorRecordSnapshot;
+            } else {
+              latestList.splice(rejectedIndex, 1);
+            }
+            latestIndex[userId] = latestList;
+            writeIndex(latestIndex);
+
+            const diskRecord = readJsonFile(recordFile(userId, id), null);
+            if (diskRecord?.dwnRecordId === record.dwnRecordId) {
+              if (priorRecordSnapshot) {
+                writeJsonFile(recordFile(userId, id), priorRecordSnapshot);
+              } else {
+                try { fs.unlinkSync(recordFile(userId, id)); } catch (cleanupErr) {
+                  if (cleanupErr.code !== 'ENOENT') throw cleanupErr;
+                }
+              }
+            }
+          }
+
+          // Never call removeRecordFile here: it deletes every media file for this
+          // record ID, including the previous upload. Only unlink this attempt.
+          if (fs.existsSync(mediaFile)) fs.unlinkSync(mediaFile);
+        } catch (cleanupErr) {
+          console.error(
+            '[Voroa quota-rejection retry restoration failed]',
+            record.id,
+            cleanupErr.message
+          );
+        }
+      }
+      throw commitErr;
+    }
   } else {
     runBackground(async () => {
       try {
@@ -1096,7 +1180,7 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
     record.data.media.mediaUrl = `/api/records/${encodeURIComponent(record.id)}/media`;
     record.data.media.downloadUrl = `/api/records/${encodeURIComponent(record.id)}/media?download=1`;
     record.mediaCachePath = record.mediaStoragePath || relMedia;
-    record.mediaAuthoritative = 'supabase-authoritative-storage';
+    record.mediaAuthoritative = 'voroa-postgresql-primary-storage';
     record.mediaCachedOnApp = true;
     record.mediaReadyAt = new Date().toISOString();
     runBackground(() => markCloudSync(record, ownerDid));
@@ -1112,6 +1196,23 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
   persistRecord(userId, record);
   all[userId] = list;
   writeIndex(all);
+
+  if (priorRecordSnapshot?.mediaStoragePath) {
+    try {
+      const previousMediaFile = absoluteBackendPath(priorRecordSnapshot.mediaStoragePath);
+      if (path.resolve(previousMediaFile) !== path.resolve(mediaFile) &&
+          fs.existsSync(previousMediaFile)) {
+        fs.unlinkSync(previousMediaFile);
+      }
+    } catch (cleanupErr) {
+      console.error(
+        '[Voroa replaced-media local cleanup failed]',
+        record.id,
+        cleanupErr.message
+      );
+    }
+  }
+
   audit('dwn.file.upload.persisted', { userId, recordId: record.id, mimeType, sizeBytes, previewCategory, browserPlayable, mediaStoragePath: record.mediaStoragePath, mediaSync, mediaCompatibility: record.mediaCompatibility });
   if (fastAcceptVideo) scheduleMediaBackgroundProcessing(userId, ownerDid, record.id);
   return toClient(record, ownerDid);
@@ -1387,7 +1488,7 @@ async function importRecords(userId, ownerDid, records = []) {
   for (const item of records.slice(0, 200)) {
     if (item.data === undefined) continue;
     try {
-      imported.push(await createRecord(userId, ownerDid, item));
+      imported.push(await createRecord(userId, ownerDid, { ...item, awaitCloudSync: true }));
     } catch (_err) {}
   }
   return imported;
@@ -1437,129 +1538,82 @@ async function listVisibleRecords(did, query = {}) {
   const ownerDid = String(did || '').trim();
   if (!ownerDid) return [];
 
-  const pageSize = 1000;
-  const rows = [];
+  const userResult = await milanDb.query(
+    'SELECT space_id FROM public.users WHERE did = $1 LIMIT 1',
+    [ownerDid]
+  );
+  if (userResult.rowCount !== 1 || !userResult.rows[0].space_id) return [];
 
-  for (let offset = 0; ; offset += pageSize) {
-    const { data, error } = await supabaseAuthoritative
-      .from('dwn_records')
-      .select([
-        'record_id',
-        'target_did',
-        'owner_did',
-        'schema',
-        'data_format',
-        'protocol',
-        'protocol_path',
-        'recipient',
-        'published',
-        'date_created',
-        'date_modified',
-        'deleted',
-        'metadata',
-        'data_cid',
-        'data_size'
-      ].join(','))
-      .eq('deleted', false)
-      .order('date_modified', { ascending: false })
-      .range(offset, offset + pageSize - 1);
+  const spaceId = String(userResult.rows[0].space_id).trim();
+  const result = await milanDb.query(
+    `SELECT item_key, did, space_id, schema_uri, data_format, protocol,
+            protocol_path, recipient, published, date_created, date_modified,
+            deleted, metadata, data_bytes, data_cid, data_size
+     FROM public.dwn_storage
+     WHERE component_type = 'record'
+       AND did = $1 AND space_id = $2 AND deleted = FALSE
+     ORDER BY date_modified DESC`,
+    [ownerDid, spaceId]
+  );
 
-    if (error) throw error;
+  const cloudRecords = result.rows.map(row => {
+    const metadata = parseDwnMetadata(row.metadata);
+    const bytes = row.data_bytes == null ? null : Buffer.from(row.data_bytes);
+    let recordData = bytes ? decodeAuthoritativeDwnData(bytes) : {};
 
-    const batch = Array.isArray(data) ? data : [];
-    rows.push(...batch);
-
-    if (batch.length < pageSize) break;
-  }
-
-  if (!rows.length) return [];
-
-  const dataMap = new Map();
-
-  for (let offset = 0; offset < rows.length; offset += 500) {
-    const ids = rows
-      .slice(offset, offset + 500)
-      .map(row => String(row.record_id || '').trim())
-      .filter(Boolean);
-
-    if (!ids.length) continue;
-
-    const { data, error } = await supabaseAuthoritative
-      .from('dwn_record_data')
-      .select('record_id,data')
-      .in('record_id', ids);
-
-    if (error) throw error;
-
-    for (const row of (data || [])) {
-      dataMap.set(
-        String(row.record_id || ''),
-        decodeAuthoritativeDwnData(row.data)
-      );
-    }
-  }
-
-  const cloudRecords = rows
-    .map(row => {
-      const metadata = parseDwnMetadata(row.metadata);
-      let recordData = dataMap.get(String(row.record_id || ''));
-      if ((!recordData || typeof recordData !== 'object') && metadata.media) {
-        recordData = { kind: 'media', caption: String(metadata.caption || ''), media: metadata.media };
-      } else if (metadata.media && recordData && typeof recordData === 'object') {
-        recordData = {
-          ...recordData,
-          kind: recordData.kind || 'media',
-          media: { ...(recordData.media || {}), ...metadata.media }
-        };
-      }
-
-      const accessMode =
-        metadata.accessMode ||
-        (row.published ? 'public' : 'private');
-
-      const sharedWithDids = Array.isArray(metadata.sharedWithDids)
-        ? metadata.sharedWithDids
-        : [];
-
-      return {
-        id: row.record_id,
-        dwnRecordId: metadata.dwnRecordId || row.record_id,
-        owner: row.owner_did || row.target_did || '',
-        recipient: row.recipient || row.owner_did || row.target_did || '',
-        schema: row.schema || 'web5-vault-record',
-        title: metadata.title || 'Untitled record',
-        dataFormat: row.data_format || 'application/json',
-        protocol: row.protocol || '',
-        protocolPath: row.protocol_path || '',
-        data: recordData ?? {},
-        tags: Array.isArray(metadata.tags) ? metadata.tags : [],
-        favorite: !!metadata.favorite,
-        dateCreated: row.date_created || new Date().toISOString(),
-        dateModified: row.date_modified || row.date_created || new Date().toISOString(),
-        published: !!row.published,
-        accessMode,
-        sharedWithDids,
-        dwnEndpoint: process.env.SUPABASE_URL || '',
-        dwnMode: 'supabase',
-        dwnIsolation: 'single-user',
-        dwnSpaceId: metadata.spaceId || '',
-        realCloudConfigured: true,
-        storageEngine: 'Supabase authoritative DWN',
-        cloudDwn: {
-          sync: {
-            ok: true,
-            status: 'synced'
-          }
-        },
-        storageProof: {
-          backend: 'supabase',
-          dataCid: row.data_cid || '',
-          dataSize: Number(row.data_size || 0)
-        }
+    if ((!recordData || typeof recordData !== 'object') && metadata.media) {
+      recordData = {
+        kind: 'media',
+        caption: String(metadata.caption || ''),
+        media: metadata.media
       };
-    })
-    .filter(record => record.schema !== 'profile-picture' && canRead(record, ownerDid))
-    .map(record => toClient(record, ownerDid));
+    } else if (metadata.media && recordData && typeof recordData === 'object') {
+      recordData = {
+        ...recordData,
+        kind: recordData.kind || 'media',
+        media: { ...(recordData.media || {}), ...metadata.media }
+      };
+    }
+
+    const accessMode = metadata.accessMode || (row.published ? 'public' : 'private');
+    const sharedWithDids = Array.isArray(metadata.sharedWithDids)
+      ? metadata.sharedWithDids
+      : [];
+
+    return {
+      id: row.item_key,
+      dwnRecordId: metadata.dwnRecordId || row.item_key,
+      owner: row.did,
+      recipient: row.recipient || row.did,
+      schema: row.schema_uri || 'web5-vault-record',
+      title: metadata.title || 'Untitled record',
+      dataFormat: row.data_format || 'application/json',
+      protocol: row.protocol || '',
+      protocolPath: row.protocol_path || '',
+      data: recordData ?? {},
+      tags: Array.isArray(metadata.tags) ? metadata.tags : [],
+      favorite: !!metadata.favorite,
+      dateCreated: row.date_created || new Date().toISOString(),
+      dateModified: row.date_modified || row.date_created || new Date().toISOString(),
+      published: !!row.published,
+      accessMode,
+      sharedWithDids,
+      dwnEndpoint: '',
+      dwnMode: 'voroa',
+      dwnIsolation: 'did-space',
+      dwnSpaceId: row.space_id,
+      realCloudConfigured: true,
+      storageEngine: 'Voroa PostgreSQL',
+      cloudDwn: { sync: { ok: true, status: 'synced' } },
+      storageProof: {
+        backend: 'voroa',
+        dataCid: row.data_cid || '',
+        dataSize: Number(row.data_size || 0)
+      }
+    };
+  })
+  .filter(record => record.schema !== 'profile-picture' && canRead(record, ownerDid))
+  .map(record => toClient(record, ownerDid));
 
   return filterSort(cloudRecords, query);
 }
@@ -1573,14 +1627,39 @@ async function listSharedWithMe(did, query = {}) {
 }
 
 async function getRecord(id, did) {
-  const found = findRecordRaw(id);
-  if (!found) return null;
-  if (!canRead(found.record, did)) {
+  const recordId = String(id || '').trim();
+  const ownerDid = String(did || '').trim();
+  if (!recordId || !ownerDid) return null;
+
+  const visible = await listVisibleRecords(ownerDid, {});
+  const found = visible.find(record => record.id === recordId);
+  if (found) return found;
+
+  // Preserve explicit access-denied behavior for records that exist
+  // in Voroa but are not visible to this DID.
+  const result = await milanDb.query(
+    `SELECT did, recipient, metadata
+     FROM public.dwn_storage
+     WHERE component_type = 'record'
+       AND item_key = $1 AND deleted = FALSE
+     LIMIT 1`,
+    [recordId]
+  );
+
+  if (!result.rowCount) return null;
+  const row = result.rows[0];
+  const metadata = parseDwnMetadata(row.metadata);
+  const mode = metadata.accessMode || 'private';
+  const shared = Array.isArray(metadata.sharedWithDids) ? metadata.sharedWithDids : [];
+  const allowed = row.did === ownerDid || row.recipient === ownerDid ||
+    mode === 'public' || (mode === 'shared_did' && shared.includes(ownerDid));
+
+  if (!allowed) {
     const err = new Error('No access');
     err.status = 403;
     throw err;
   }
-  return toClient(found.record, did);
+  return null;
 }
 
 async function getOwnedRecords(userId, did) {
@@ -1601,6 +1680,7 @@ async function updateRecord(userId, did, id, body = {}) {
   record.dateModified = new Date().toISOString();
   record.dwnSdkReady = dwnInitStatus.sdkReady;
   await markCloudSync(record, did);
+  assertCloudSyncSucceeded(record);
   persistRecord(userId, record);
   all[userId] = list;
   writeIndex(all);
@@ -1620,6 +1700,7 @@ async function updatePermissions(userId, did, id, body = {}) {
   applyAccess(record, access.mode, access.dids);
   record.dateModified = new Date().toISOString();
   await markCloudSync(record, did);
+  assertCloudSyncSucceeded(record);
   persistRecord(userId, record);
   all[userId] = list;
   writeIndex(all);
@@ -1633,6 +1714,7 @@ async function shareRecord(userId, did, id, targetDid) {
   applyAccess(found.record, 'shared_did', dids);
   found.record.dateModified = new Date().toISOString();
   await markCloudSync(found.record, did);
+  assertCloudSyncSucceeded(found.record);
   persistRecord(found.userId, found.record);
   found.all[found.userId] = found.list;
   writeIndex(found.all);
@@ -1646,6 +1728,7 @@ async function unshareRecord(userId, did, id, targetDid) {
   applyAccess(found.record, dids.length ? 'shared_did' : 'private', dids);
   found.record.dateModified = new Date().toISOString();
   await markCloudSync(found.record, did);
+  assertCloudSyncSucceeded(found.record);
   persistRecord(found.userId, found.record);
   found.all[found.userId] = found.list;
   writeIndex(found.all);
@@ -1654,48 +1737,41 @@ async function unshareRecord(userId, did, id, targetDid) {
 
 async function deleteRecord(userId, ownerDid, id) {
   const { all, list } = ownerRecordsRaw(userId);
-  let record = list.find(x => x.id === id);
+  const did = String(ownerDid || '').trim();
+  const recordId = String(id || '').trim();
+  if (!did || !recordId) return false;
 
-  if (record && String(record.owner || '') !== String(ownerDid || '')) {
-    return false;
-  }
+  let record = list.find(x => x.id === recordId);
+  if (record && String(record.owner || '') !== did) return false;
 
-  // Production feed records come from authoritative Supabase/DWN.
-  // If the local cache does not have the record, resolve ownership
-  // directly from Supabase before deleting.
   if (!record) {
-    const { data, error } = await supabaseAuthoritative
-      .from('dwn_records')
-      .select('record_id,owner_did,deleted')
-      .eq('record_id', id)
-      .eq('owner_did', ownerDid)
-      .eq('deleted', false)
-      .maybeSingle();
-
-    if (error) throw error;
-    if (!data) return false;
-
-    record = {
-      id: data.record_id,
-      owner: data.owner_did
-    };
+    const result = await milanDb.query(
+      `SELECT item_key, did
+       FROM public.dwn_storage
+       WHERE component_type = 'record'
+         AND did = $1 AND item_key = $2 AND deleted = FALSE
+       LIMIT 1`,
+      [did, recordId]
+    );
+    if (result.rowCount !== 1) return false;
+    record = { id: result.rows[0].item_key, owner: result.rows[0].did };
   }
 
-  // Permanent deletion: authoritative Supabase/DWN first.
-  await deleteRecordFromCloudDwn(record.id, ownerDid);
+  if (String(record.owner || '') !== did) return false;
 
-  // Remove local compatibility/cache copy when present.
-  const next = list.filter(x => x.id !== id);
-  all[userId] = next;
+  const deleted = await deleteRecordFromCloudDwn(record.id, did);
+  if (!deleted.deleted) return false;
+
+  all[userId] = list.filter(x => x.id !== recordId);
   writeIndex(all);
-  removeRecordFile(userId, id);
+  removeRecordFile(userId, recordId);
 
   audit('dwn.record.permanently.deleted', {
     userId,
     recordId: record.id,
-    ownerDid: ownerDid
+    ownerDid: did,
+    backend: 'voroa'
   });
-
   return true;
 }
 
@@ -1749,113 +1825,81 @@ async function getAuthoritativeCloudMedia(id, did) {
   if (!recordId || !readerDid) return null;
 
   try {
-    const { data: row, error } = await supabaseAuthoritative
-      .from('dwn_records')
-      .select('record_id,owner_did,target_did,recipient,published,deleted,metadata')
-      .eq('record_id', recordId)
-      .eq('deleted', false)
-      .maybeSingle();
+    const result = await milanDb.query(
+      `SELECT r.did, r.space_id, r.item_key, r.recipient, r.published,
+              r.metadata AS record_metadata, r.data_format,
+              m.metadata AS media_metadata, m.data_format AS media_format,
+              m.data_bytes, m.data_size, m.data_cid
+       FROM public.dwn_storage r
+       JOIN public.dwn_storage m
+         ON m.component_type='record_data'
+        AND m.did=r.did AND m.space_id=r.space_id
+        AND m.parent_key=r.item_key AND m.item_key='media:' || r.item_key
+        AND m.deleted=FALSE
+       WHERE r.component_type='record' AND r.item_key=$1 AND r.deleted=FALSE
+       LIMIT 1`,
+      [recordId]
+    );
+    if (result.rowCount !== 1) return null;
 
-    if (error || !row) return null;
+    const row = result.rows[0];
+    const meta = row.record_metadata && typeof row.record_metadata === 'object'
+      ? row.record_metadata : {};
+    const media = row.media_metadata && typeof row.media_metadata === 'object'
+      ? row.media_metadata : {};
+    const recordMedia = meta.media && typeof meta.media === 'object'
+      ? meta.media : {};
+    const ownerDid = String(row.did || '').trim();
+    const spaceId = String(row.space_id || '').trim();
 
-    const metadata = parseDwnMetadata(row.metadata);
-    const media = metadata.media && typeof metadata.media === 'object'
-      ? metadata.media
-      : null;
-
-    if (!media) return null;
-
-    const recordOwnerDid = String(
-      row.owner_did ||
-      row.target_did ||
-      ''
-    ).trim();
-
-    const recordRecipientDid = String(
-      row.recipient ||
-      recordOwnerDid
-    ).trim();
-
-    const accessMode = String(
-      metadata.accessMode ||
-      (row.published ? 'public' : 'private')
-    ).toLowerCase();
-
-    const sharedWithDids = Array.isArray(metadata.sharedWithDids)
-      ? metadata.sharedWithDids
-      : [];
-
-    if (!canRead({
-      owner: recordOwnerDid,
-      recipient: recordRecipientDid,
-      accessMode,
-      sharedWithDids
-    }, readerDid)) {
-      return null;
+    const owner = await milanDb.query(
+      'SELECT space_id FROM public.users WHERE did=$1 LIMIT 1', [ownerDid]
+    );
+    if (owner.rowCount !== 1 || String(owner.rows[0].space_id) !== spaceId) {
+      throw new Error('DID/space ownership verification failed');
     }
 
-    const bucket = String(
-      process.env.SUPABASE_MEDIA_BUCKET || 'milan-dwn-storage'
-    ).trim();
-
-    const spaceId = String(
-      metadata.spaceId ||
-      dwnInfoForDid(recordOwnerDid).spaceId ||
-      recordOwnerDid ||
-      'unknown'
-    ).trim();
-
-    const fileName = String(media.fileName || 'milan-media')
-      .replace(/[\\/\\r\\n]/g, '_')
-      .replace(/[^a-zA-Z0-9._-]/g, '_')
-      .slice(0, 180) || 'milan-media';
-
-    const objectPath = [
-      safeName(spaceId),
-      safeName(recordId),
-      fileName
-    ].join('/');
-
-    let remoteUrl = '';
-
-    try {
-      const signed = await supabaseAuthoritative.storage
-        .from(bucket)
-        .createSignedUrl(objectPath, 60 * 60);
-
-      remoteUrl = signed?.data?.signedUrl || '';
-    } catch (_) {}
-
-    // Keep the legacy URL fallback for authenticated backend-proxied streams.
-    // Direct playback separately requires a signed URL containing a token.
-    if (!remoteUrl) {
-      try {
-        const pub = supabaseAuthoritative.storage
-          .from(bucket)
-          .getPublicUrl(objectPath);
-        remoteUrl = pub?.data?.publicUrl || '';
-      } catch (_) {}
+    const accessMode = String(meta.accessMode || (row.published ? 'public' : 'private')).toLowerCase();
+    const shared = Array.isArray(meta.sharedWithDids) ? meta.sharedWithDids : [];
+    if (readerDid !== ownerDid && accessMode !== 'public' && !row.published && !shared.includes(readerDid)) {
+      const error = new Error('No access');
+      error.status = 403;
+      throw error;
     }
 
-    if (!remoteUrl) return null;
+    const buffer = Buffer.from(row.data_bytes || []);
+    const sizeBytes = Number(row.data_size || buffer.length);
+    if (!buffer.length || sizeBytes !== buffer.length) {
+      throw new Error('Voroa media byte-size verification failed');
+    }
+    const expectedCid = String(row.data_cid || '');
+    if (expectedCid.startsWith('sha256:')) {
+      const actualCid = 'sha256:' + crypto.createHash('sha256').update(buffer).digest('hex');
+      if (actualCid !== expectedCid) throw new Error('Voroa media SHA-256 verification failed');
+    }
 
     return {
-      remoteUrl,
-      mimeType: String(media.mimeType || 'application/octet-stream'),
-      fileName: String(media.fileName || 'milan-media'),
-      sizeBytes: Number(media.sizeBytes || 0),
-      browserPlayable: media.browserPlayable === true,
-      processing: media.processing === true,
-      processingStatus: String(media.processingStatus || (media.processing || media.browserPlayable !== true ? 'processing' : 'ready')),
-      compatibilityWarning: String(media.compatibilityWarning || ''),
-      remoteOnly: true,
-      fallbackFullPath: null,
+      buffer,
+      mimeType: String(media.mimeType || row.media_format || row.data_format || 'application/octet-stream'),
+      fileName: String(media.fileName || meta.title || 'milan-media'),
+      sizeBytes,
+      browserPlayable: typeof media.browserPlayable === 'boolean'
+        ? media.browserPlayable : recordMedia.browserPlayable === true,
+      processing: typeof media.processing === 'boolean'
+        ? media.processing : recordMedia.processing === true,
+      processingStatus: String(media.processingStatus || recordMedia.processingStatus || 'ready'),
+      compatibilityWarning: String(
+        media.compatibilityWarning || recordMedia.compatibilityWarning || recordMedia.warning || ''
+      ),
+      remoteOnly: false,
       authoritativeCloud: true,
-      bucket,
-      objectPath
+      backend: 'voroa-postgresql',
+      spaceId,
+      dataCid: expectedCid
     };
-  } catch (err) {
-    console.warn('[MILAN] authoritative cloud media lookup failed:', err.message);
+  } catch (error) {
+    if (error.status === 403) throw error;
+    console.error('[Voroa media read failed]', recordId, error.message);
     return null;
   }
 }
@@ -1870,6 +1914,33 @@ async function getDirectMediaPlaybackUrl(id, did) {
   }
 
   const media = await getAuthoritativeCloudMedia(recordId, readerDid);
+
+  // Voroa stores authoritative media bytes in PostgreSQL. When the verified
+  // MP4 is ready but has no remote signed URL, let the frontend use the
+  // existing authenticated /media/play.mp4 stream instead of retrying forever.
+  if (media?.authoritativeCloud === true && !media.remoteUrl) {
+    const mimeType = String(media.mimeType || '').split(';')[0].toLowerCase();
+    const fileName = String(media.fileName || '');
+    const status = String(media.processingStatus || '').toLowerCase();
+    const readyVoroaMp4 =
+      media.browserPlayable === true &&
+      media.processing !== true &&
+      status === 'ready' &&
+      mimeType === 'video/mp4' &&
+      /\.mp4$/i.test(fileName);
+
+    if (readyVoroaMp4) {
+      return {
+        url: '',
+        ready: false,
+        processing: false,
+        processingStatus: 'ready',
+        retryAfterMs: 0,
+        warning: 'Voroa video is available through the authenticated media stream.'
+      };
+    }
+  }
+
   if (!media || !media.remoteUrl) {
     const local = findRecordRaw(recordId);
     if (local && canRead(local.record, readerDid)) {
@@ -1960,6 +2031,10 @@ async function getMediaStream(id, did) {
     err.status = 403;
     throw err;
   }
+
+  // Prefer verified authoritative bytes in Voroa; retain local/remote fallback for legacy media.
+  const authoritativeMedia = await getAuthoritativeCloudMedia(id, did);
+  if (authoritativeMedia) return authoritativeMedia;
 
   const data = found.record.data || {};
   const media = data.media || data || {};

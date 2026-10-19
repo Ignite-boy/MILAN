@@ -1,160 +1,125 @@
 "use strict";
 
-const { supabase } = require("../utils/dwnStorage");
-const BUCKET = String(
-  process.env.SUPABASE_UPLOAD_BUCKET || "milan-upload-staging"
-).trim();
-const TTL_MS = Number(
-  process.env.MILAN_UPLOAD_SESSION_TTL_MS || 24 * 60 * 60 * 1000
-);
+const db = require("./milanDb");
+const TTL_MS = Number(process.env.MILAN_UPLOAD_SESSION_TTL_MS || 24 * 60 * 60 * 1000);
 
 function safeId(value) {
   const id = String(value || "");
-  return /^[A-Za-z0-9_-]{1,100}$/.test(id) && !id.includes("..")
-    ? id
-    : "";
+  return /^[A-Za-z0-9_-]{1,100}$/.test(id) && !id.includes("..") ? id : "";
 }
-
-function storage() {
-  return supabase.storage.from(BUCKET);
-}
-
-function isMissing(error) {
-  const status = String(error?.statusCode || error?.status || "");
-  return status === "404" ||
-    /not found|object does not exist/i.test(String(error?.message || ""));
-}
-
-function sessionPath(id) {
+function sessionKey(id) {
   const safe = safeId(id);
-  return safe ? `${safe}/session.json` : "";
+  return safe ? `upload-session:${safe}` : "";
 }
-
-function chunkPath(id, index) {
+function chunkKey(id, index) {
   const safe = safeId(id);
   if (!safe || !Number.isInteger(index) || index < 0) return "";
-  return `${safe}/chunks/chunk-${String(index).padStart(8, "0")}.part`;
+  return `upload-chunk:${safe}:${String(index).padStart(8, "0")}`;
 }
-
-async function readSession(id) {
-  const key = sessionPath(id);
+async function findSession(id) {
+  const key = sessionKey(id);
   if (!key) return null;
-
-  const { data, error } = await storage().download(key);
-  if (error) {
-    if (isMissing(error)) return null;
-    throw error;
-  }
-  if (!data) return null;
-
-  let session;
-  try {
-    session = JSON.parse(
-      Buffer.from(await data.arrayBuffer()).toString("utf8")
-    );
-  } catch (_) {
-    throw new Error("Stored upload session metadata is invalid.");
-  }
-
+  const result = await db.query(
+    `SELECT did, space_id, payload
+       FROM public.dwn_storage
+      WHERE component_type = 'event' AND item_key = $1
+      LIMIT 1`,
+    [key]
+  );
+  if (!result.rowCount) return null;
+  return {
+    did: result.rows[0].did,
+    spaceId: result.rows[0].space_id,
+    session: result.rows[0].payload
+  };
+}
+async function readSession(id) {
+  const row = await findSession(id);
+  if (!row || !row.session) return null;
+  const session = row.session;
   const timestamp = Date.parse(session.updatedAt || session.createdAt || "");
   if (timestamp && Date.now() - timestamp > TTL_MS) {
-    try { await deleteSession(id); } catch (_) {}
+    await deleteSession(id);
     return null;
   }
-
   return session;
 }
-
 async function writeSession(session) {
-  const key = sessionPath(session?.id);
-  if (!key) throw new Error("Invalid upload session ID.");
-
-  const { error } = await storage().upload(
-    key,
-    Buffer.from(JSON.stringify(session)),
-    {
-      upsert: true,
-      contentType: "application/octet-stream",
-      cacheControl: "60"
-    }
+  const key = sessionKey(session?.id);
+  const did = String(session?.ownerDid || "");
+  const spaceId = String(session?.spaceId || "");
+  if (!key || !did.startsWith("did:") || !spaceId) {
+    throw new Error("Upload session requires a valid owner DID and space ID.");
+  }
+  await db.query(
+    `INSERT INTO public.dwn_storage
+       (component_type, did, space_id, item_key, parent_key, data_format,
+        metadata, payload, data_size, date_modified, updated_at)
+     VALUES ('event', $1, $2, $3, $4, 'application/json',
+             '{"kind":"resumable-upload-session"}'::jsonb, $5::jsonb, 0, NOW(), NOW())
+     ON CONFLICT (did, space_id, component_type, item_key)
+     DO UPDATE SET payload = EXCLUDED.payload, date_modified = NOW(), updated_at = NOW()`,
+    [did, spaceId, key, session.id, JSON.stringify(session)]
   );
-  if (error) throw error;
 }
-
 async function writeChunk(id, index, bytes) {
-  const key = chunkPath(id, index);
-  if (!key) throw new Error("Invalid upload chunk path.");
-
-  const { error } = await storage().upload(key, bytes, {
-    upsert: true,
-    contentType: "application/octet-stream",
-    cacheControl: "60"
-  });
-  if (error) throw error;
+  const key = chunkKey(id, index);
+  if (!key || !Buffer.isBuffer(bytes)) throw new Error("Invalid upload chunk.");
+  const owner = await findSession(id);
+  if (!owner) throw new Error("Upload session not found.");
+  await db.query(
+    `INSERT INTO public.dwn_storage
+       (component_type, did, space_id, item_key, parent_key, data_format,
+        metadata, data_bytes, data_size, date_modified, updated_at)
+     VALUES ('event', $1, $2, $3, $4, 'application/octet-stream',
+             '{"kind":"resumable-upload-chunk"}'::jsonb, $5, $6, NOW(), NOW())
+     ON CONFLICT (did, space_id, component_type, item_key)
+     DO UPDATE SET data_bytes = EXCLUDED.data_bytes, data_size = EXCLUDED.data_size,
+                   date_modified = NOW(), updated_at = NOW()`,
+    [owner.did, owner.spaceId, key, String(id), bytes, bytes.length]
+  );
 }
-
 async function listChunkIndexes(id) {
-  const safe = safeId(id);
-  if (!safe) return [];
-
-  const indexes = new Set();
-  let offset = 0;
-
-  for (;;) {
-    const { data, error } = await storage().list(`${safe}/chunks`, {
-      limit: 1000,
-      offset,
-      sortBy: { column: "name", order: "asc" }
-    });
-    if (error) throw error;
-
-    const rows = Array.isArray(data) ? data : [];
-    for (const row of rows) {
-      const match = String(row?.name || "").match(/^chunk-(\d{8})\.part$/);
-      if (match) indexes.add(Number(match[1]));
-    }
-
-    if (rows.length < 1000) break;
-    offset += rows.length;
-  }
-
-  return [...indexes].sort((a, b) => a - b);
+  if (!safeId(id)) return [];
+  const owner = await findSession(id);
+  if (!owner) return [];
+  const result = await db.query(
+    `SELECT item_key FROM public.dwn_storage
+      WHERE component_type = 'event' AND did = $1 AND space_id = $2
+        AND parent_key = $3 AND item_key LIKE $4`,
+    [owner.did, owner.spaceId, String(id), `upload-chunk:${id}:%`]
+  );
+  return result.rows.map(row => {
+    const match = row.item_key.match(/^upload-chunk:[A-Za-z0-9_-]+:(\d{8})$/);
+    return match ? Number(match[1]) : -1;
+  }).filter(Number.isInteger).filter(index => index >= 0).sort((a, b) => a - b);
 }
-
 async function readChunk(id, index) {
-  const key = chunkPath(id, index);
+  const key = chunkKey(id, index);
   if (!key) return null;
-
-  const { data, error } = await storage().download(key);
-  if (error) {
-    if (isMissing(error)) return null;
-    throw error;
-  }
-  return data ? Buffer.from(await data.arrayBuffer()) : null;
+  const owner = await findSession(id);
+  if (!owner) return null;
+  const result = await db.query(
+    `SELECT data_bytes FROM public.dwn_storage
+      WHERE component_type = 'event' AND did = $1 AND space_id = $2 AND item_key = $3
+      LIMIT 1`,
+    [owner.did, owner.spaceId, key]
+  );
+  if (!result.rowCount || result.rows[0].data_bytes == null) return null;
+  return Buffer.from(result.rows[0].data_bytes);
 }
-
 async function deleteSession(id) {
-  const safe = safeId(id);
-  if (!safe) return;
-
-  const indexes = await listChunkIndexes(safe);
-  const keys = [
-    ...indexes.map(index => chunkPath(safe, index)),
-    sessionPath(safe)
-  ].filter(Boolean);
-
-  for (let i = 0; i < keys.length; i += 100) {
-    const { error } = await storage().remove(keys.slice(i, i + 100));
-    if (error && !isMissing(error)) throw error;
-  }
+  if (!safeId(id)) return;
+  const owner = await findSession(id);
+  if (!owner) return;
+  await db.query(
+    `DELETE FROM public.dwn_storage
+      WHERE component_type = 'event' AND did = $1 AND space_id = $2
+        AND (item_key = $3 OR parent_key = $4)`,
+    [owner.did, owner.spaceId, sessionKey(id), String(id)]
+  );
 }
-
 module.exports = {
-  bucketName: BUCKET,
-  readSession,
-  writeSession,
-  writeChunk,
-  listChunkIndexes,
-  readChunk,
-  deleteSession
+  bucketName: "voroa-postgres",
+  readSession, writeSession, writeChunk, listChunkIndexes, readChunk, deleteSession
 };

@@ -3,6 +3,8 @@ const APP_VERSION = require('../../package.json').version;
 const fs = require('fs');
 const path = require('path');
 const { supabase } = require('../utils/dwnStorage');
+const milanDb = require('./milanDb');
+const { withStorageQuotaTransaction } = require('./storageQuotaGuard');
 
 const deletedRecordIds = new Set();
 
@@ -203,7 +205,7 @@ function endpointForSpace(spaceId) {
 }
 
 function configuredEndpoints() {
-  // MILAN is Supabase-authoritative; no external DWN endpoint is configured.
+  // Voroa PostgreSQL is primary for core storage; no signed DWN protocol endpoint is configured.
   return [];
 }
 
@@ -211,27 +213,38 @@ function persistenceInfo() {
   const selected = selectedLocalDwnRoot();
   const root = selected.root;
   const supabaseUrl = String(process.env.SUPABASE_URL || '').trim();
+  const legacySupabaseCredentialsConfigured =
+    !!supabaseUrl && !!process.env.SUPABASE_SERVICE_KEY;
 
   return {
-    mode: 'supabase',
+    mode: 'voroa-postgresql',
+    backend: 'voroa',
+    primaryPersistence: 'voroa-postgresql',
+    // milanDb.js requires a configured connection string at module load.
+    // The status route independently checks live reachability.
+    voroaDatabaseConfigured: true,
     remoteOnly: false,
     root,
     databaseRoot: databaseRoot(),
     isolatedRoot: isolatedRoot(),
-    remoteEndpoint: supabaseUrl,
+    // Do not advertise the legacy Supabase endpoint as the primary endpoint.
+    remoteEndpoint: '',
+    legacySupabaseEndpointConfigured: !!supabaseUrl,
+    legacySupabaseCredentialsConfigured,
+    // Compatibility fields: these still describe legacy Supabase credentials.
     apiKeyConfigured: !!process.env.SUPABASE_SERVICE_KEY,
+    remoteWriteEnabled: legacySupabaseCredentialsConfigured,
     usingRuntimeFallback: false,
     fallbackUsed: selected.fallbackUsed,
     appStoresUserData: false,
-    remoteWriteEnabled: !!supabaseUrl && !!process.env.SUPABASE_SERVICE_KEY,
     realDwnProtocol: false,
     sdkReady: false,
     realDwnEnginePresent: false,
-    selectedBy: 'supabase-authoritative-storage',
+    selectedBy: 'voroa-postgresql-primary-core-storage',
     candidateAttempts: selected.attempts,
     permanentExpected: true,
     requiresCloudDwn: false,
-    warning: 'Supabase persistence is configured separately from DWN protocol execution; the main API has no integrated signed DWN protocol engine.'
+    warning: 'Voroa PostgreSQL is primary for core snapshots, records, and media. Legacy payment/storage integrations still depend on Supabase. Signed DWN protocol execution is not integrated.'
   };
 }
 
@@ -250,7 +263,7 @@ function provisionIsolatedDwn({ userId = '', did = '', email = '', spaceId: prea
     sdkReady: false,
     protocolEngineReady: false,
     appStoresUserData: false,
-    model: 'supabase-authoritative-one-user-one-did-one-isolated-space',
+    model: 'voroa-postgresql-primary-one-user-one-did-one-isolated-space',
     isolation: 'single-user',
     spaceId,
     userId,
@@ -372,83 +385,89 @@ async function ensureSupabaseTenant(did) {
   const tenantDid = String(did || '').trim();
   if (!tenantDid) throw new Error('Missing tenant DID');
 
-  const { error } = await supabase
-    .from('dwn_tenants')
-    .upsert({ did: tenantDid }, { onConflict: 'did' });
+  const result = await milanDb.query(
+    'SELECT did, space_id FROM public.users WHERE did = $1 LIMIT 1',
+    [tenantDid]
+  );
 
-  if (error) throw error;
-  return tenantDid;
+  if (result.rowCount !== 1 || !result.rows[0].space_id) {
+    throw new Error('Voroa user DID/space mapping not found; refusing to provision an unowned tenant.');
+  }
+
+  return { did: result.rows[0].did, spaceId: result.rows[0].space_id, backend: 'voroa' };
 }
 
 async function deleteRecordFromCloudDwn(recordId, ownerDid = '') {
   const id = String(recordId || '').trim();
+  const did = String(ownerDid || '').trim();
   if (!id) throw new Error('Record id is required for permanent DWN deletion.');
+  if (!did) throw new Error('Owner DID is required for isolated DWN deletion.');
 
-  deletedRecordIds.add(id);
-
-  try {
-    const { error: dataError } = await supabase
-      .from('dwn_record_data')
-      .delete()
-      .eq('record_id', id);
-
-    if (dataError) throw dataError;
-
-    let query = supabase
-      .from('dwn_records')
-      .delete()
-      .eq('record_id', id);
-
-    if (ownerDid) query = query.eq('owner_did', String(ownerDid));
-
-    const { error: recordError } = await query;
-
-    if (recordError) throw recordError;
-
-    return {
-      deleted: true,
-      permanent: true,
-      backend: 'supabase',
-      recordId: id,
-      deletedAt: new Date().toISOString()
-    };
-  } catch (err) {
-    deletedRecordIds.delete(id);
-    throw err;
+  const userResult = await milanDb.query(
+    'SELECT space_id FROM public.users WHERE did = $1 LIMIT 1',
+    [did]
+  );
+  if (userResult.rowCount !== 1 || !userResult.rows[0].space_id) {
+    throw new Error('Cannot resolve the authoritative Voroa DID/space mapping.');
   }
+
+  const result = await milanDb.query(
+    `WITH deleted_record AS (
+       DELETE FROM public.dwn_storage
+        WHERE component_type = 'record'
+          AND did = $1 AND space_id = $2 AND item_key = $3
+       RETURNING item_key
+     ),
+     deleted_media AS (
+       DELETE FROM public.dwn_storage
+        WHERE component_type = 'record_data'
+          AND did = $1 AND space_id = $2
+          AND (item_key = 'media:' || $3 OR parent_key = $3)
+       RETURNING item_key
+     )
+     SELECT
+       (SELECT COUNT(*) FROM deleted_record)::int AS deleted_record_count,
+       (SELECT COUNT(*) FROM deleted_media)::int AS deleted_media_count`,
+    [did, userResult.rows[0].space_id, id]
+  );
+
+  const deletedRecordCount = Number(result.rows?.[0]?.deleted_record_count || 0);
+  const deletedMediaCount = Number(result.rows?.[0]?.deleted_media_count || 0);
+  const deleted = deletedRecordCount > 0 || deletedMediaCount > 0;
+
+  if (deletedRecordCount > 0) deletedRecordIds.add(id);
+  return {
+    deleted,
+    recordDeleted: deletedRecordCount > 0,
+    mediaDeleted: deletedMediaCount > 0,
+    permanent: true,
+    backend: 'voroa',
+    recordId: id,
+    deletedAt: new Date().toISOString()
+  };
 }
 
 async function pushRecordToCloudDwn(record, user) {
-  const info = getDwnInfo(user);
   const now = new Date().toISOString();
   const ownerDid = String(user?.did || record?.owner || '').trim();
   const recordId = String(record?.id || '').trim();
 
+  if (!recordId) return { pushed: false, backend: 'voroa', error: 'Record id is required', pushedAt: now };
+  if (!ownerDid) return { pushed: false, backend: 'voroa', error: 'Owner DID is required', pushedAt: now };
   if (deletedRecordIds.has(recordId)) {
-    return { pushed: false, backend: 'supabase', recordId, skipped: 'permanently-deleted' };
-  }
-
-  if (!recordId) {
-    return {
-      pushed: false,
-      backend: 'supabase',
-      error: 'Record id is required',
-      pushedAt: now
-    };
-  }
-
-  if (!ownerDid) {
-    return {
-      pushed: false,
-      backend: 'supabase',
-      error: 'Owner DID is required',
-      pushedAt: now
-    };
+    return { pushed: false, backend: 'voroa', recordId, skipped: 'permanently-deleted' };
   }
 
   try {
-    await ensureSupabaseTenant(ownerDid);
+    const userResult = await milanDb.query(
+      'SELECT space_id FROM public.users WHERE did = $1 LIMIT 1',
+      [ownerDid]
+    );
+    if (userResult.rowCount !== 1 || !userResult.rows[0].space_id) {
+      throw new Error('Cannot resolve the authoritative Voroa DID/space mapping.');
+    }
 
+    const spaceId = String(userResult.rows[0].space_id).trim();
     const payload = record.binaryData
       ? Buffer.from(record.binaryData)
       : Buffer.from(
@@ -457,7 +476,6 @@ async function pushRecordToCloudDwn(record, user) {
             : JSON.stringify(record.data ?? {}),
           'utf8'
         );
-
     const dataCid = `sha256:${crypto.createHash('sha256').update(payload).digest('hex')}`;
 
     const metadata = {
@@ -467,7 +485,7 @@ async function pushRecordToCloudDwn(record, user) {
       sharedWithDids: Array.isArray(record.sharedWithDids) ? record.sharedWithDids : [],
       favorite: !!record.favorite,
       dwnRecordId: record.dwnRecordId || '',
-      spaceId: info.spaceId || '',
+      spaceId,
       interface: 'Records',
       method: 'Write',
       media: record?.data?.kind === 'media' && record?.data?.media
@@ -485,67 +503,65 @@ async function pushRecordToCloudDwn(record, user) {
         : null
     };
 
-    const { error: recordError } = await supabase
-      .from('dwn_records')
-      .upsert(
-        {
-          record_id: recordId,
-          target_did: ownerDid,
-          owner_did: ownerDid,
-          schema: String(record.schema || ''),
-          data_format: String(record.dataFormat || 'application/json'),
-          protocol: String(record.protocol || ''),
-          protocol_path: String(record.protocolPath || ''),
-          recipient: String(record.recipient || ownerDid),
-          published: !!record.published,
-          date_created: record.dateCreated || now,
-          date_modified: record.dateModified || now,
-          deleted: !!record.deleted,
-          metadata: JSON.stringify(metadata),
-          data_cid: dataCid,
-          data_size: payload.length
-        },
-        { onConflict: 'record_id' }
-      );
-
-    if (recordError) throw recordError;
-
-    const bytea = '\\x' + payload.toString('hex');
-
-    const { error: dataError } = await supabase
-      .from('dwn_record_data')
-      .upsert(
-        {
-          record_id: recordId,
-          data: bytea
-        },
-        { onConflict: 'record_id' }
-      );
-
-    if (dataError) throw dataError;
+    await withStorageQuotaTransaction(
+      milanDb,
+      {
+        did: ownerDid, spaceId, componentType: 'record',
+        itemKey: recordId, newBytes: payload.length
+      },
+      async client => client.query(
+      `INSERT INTO public.dwn_storage
+       (component_type, did, space_id, item_key, schema_uri, data_format,
+        protocol, protocol_path, recipient, published, date_created, date_modified,
+        deleted, metadata, data_bytes, data_cid, data_size)
+       VALUES ('record',$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+       ON CONFLICT (did, space_id, component_type, item_key)
+       DO UPDATE SET
+         schema_uri = EXCLUDED.schema_uri,
+         data_format = EXCLUDED.data_format,
+         protocol = EXCLUDED.protocol,
+         protocol_path = EXCLUDED.protocol_path,
+         recipient = EXCLUDED.recipient,
+         published = EXCLUDED.published,
+         date_modified = EXCLUDED.date_modified,
+         deleted = EXCLUDED.deleted,
+         metadata = EXCLUDED.metadata,
+         data_bytes = EXCLUDED.data_bytes,
+         data_cid = EXCLUDED.data_cid,
+         data_size = EXCLUDED.data_size,
+         updated_at = NOW()`,
+      [
+        ownerDid, spaceId, recordId, String(record.schema || ''),
+        String(record.dataFormat || 'application/json'),
+        String(record.protocol || ''), String(record.protocolPath || ''),
+        String(record.recipient || ownerDid), !!record.published,
+        record.dateCreated || now, record.dateModified || now,
+        !!record.deleted, JSON.stringify(metadata), payload, dataCid, payload.length
+      ]
+      )
+    );
 
     return {
       pushed: true,
-      backend: 'supabase',
-      endpoint: process.env.SUPABASE_URL || '',
-      mode: 'supabase',
-      isolation: info.isolation || 'single-user',
-      spaceId: info.spaceId || '',
+      backend: 'voroa',
+      mode: 'voroa-postgresql',
+      isolation: 'did-space',
+      spaceId,
       recordId,
       dataCid,
       dataSize: payload.length,
       pushedAt: now
     };
   } catch (err) {
-    console.error('[Supabase DWN record sync failed]', recordId, err.message);
+    console.error('[Voroa DWN record sync failed]', recordId, err.message);
     return {
       pushed: false,
-      backend: 'supabase',
-      endpoint: process.env.SUPABASE_URL || '',
-      mode: 'supabase',
-      isolation: info.isolation || 'single-user',
-      spaceId: info.spaceId || '',
+      backend: 'voroa',
+      mode: 'voroa-postgresql',
+      recordId,
       error: err.message,
+      status: Number(err.status) || 502,
+      code: err.code || 'VOROA_RECORD_WRITE_FAILED',
       pushedAt: now
     };
   }
@@ -595,108 +611,144 @@ function uploadLargeMediaWithTus(filePath, bucket, objectPath, contentType, size
 }
 
 async function pushMediaToCloudDwn(record, user, absoluteFilePath) {
-  const info = getDwnInfo(user);
-  const now = new Date().toISOString();
-
+  const pushedAt = new Date().toISOString();
+  const did = String(user?.did || record?.owner || '').trim();
+  const recordId = String(record?.id || '').trim();
+  if (!did || !recordId) return { pushed: false, backend: 'voroa', error: 'Missing owner DID or record ID', pushedAt };
   if (!absoluteFilePath || !fs.existsSync(absoluteFilePath)) {
-    return {
-      pushed: false,
-      backend: 'supabase',
-      spaceId: info.spaceId || '',
-      skipped: 'media-file-missing',
-      pushedAt: now
-    };
+    return { pushed: false, backend: 'voroa', error: 'Media file not found', pushedAt };
   }
 
-  const bucket = String(
-    process.env.SUPABASE_MEDIA_BUCKET || 'milan-dwn-storage'
-  ).trim();
-
   try {
-    const originalName = String(
-      record?.data?.media?.fileName ||
-      record?.data?.fileName ||
-      path.basename(absoluteFilePath) ||
-      record?.id ||
-      'milan-media'
+    const owner = await milanDb.query(
+      'SELECT space_id FROM public.users WHERE did = $1 LIMIT 1', [did]
     );
+    if (owner.rowCount !== 1 || !owner.rows[0].space_id) {
+      throw new Error('Voroa owner DID/space mapping not found');
+    }
+    const spaceId = String(owner.rows[0].space_id);
+    const stat = fs.statSync(absoluteFilePath);
+    const maxBytes = Number(process.env.MILAN_MAX_VOROA_MEDIA_BYTES || 768 * 1024 * 1024);
+    if (!stat.isFile() || stat.size < 1) throw new Error('Media file is empty or invalid');
+    if (stat.size > maxBytes) throw new Error('Media exceeds configured PostgreSQL media limit');
 
-    const safeFileName = path.basename(originalName)
-      .replace(/[^a-zA-Z0-9._-]/g, '_')
-      .slice(0, 180) || 'milan-media';
+    const bytes = fs.readFileSync(absoluteFilePath);
+    const digest = crypto.createHash('sha256').update(bytes).digest('hex');
+    const media = record?.data?.media || {};
+    const fileName = path.basename(String(media.fileName || record?.title || absoluteFilePath))
+      .replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 180) || 'milan-media';
+    const mimeType = String(media.mimeType || record?.dataFormat || 'application/octet-stream').split(';')[0];
+    const itemKey = 'media:' + recordId;
+    const metadata = {
+      kind: 'media-bytes', recordId, fileName, mimeType,
+      sizeBytes: bytes.length, dataCid: 'sha256:' + digest,
+      storageBackend: 'voroa-postgresql', spaceId
+    };
 
-    const objectPath = [
-      safeName(info.spaceId || user?.did || 'unknown'),
-      safeName(record.id),
-      safeFileName
-    ].join('/');
+    const recordPayload = record.binaryData
+      ? Buffer.from(record.binaryData)
+      : Buffer.from(
+          typeof record.data === 'string'
+            ? record.data
+            : JSON.stringify(record.data ?? {}),
+          'utf8'
+        );
+    const recordDataCid = `sha256:${crypto.createHash('sha256').update(recordPayload).digest('hex')}`;
+    const recordMetadata = {
+      title: record.title || '',
+      tags: Array.isArray(record.tags) ? record.tags : [],
+      accessMode: record.accessMode || 'private',
+      sharedWithDids: Array.isArray(record.sharedWithDids) ? record.sharedWithDids : [],
+      favorite: !!record.favorite,
+      dwnRecordId: record.dwnRecordId || '',
+      spaceId,
+      interface: 'Records',
+      method: 'Write',
+      media: record?.data?.kind === 'media' && record?.data?.media
+        ? {
+            fileName: record.data.media.fileName || '',
+            mimeType: record.data.media.mimeType || record.dataFormat || '',
+            sizeBytes: Number(record.data.media.sizeBytes || 0),
+            previewCategory: record.data.media.previewCategory || '',
+            browserPlayable: typeof record.data.media.browserPlayable === 'boolean' ? record.data.media.browserPlayable : undefined,
+            processing: !!record.data.media.processing,
+            processingStatus: record.data.media.processingStatus || (record.data.media.processing ? 'processing' : 'ready'),
+            compatibilityWarning: record.data.media.compatibilityWarning || record.mediaCompatibility?.warning || '',
+            mediaUrl: record.data.media.mediaUrl || '/api/records/' + encodeURIComponent(recordId) + '/media'
+          }
+        : null
+    };
 
-    const fileSizeBytes = fs.statSync(absoluteFilePath).size;
-    const contentType = String(record.dataFormat || record?.data?.media?.mimeType || 'application/octet-stream');
+    // Media bytes and their record metadata commit or roll back together.
+    await withStorageQuotaTransaction(
+      milanDb,
+      {
+        did,
+        spaceId,
+        writes: [
+          { componentType: 'record_data', itemKey, newBytes: bytes.length },
+          { componentType: 'record', itemKey: recordId, newBytes: recordPayload.length }
+        ]
+      },
+      async client => {
+        await client.query(
+          `INSERT INTO public.dwn_storage
+           (component_type,did,space_id,item_key,parent_key,schema_uri,data_format,
+            recipient,published,deleted,metadata,data_bytes,data_cid,data_size,date_created,date_modified)
+           VALUES ('record_data',$1,$2,$3,$4,'milan/media-bytes',$5,$1,FALSE,FALSE,
+                   $6::jsonb,$7,$8,$9,NOW(),NOW())
+           ON CONFLICT (did,space_id,component_type,item_key)
+           DO UPDATE SET parent_key=EXCLUDED.parent_key,
+             schema_uri=EXCLUDED.schema_uri,data_format=EXCLUDED.data_format,
+             deleted=FALSE,metadata=EXCLUDED.metadata,data_bytes=EXCLUDED.data_bytes,
+             data_cid=EXCLUDED.data_cid,data_size=EXCLUDED.data_size,
+             date_modified=NOW(),updated_at=NOW()`,
+          [did, spaceId, itemKey, recordId, mimeType, JSON.stringify(metadata),
+           bytes, 'sha256:' + digest, bytes.length]
+        );
 
-    let uploadError = null;
-    const uploadAttempts = Math.max(
-      1,
-      Number(process.env.MILAN_MEDIA_SYNC_RETRIES || 3)
-    );
-
-    for (let attempt = 1; attempt <= uploadAttempts; attempt++) {
-      try {
-        if (fileSizeBytes > 6 * 1024 * 1024) {
-          await uploadLargeMediaWithTus(absoluteFilePath, bucket, objectPath, contentType, fileSizeBytes);
-          uploadError = null;
-        } else {
-          const fileBuffer = fs.readFileSync(absoluteFilePath);
-          const result = await supabase.storage
-            .from(bucket)
-            .upload(objectPath, fileBuffer, {
-              upsert: true,
-              contentType,
-              cacheControl: '3600'
-            });
-          uploadError = result.error || null;
-        }
-      } catch (err) {
-        uploadError = err;
-      }
-
-      if (!uploadError) break;
-
-      if (attempt < uploadAttempts) {
-        await new Promise(resolve =>
-          setTimeout(resolve, 800 * attempt)
+        await client.query(
+          `INSERT INTO public.dwn_storage
+           (component_type, did, space_id, item_key, schema_uri, data_format,
+            protocol, protocol_path, recipient, published, date_created, date_modified,
+            deleted, metadata, data_bytes, data_cid, data_size)
+           VALUES ('record',$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+           ON CONFLICT (did, space_id, component_type, item_key)
+           DO UPDATE SET
+             schema_uri = EXCLUDED.schema_uri,
+             data_format = EXCLUDED.data_format,
+             protocol = EXCLUDED.protocol,
+             protocol_path = EXCLUDED.protocol_path,
+             recipient = EXCLUDED.recipient,
+             published = EXCLUDED.published,
+             date_modified = EXCLUDED.date_modified,
+             deleted = EXCLUDED.deleted,
+             metadata = EXCLUDED.metadata,
+             data_bytes = EXCLUDED.data_bytes,
+             data_cid = EXCLUDED.data_cid,
+             data_size = EXCLUDED.data_size,
+             updated_at = NOW()`,
+          [
+            did, spaceId, recordId, String(record.schema || ''),
+            String(record.dataFormat || 'application/json'),
+            String(record.protocol || ''), String(record.protocolPath || ''),
+            String(record.recipient || did), !!record.published,
+            record.dateCreated || pushedAt, record.dateModified || pushedAt,
+            !!record.deleted, JSON.stringify(recordMetadata),
+            recordPayload, recordDataCid, recordPayload.length
+          ]
         );
       }
-    }
-
-    if (uploadError) throw uploadError;
-
-    const { data: publicData } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(objectPath);
+    );
 
     return {
-      pushed: true,
-      backend: 'supabase',
-      bucket,
-      objectPath,
-      endpoint: process.env.SUPABASE_URL || '',
-      mode: 'supabase',
-      spaceId: info.spaceId || '',
-      mediaUrl: publicData?.publicUrl || '',
-      dataSize: fileSizeBytes,
-      pushedAt: now
+      pushed: true, backend: 'voroa', mode: 'voroa-postgresql',
+      spaceId, recordId, itemKey, dataCid: 'sha256:' + digest,
+      dataSize: bytes.length, fileName, mimeType, pushedAt
     };
-  } catch (err) {
-    console.error('[Supabase media sync failed]', record?.id, err.message);
-    return {
-      pushed: false,
-      backend: 'supabase',
-      bucket,
-      spaceId: info.spaceId || '',
-      error: err.message,
-      pushedAt: now
-    };
+  } catch (error) {
+    console.error('[Voroa media upload failed]', recordId, error.message);
+    return { pushed: false, backend: 'voroa', recordId, error: error.message, status: Number(error.status) || 502, code: error.code || 'VOROA_MEDIA_WRITE_FAILED', pushedAt };
   }
 }
 
@@ -724,143 +776,150 @@ async function provisionRemoteUserDwn(user = {}) {
 }
 
 async function syncDatabaseSnapshot(name, data) {
+  const snapshotName = String(name || '').trim();
+  const syncedAt = new Date().toISOString();
+
+  if (!snapshotName) {
+    return { ok: false, backend: 'voroa', error: 'Snapshot name is required', syncedAt };
+  }
+
   try {
-    const snapshotName = String(name || '').trim();
-    if (!snapshotName) {
-      return {
-        ok: false,
-        backend: 'supabase',
-        error: 'Snapshot name is required',
-        syncedAt: new Date().toISOString()
-      };
-    }
-
-    const { error } = await supabase
-      .from('dwn_database_snapshots')
-      .upsert(
-        {
-          name: snapshotName,
-          data: data && typeof data === 'object' ? data : {},
-          pushed_at: new Date().toISOString()
-        },
-        { onConflict: 'name' }
-      );
-
-    if (error) throw error;
+    const payload = data && typeof data === 'object' ? data : {};
+    await milanDb.query(
+      `INSERT INTO public.milan_database_snapshots (name, data, pushed_at)
+       VALUES ($1, $2::jsonb, NOW())
+       ON CONFLICT (name) DO UPDATE
+       SET data = EXCLUDED.data, pushed_at = EXCLUDED.pushed_at`,
+      [snapshotName, JSON.stringify(payload)]
+    );
 
     return {
       ok: true,
-      backend: 'supabase',
-      endpoint: process.env.SUPABASE_URL || '',
+      backend: 'voroa',
       response: { name: snapshotName },
-      syncedAt: new Date().toISOString()
+      syncedAt
     };
   } catch (err) {
-    console.error('[Supabase DB snapshot sync failed]', name, err.message);
-    return {
-      ok: false,
-      backend: 'supabase',
-      error: err.message,
-      syncedAt: new Date().toISOString()
-    };
+    console.error('[Voroa DB snapshot sync failed]', snapshotName, err.message);
+    return { ok: false, backend: 'voroa', error: err.message, syncedAt };
   }
 }
 
 async function pullDatabaseSnapshot(name) {
+  const snapshotName = String(name || '').trim();
+
+  if (!snapshotName) {
+    return { ok: false, backend: 'voroa', error: 'Snapshot name is required', data: {} };
+  }
+
   try {
-    const snapshotName = String(name || '').trim();
-    if (!snapshotName) {
-      return {
-        ok: false,
-        backend: 'supabase',
-        error: 'Snapshot name is required',
-        data: {}
-      };
-    }
-
-    const { data: row, error } = await supabase
-      .from('dwn_database_snapshots')
-      .select('data,pushed_at')
-      .eq('name', snapshotName)
-      .maybeSingle();
-
-    if (error) throw error;
-
-    const snapshotData = row?.data || {};
+    const result = await milanDb.query(
+      'SELECT data, pushed_at FROM public.milan_database_snapshots WHERE name = $1 LIMIT 1',
+      [snapshotName]
+    );
+    const row = result.rows[0];
 
     return {
       ok: true,
-      backend: 'supabase',
-      endpoint: process.env.SUPABASE_URL || '',
-      data: snapshotData,
+      backend: 'voroa',
+      data: row?.data || {},
       missing: !row,
       pulledAt: row?.pushed_at || new Date().toISOString()
     };
   } catch (err) {
-    console.error('[Supabase DB snapshot pull failed]', name, err.message);
-    return {
-      ok: false,
-      backend: 'supabase',
-      error: err.message,
-      data: {}
-    };
+    console.error('[Voroa DB snapshot pull failed]', snapshotName, err.message);
+    return { ok: false, backend: 'voroa', error: err.message, data: {} };
   }
 }
 
 async function realUserDwnNodeStatus(user) {
   const info = getDwnInfo(user);
   const checkedAt = new Date().toISOString();
-  if (!info.spaceId) {
+  const did = String(user?.did || '').trim();
+
+  if (!did || !info.spaceId) {
     return {
       ok: false,
-      backend: 'supabase',
-      mode: 'supabase',
+      backend: 'voroa',
+      mode: 'voroa-postgresql',
       storageReady: false,
       tenantConfigured: false,
       nodeReady: false,
       protocolReady: false,
-      reason: 'no-space-id',
+      did,
+      spaceId: info.spaceId || '',
+      reason: !did ? 'no-did' : 'no-space-id',
       checkedAt
     };
   }
 
   try {
-    const { data: tenant, error } = await supabase
-      .from('dwn_tenants')
-      .select('did,created_at')
-      .eq('did', user?.did || '')
-      .maybeSingle();
-    if (error) throw error;
+    const result = await milanDb.query(
+      'SELECT did, space_id FROM public.users WHERE did = $1 LIMIT 1',
+      [did]
+    );
+    const tenant = result.rows[0];
+
+    if (result.rowCount !== 1 || !tenant?.space_id) {
+      return {
+        ok: false,
+        backend: 'voroa',
+        mode: 'voroa-postgresql',
+        storageReady: false,
+        tenantConfigured: false,
+        nodeReady: false,
+        protocolReady: false,
+        did,
+        spaceId: info.spaceId,
+        reason: 'tenant-not-configured',
+        checkedAt
+      };
+    }
+
+    if (String(tenant.space_id) !== String(info.spaceId)) {
+      return {
+        ok: false,
+        backend: 'voroa',
+        mode: 'voroa-postgresql',
+        storageReady: false,
+        tenantConfigured: true,
+        nodeReady: false,
+        protocolReady: false,
+        did,
+        spaceId: info.spaceId,
+        reason: 'space-mapping-mismatch',
+        checkedAt
+      };
+    }
 
     return {
-      // A tenant row proves logical cloud namespace configuration only.
-      // It does not mean a DWN protocol node is running.
       ok: false,
-      backend: 'supabase',
-      mode: 'supabase',
-      storageReady: !!tenant,
-      tenantConfigured: !!tenant,
+      backend: 'voroa',
+      mode: 'voroa-postgresql',
+      storageReady: true,
+      tenantConfigured: true,
       nodeReady: false,
       protocolReady: false,
-      did: user?.did || '',
-      spaceId: info.spaceId,
+      did,
+      spaceId: tenant.space_id,
       endpoint: info.endpoint || '',
-      createdAt: tenant?.created_at || null,
-      reason: tenant ? 'real-dwn-protocol-not-integrated' : 'tenant-not-configured',
-      message: 'Supabase storage/tenant configuration is separate from signed DWN protocol execution; the main API protocol engine is not integrated.',
+      reason: 'real-dwn-protocol-not-integrated',
+      message: 'Voroa PostgreSQL DID/space mapping verified. Signed DWN protocol execution is not integrated.',
       checkedAt
     };
   } catch (err) {
     return {
       ok: false,
-      backend: 'supabase',
-      mode: 'supabase',
+      backend: 'voroa',
+      mode: 'voroa-postgresql',
       storageReady: false,
+      tenantConfigured: false,
       nodeReady: false,
       protocolReady: false,
-      did: user?.did || '',
+      did,
       spaceId: info.spaceId,
-      reason: err.message,
+      reason: 'voroa-status-check-failed',
+      error: err.message,
       checkedAt
     };
   }

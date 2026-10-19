@@ -4,13 +4,12 @@ const express = require('express');
 const crypto = require('crypto');
 const auth = require('../middleware/auth');
 const dwnStore = require('../services/dwnService');
-const { createClient } = require('@supabase/supabase-js');
+const milanDb = require('../services/milanDb');
 const livePush = require('../services/livePush');
 const { readJson } = require('../utils/store');
 const { pullDatabaseSnapshot } = require('../services/cloudDwnRegistry');
 
 const router = express.Router();
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
 const CHAT_SCHEMA = 'milan.chat.message';
 const CHAT_PROTOCOL = 'milan.chat';
@@ -106,13 +105,15 @@ function cleanClientMessageId(value) {
 }
 
 async function recipientByDid(did) {
-  const { data, error } = await supabase
-    .from('users')
-    .select('id,email,name,did,space_id')
-    .eq('did', did)
-    .maybeSingle();
-  if (error) throw error;
-  return data || null;
+  const value = didOf(did);
+  if (!value) return null;
+
+  const result = await milanDb.query(
+    'SELECT user_id AS id, email, name, did, space_id FROM public.users WHERE did = $1 LIMIT 1',
+    [value]
+  );
+
+  return result.rows[0] || null;
 }
 
 function toMessage(record) {
@@ -174,25 +175,23 @@ async function chatMailboxRecord(ownerDid, conversationId, messageId, role) {
   const recordId = mailboxRecordId(conversationId, messageId, role);
   if (!owner || !recordId) return null;
 
-  const { data: row, error } = await supabase
-    .from('dwn_records')
-    .select('record_id,owner_did,date_created,date_modified,deleted')
-    .eq('record_id', recordId)
-    .eq('owner_did', owner)
-    .eq('deleted', false)
-    .maybeSingle();
+  const result = await milanDb.query(
+    `SELECT item_key AS record_id, did AS owner_did,
+            date_created, date_modified, deleted, data_bytes
+       FROM public.dwn_storage
+      WHERE component_type = 'record'
+        AND did = $1
+        AND space_id = (SELECT space_id FROM public.users WHERE did = $1 LIMIT 1)
+        AND item_key = $2
+        AND deleted = FALSE
+      LIMIT 1`,
+    [owner, recordId]
+  );
 
-  if (error) throw error;
+  const row = result.rows[0];
   if (!row) return null;
 
-  const { data: payload, error: payloadError } = await supabase
-    .from('dwn_record_data')
-    .select('data')
-    .eq('record_id', recordId)
-    .maybeSingle();
-
-  if (payloadError) throw payloadError;
-  const data = decodeStoredData(payload?.data);
+  const data = decodeStoredData(row.data_bytes);
   if (!data || typeof data !== 'object' || data.kind !== 'chat_message') return null;
 
   return {
@@ -218,16 +217,20 @@ async function recipientMailboxHasReceipt(ownerDid, conversationId, messageId, r
   const reader = didOf(readerDid);
   if (!owner || !key || !reader) return false;
 
-  const { data: row, error } = await supabase
-    .from('dwn_records')
-    .select('record_id')
-    .eq('deleted', false)
-    .eq('owner_did', owner)
-    .eq('record_id', receiptRecordId(conversationId, key, reader, owner))
-    .maybeSingle();
+  const recordId = receiptRecordId(conversationId, key, reader, owner);
+  const result = await milanDb.query(
+    `SELECT 1
+       FROM public.dwn_storage
+      WHERE component_type = 'record'
+        AND did = $1
+        AND space_id = (SELECT space_id FROM public.users WHERE did = $1 LIMIT 1)
+        AND item_key = $2
+        AND deleted = FALSE
+      LIMIT 1`,
+    [owner, recordId]
+  );
 
-  if (error) throw error;
-  return !!row;
+  return result.rowCount > 0;
 }
 
 function chatReceiptRecordOptions(data) {
@@ -277,86 +280,77 @@ function decodeStoredData(value) {
 async function conversationMessages(meDid, otherDid, options = {}) {
   const conversationId = conversationIdFor(meDid, otherDid);
   const afterMs = Date.parse(options.after || '');
+  const params = [meDid, CHAT_PROTOCOL, CHAT_PATH];
 
-  let recordsQuery = supabase
-    .from('dwn_records')
-    .select('record_id,owner_did,recipient,protocol,protocol_path,date_created,date_modified,metadata,deleted')
-    .eq('deleted', false)
-    .eq('protocol', CHAT_PROTOCOL)
-    .eq('protocol_path', CHAT_PATH)
-    .eq('owner_did', meDid);
+  let where = `
+    component_type = 'record'
+    AND did = $1
+    AND space_id = (SELECT space_id FROM public.users WHERE did = $1 LIMIT 1)
+    AND deleted = FALSE
+    AND protocol = $2
+    AND protocol_path = $3
+  `;
 
   if (Number.isFinite(afterMs)) {
-    recordsQuery = recordsQuery.gte('date_created', new Date(afterMs).toISOString());
+    params.push(new Date(afterMs).toISOString());
+    where += ` AND date_created >= $${params.length}`;
   }
 
-  const { data: rows, error } = await recordsQuery
-    .order('date_created', { ascending: false })
-     .limit(CHAT_QUERY_RECORD_LIMIT);
+  params.push(CHAT_QUERY_RECORD_LIMIT);
 
-  if (error) throw error;
-  if (!Array.isArray(rows) || !rows.length) return [];
-
-  const ids = rows.map(row => String(row.record_id || '')).filter(Boolean);
-  const { data: payloads, error: dataError } = await supabase
-    .from('dwn_record_data')
-    .select('record_id,data')
-    .in('record_id', ids);
-
-  if (dataError) throw dataError;
-
-  const dataMap = new Map(
-    (payloads || []).map(row => [String(row.record_id || ''), row.data])
+  const messages = await milanDb.query(
+    `SELECT item_key AS record_id, did AS owner_did, recipient,
+            protocol, protocol_path, date_created, date_modified,
+            metadata, deleted, data_bytes
+       FROM public.dwn_storage
+      WHERE ${where}
+      ORDER BY date_created DESC
+      LIMIT $${params.length}`,
+    params
   );
 
-  const { data: receiptRows, error: receiptError } = await supabase
-    .from('dwn_records')
-    .select('record_id')
-    .eq('deleted', false)
-    .eq('protocol', CHAT_PROTOCOL)
-    .eq('protocol_path', CHAT_RECEIPT_PATH)
-    .eq('owner_did', meDid)
-    .order('date_created', { ascending: false })
-    .limit(MAX_HISTORY * 4);
+  const rows = messages.rows;
+  if (!rows.length) return [];
 
-  if (receiptError) throw receiptError;
-
-  const receiptIds = (receiptRows || [])
-    .map(row => String(row.record_id || ''))
-    .filter(Boolean);
-
-  let receiptPayloads = [];
-  if (receiptIds.length) {
-    const { data: payloads, error: receiptDataError } = await supabase
-      .from('dwn_record_data')
-      .select('record_id,data')
-      .in('record_id', receiptIds);
-
-    if (receiptDataError) throw receiptDataError;
-    receiptPayloads = payloads || [];
-  }
+  const receipts = await milanDb.query(
+    `SELECT data_bytes
+       FROM public.dwn_storage
+      WHERE component_type = 'record'
+        AND did = $1
+        AND space_id = (SELECT space_id FROM public.users WHERE did = $1 LIMIT 1)
+        AND deleted = FALSE
+        AND protocol = $2
+        AND protocol_path = $3
+      ORDER BY date_created DESC
+      LIMIT $4`,
+    [meDid, CHAT_PROTOCOL, CHAT_RECEIPT_PATH, MAX_HISTORY * 4]
+  );
 
   const readAtByMessageId = new Map();
-  for (const row of receiptPayloads) {
-    const data = decodeStoredData(row.data);
-    if (!data || typeof data !== 'object' || data.kind !== 'chat_receipt' || data.state !== 'read') continue;
-    if (String(data.readerDid || '') !== meDid && String(data.readerDid || '') !== otherDid) continue;
 
-    const messageKey = String(data.messageId || '');
+  for (const row of receipts.rows) {
+    const data = decodeStoredData(row.data_bytes);
+    if (!data || data.kind !== 'chat_receipt' || data.state !== 'read') continue;
+    if (String(data.readerDid || '') !== meDid &&
+        String(data.readerDid || '') !== otherDid) continue;
+
+    const key = String(data.messageId || '');
     const readAt = data.readAt || null;
-    if (!messageKey || !readAt) continue;
+    const previous = readAtByMessageId.get(key);
 
-    const previous = readAtByMessageId.get(messageKey);
-    if (!previous || (Date.parse(readAt) || 0) > (Date.parse(previous) || 0)) {
-      readAtByMessageId.set(messageKey, readAt);
+    if (key && readAt &&
+        (!previous || (Date.parse(readAt) || 0) > (Date.parse(previous) || 0))) {
+      readAtByMessageId.set(key, readAt);
     }
   }
 
   const visible = rows.map(row => {
-    let metadata = {};
-    try { metadata = row.metadata ? JSON.parse(String(row.metadata)) : {}; } catch (_) {}
+    const metadata = row.metadata && typeof row.metadata === 'object'
+      ? row.metadata
+      : {};
 
-    const data = decodeStoredData(dataMap.get(String(row.record_id || '')));
+    const data = decodeStoredData(row.data_bytes);
+
     return {
       id: String(row.record_id || ''),
       messageId: String(data.messageId || row.record_id || ''),
@@ -368,17 +362,15 @@ async function conversationMessages(meDid, otherDid, options = {}) {
       dateModified: row.date_modified || row.date_created || null,
       deliveryStatus: String(data.deliveryStatus || 'sent'),
       deliveredAt: data.deliveredAt || null,
-      readAt: data.readAt || readAtByMessageId.get(String(data.messageId || row.record_id || '')) || null,
+      readAt: data.readAt ||
+        readAtByMessageId.get(String(data.messageId || row.record_id || '')) || null,
       ownerDid: String(row.owner_did || ''),
       sharedWithDids: Array.isArray(metadata.sharedWithDids) ? metadata.sharedWithDids : []
     };
-  })
-  .filter(message =>
+  }).filter(message =>
     (!Number.isFinite(afterMs) || Date.parse(message.sentAt || '') >= afterMs) &&
     message.conversationId === conversationId &&
-    (
-      message.ownerDid === meDid
-    ) &&
+    message.ownerDid === meDid &&
     (
       (message.senderDid === meDid && message.recipientDid === otherDid) ||
       (message.senderDid === otherDid && message.recipientDid === meDid)
@@ -393,12 +385,10 @@ async function conversationMessages(meDid, otherDid, options = {}) {
   }
 
   return [...byMessageId.values()]
-    .map(({ownerDid, sharedWithDids, ...message}) => message)
-    .sort((a, b) => {
-      const aTime = Date.parse(a.sentAt || '') || 0;
-      const bTime = Date.parse(b.sentAt || '') || 0;
-      return aTime - bTime;
-    })
+    .map(({ ownerDid, sharedWithDids, ...message }) => message)
+    .sort((a, b) =>
+      (Date.parse(a.sentAt || '') || 0) - (Date.parse(b.sentAt || '') || 0)
+    )
     .slice(-MAX_HISTORY);
 }
 
@@ -408,60 +398,53 @@ async function listConversations(meDid) {
 
   const friendDids = await friendDidsFor(currentDid);
 
-  const { data: rows, error } = await supabase
-    .from('dwn_records')
-    .select('record_id,owner_did,target_did,recipient,protocol,protocol_path,date_created,date_modified,metadata,deleted')
-    .eq('deleted', false)
-    .eq('protocol', CHAT_PROTOCOL)
-    .eq('protocol_path', CHAT_PATH)
-    .eq('owner_did', currentDid)
-    .order('date_created', { ascending: false })
-    .limit(CHAT_GLOBAL_RECORD_LIMIT);
-
-  if (error) throw error;
-  if (!Array.isArray(rows) || !rows.length) return [];
-
-  const ids = rows.map(row => String(row.record_id || '')).filter(Boolean);
-  const { data: payloads, error: dataError } = await supabase
-    .from('dwn_record_data')
-    .select('record_id,data')
-    .in('record_id', ids);
-
-  if (dataError) throw dataError;
-
-  const dataMap = new Map(
-    (payloads || []).map(row => [String(row.record_id || ''), decodeStoredData(row.data)])
+  const result = await milanDb.query(
+    `SELECT item_key AS record_id, did AS owner_did, recipient,
+            protocol, protocol_path, date_created, date_modified,
+            metadata, deleted, data_bytes
+       FROM public.dwn_storage
+      WHERE component_type = 'record'
+        AND did = $1
+        AND space_id = (SELECT space_id FROM public.users WHERE did = $1 LIMIT 1)
+        AND deleted = FALSE
+        AND protocol = $2
+        AND protocol_path = $3
+      ORDER BY date_created DESC
+      LIMIT $4`,
+    [currentDid, CHAT_PROTOCOL, CHAT_PATH, CHAT_GLOBAL_RECORD_LIMIT]
   );
+
+  const rows = result.rows;
+  if (!rows.length) return [];
 
   const uniqueMessages = new Map();
 
   for (const row of rows) {
     const recordId = String(row.record_id || '');
-    const data = dataMap.get(recordId);
-    if (!data || typeof data !== 'object' || data.kind !== 'chat_message') continue;
+    const data = decodeStoredData(row.data_bytes);
+    if (!data || data.kind !== 'chat_message') continue;
 
     const ownerDid = didOf(row.owner_did);
     if (ownerDid !== currentDid) continue;
 
     const senderDid = didOf(data.senderDid || row.owner_did);
     const recipientDid = didOf(data.recipientDid || row.recipient);
-    if (!senderDid || !recipientDid || (senderDid !== currentDid && recipientDid !== currentDid)) continue;
+
+    if (!senderDid || !recipientDid ||
+        (senderDid !== currentDid && recipientDid !== currentDid)) continue;
 
     const otherDid = senderDid === currentDid ? recipientDid : senderDid;
-    if (!otherDid || otherDid === currentDid) continue;
-    if (!friendDids.has(otherDid)) continue;
+    if (!otherDid || otherDid === currentDid || !friendDids.has(otherDid)) continue;
 
-    const conversationId = String(data.conversationId || conversationIdFor(currentDid, otherDid));
+    const conversationId = String(
+      data.conversationId || conversationIdFor(currentDid, otherDid)
+    );
     const messageId = String(data.messageId || recordId);
+
     const candidate = {
-      recordId,
-      messageId,
-      ownerDid,
-      conversationId,
-      otherDid,
-      senderDid,
+      recordId, messageId, ownerDid, conversationId, otherDid, senderDid,
       text: String(data.text || '').slice(0, 160),
-      sentAt: data.sentAt || row.date_created || row.date_modified || '',
+      sentAt: data.sentAt || row.date_created || row.date_modified || ''
     };
 
     const previous = uniqueMessages.get(messageId);
@@ -471,6 +454,7 @@ async function listConversations(meDid) {
   }
 
   const byConversation = new Map();
+
   for (const message of uniqueMessages.values()) {
     const item = byConversation.get(message.conversationId) || {
       conversationId: message.conversationId,
@@ -481,11 +465,10 @@ async function listConversations(meDid) {
       lastSenderDid: message.senderDid,
       messageCount: 0
     };
-    item.messageCount += 1;
 
-    const candidateTime = Date.parse(message.sentAt || '') || 0;
-    const currentTime = Date.parse(item.lastMessageAt || '') || 0;
-    if (candidateTime >= currentTime) {
+    item.messageCount += 1;
+    if ((Date.parse(message.sentAt || '') || 0) >=
+        (Date.parse(item.lastMessageAt || '') || 0)) {
       item.lastMessage = message.text;
       item.lastMessageAt = message.sentAt;
       item.lastMessageId = message.messageId;
@@ -501,23 +484,19 @@ async function listConversations(meDid) {
   if (!conversationRows.length) return [];
 
   const dids = [...new Set(conversationRows.map(row => row.otherDid))];
-  const { data: users, error: usersError } = await supabase
-    .from('users')
-    .select('id,email,name,did')
-    .in('did', dids);
-
-  if (usersError) throw usersError;
-
-  const profiles = new Map(
-    (users || []).map(user => [
-      String(user.did),
-      {
-        id: user.id,
-        name: user.name || user.email?.split('@')[0] || 'MILAN User',
-        did: String(user.did)
-      }
-    ])
+  const profilesResult = await milanDb.query(
+    'SELECT user_id AS id, email, name, did FROM public.users WHERE did = ANY($1::text[])',
+    [dids]
   );
+
+  const profiles = new Map(profilesResult.rows.map(user => [
+    String(user.did),
+    {
+      id: user.id,
+      name: user.name || user.email?.split('@')[0] || 'MILAN User',
+      did: String(user.did)
+    }
+  ]));
 
   return conversationRows
     .map(row => ({
@@ -545,14 +524,12 @@ router.get('/people', auth, async (req, res) => {
       return res.json([]);
     }
 
-    const { data: accounts, error } = await supabase
-      .from('users')
-      .select('id,email,name,did')
-      .in('did', [...friendDids]);
-
-    if (error) throw error;
-
-    const rows = (accounts || [])
+    const accountsResult = await milanDb.query(
+      'SELECT user_id AS id, email, name, did FROM public.users WHERE did = ANY($1::text[])',
+      [[...friendDids]]
+    );
+    const accounts = accountsResult.rows;
+    const rows = accounts
       .filter(account => account.id !== req.userId && friendDids.has(String(account.did || '')))
       .map(account => ({
         id: account.id,
@@ -720,9 +697,9 @@ router.get('/health', (_req, res) => {
     ok: true,
     chat: 'ready',
     transport: 'DWN-to-DWN private mailbox records',
-    persistence: 'Supabase-authoritative isolated DWN spaces',
+    persistence: 'Voroa PostgreSQL-authoritative isolated DWN spaces',
     audience: 'Approved MILAN friends only',
-    realtime: 'SSE accelerator; cross-instance Supabase sync fallback'
+    realtime: 'SSE accelerator; Voroa PostgreSQL sync fallback'
   });
 });
 

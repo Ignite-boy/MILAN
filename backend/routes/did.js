@@ -28,13 +28,8 @@ const {
   getDwnInfo
 } = require('../services/cloudDwnRegistry');
 
-const { createClient } = require('@supabase/supabase-js');
+const milanDb = require('../services/milanDb');
 const JWT_SECRET = require('../utils/jwtSecret');
-
-const supabaseDb = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-);
 
 const router = express.Router();
 
@@ -138,23 +133,20 @@ function readWebAuthnChallenge(body, expectedType) {
 }
 
 async function consumeWebAuthnChallenge(id) {
-  const consumedAt = new Date().toISOString();
-
-  const { data, error } = await supabaseDb
-    .from('webauthn_challenges')
-    .update({ used_at: consumedAt })
-    .eq('id', id)
-    .is('used_at', null)
-    .gt('expires_at', consumedAt)
-    .select('id')
-    .maybeSingle();
-
-  if (error) {
-    console.error('[ID3] Challenge consumption failed:', error.message);
+  const consumedAt = new Date();
+  try {
+    const result = await milanDb.query(
+      `UPDATE public.webauthn_challenges
+       SET used_at = $2
+       WHERE id = $1 AND used_at IS NULL AND expires_at > $2
+       RETURNING id`,
+      [id, consumedAt]
+    );
+    return result.rowCount === 1;
+  } catch (error) {
+    console.error('WebAuthn challenge consumption failed:', error.message);
     return false;
   }
-
-  return Boolean(data?.id);
 }
 
 
@@ -259,22 +251,17 @@ router.get(
   '/passkey/status',
   auth,
   async (req, res) => {
-    const { count, error } =
-      await supabaseDb
-        .from('webauthn_credentials')
-        .select('id', {
-          count: 'exact',
-          head: true
-        })
-        .eq('user_id', req.userId);
-
-    if (error) {
-      return res.status(500).json({
-        error:
-          'WebAuthn credential lookup failed'
-      });
-    }
-
+    let count = 0;
+try {
+  const result = await milanDb.query(
+    'SELECT COUNT(*)::int AS count FROM public.webauthn_credentials WHERE user_id = $1',
+    [req.userId]
+  );
+  count = Number(result.rows[0]?.count || 0);
+} catch (error) {
+  console.error('[ID3] credential status lookup failed:', error.message);
+  return res.status(503).json({ error: 'WebAuthn credential lookup failed' });
+}
     res.json({
       registered: Number(count || 0) > 0,
       count: Number(count || 0)
@@ -291,20 +278,17 @@ router.get(
   '/passkey/register/options',
   auth,
   async (req, res) => {
-    const { data: user, error } =
-      await supabaseDb
-        .from('users')
-        .select('id,email,name,did')
-        .eq('id', req.userId)
-        .maybeSingle();
-
-    if (error) {
-      return res.status(500).json({
-        error:
-          'Account database unavailable'
-      });
-    }
-
+    let user;
+try {
+  const result = await milanDb.query(
+    'SELECT user_id AS id, email, name, did FROM public.users WHERE user_id = $1 LIMIT 1',
+    [req.userId]
+  );
+  user = result.rows[0] || null;
+} catch (error) {
+  console.error('[ID3] registration account lookup failed:', error.message);
+  return res.status(503).json({ error: 'Account database unavailable' });
+}
     if (!user) {
       return res.status(404).json({
         error: 'User not found'
@@ -314,21 +298,17 @@ router.get(
     const { rpName, rpID } =
       webauthnConfig(req);
 
-    const { data: existing, error: credError } =
-      await supabaseDb
-        .from('webauthn_credentials')
-        .select(
-          'credential_id,transports'
-        )
-        .eq('user_id', user.id);
-
-    if (credError) {
-      return res.status(500).json({
-        error:
-          'WebAuthn credential lookup failed'
-      });
-    }
-
+    let existing;
+try {
+  const result = await milanDb.query(
+    'SELECT credential_id, transports FROM public.webauthn_credentials WHERE user_id = $1',
+    [user.id]
+  );
+  existing = result.rows;
+} catch (error) {
+  console.error('[ID3] existing credential lookup failed:', error.message);
+  return res.status(503).json({ error: 'WebAuthn credential lookup failed' });
+}
     const options =
       await generateRegistrationOptions({
         rpName,
@@ -355,24 +335,17 @@ router.get(
 
     console.log('[ID3 TRACE] inserting authentication challenge');
 
-    const { error: challengeError } =
-      await supabaseDb
-        .from('webauthn_challenges')
-        .insert({
-          user_id: user.id,
-          challenge: options.challenge,
-          purpose: 'registration',
-          expires_at:
-            challengeExpiresAt()
-        });
-
-    if (challengeError) {
-      return res.status(500).json({
-        error:
-          'Could not store WebAuthn challenge'
-      });
-    }
-
+    try {
+  await milanDb.query(
+    `INSERT INTO public.webauthn_challenges
+       (user_id, challenge, purpose, expires_at)
+     VALUES ($1, $2, 'registration', $3)`,
+    [user.id, options.challenge, challengeExpiresAt()]
+  );
+} catch (challengeError) {
+  console.error('[ID3] registration challenge insert failed:', challengeError.message);
+  return res.status(503).json({ error: 'Could not store WebAuthn challenge' });
+}
     res.setHeader(
       'Cache-Control',
       'no-store'
@@ -388,20 +361,17 @@ router.post(
   async (req, res) => {
     const body = req.body || {};
 
-    const { data: user, error: userError } =
-      await supabaseDb
-        .from('users')
-        .select('id,email,name,did')
-        .eq('id', req.userId)
-        .maybeSingle();
-
-    if (userError) {
-      return res.status(500).json({
-        error:
-          'Account database unavailable'
-      });
-    }
-
+    let user;
+try {
+  const result = await milanDb.query(
+    'SELECT user_id AS id, email, name, did FROM public.users WHERE user_id = $1 LIMIT 1',
+    [req.userId]
+  );
+  user = result.rows[0] || null;
+} catch (error) {
+  console.error('[ID3] registration verification account lookup failed:', error.message);
+  return res.status(503).json({ error: 'Account database unavailable' });
+}
     if (!user) {
       return res.status(404).json({
         error: 'User not found'
@@ -416,21 +386,30 @@ router.post(
     }
 
     const challengeNow = new Date().toISOString();
-    const { data: challengeRow, error: challengeError } = await supabaseDb
-      .from('webauthn_challenges')
-      .select('id,challenge')
-      .eq('user_id', user.id)
-      .eq('purpose', 'registration')
-      .eq('challenge', responseChallenge)
-      .is('used_at', null)
-      .gt('expires_at', challengeNow)
-      .maybeSingle();
-
-    if (challengeError || !challengeRow) {
-      return res.status(400).json({
-        error: 'WebAuthn registration challenge is invalid, expired or already used. Start again.'
-      });
-    }
+let challengeRow;
+try {
+  const result = await milanDb.query(
+    `SELECT id, challenge
+       FROM public.webauthn_challenges
+      WHERE user_id = $1
+        AND purpose = 'registration'
+        AND challenge = $2
+        AND used_at IS NULL
+        AND expires_at > $3
+      ORDER BY created_at DESC
+      LIMIT 1`,
+    [user.id, responseChallenge, challengeNow]
+  );
+  challengeRow = result.rows[0] || null;
+} catch (error) {
+  console.error('[ID3] registration challenge lookup failed:', error.message);
+  return res.status(503).json({ error: 'WebAuthn challenge store unavailable' });
+}
+if (!challengeRow) {
+  return res.status(400).json({
+    error: 'WebAuthn registration challenge is invalid, expired or already used. Start again.'
+  });
+}
     const { rpID, origin } =
       webauthnConfig(req);
 
@@ -487,28 +466,28 @@ router.post(
     const webAuthnId =
       webAuthnUserIdStored(user.id);
 
-    const { error: insertError } =
-      await supabaseDb
-        .from('webauthn_credentials')
-        .insert({
-          user_id: user.id,
-          did: user.did,
-          credential_id:
-            credential.id,
-          webauthn_user_id:
-            webAuthnId,
-          public_key:
-            publicKey,
-          counter:
-            Number(credential.counter || 0),
-          transports:
-            credential.transports || [],
-          device_type:
-            credentialDeviceType || null,
-          backed_up:
-            Boolean(credentialBackedUp)
-        });
-
+    let insertError = null;
+try {
+  await milanDb.query(
+    `INSERT INTO public.webauthn_credentials
+       (user_id, did, credential_id, webauthn_user_id, public_key,
+        counter, transports, device_type, backed_up)
+     VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9)`,
+    [
+      user.id,
+      user.did,
+      credential.id,
+      webAuthnId,
+      publicKey,
+      Number(credential.counter || 0),
+      JSON.stringify(credential.transports || []),
+      credentialDeviceType || null,
+      Boolean(credentialBackedUp)
+    ]
+  );
+} catch (error) {
+  insertError = error;
+}
     if (insertError) {
       if (insertError.code === '23505') {
         return res.status(409).json({
@@ -546,22 +525,16 @@ router.get(
   '/passkey/login/options',
   async (_req, res) => {
     console.log('[ID3 TRACE] login/options START');
-    const { count, error } =
-      await supabaseDb
-        .from('webauthn_credentials')
-        .select('id', {
-          count: 'exact',
-          head: true
-        });
-
-    if (error) {
-      console.error('[ID3 TRACE] credential count ERROR:', error.message);
-      return res.status(500).json({
-        error:
-          'ID3 authentication database unavailable'
-      });
-    }
-
+    let count = 0;
+try {
+  const result = await milanDb.query(
+    'SELECT COUNT(*)::int AS count FROM public.webauthn_credentials'
+  );
+  count = Number(result.rows[0]?.count || 0);
+} catch (error) {
+  console.error('[ID3 TRACE] credential count ERROR:', error.message);
+  return res.status(503).json({ error: 'ID3 authentication database unavailable' });
+}
     console.log('[ID3 TRACE] credential count OK:', Number(count || 0));
 
     if (!Number(count || 0)) {
@@ -587,25 +560,17 @@ router.get(
 
     console.log('[ID3 TRACE] authentication options generated');
 
-    const { error: challengeError } =
-      await supabaseDb
-        .from('webauthn_challenges')
-        .insert({
-          user_id: null,
-          challenge: options.challenge,
-          purpose: 'authentication',
-          expires_at:
-            challengeExpiresAt()
-        });
-
-    if (challengeError) {
-      console.error('[ID3 TRACE] challenge insert ERROR:', challengeError.message);
-      return res.status(500).json({
-        error:
-          'Could not store ID3 authentication challenge'
-      });
-    }
-
+    try {
+  await milanDb.query(
+    `INSERT INTO public.webauthn_challenges
+       (user_id, challenge, purpose, expires_at)
+     VALUES (NULL, $1, 'authentication', $2)`,
+    [options.challenge, challengeExpiresAt()]
+  );
+} catch (challengeError) {
+  console.error('[ID3 TRACE] challenge insert ERROR:', challengeError.message);
+  return res.status(503).json({ error: 'Could not store ID3 authentication challenge' });
+}
     console.log('[ID3 TRACE] login/options COMPLETE');
 
     res.setHeader(
@@ -631,25 +596,17 @@ router.post(
       });
     }
 
-    const {
-      data: storedCredential,
-      error: credentialError
-    } = await supabaseDb
-      .from('webauthn_credentials')
-      .select('*')
-      .eq(
-        'credential_id',
-        credentialId
-      )
-      .maybeSingle();
-
-    if (credentialError) {
-      return res.status(500).json({
-        error:
-          'ID3 credential lookup failed'
-      });
-    }
-
+    let storedCredential;
+try {
+  const result = await milanDb.query(
+    'SELECT * FROM public.webauthn_credentials WHERE credential_id = $1 LIMIT 1',
+    [credentialId]
+  );
+  storedCredential = result.rows[0] || null;
+} catch (error) {
+  console.error('[ID3] credential lookup failed:', error.message);
+  return res.status(503).json({ error: 'ID3 authentication database unavailable' });
+}
     if (!storedCredential) {
       return res.status(401).json({
         error:
@@ -665,20 +622,30 @@ router.post(
     }
 
     const challengeNow = new Date().toISOString();
-    const { data: challengeRow, error: challengeError } = await supabaseDb
-      .from('webauthn_challenges')
-      .select('id,challenge')
-      .eq('purpose', 'authentication')
-      .eq('challenge', responseChallenge)
-      .is('used_at', null)
-      .gt('expires_at', challengeNow)
-      .maybeSingle();
-
-    if (challengeError || !challengeRow) {
-      return res.status(400).json({
-        error: 'WebAuthn authentication challenge is invalid, expired or already used. Start again.'
-      });
-    }
+let challengeRow;
+try {
+  const result = await milanDb.query(
+    `SELECT id, challenge
+       FROM public.webauthn_challenges
+      WHERE user_id IS NULL
+        AND purpose = 'authentication'
+        AND challenge = $1
+        AND used_at IS NULL
+        AND expires_at > $2
+      ORDER BY created_at DESC
+      LIMIT 1`,
+    [responseChallenge, challengeNow]
+  );
+  challengeRow = result.rows[0] || null;
+} catch (error) {
+  console.error('[ID3] authentication challenge lookup failed:', error.message);
+  return res.status(503).json({ error: 'WebAuthn challenge store unavailable' });
+}
+if (!challengeRow) {
+  return res.status(400).json({
+    error: 'WebAuthn authentication challenge is invalid, expired or already used. Start again.'
+  });
+}
     const { rpID, origin } =
       webauthnConfig(req);
 
@@ -745,37 +712,35 @@ router.post(
         0
       );
 
-    await supabaseDb
-      .from('webauthn_credentials')
-      .update({
-        counter: newCounter,
-        updated_at:
-          new Date().toISOString()
-      })
-      .eq(
-        'id',
-        storedCredential.id
-      );
-
-    const {
-      data: user,
-      error: userError
-    } = await supabaseDb
-      .from('users')
-      .select('id,email,name,did,email_verified')
-      .eq(
-        'id',
-        storedCredential.user_id
-      )
-      .maybeSingle();
-
-    if (userError || !user) {
-      return res.status(401).json({
-        error:
-          'ID3 account could not be resolved'
-      });
-    }
-
+    try {
+  const updated = await milanDb.query(
+    'UPDATE public.webauthn_credentials SET counter = $1, updated_at = NOW() WHERE id = $2',
+    [newCounter, storedCredential.id]
+  );
+  if (updated.rowCount !== 1) {
+    return res.status(503).json({ error: 'Could not update passkey authenticator counter' });
+  }
+} catch (error) {
+  console.error('[ID3] authenticator counter update failed:', error.message);
+  return res.status(503).json({ error: 'Could not update passkey authenticator counter' });
+}
+    let user;
+try {
+  const result = await milanDb.query(
+    `SELECT user_id AS id, email, name, did, email_verified
+       FROM public.users
+      WHERE user_id = $1
+      LIMIT 1`,
+    [storedCredential.user_id]
+  );
+  user = result.rows[0] || null;
+} catch (error) {
+  console.error('[ID3] account lookup failed:', error.message);
+  return res.status(503).json({ error: 'ID3 account lookup unavailable' });
+}
+if (!user) {
+  return res.status(401).json({ error: 'ID3 account could not be resolved' });
+}
     if (user.email_verified !== true) {
       return res.status(403).json({
         error: 'Please verify your email before using ID3 login.',

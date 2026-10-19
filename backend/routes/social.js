@@ -5,11 +5,7 @@ const dwnStore = require('../services/dwnService');
 const { readJson, writeJson, atomicWriteJson, findUserById, findUserByDid, addActivity } = require('../utils/store');
 const { pullDatabaseSnapshot } = require('../services/cloudDwnRegistry');
 const notify = require('../services/notifyService');
-const { createClient } = require('@supabase/supabase-js');
-const supabaseDb = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-);
+const milanDb = require('../services/milanDb');
 const router = express.Router();
 const uuidv4 = () => crypto.randomUUID();
 const now = () => new Date().toISOString();
@@ -185,14 +181,18 @@ router.get('/people', auth, async (req, res) => {
   const me = current(req); if (!me) return res.status(404).json({ error:'User not found' });
   const q = String(req.query.q || '').toLowerCase();
 
-  const { data: accounts, error } = await supabaseDb
-    .from('users')
-    .select('id,email,name,did,space_id,portable_did,dwn_quota_bytes')
-    .order('name', { ascending: true });
-
-  if (error) {
-    console.error('[social/people] Supabase users lookup failed:', error);
-    return res.status(500).json({ error: 'People directory unavailable', details: error.message });
+  let accounts;
+  try {
+    const result = await milanDb.query(
+      `SELECT user_id AS id, email, name, did, space_id,
+              portable_did, 1073741824::bigint AS dwn_quota_bytes
+       FROM public.users
+       ORDER BY name ASC`
+    );
+    accounts = result.rows;
+  } catch (error) {
+    console.error('[social/people] Voroa users lookup failed:', error.message);
+    return res.status(500).json({ error: 'People directory unavailable' });
   }
 
   const localUsers = users();

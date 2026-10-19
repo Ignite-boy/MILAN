@@ -245,9 +245,8 @@ async function hydrateFilesFromSupabase(files = []) {
   const unique = [...new Set(files.filter(Boolean))];
   const results = [];
   try {
-    const { pullDatabaseSnapshot, persistenceInfo } = require('../services/cloudDwnRegistry');
-    const p = persistenceInfo();
-    if (!p.remoteEndpoint) return { ok: false, skipped: 'remote-dwn-not-configured' };
+    // Legacy function name retained for compatibility; snapshots are stored in Voroa PostgreSQL.
+    const { pullDatabaseSnapshot } = require('../services/cloudDwnRegistry');
     global.__milanHydratingFromDwn = true;
     for (const file of unique) {
       const name = path.basename(file);
@@ -293,8 +292,8 @@ async function hydrateFilesFromSupabase(files = []) {
           wasEmpty: currentEmpty,
           source:
             name === 'APP_RECORD_INDEX.json'
-              ? 'supabase-authoritative-merged'
-              : 'supabase-authoritative'
+              ? 'voroa-postgresql-merged'
+              : 'voroa-postgresql'
         });
       } else {
         results.push({ name, hydrated: false, reason: normalized.error || 'not-found' });

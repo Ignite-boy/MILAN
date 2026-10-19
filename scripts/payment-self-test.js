@@ -16,11 +16,18 @@ const payPage = read('frontend/milan-pay.html');
 const env = read('backend/.env.example');
 const pkg = JSON.parse(read('package.json'));
 const migration = read('backend/migrations/20261014_milan_pay_manual_verification.sql');
+const voroaMigration = read('backend/migrations/20261019_voroa_milan_pay.sql');
+const rolesMigration = read('backend/migrations/20261019_voroa_00_roles.sql');
 const pendingOrdersMigration = read('backend/migrations/20261015_milan_pay_single_pending_order.sql');
 const pendingAudit = read('scripts/milan-pay-pending-audit.sql');
 const paymentOpsDoc = read('docs/MILAN_PAY_OPERATIONS.md');
 
 const checks = [
+  ['Payment routes use Voroa PostgreSQL and no Supabase SDK',
+    !payRoute.includes('@supabase/supabase-js') &&
+    !storageRoute.includes('@supabase/supabase-js') &&
+    payRoute.includes("require('../services/milanDb')") &&
+    storageRoute.includes("require('../services/milanDb')")],
   ['MILAN Pay route is mounted', server.includes("app.use('/api/milan-pay', require('./routes/milanPay'));")],
   ['Legacy payment route is not mounted', !server.includes("app.use('/api/payment', require('./routes/payment'));")],
   ['Legacy payment route file is removed', !fs.existsSync(path.join(root, 'backend/routes/payment.js'))],
@@ -33,25 +40,25 @@ const checks = [
   ['Order status endpoint requires authentication after rate limiting',
     payRoute.includes("router.get('/orders/:orderId/status', orderStatusRateLimiter, auth")],
   ['Order creation has an 8-per-minute route limit',
-    payRoute.includes("createDistributedApiRateLimiter({ limit: 8, windowMs: 60_000")],
+    payRoute.includes("limit: 8, windowMs: 60_000")],
   ['Order status has a 60-per-minute route limit',
-    payRoute.includes("createDistributedApiRateLimiter({ limit: 60, windowMs: 60_000")],
+    payRoute.includes("limit: 60, windowMs: 60_000")],
   ['UTR submission has a 6-per-minute route limit',
-    storageRoute.includes("createDistributedApiRateLimiter({ limit: 6, windowMs: 60_000") &&
+    storageRoute.includes("limit: 6, windowMs: 60_000") &&
     storageRoute.includes("router.post('/upgrade-request', submitUpgradeRequestLimiter, auth")],
   ['Admin storage actions have a 30-per-minute route limit',
-    storageRoute.includes("createDistributedApiRateLimiter({ limit: 30, windowMs: 60_000") &&
+    storageRoute.includes("limit: 30, windowMs: 60_000") &&
     storageRoute.includes("router.post('/admin/requests/:id/approve', adminStorageActionLimiter, adminRequired") &&
     storageRoute.includes("router.post('/admin/requests/:id/reject', adminStorageActionLimiter, adminRequired")],
   ['New orders start pending', payRoute.includes("status: 'pending'")],
-  ['Order creation checks pending manual requests', payRoute.includes("from('storage_upgrade_requests')")],
+  ['Order creation checks pending manual requests', payRoute.includes("public.storage_upgrade_requests")],
   ['Storage request validates the order ID', storageRoute.includes("req.body?.orderId")],
-  ['Storage request checks the server order', storageRoute.includes("from('payment_orders')") && storageRoute.includes("order.gateway !== 'milanpay'")],
-  ['Storage request links the UTR to the order', storageRoute.includes("order_id: orderId") && storageRoute.includes("utr,")],
+  ['Storage request checks the server order', storageRoute.includes("public.payment_orders") && storageRoute.includes("order.gateway !== 'milanpay'")],
+  ['Storage request links the UTR to the order', storageRoute.includes("order_id") && storageRoute.includes("utr") && storageRoute.includes("orderId")],
   ['Manual request does not mark payment paid', !storageRoute.includes("status: 'paid'")],
   ['Admin approval requires explicit bank verification', storageRoute.includes("req.body?.bankVerified !== true")],
-  ['Admin approval uses a database RPC', storageRoute.includes("supabase.rpc(") && storageRoute.includes("'admin_approve_milan_pay_storage_request'")],
-  ['Admin rejection uses a database RPC', storageRoute.includes("'admin_reject_milan_pay_storage_request'")],
+  ['Admin approval uses a database RPC', storageRoute.includes("public.admin_approve_milan_pay_storage_request")],
+  ['Admin rejection uses a database RPC', storageRoute.includes("public.admin_reject_milan_pay_storage_request")],
   ['Duplicate UTR insert conflict is handled', storageRoute.includes("error.code === '23505'")],
   ['Admin token fails closed when missing', storageRoute.includes("process.env.ADMIN_TOKEN || ''")],
   ['Admin token is not accepted via query string', !storageRoute.includes('req.query.adminToken')],
@@ -71,7 +78,7 @@ const checks = [
   ['Checkout shows merchant receiver details', payRoute.includes("merchantVpa: ready ? vpa : null") && payPage.includes('id="payeeVpa"')],
   ['Existing pending order is reused to reduce duplicate orders', payRoute.includes("reusedOrder: true") && payRoute.includes("MILAN_PAY_PENDING_ORDER_EXISTS")],
   ['Concurrent order creation conflict is handled', payRoute.includes("A pending order was created at the same time")],
-  ['Pending orders pin the selected merchant VPA', payRoute.includes("gateway_reference: vpa") && payRoute.includes("gateway_reference,paid_at")],
+  ['Pending orders pin the selected merchant VPA', payRoute.includes("gateway_reference") && payRoute.includes("INSERT INTO public.payment_orders")],
   ['Legacy pending orders without a pinned recipient are blocked on order reuse and status restore',
     payRoute.includes("code: 'MILAN_PAY_PENDING_ORDER_RECIPIENT_UNVERIFIED'") &&
     payRoute.includes('if (!pendingOrder.gateway_reference)') &&
@@ -82,11 +89,11 @@ const checks = [
     !payRoute.includes('.update({ gateway_reference: vpa })')],
   ['Migration checks for duplicate pending orders before indexing', pendingOrdersMigration.includes("HAVING COUNT(*) > 1") && pendingOrdersMigration.includes("Multiple pending MILAN Pay orders exist")],
   ['Migration enforces one pending MILAN Pay order per user', pendingOrdersMigration.includes("payment_orders_one_pending_milanpay_per_user_uidx") && pendingOrdersMigration.includes("gateway = 'milanpay' AND status = 'pending'")],
-  ['Order creation and restore fail closed when duplicate pending orders exist', payRoute.includes("MILAN_PAY_PENDING_ORDER_RECONCILIATION_REQUIRED") && payRoute.includes(".limit(2)")],
+  ['Order creation and restore fail closed when duplicate pending orders exist', payRoute.includes("MILAN_PAY_PENDING_ORDER_RECONCILIATION_REQUIRED") && payRoute.includes("LIMIT 2")],
   ['Order status suppresses payment links when a verification request already exists', payRoute.includes("paymentActionRequired: false") && payRoute.includes("Do not pay again")],
   ['Order reuse never issues a fresh QR after any verification request is already linked',
     payRoute.includes("code: 'MILAN_PAY_ORDER_VERIFICATION_ALREADY_SUBMITTED'") &&
-    payRoute.includes(".eq('order_id', pendingOrder.order_id)") &&
+    payRoute.includes("WHERE order_id = $1") && payRoute.includes("[pendingOrder.order_id]") &&
     payRoute.includes('A verification request already exists for this order. Do not pay again')],
   ['Config clearly distinguishes unverified merchant setup from automatic confirmation', payRoute.includes("merchantVerificationStatus: ready ? 'configured-unverified'") && payRoute.includes("automaticPaymentConfirmationAvailable: false")],
   ['Pending-order reconciliation SQL is read-only', pendingAudit.startsWith('-- READ-ONLY') && !/(?:^|\n)\s*(INSERT|UPDATE|DELETE|TRUNCATE|ALTER|DROP)\b/im.test(pendingAudit)],
@@ -105,7 +112,34 @@ const checks = [
   ['Migration checks order, user, plan and amount', migration.includes("v_order.gateway IS DISTINCT FROM 'milanpay'") && migration.includes('v_order.amount_inr IS DISTINCT FROM v_expected_amount')],
   ['Migration checks reused UTRs', migration.includes('This transaction reference has already been used.')],
   ['Migration updates payment and quota transactionally', migration.includes("status = 'paid'") && migration.includes('dwn_quota_bytes = GREATEST')],
-  ['Migration restricts the RPC to service role', migration.includes('REVOKE ALL ON FUNCTION public.admin_approve_milan_pay_storage_request') && migration.includes('TO service_role')],
+  ['Legacy Supabase migration grants the RPC to service role', migration.includes('REVOKE ALL ON FUNCTION public.admin_approve_milan_pay_storage_request') && migration.includes('TO service_role')],
+  ['Voroa role migration declares a least-privilege app role and non-login function owners',
+    rolesMigration.includes('CREATE ROLE milan_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS') &&
+    rolesMigration.includes('CREATE ROLE milan_pay_fn_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS') &&
+    rolesMigration.includes('CREATE ROLE milan_rate_limit_fn_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS')],
+  ['Voroa payment RPCs use a non-login owner and explicitly grant execution to milan_app',
+    voroaMigration.includes('ALTER FUNCTION public.admin_approve_milan_pay_storage_request(text, text)\n  OWNER TO milan_pay_fn_owner;') &&
+    voroaMigration.includes('ALTER FUNCTION public.admin_reject_milan_pay_storage_request(text, text)\n  OWNER TO milan_pay_fn_owner;') &&
+    voroaMigration.includes('GRANT EXECUTE ON FUNCTION public.admin_approve_milan_pay_storage_request(text, text)\n  TO milan_app;') &&
+    voroaMigration.includes('GRANT EXECUTE ON FUNCTION public.admin_reject_milan_pay_storage_request(text, text)\n  TO milan_app;') &&
+    !voroaMigration.includes('TO CURRENT_USER;')],
+  ['Voroa runtime cannot write storage quota or plan columns directly',
+    voroaMigration.includes('REVOKE INSERT, UPDATE ON TABLE public.users FROM milan_app;') &&
+    voroaMigration.includes('GRANT INSERT (') &&
+    voroaMigration.includes('GRANT UPDATE (') &&
+    !/GRANT\\s+(?:SELECT,\\s*)?INSERT,\\s*UPDATE\\s+ON TABLE public\\.users\\s+TO milan_app/.test(voroaMigration)],
+  ['Voroa runtime cannot set payment or request status on insert',
+    voroaMigration.includes('GRANT INSERT (user_id, order_id, plan, amount_inr, gateway, gateway_reference)') &&
+    !voroaMigration.includes('GRANT UPDATE (status, reviewed_at, reviewer_note)') &&
+    payRoute.includes('(user_id, order_id, plan, amount_inr, gateway, gateway_reference)') &&
+    storageRoute.includes('(user_id, order_id, plan, quota_bytes, amount_inr, payment_method, utr)')],
+  ['Legacy rejection uses a guarded RPC and has no direct app status-update grant',
+    storageRoute.includes('public.admin_reject_legacy_milan_storage_request') &&
+    !/UPDATE\s+public\.storage_upgrade_requests/i.test(storageRoute) &&
+    voroaMigration.includes('CREATE OR REPLACE FUNCTION public.admin_reject_legacy_milan_storage_request') &&
+    /ALTER FUNCTION public\.admin_reject_legacy_milan_storage_request\(text, text\)\s+OWNER TO milan_pay_fn_owner;/.test(voroaMigration) &&
+    /GRANT EXECUTE ON FUNCTION public\.admin_reject_legacy_milan_storage_request\(text, text\)\s+TO milan_app;/.test(voroaMigration) &&
+    !/GRANT UPDATE\s*\(status, reviewed_at, reviewer_note\)\s+ON TABLE public\.storage_upgrade_requests TO milan_app;/.test(voroaMigration)],
   ['Admin API rejects missing or placeholder token configuration',
     adminRoute.includes("process.env.ADMIN_TOKEN || ''") &&
     adminRoute.includes("expected === 'change-this-admin-token'")],

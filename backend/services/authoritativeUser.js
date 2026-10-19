@@ -1,14 +1,7 @@
 'use strict';
 
-const { createClient } = require('@supabase/supabase-js');
+const milanDb = require('./milanDb');
 const { toPublicPortableDid } = require('../utils/did');
-
-const supabaseDb = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-);
-
-const USER_FIELDS = '*';
 
 function deriveUserSpaceId(userId = '', email = '') {
   const seed = String(userId) + '|' + String(email);
@@ -20,27 +13,21 @@ async function getAuthoritativeUserByDid(did) {
   const value = String(did || '').trim();
   if (!value) return null;
 
-  const { data, error } = await supabaseDb
-    .from('users')
-    .select(USER_FIELDS)
-    .eq('did', value)
-    .maybeSingle();
-
-  if (error) throw new Error(`Authoritative DID lookup failed: ${error.message}`);
+  const result = await milanDb.query(
+    'SELECT * FROM public.users WHERE did = $1 LIMIT 1',
+    [value]
+  );
+  const data = result.rows[0];
   if (!data) return null;
 
-  if (!data.did) {
+  if (!data.did || !data.user_id || !data.space_id) {
     throw new Error('Authoritative DID mapping is incomplete.');
   }
 
-  const spaceId = String(
-    data.space_id ||
-    deriveUserSpaceId(data.id, data.email)
-  ).trim();
-
   return {
     ...data,
-    spaceId,
+    id: data.user_id,
+    spaceId: String(data.space_id).trim(),
     portableDid: toPublicPortableDid(data.portable_did),
     dwnQuotaBytes: Number(data.dwn_quota_bytes || 1073741824)
   };
@@ -50,27 +37,21 @@ async function getAuthoritativeUserById(userId) {
   const id = String(userId || '').trim();
   if (!id) return null;
 
-  const { data, error } = await supabaseDb
-    .from('users')
-    .select(USER_FIELDS)
-    .eq('id', id)
-    .maybeSingle();
-
-  if (error) throw new Error(`Authoritative user lookup failed: ${error.message}`);
+  const result = await milanDb.query(
+    'SELECT * FROM public.users WHERE user_id::text = $1 LIMIT 1',
+    [id]
+  );
+  const data = result.rows[0];
   if (!data) return null;
 
-  if (!data.did) {
+  if (!data.did || !data.user_id || !data.space_id) {
     throw new Error('Authoritative DID mapping is incomplete.');
   }
 
-  const spaceId = String(
-    data.space_id ||
-    deriveUserSpaceId(data.id, data.email)
-  ).trim();
-
   return {
     ...data,
-    spaceId,
+    id: data.user_id,
+    spaceId: String(data.space_id).trim(),
     portableDid: toPublicPortableDid(data.portable_did),
     dwnQuotaBytes: Number(data.dwn_quota_bytes || 1073741824)
   };
