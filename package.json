@@ -1,7 +1,7 @@
 {
   "name": "milan-decentralized-social-space",
   "version": "70.0.0",
-  "description": "MILAN application and MILAN-ONE ecosystem workspace; static HTML/CSS/JS frontend, Express API, Supabase-authoritative persistence, and experimental companion components.",
+  "description": "MILAN application and MILAN-ONE ecosystem workspace; static HTML/CSS/JS frontend, Express API, Voroa PostgreSQL persistence, and experimental companion components.",
   "main": "backend/server.js",
   "scripts": {
     "start": "node -r ./backend/services/avatar-hydration-guard.js backend/server.js",
@@ -18,10 +18,7 @@
   },
   "dependencies": {
     "@simplewebauthn/server": "^13.3.2",
-    "@supabase/supabase-js": "^2.112.3",
     "@tbd54566975/dwn-sdk-js": "^0.5.2",
-    "@vercel/functions": "^3.9.11",
-    "@vercel/kv": "^3.0.0",
     "@web5/crypto": "^1.0.6",
     "@web5/dids": "^1.2.0",
     "bcryptjs": "^2.4.3",
@@ -39,7 +36,6 @@
     "pg": "^8.23.1",
     "qrcode": "^1.5.4",
     "sharp": "^0.35.4",
-    "tus-js-client": "^4.3.1",
     "ws": "^8.21.0"
   },
   "overrides": {
