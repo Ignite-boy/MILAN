@@ -40,13 +40,17 @@ check(pkg && pkg.scripts && pkg.scripts.build === 'node scripts/verify-build.js'
   'Root build script must run the real repository integrity verifier.');
 check(pkg && pkg.scripts && pkg.scripts.start === 'node -r ./backend/services/avatar-hydration-guard.js backend/server.js',
   'Production start script must launch the Express Node service.');
-check(pkg && !Object.keys(pkg.dependencies || {}).some(name => /supabase|^@vercel\\//i.test(name)),
-  'Supabase and Vercel runtime dependencies must remain removed.');
+check(pkg && !Object.keys(pkg.dependencies || {}).some(name => {
+  const value = name.toLowerCase();
+  return value.includes('supabase') || value.startsWith('@vercel/');
+}), 'Supabase and Vercel runtime dependencies must remain removed.');
 check(exists('backend/server.js') && !read('backend/server.js').includes('process.env.VERCEL'),
   'Main Express server must not depend on the Vercel runtime.');
 for (const file of ['backend/services/cloudDwnRegistry.js', 'backend/services/dwnService.js', 'backend/routes/records.js', 'backend/routes/auth.js', 'backend/routes/did.js', 'backend/services/resumableMediaCommit.js']) {
-  if (exists(file)) check(!/SUPABASE_URL|SUPABASE_SERVICE_KEY|@supabase\\/supabase-js|@vercel\\/functions|@vercel\\/kv|process\\.env\\.VERCEL/.test(read(file)),
-    `Legacy provider runtime reference remains in ${file}.`);
+  if (!exists(file)) continue;
+  const source = read(file);
+  const forbidden = ['SUPABASE_URL', 'SUPABASE_SERVICE_KEY', '@supabase/supabase-js', '@vercel/functions', '@vercel/kv', 'process.env.VERCEL'];
+  check(!forbidden.some(value => source.includes(value)), `Legacy provider runtime reference remains in ${file}.`);
 }
 check(!exists('vercel.json') && !exists('.vercel/repo.json'), 'Legacy Vercel deployment configuration must be removed.');
 check(exists('frontend/ai-info.json'), 'Machine-readable /ai-info.json document is missing.');
