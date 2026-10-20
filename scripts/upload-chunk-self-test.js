@@ -16,8 +16,8 @@ const isolatedTemp = fs.mkdtempSync(
   path.join(originalTmpdir(), "milan-upload-self-test-")
 );
 
-process.env.SUPABASE_URL = "https://example.supabase.co";
-process.env.SUPABASE_SERVICE_KEY = "isolated-upload-test-key";
+process.env.NODE_ENV = "test";
+process.env.MILAN_UPLOAD_STORAGE_BACKEND = "local";
 
 const chunkBytes = 1024 * 1024;
 const content = Buffer.alloc(chunkBytes * 2 + 37);
@@ -85,7 +85,7 @@ mockModule("backend/services/dwnService.js", {
 const sharedMode = process.argv.includes("--shared");
 
 if (sharedMode) {
-  process.env.VERCEL = "1";
+  process.env.MILAN_UPLOAD_STORAGE_BACKEND = "voroa-postgresql";
 
   const sessions = new Map();
   const chunks = new Map();
@@ -125,7 +125,7 @@ if (sharedMode) {
     }
   });
 
-  console.log("TEST MODE: Vercel shared-storage route branch; storage is mocked.");
+  console.log("TEST MODE: Voroa PostgreSQL shared-storage route branch; storage is mocked.");
 }
 
 let route;
