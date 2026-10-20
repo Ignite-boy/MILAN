@@ -1,0 +1,97 @@
+name: Voroa Retirement Monitor
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: voroa-retirement-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    name: Check migration readiness (non-destructive)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify Voroa database (read-only)
+        env:
+          VOROA_DATABASE_URL: ${{ secrets.VOROA_DATABASE_URL }}
+        run: |
+          node <<'NODE'
+          const { Client } = require('pg');
+
+          (async () => {
+            const connectionString = process.env.VOROA_DATABASE_URL;
+            if (!connectionString) {
+              console.error('BLOCKED: GitHub secret VOROA_DATABASE_URL is missing.');
+              process.exitCode = 1;
+              return;
+            }
+
+            const client = new Client({
+              connectionString,
+              connectionTimeoutMillis: 10000,
+              ssl: { rejectUnauthorized: false },
+            });
+
+            try {
+              await client.connect();
+              const result = await client.query(
+                "SELECT current_database() AS db, current_user AS role, pg_size_pretty(pg_database_size(current_database())) AS size"
+              );
+              const tables = await client.query(
+                "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name = ANY($1::text[]) ORDER BY table_name",
+                [['users', 'dwn_storage', 'payments', 'webauthn_credentials']]
+              );
+              const present = new Set(tables.rows.map(r => r.table_name));
+              const missing = ['users', 'dwn_storage'].filter(t => !present.has(t));
+
+              console.log('Voroa database connectivity: PASS');
+              console.log('Database:', result.rows[0].db);
+              console.log('Role:', result.rows[0].role);
+              console.log('Size:', result.rows[0].size);
+              console.log('Expected tables found:', [...present].join(', ') || '(none)');
+              if (missing.length) {
+                console.error('Required tables missing:', missing.join(', '));
+                process.exitCode = 1;
+              }
+            } catch (e) {
+              console.error('Voroa database check failed:', e.message);
+              process.exitCode = 1;
+            } finally {
+              await client.end().catch(() => {});
+            }
+          })();
+          NODE
+
+      - name: Report retirement blockers
+        shell: bash
+        run: |
+          echo "This run is a read-only monitor. It does not delete or suspend any provider."
+          echo "Pending gates: verify all Supabase Storage objects and checksums are migrated;"
+          echo "verify Voroa-hosted production app, auth, uploads, payments, and milanlife.in;"
+          echo "then confirm Supabase, Render, and Vercel no longer serve production traffic."
+          echo "Legacy references in source (inventory only):"
+          if grep -RniE 'SUPABASE_URL|SUPABASE_SERVICE_KEY|@vercel/functions|@vercel/kv|render\.com|vercel\.app' backend api package.json vercel.json 2>/dev/null | head -80; then
+            echo "Legacy references remain; review before retiring providers."
+          else
+            echo "No matching legacy references found in scanned paths."
+          fi
+          echo "No provider deletion was attempted."
