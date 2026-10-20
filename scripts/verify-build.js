@@ -19,11 +19,9 @@ const requiredFiles = [
   'frontend/chat/index.html',
   'frontend/milan-core.css',
   'frontend/milan-login-pro.css',
-  'api/index.js',
   'backend/server.js',
   'backend/middleware/auth.js',
   'backend/services/cloudDwnRegistry.js',
-  'vercel.json',
   'Milan-Sentinel/scripts/run-matrix.js',
   'Milan-Sentinel/scripts/execute-case.js',
   'docs/MILAN_ONE_ARCHITECTURE.md',
@@ -31,30 +29,30 @@ const requiredFiles = [
 ];
 for (const file of requiredFiles) check(exists(file), `Required file missing: ${file}`);
 
-let pkg, vercel, matrix;
+let pkg, serverSource, matrix;
 try { pkg = JSON.parse(read('package.json')); } catch (error) { failures.push(`package.json invalid JSON: ${error.message}`); }
-try { vercel = JSON.parse(read('vercel.json')); } catch (error) { failures.push(`vercel.json invalid JSON: ${error.message}`); }
+try { serverSource = read('backend/server.js'); } catch (error) { failures.push(`backend/server.js unavailable: ${error.message}`); }
 try { matrix = JSON.parse(read('Milan-Sentinel/scenarios/test-matrix.json')); } catch (error) { failures.push(`Sentinel matrix invalid JSON: ${error.message}`); }
 
 check(pkg && pkg.engines && pkg.engines.node && Number.parseInt(pkg.engines.node.replace(/[^0-9]/g, ''), 10) >= 22,
   'Root package must declare Node.js 22+.');
 check(pkg && pkg.scripts && pkg.scripts.build === 'node scripts/verify-build.js',
   'Root build script must run the real repository integrity verifier.');
-check(vercel && vercel.outputDirectory === 'frontend', 'Vercel outputDirectory must remain frontend/.');
-check(vercel && Array.isArray(vercel.rewrites) && !vercel.rewrites.some(rule => String(rule.destination || '').startsWith('/api/seo/')),
-  'Vercel config contains rewrites to missing /api/seo/* functions.');
+check(pkg && pkg.scripts && pkg.scripts.start === 'node -r ./backend/services/avatar-hydration-guard.js backend/server.js',
+  'Production start script must launch the Express Node service.');
+check(!exists('vercel.json') && !exists('.vercel/repo.json'), 'Legacy Vercel deployment configuration must be removed.');
 check(exists('frontend/ai-info.json'), 'Machine-readable /ai-info.json document is missing.');
-const requiredAliases = {
-  '/sitemap_index.xml': '/sitemap-index.xml',
-  '/ai-info': '/ai-info.json',
-  '/keywords': '/keywords.html',
-  '/topics': '/keywords.html'
-};
-for (const [source, destination] of Object.entries(requiredAliases)) {
-  check(vercel && vercel.rewrites.some(rule => rule.source === source && rule.destination === destination),
-    `Vercel static alias ${source} must resolve to ${destination}.`);
-  const target = destination.startsWith('/') ? destination.slice(1) : destination;
-  check(exists(path.join('frontend', target)), `Static alias target is missing: ${destination}`);
+const requiredAliases = [
+  { source: '/sitemap_index.xml', route: "app.get(['/sitemap-index.xml', '/sitemap_index.xml']", target: 'sitemap-index.xml' },
+  { source: '/ai-info', route: "app.get(['/ai-info', '/ai-info.json']", target: 'ai-info.json' },
+  { source: '/keywords', route: "app.get(['/keywords', '/keywords.html', '/topics']", target: 'keywords.html' },
+  { source: '/topics', route: "app.get(['/keywords', '/keywords.html', '/topics']", target: 'keywords.html' }
+];
+for (const alias of requiredAliases) {
+  check(serverSource && serverSource.includes(alias.route),
+    `Express route for ${alias.source} must remain configured.`);
+  check(exists(path.join('frontend', alias.target)),
+    `Static alias target is missing: ${alias.target}`);
 }
 
 if (matrix && matrix.dimensions) {
@@ -74,6 +72,10 @@ const syntaxCheckFiles = [
   'backend/services/cloudDwnRegistry.js',
   'backend/services/dwnService.js',
   'backend/routes/records.js',
+  'backend/routes/auth.js',
+  'backend/routes/did.js',
+  'backend/services/resumableMediaCommit.js',
+  'scripts/upload-chunk-self-test.js',
   'backend/routes/isolatedDwn.js',
   'frontend/assets/js/inline-05.js',
   'frontend/assets/js/inline-07.js',
@@ -116,6 +118,6 @@ if (failures.length) {
 }
 console.log('MILAN repository integrity check PASSED.');
 console.log(` - Node engine: ${pkg.engines.node}`);
-console.log(` - Frontend source: ${vercel.outputDirectory}/`);
+console.log(' - Frontend source: frontend/ (served by Express)');
 console.log(` - Sentinel matrix: ${matrix.caseCount.toLocaleString('en-US')} theoretical combinations (not a claim of full execution)`);
 console.log(' - Auth, CORS, DWN-readiness and bounded-workflow invariants checked.');
