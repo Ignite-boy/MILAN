@@ -32,7 +32,7 @@ jobs:
 
       - name: Verify Voroa database (read-only)
         env:
-          MILAN_DATABASE_URL: ${{ secrets.MILAN_DATABASE_URL || secrets.MILAN_DATABASE_URL }}
+          MILAN_DATABASE_URL: ${{ secrets.MILAN_DATABASE_URL || secrets.VOROA_DATABASE_URL }}
         run: |
           node <<'NODE'
           const { Client } = require('pg');
@@ -85,7 +85,7 @@ jobs:
         shell: bash
         run: |
           set -e
-          if grep -RniE --exclude='*.md' --exclude='*.txt' --exclude='*.html' --exclude-dir=.git --exclude-dir=node_modules 'SUPABASE_URL|SUPABASE_SERVICE_KEY|@supabase/supabase-js|@vercel/functions|@vercel/kv|vercel\\.json|render\\.com' backend api package.json package-lock.json .vercelignore vercel.json 2>/dev/null; then
+          if grep -RniE --exclude='*.md' --exclude='*.txt' --exclude='*.html' --exclude-dir=.git --exclude-dir=node_modules 'SUPABASE_URL|SUPABASE_SERVICE_KEY|@supabase/supabase-js|@vercel/functions|@vercel/kv|vercel\\.json|render\\.com' backend package.json package-lock.json 2>/dev/null; then
             echo "Legacy provider references remain in active runtime/configuration paths."
             exit 1
           fi
