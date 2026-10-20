@@ -281,7 +281,7 @@ function provisionIsolatedDwn({ userId = '', did = '', email = '', spaceId: prea
     endpoint: endpointForSpace(spaceId),
     mode: p.mode,
     realDwnConfigured: false,
-    realCloudConfigured: !!p.remoteWriteEnabled && !!p.apiKeyConfigured,
+    realCloudConfigured: p.voroaDatabaseConfigured === true,
     assignedAt: existing.assignedAt || existing.createdAt || new Date().toISOString(),
     didServiceId: '#dwn',
     isolation: 'single-user',
@@ -336,7 +336,7 @@ function getDwnInfo(user) {
   return {
     endpoint: user?.dwnEndpoint || dwn.endpoint || '',
     mode: dwn.mode || user?.settings?.dwnMode || p.mode,
-    // Protocol readiness must come from the actual engine capability, never from Supabase configuration.
+    // Protocol readiness is distinct from PostgreSQL persistence readiness.
     realDwnConfigured: p.realDwnProtocol === true && dwn.realDwnConfigured === true,
     realCloudConfigured: !!p.remoteWriteEnabled && !!p.apiKeyConfigured,
     assignedAt: dwn.assignedAt || null,
@@ -712,7 +712,7 @@ async function provisionRemoteUserDwn(user = {}) {
   } catch (err) {
     return {
       ok: false,
-      backend: 'supabase',
+      backend: 'voroa',
       did,
       error: err.message,
       provisionedAt: new Date().toISOString()
