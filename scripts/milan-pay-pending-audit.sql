@@ -1,5 +1,5 @@
 -- READ-ONLY MILAN Pay pending-order audit.
--- Run in the Supabase SQL editor before resolving duplicates or applying
+-- Run against Voroa PostgreSQL before resolving duplicates or applying
 -- 20261015_milan_pay_single_pending_order.sql. This script changes no data.
 
 WITH request_summary AS (
