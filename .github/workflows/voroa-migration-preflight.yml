@@ -26,7 +26,7 @@ jobs:
 
       - name: Verify Voroa connection (read-only)
         env:
-          MILAN_DATABASE_URL: ${{ secrets.MILAN_DATABASE_URL || secrets.MILAN_DATABASE_URL }}
+          MILAN_DATABASE_URL: ${{ secrets.MILAN_DATABASE_URL || secrets.VOROA_DATABASE_URL }}
         run: |
           node <<'NODE'
           const { Client } = require('pg');
