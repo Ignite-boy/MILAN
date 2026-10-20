@@ -8,7 +8,7 @@ The public configuration endpoint reports whether a VPA looks syntactically vali
 
 ## 1. Reconcile pending orders before applying the single-pending-order index
 
-1. Open Supabase SQL Editor for the production project.
+1. Connect to the production Voroa PostgreSQL database with an appropriately privileged SQL role.
 2. Run the read-only script in `scripts/milan-pay-pending-audit.sql`. It lists pending order IDs, plan/amount/time, whether a recipient reference is set, and whether a UTR/verification request is linked. It also lists duplicate-order groups. It performs no writes.
 3. For each order, check the receiving merchant bank account/acquirer statement around the order timestamp. Search by credit amount, transaction reference/remarks if present, and the actual settlement/credit record. A missing UTR in MILAN is **not** proof that the bank was not credited.
 4. If a matching credit exists, do not mark that order failed. Contact the account holder through the normal support process to recover the transaction reference and complete a controlled review. Do not create a paid status from the UPI app's "success" screen alone.
@@ -23,11 +23,11 @@ Do not paste bank statements, account numbers, authentication headers, or secret
 
 ## 2. Apply and verify the database safeguard
 
-After duplicate pending orders have been independently reconciled, run this from the repository shell linked to the correct Supabase project:
+After duplicate pending orders have been independently reconciled, run this from the repository shell configured with the intended Voroa PostgreSQL connection:
 
 ```bash
 cd /mnt/d/milan/MILAN
-npx supabase db query --linked "$(cat backend/migrations/20261015_milan_pay_single_pending_order.sql)"
+psql "$MILAN_DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/migrations/20261015_milan_pay_single_pending_order.sql
 ```
 
 The migration intentionally raises an exception if duplicates still exist. Do not remove or bypass that preflight.
@@ -84,22 +84,22 @@ Configured per-IP, per-route limits:
 
 ### Prerequisites
 
-1. Review `backend/migrations/20261017_distributed_api_rate_limit.sql` against the intended production Supabase project before applying it.
-2. Apply the migration through the production Supabase SQL Editor using an appropriately privileged database role. Do not execute it against an unverified project.
+1. Review `backend/migrations/20261019_voroa_distributed_rate_limit.sql` against the intended Voroa PostgreSQL schema before applying it.
+2. Apply the migration to Voroa PostgreSQL using an appropriately privileged database role, for example with `psql "$MILAN_DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/migrations/20261019_voroa_distributed_rate_limit.sql`. Do not execute it against an unverified project.
 3. Verify that `public.api_rate_limit_buckets` exists, RLS is enabled, and the `public.consume_api_rate_limit(text, integer, integer)` function exists.
-4. Verify permissions: `anon` and `authenticated` must not execute the RPC or access the bucket table directly. Only `service_role` should receive the RPC execute grant; the function owner must retain the required table access.
-5. Generate a random HMAC secret with at least 32 characters using a secure local generator. Store it in Vercel's Production environment as `MILAN_PAY_RATE_LIMIT_HMAC_SECRET`. Never commit it or paste it into chat, logs, issues, or this runbook.
+4. Verify permissions: `PUBLIC` must not execute the RPC or access the bucket table directly. The `milan_app` role should receive only the RPC execute grant; the non-login `milan_rate_limit_fn_owner` role should retain the required table access.
+5. Generate a random HMAC secret with at least 32 characters using a secure local generator. Store it in Voroa's encrypted production environment as `MILAN_PAY_RATE_LIMIT_HMAC_SECRET`. Never commit it or paste it into chat, logs, issues, or this runbook.
 6. Keep `MILAN_PAY_SHARED_RATE_LIMIT_ENABLED=false` or unset while deploying the reviewed code and verifying the migration and secret configuration.
 
 ### Controlled enablement
 
 1. Confirm the migration and permissions checks passed, and that the deployed code contains the shared middleware.
-2. Set `MILAN_PAY_RATE_LIMIT_HMAC_SECRET` and `MILAN_PAY_SHARED_RATE_LIMIT_ENABLED=true` in the intended Vercel Production environment, then trigger a production deployment so the function runtime receives those values.
+2. Set `MILAN_PAY_RATE_LIMIT_HMAC_SECRET` and `MILAN_PAY_SHARED_RATE_LIMIT_ENABLED=true` in the Voroa production service environment, then deploy/restart the service so the Node runtime receives those values.
 3. Verify a normal unauthenticated request to a protected endpoint is still rejected by authentication, while the response includes rate-limit headers. Do not perform repeated high-volume tests on the live production domain.
 4. Validate threshold and cross-instance behavior in a staging environment or with an approved low-impact test plan. Mocked unit tests alone do not establish that the production PostgreSQL RPC works.
-5. Monitor HTTP 429 and 503 responses, Supabase RPC/database errors, latency, and table growth. A 503 in shared mode means the limiter could not validate the request; it must not be bypassed.
+5. Monitor HTTP 429 and 503 responses, Voroa PostgreSQL RPC/database errors, latency, and table growth. A 503 in shared mode means the limiter could not validate the request; it must not be bypassed.
 
-The middleware uses an HMAC-derived key, not the raw IP, in database rows. The secret must remain stable during normal operation; rotating it creates new bucket identities and should be planned. Validate that Express `req.ip` represents the intended client address behind Vercel's proxy before relying on per-IP limits.
+The middleware uses an HMAC-derived key, not the raw IP, in database rows. The secret must remain stable during normal operation; rotating it creates new bucket identities and should be planned. Validate that Express `req.ip` represents the intended client address behind Voroa's reverse proxy before relying on per-IP limits.
 
 ### Rollback
 
