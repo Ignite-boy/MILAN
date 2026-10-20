@@ -84,9 +84,7 @@ async function loadUsersFromDwn() {
         ...remoteUsers
       };
 
-      if (!process.env.VERCEL) {
-        writeJson(global.usersFile, mergedUsers);
-      }
+      writeJson(global.usersFile, mergedUsers);
 
       return mergedUsers;
     }
@@ -112,9 +110,7 @@ async function loadUsersFromDwnDetailed() {
         ...remoteUsers
       };
 
-      if (!process.env.VERCEL) {
-        writeJson(global.usersFile, mergedUsers);
-      }
+      writeJson(global.usersFile, mergedUsers);
 
       return {
         users: mergedUsers,
@@ -131,14 +127,10 @@ async function loadUsersFromDwnDetailed() {
 }
 
 async function persistUsersAuthoritatively(users) {
-  let result;
-  if (process.env.VERCEL) {
-    const { syncDatabaseSnapshot } = require('../services/cloudDwnRegistry');
-    result = await syncDatabaseSnapshot('users.json', users);
-  } else result = await writeJsonAndSync(global.usersFile, users);
+  const result = await writeJsonAndSync(global.usersFile, users);
   if (!result || result.ok === false) {
-    let msg = result?.error || 'Supabase users.json sync failed';
-    if (/404|No compatible route|No compatible route accepted/i.test(msg)) msg = 'Supabase sync failed. Original: ' + msg;
+    let msg = result?.error || 'Voroa PostgreSQL users snapshot sync failed';
+    if (/404|No compatible route|No compatible route accepted/i.test(msg)) msg = 'Voroa PostgreSQL snapshot sync failed. Original: ' + msg;
     const err = new Error(msg); err.status = 503; throw err;
   }
   return result;
