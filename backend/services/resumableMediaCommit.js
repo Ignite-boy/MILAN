@@ -11,7 +11,7 @@ async function commitResumableMedia({
     uploadedMedia = await pushMediaToCloudDwn(record, ownerUser, mediaFile);
   } catch (err) {
     uploadedMedia = {
-      backend: 'supabase',
+      backend: 'voroa',
       pushed: false,
       error: String(err?.message || err || 'Media sync failed')
     };
@@ -21,12 +21,12 @@ async function commitResumableMedia({
     const message = String(
       uploadedMedia?.error ||
       uploadedMedia?.skipped ||
-      'Supabase media upload was not confirmed.'
+      'Voroa PostgreSQL media upload was not confirmed.'
     );
     record.cloudDwn = record.cloudDwn || {};
     record.cloudDwn.mediaSync = {
       ...(uploadedMedia || {}),
-      backend: 'supabase',
+      backend: 'voroa',
       mode: commitMode,
       pending: false,
       pushed: false,
