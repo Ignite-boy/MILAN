@@ -143,14 +143,14 @@ function pushDatabaseSnapshotAsync(file, data) {
 
         if (result && result.ok === false && !result.skipped) {
           console.warn(
-            'Supabase DB sync failed:',
+            'Voroa PostgreSQL snapshot sync failed:',
             name,
             result.error || result
           );
         }
       } catch (err) {
         console.warn(
-          'Supabase DB sync unavailable:',
+          'Voroa PostgreSQL snapshot sync unavailable:',
           name,
           err.message
         );
@@ -241,7 +241,7 @@ function mergeRecordIndexSnapshots(localData, remoteData) {
 
   return merged;
 }
-async function hydrateFilesFromSupabase(files = []) {
+async function hydrateFilesFromVoroa(files = []) {
   const unique = [...new Set(files.filter(Boolean))];
   const results = [];
   try {
@@ -306,4 +306,4 @@ async function hydrateFilesFromSupabase(files = []) {
 function findUserById(users, userId) { for (const [email, user] of Object.entries(users || {})) if (user.id === userId) return { email, user }; return null; }
 function findUserByDid(users, did) { for (const [email, user] of Object.entries(users || {})) if (user.did === did) return { email, user }; return null; }
 function addActivity(userId, action, details = {}) { const file = global.activityFile; const all = readJson(file, {}); if (!Array.isArray(all[userId])) all[userId] = []; all[userId].unshift({ id: `${Date.now()}-${Math.random().toString(16).slice(2)}`, action, details, at: new Date().toISOString() }); all[userId] = all[userId].slice(0, 150); writeJson(file, all); }
-module.exports = { ensureFile, readJson, writeJson, writeJsonAndSync, atomicWriteJson, normalizePulledSnapshot, unwrapDwnSnapshotValue, cleanUsersDb, repairUsersFile, findUserById, findUserByDid, addActivity, hydrateFilesFromSupabase };
+module.exports = { ensureFile, readJson, writeJson, writeJsonAndSync, atomicWriteJson, normalizePulledSnapshot, unwrapDwnSnapshotValue, cleanUsersDb, repairUsersFile, findUserById, findUserByDid, addActivity, hydrateFilesFromVoroa };
