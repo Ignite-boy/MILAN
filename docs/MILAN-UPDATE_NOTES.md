@@ -24,7 +24,7 @@ behavior (login, feed, upload, AI panel) keeps working.
 ## 3. Welcome email from support@milanlife.in
 - New `backend/services/mailService.js`.
 - Sends a premium HTML welcome email on registration (fire-and-forget; registration never fails on mail errors).
-- Provider auto-detect (set ONE in env): `RESEND_API_KEY` (recommended on Render), `SENDGRID_API_KEY`,
+- Provider auto-detect (set ONE in env): `RESEND_API_KEY` (recommended on Voroa), `SENDGRID_API_KEY`,
   or SMTP (`SMTP_HOST/PORT/USER/PASS`, requires the optional `nodemailer` dep).
 - If no provider is configured, the email is logged and skipped.
 - **Setup:** verify the `milanlife.in` domain with your provider, then set the key + `MAIL_FROM` in env.
