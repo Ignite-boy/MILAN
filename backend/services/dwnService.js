@@ -628,7 +628,7 @@ async function createRecord(userId, ownerDid, body = {}) {
       throw lastError;
     }
   } else {
-    // Return the persisted record immediately; Supabase cloud sync continues in background.
+    // Return the persisted record immediately; Voroa PostgreSQL sync continues in background.
     runBackground(() => markCloudSync(record, ownerDid)
       .then(() => {
       record.cloudDwn = record.cloudDwn || {};
