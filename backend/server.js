@@ -146,8 +146,8 @@ app.get('/api/health', (_req, res) => {
     ok: true,
     healthSemantics: {
       level: 'liveness',
-      supabaseCredentialsConfigured: !!cloud.remoteWriteEnabled && !!cloud.apiKeyConfigured,
-      authoritativePersistence: 'voroa-postgresql-core-storage; legacy Supabase payment/storage integrations remain',
+      voroaDatabaseConfigured: cloud.voroaDatabaseConfigured === true,
+      authoritativePersistence: 'voroa-postgresql-core-storage',
       realDwnProtocol: cloud.realDwnProtocol === true,
       realDwnProtocolStatus: cloud.realDwnProtocol === true ? 'integrated' : 'not-integrated'
     },
