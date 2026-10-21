@@ -168,7 +168,14 @@ router.post('/register', authThrottle(10, 60_000), asyncRoute(async (req, res) =
     );
   } catch (err) {
     if (err.code === '23505') return res.status(400).json({ error: 'Email or identity already exists' });
-    console.error('[auth] Voroa registration failed:', err.message);
+    console.error('[auth] Voroa registration failed:', {
+      code: err.code || null,
+      message: err.message || 'Unknown database error',
+      syscall: err.syscall || null,
+      hostname: err.hostname || null,
+      address: err.address || null,
+      port: err.port || null
+    });
     return res.status(500).json({ error: 'Account database registration failed' });
   }
 

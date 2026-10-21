@@ -95,7 +95,15 @@ router.get('/status', async (_req, res) => {
         localFilesystemRole: 'compatibility/cache'
       }
     });
-  } catch (_) {
+  } catch (err) {
+    console.error('[milan-db] Status probe failed:', {
+      code: err.code || null,
+      message: err.message || 'Unknown database error',
+      syscall: err.syscall || null,
+      hostname: err.hostname || null,
+      address: err.address || null,
+      port: err.port || null
+    });
     return res.status(503).json({
       ok: false,
       backend: 'voroa',
