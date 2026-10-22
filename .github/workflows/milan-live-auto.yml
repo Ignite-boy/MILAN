@@ -101,6 +101,66 @@ jobs:
             done <<< "$changed_js"
           fi
 
+      - name: Wait for required CI checks
+        working-directory: milan
+        env:
+          GH_TOKEN: ${{ secrets.MILAN_GH_TOKEN }}
+          AUTO_BRANCH: ${{ inputs.auto_branch }}
+          EXPECTED_SHA: ${{ inputs.expected_commit_sha }}
+        run: |
+          set -euo pipefail
+
+          PR_NUMBER="$(gh pr list \
+            --repo Ignite-boy/MILAN \
+            --head "$AUTO_BRANCH" \
+            --base main \
+            --state open \
+            --json number \
+            --jq '.[0].number')"
+
+          test -n "$PR_NUMBER"
+
+          echo "Waiting for CI checks on PR #$PR_NUMBER"
+          gh pr checks "$PR_NUMBER" \
+            --repo Ignite-boy/MILAN \
+            --watch \
+            --interval 10
+
+          META="$(gh pr view "$PR_NUMBER" \
+            --repo Ignite-boy/MILAN \
+            --json state,headRefOid,baseRefName,isDraft \
+            --jq '[.state, .headRefOid, .baseRefName, (.isDraft | tostring)] | @tsv')"
+
+          IFS=$'\t' read -r PR_STATE PR_SHA PR_BASE PR_DRAFT <<< "$META"
+
+          test "$PR_STATE" = "OPEN"
+          test "$PR_SHA" = "$EXPECTED_SHA"
+          test "$PR_BASE" = "main"
+          test "$PR_DRAFT" = "false"
+
+          CHECKS_JSON="$(gh api \
+            "repos/Ignite-boy/MILAN/commits/$PR_SHA/check-runs?per_page=100")"
+
+          for REQUIRED in \
+            "PASS • Build verification" \
+            "validate-and-smoke" \
+            "android-build"; do
+
+            RESULT="$(printf '%s' "$CHECKS_JSON" | jq -r \
+              --arg name "$REQUIRED" \
+              '[.check_runs[] | select(.name == $name)]
+               | sort_by(.started_at // .created_at // "")
+               | last
+               | (.conclusion // "pending")')"
+
+            if [ "$RESULT" != "success" ]; then
+              echo "Required check did not pass: $REQUIRED ($RESULT)"
+              exit 1
+            fi
+
+            echo "PASS: $REQUIRED"
+          done
+
       - name: Merge verified PR
         working-directory: milan
         env:
