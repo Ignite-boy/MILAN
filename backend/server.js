@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const APP_VERSION = require('../package.json').version;
 const { saveUsersHybrid } = require('./services/userStoreHybrid');
-const { ensureFile, hydrateFilesFromSupabase, repairUsersFile } = require('./utils/store');
+const { ensureFile, hydrateFilesFromVoroa, repairUsersFile } = require('./utils/store');
 const dwnStore = require('./services/dwnService');
 const { dwnRoot, databaseRoot, persistenceInfo } = require('./services/cloudDwnRegistry');
 const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || process.env.APP_PUBLIC_URL || process.env.SEO_CANONICAL_URL || 'https://milanlife.in';
@@ -99,8 +99,8 @@ app.use(compression({
 app.use(express.json({ limit: process.env.JSON_LIMIT || '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: process.env.URLENCODED_LIMIT || '10mb' }));
 
-// MILAN storage rule: Supabase is authoritative for persistent user data, records, and media.
-// The local filesystem is used only as a compatibility/cache layer.
+// MILAN storage rule: Voroa PostgreSQL is authoritative for persistent user data, records, and media.
+// The local filesystem is used only as a temporary processing/cache layer.
 const DWN_ROOT = dwnRoot();
 const DATA_DIR = databaseRoot();
 const LEGACY_DATA_DIR = path.join(__dirname, 'data');
@@ -146,8 +146,8 @@ app.get('/api/health', (_req, res) => {
     ok: true,
     healthSemantics: {
       level: 'liveness',
-      supabaseCredentialsConfigured: !!cloud.remoteWriteEnabled && !!cloud.apiKeyConfigured,
-      authoritativePersistence: 'voroa-postgresql-core-storage; legacy Supabase payment/storage integrations remain',
+      voroaDatabaseConfigured: cloud.voroaDatabaseConfigured === true,
+      authoritativePersistence: 'voroa-postgresql-core-storage',
       realDwnProtocol: cloud.realDwnProtocol === true,
       realDwnProtocolStatus: cloud.realDwnProtocol === true ? 'integrated' : 'not-integrated'
     },
@@ -156,7 +156,7 @@ app.get('/api/health', (_req, res) => {
     mode: 'voroa-postgresql-primary-did-scoped-user-spaces',
     time: new Date().toISOString(),
     dwn: dwnStore.getStatus(),
-    storage: { dwnRoot: DWN_ROOT, databaseDir: DATA_DIR, cloud, rule: 'Voroa PostgreSQL is primary for core snapshots, records, and media; legacy payment/storage integrations still depend on Supabase' },
+    storage: { dwnRoot: DWN_ROOT, databaseDir: DATA_DIR, cloud, rule: 'Voroa PostgreSQL is authoritative for core snapshots, records, and media' },
     features: ['Integrated universal video player', 'automatic browser-safe MP4 stream healing', 'MILAN branding', 'DID auth', 'DID-scoped logical user spaces (Voroa PostgreSQL)', 'Voroa PostgreSQL-backed user records', 'privacy modes', 'DID sharing', 'access requests', 'backup', 'activity', 'crypto helper', 'reel viewer', 'bulk actions', 'analytics dashboard', 'PWA shell', 'streaming uploads', 'video range streaming', 'rate limiting', 'security headers', 'social home feed', 'people discovery', 'friend requests', 'reactions', 'comments', 'notifications', 'Milan-style private social UI with explicit DID-scoped permissions', 'V3 Avatar Jaadu', 'V3 Gamification Engine', 'V3 XP & Levels', 'V3 Mystery Rewards', 'V3 Badge Wall', 'V3 AI Chips', 'V3 500-Technique Engagement System']
   });
 });
@@ -796,12 +796,9 @@ function listenWithFallback(port, attempts = 0) {
   });
 }
 
-// IMPORTANT FOR PRODUCTION:
-// Bind the HTTP port before any potentially slow Supabase hydration/initialization.
-// Health checks must be able to reach /health immediately after startup.
-if (!process.env.VERCEL) {
-  listenWithFallback(PORT);
-}
+// Voroa runs this app as a long-lived Node.js web service.
+// Bind the HTTP port before snapshot hydration so liveness checks are available immediately.
+listenWithFallback(PORT);
 
 (async () => {
   const filesToHydrate = [
@@ -812,16 +809,16 @@ if (!process.env.VERCEL) {
     global.feedbackFile, global.securityReportsFile
   ];
   console.log('[STARTUP] hydrate begin');
-  const hydrate = await hydrateFilesFromSupabase(filesToHydrate);
+  const hydrate = await hydrateFilesFromVoroa(filesToHydrate);
   console.log('[STARTUP] hydrate done');
   const usersRepair = repairUsersFile(global.usersFile);
-  console.log('Supabase database hydrate:', hydrate);
+  console.log('Voroa PostgreSQL snapshot hydrate:', hydrate);
   console.log('Milan users database repair:', usersRepair);
   console.log('[STARTUP] initDwn begin');
   const status = await dwnStore.initDwn();
   console.log('[STARTUP] initDwn done');
   console.log('DWN storage status:', status);
-  console.log('[STARTUP] Supabase-authoritative DWN storage ready');
+  console.log('[STARTUP] Voroa PostgreSQL-authoritative DWN storage ready');
 })(); module.exports = app; 
 
 

@@ -1,8 +1,0 @@
-services:
-  - type: web
-    name: natively-dwn-wallet
-    env: docker
-    dockerfilePath: ./Dockerfile
-    plan: free
-    autoDeployTrigger: checksPass
-    healthCheckPath: /health

@@ -231,8 +231,10 @@ function cleanupOldUploadSessions() {
   } catch (_) {}
 }
 function usesSharedUploadStorage() {
-  return Boolean(process.env.VERCEL) ||
-    String(process.env.MILAN_UPLOAD_STORAGE_BACKEND || "").toLowerCase() === "supabase";
+  const backend = String(process.env.MILAN_UPLOAD_STORAGE_BACKEND || '').trim().toLowerCase();
+  if (backend === 'local') return false;
+  if (['voroa', 'voroa-postgresql', 'postgres', 'postgresql'].includes(backend)) return true;
+  return process.env.NODE_ENV === 'production';
 }
 
 function normalizeUploadMeta(body = {}) {
@@ -784,7 +786,7 @@ async function streamMedia(req, res) {
     if (!u) return res.status(404).json({ error: 'User not found' });
     // Keep the play.mp4/universal streaming path non-blocking: compatibility
     // remux/transcode work is queued in the background, while available media bytes
-    // begin streaming immediately through this Vercel endpoint.
+    // begin streaming immediately through the MILAN API endpoint.
     if (req.method !== 'HEAD' && (/play\.mp4$/i.test(req.path || '') || String(req.query.universal || '') === '1' || String(req.query.play || '') === 'v83')) {
       try {
         await dwnStore.ensureMediaPlayableForStream(req.userId, u.user.did, req.params.id, {
@@ -834,7 +836,7 @@ async function streamMedia(req, res) {
           res.setHeader('Cache-Control', isVideoMime(safeType) ? 'private, max-age=86400, no-transform' : (upstream.headers.get('cache-control') || 'private, max-age=3600'));
           res.setHeader('Content-Disposition', contentDisposition(req, media.fileName || 'milan-media'));
           res.setHeader('X-Accel-Buffering', 'no');
-          res.setHeader('X-Milan-Media-Source', 'supabase-storage');
+          res.setHeader('X-Milan-Media-Source', 'remote-storage');
           if (req.method === 'HEAD') return res.end();
           const bodyStream = Readable.fromWeb(upstream.body);
           bodyStream.on('error', err => { try { if (!res.headersSent) res.status(502); res.destroy(err); } catch (_) {} });

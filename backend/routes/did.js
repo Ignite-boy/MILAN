@@ -36,9 +36,7 @@ const router = express.Router();
 const RP_NAME = 'MILAN';
 
 function webauthnConfig(req) {
-  const production =
-    process.env.VERCEL ||
-    process.env.NODE_ENV === 'production';
+  const production = process.env.NODE_ENV === 'production';
 
   let origin =
     process.env.WEBAUTHN_ORIGIN ||

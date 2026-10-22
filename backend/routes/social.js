@@ -232,22 +232,94 @@ router.get('/people', auth, async (req, res) => {
 });
 
 router.get('/feed', auth, async (req, res) => {
-  const me = current(req); if (!me) return res.status(404).json({ error:'User not found' });
+  const me = current(req);
+  if (!me) return res.status(404).json({ error: 'User not found' });
+
   const scope = String(req.query.scope || 'all');
   await refreshConnectionsFromCloud();
+
   const requestedLimit = Math.max(1, Math.min(100, Number(req.query.limit || 10) || 10));
-  const feedQuery = {
+  const rawOffset = Number(req.query.offset);
+  const requestedOffset = Number.isSafeInteger(rawOffset) && rawOffset > 0
+    ? Math.min(rawOffset, 1000000) : 0;
+  const hasFilters = ['q', 'access', 'type', 'tag']
+    .some(key => String(req.query[key] || '').trim() !== '');
+  const useDatabasePage = scope === 'all' && !hasFilters;
+
+  if (useDatabasePage) {
+    // Offset represents raw database rows. Advance past filtered records without
+    // returning them, and point the next page at the next eligible record.
+    const pageRows = [];
+    const batchSize = requestedLimit + 1;
+    let scanOffset = requestedOffset;
+    let nextOffset = requestedOffset;
+    let hasMore = false;
+    let exhausted = false;
+    let scanBatches = 0;
+
+    while (scanBatches < 100) {
+      const rows = await dwnStore.listVisibleRecords(me.user.did, {
+        ...req.query,
+        limit: String(batchSize),
+        offset: String(scanOffset),
+        dbPage: '1'
+      });
+      scanBatches += 1;
+
+      if (!Array.isArray(rows) || rows.length === 0) {
+        exhausted = true;
+        nextOffset = scanOffset;
+        break;
+      }
+
+      let consumed = 0;
+      for (const row of rows) {
+        consumed += 1;
+        if (!allowedForFeed(row, me.user.did, scope)) continue;
+
+        if (pageRows.length < requestedLimit) {
+          pageRows.push(row);
+        } else {
+          // Leave this extra eligible row for the next request.
+          hasMore = true;
+          nextOffset = scanOffset + consumed - 1;
+          break;
+        }
+      }
+
+      if (hasMore) break;
+
+      scanOffset += rows.length;
+      nextOffset = scanOffset;
+      if (rows.length < batchSize) {
+        exhausted = true;
+        break;
+      }
+    }
+
+    if (!hasMore && !exhausted && scanBatches >= 100) {
+      hasMore = true;
+      nextOffset = scanOffset;
+    }
+
+    return res.json({
+      items: pageRows.map(row => decorateRecord(row, me.user.did)),
+      hasMore,
+      nextOffset
+    });
+  }
+
+  // Keep the established in-memory behavior for filtered/search feeds.
+  const rows = await dwnStore.listVisibleRecords(me.user.did, {
     ...req.query,
-    limit: String(Math.min(100, Math.max(requestedLimit, 50)))
-  };
-  const rows = await dwnStore.listVisibleRecords(me.user.did, feedQuery);
-  const feed = rows
-    .filter(r => allowedForFeed(r, me.user.did, scope))
-    .map(r => decorateRecord(r, me.user.did))
-    .slice(0, requestedLimit);
+    limit: '0'
+  });
+  const visibleRows = rows.filter(row => allowedForFeed(row, me.user.did, scope));
+  const feed = visibleRows
+    .slice(requestedOffset, requestedOffset + requestedLimit)
+    .map(row => decorateRecord(row, me.user.did));
   res.json(feed);
 });
-
 router.get('/records/:id/comments', auth, async (req, res) => {
   const me = current(req); if (!me) return res.status(404).json({ error:'User not found' });
   const record = await dwnStore.getRecord(req.params.id, me.user.did);

@@ -2,16 +2,14 @@ const crypto = require('crypto');
 const APP_VERSION = require('../../package.json').version;
 const fs = require('fs');
 const path = require('path');
-const { supabase } = require('../utils/dwnStorage');
 const milanDb = require('./milanDb');
 const { withStorageQuotaTransaction } = require('./storageQuotaGuard');
 
 const deletedRecordIds = new Set();
 
-// MILAN SUPABASE STORAGE RULE:
-// 1 user = 1 DID = 1 isolated Supabase space.
-// Supabase is authoritative for user snapshots, records, and media.
-// Local files are compatibility/cache storage only.
+// MILAN VOROA STORAGE RULE:
+// Voroa PostgreSQL is authoritative for user snapshots, records, and media bytes.
+// Local files are temporary processing/cache storage only.
 
 function sanitizeEndpoint(url = '') {
   const value = String(url || '').trim().replace(/\/+$/, '');
@@ -43,8 +41,8 @@ function publicBase() {
 }
 
 function cloudRemoteBase() {
-  // Supabase is the authoritative cloud backend.
-  // No external DWN endpoint is used.
+  // Voroa PostgreSQL is the authoritative persistence layer.
+  // No external DWN protocol endpoint is configured.
   return '';
 }
 
@@ -211,29 +209,19 @@ function configuredEndpoints() {
 
 function persistenceInfo() {
   const selected = selectedLocalDwnRoot();
-  const root = selected.root;
-  const supabaseUrl = String(process.env.SUPABASE_URL || '').trim();
-  const legacySupabaseCredentialsConfigured =
-    !!supabaseUrl && !!process.env.SUPABASE_SERVICE_KEY;
 
   return {
     mode: 'voroa-postgresql',
     backend: 'voroa',
     primaryPersistence: 'voroa-postgresql',
-    // milanDb.js requires a configured connection string at module load.
-    // The status route independently checks live reachability.
+    // milanDb.js requires a configured Voroa/PostgreSQL connection at module load.
+    // This is configuration status only; /api/health separately reports liveness.
     voroaDatabaseConfigured: true,
     remoteOnly: false,
-    root,
+    root: selected.root,
     databaseRoot: databaseRoot(),
     isolatedRoot: isolatedRoot(),
-    // Do not advertise the legacy Supabase endpoint as the primary endpoint.
     remoteEndpoint: '',
-    legacySupabaseEndpointConfigured: !!supabaseUrl,
-    legacySupabaseCredentialsConfigured,
-    // Compatibility fields: these still describe legacy Supabase credentials.
-    apiKeyConfigured: !!process.env.SUPABASE_SERVICE_KEY,
-    remoteWriteEnabled: legacySupabaseCredentialsConfigured,
     usingRuntimeFallback: false,
     fallbackUsed: selected.fallbackUsed,
     appStoresUserData: false,
@@ -244,7 +232,7 @@ function persistenceInfo() {
     candidateAttempts: selected.attempts,
     permanentExpected: true,
     requiresCloudDwn: false,
-    warning: 'Voroa PostgreSQL is primary for core snapshots, records, and media. Legacy payment/storage integrations still depend on Supabase. Signed DWN protocol execution is not integrated.'
+    warning: 'Voroa PostgreSQL is primary for core snapshots, records, and media. Signed DWN protocol execution is not integrated.'
   };
 }
 
@@ -293,7 +281,7 @@ function provisionIsolatedDwn({ userId = '', did = '', email = '', spaceId: prea
     endpoint: endpointForSpace(spaceId),
     mode: p.mode,
     realDwnConfigured: false,
-    realCloudConfigured: !!p.remoteWriteEnabled && !!p.apiKeyConfigured,
+    realCloudConfigured: p.voroaDatabaseConfigured === true,
     assignedAt: existing.assignedAt || existing.createdAt || new Date().toISOString(),
     didServiceId: '#dwn',
     isolation: 'single-user',
@@ -348,7 +336,7 @@ function getDwnInfo(user) {
   return {
     endpoint: user?.dwnEndpoint || dwn.endpoint || '',
     mode: dwn.mode || user?.settings?.dwnMode || p.mode,
-    // Protocol readiness must come from the actual engine capability, never from Supabase configuration.
+    // Protocol readiness is distinct from PostgreSQL persistence readiness.
     realDwnConfigured: p.realDwnProtocol === true && dwn.realDwnConfigured === true,
     realCloudConfigured: !!p.remoteWriteEnabled && !!p.apiKeyConfigured,
     assignedAt: dwn.assignedAt || null,
@@ -381,7 +369,7 @@ function makeDidDwnService(user) {
   };
 }
 
-async function ensureSupabaseTenant(did) {
+async function ensureVoroaTenant(did) {
   const tenantDid = String(did || '').trim();
   if (!tenantDid) throw new Error('Missing tenant DID');
 
@@ -567,49 +555,6 @@ async function pushRecordToCloudDwn(record, user) {
   }
 }
 
-function supabaseResumableEndpoint() {
-  const raw = String(process.env.SUPABASE_URL || '').trim();
-  if (!raw) throw new Error('SUPABASE_URL is required for resumable media upload.');
-  const url = new URL(raw);
-  if (/\.supabase\.co$/i.test(url.hostname) && !/\.storage\.supabase\.co$/i.test(url.hostname)) {
-    url.hostname = url.hostname.replace(/\.supabase\.co$/i, '.storage.supabase.co');
-  }
-  return url.origin + '/storage/v1/upload/resumable';
-}
-
-function uploadLargeMediaWithTus(filePath, bucket, objectPath, contentType, sizeBytes) {
-  const tus = require('tus-js-client');
-  const serviceKey = String(process.env.SUPABASE_SERVICE_KEY || '').trim();
-  if (!serviceKey) throw new Error('SUPABASE_SERVICE_KEY is required for resumable media upload.');
-  const chunkSize = 6 * 1024 * 1024;
-  return new Promise((resolve, reject) => {
-    const input = fs.createReadStream(filePath, { highWaterMark: chunkSize });
-    input.on('error', reject);
-    const upload = new tus.Upload(input, {
-      endpoint: supabaseResumableEndpoint(),
-      uploadSize: sizeBytes,
-      chunkSize,
-      retryDelays: [0, 3000, 5000, 10000, 20000],
-      headers: {
-        authorization: 'Bearer ' + serviceKey,
-        apikey: serviceKey,
-        'x-upsert': 'true'
-      },
-      metadata: {
-        bucketName: bucket,
-        objectName: objectPath,
-        contentType,
-        cacheControl: '3600'
-      },
-      uploadDataDuringCreation: true,
-      removeFingerprintOnSuccess: true,
-      onError: reject,
-      onSuccess: resolve
-    });
-    upload.start();
-  });
-}
-
 async function pushMediaToCloudDwn(record, user, absoluteFilePath) {
   const pushedAt = new Date().toISOString();
   const did = String(user?.did || record?.owner || '').trim();
@@ -754,20 +699,20 @@ async function pushMediaToCloudDwn(record, user, absoluteFilePath) {
 
 async function provisionRemoteUserDwn(user = {}) {
   const did = String(user?.did || '').trim();
-  if (!did) return { ok: false, backend: 'supabase', error: 'User DID is required' };
+  if (!did) return { ok: false, backend: 'voroa', error: 'User DID is required' };
 
   try {
-    await ensureSupabaseTenant(did);
+    await ensureVoroaTenant(did);
     return {
       ok: true,
-      backend: 'supabase',
+      backend: 'voroa',
       did,
       provisionedAt: new Date().toISOString()
     };
   } catch (err) {
     return {
       ok: false,
-      backend: 'supabase',
+      backend: 'voroa',
       did,
       error: err.message,
       provisionedAt: new Date().toISOString()

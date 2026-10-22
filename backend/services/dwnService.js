@@ -10,27 +10,14 @@ const { assertCloudSyncSucceeded } = require('./dwnSyncGuard');
 const { commitResumableMedia } = require('./resumableMediaCommit');
 
 
-// Vercel Functions can keep non-critical work alive after the response.
-// Local/other Node runtimes fall back to a normal background promise.
-let vercelWaitUntil = null;
-try {
-  ({ waitUntil: vercelWaitUntil } = require('@vercel/functions'));
-} catch (_) {}
-
+// Voroa runs MILAN as a long-lived Node.js service, so background tasks are
+// managed by the Node process rather than a serverless-provider hook.
 function runBackground(task) {
-  const promise = Promise.resolve().then(task);
-  if (typeof vercelWaitUntil === 'function') {
-    try {
-      return vercelWaitUntil(
-        promise.catch(err => {
-          console.error('[MILAN background task failed]', err?.message || err);
-        })
-      );
-    } catch (_) {}
-  }
-  return promise.catch(err => {
-    console.error('[MILAN background task failed]', err?.message || err);
-  });
+  return Promise.resolve()
+    .then(task)
+    .catch(err => {
+      console.error('[MILAN background task failed]', err?.message || err);
+    });
 }
 
 const ACCESS = ['private', 'public', 'shared_did'];
@@ -296,7 +283,7 @@ function applyAccess(record, mode, dids) {
     mode,
     readers: record.sharedWithDids,
     updatedAt: new Date().toISOString(),
-    storage: 'supabase-isolated-per-user'
+    storage: 'voroa-postgresql-isolated-per-user'
   };
 }
 
@@ -315,7 +302,7 @@ function canRead(record, did) {
 function toClient(record, did, options = {}) {
   const baseRecord = options.summary ? compactMediaForList(record) : compactMediaForList(record);
   const mode = modeOf(baseRecord);
-  const engine = baseRecord.storageEngine || 'supabase';
+  const engine = baseRecord.storageEngine || 'voroa-postgresql';
   return {
     ...baseRecord,
     accessMode: mode,
@@ -397,7 +384,10 @@ function filterSort(rows, query = {}) {
   if (access) out = out.filter(r => r.accessMode === access);
   if (tag) out = out.filter(r => (r.tags || []).map(t => String(t).toLowerCase()).includes(tag));
   if (q) out = out.filter(r => JSON.stringify(r).toLowerCase().includes(q));
-  out = out.sort((a, b) => new Date(b.dateModified || b.dateCreated) - new Date(a.dateModified || a.dateCreated));
+  out = out.sort((a, b) =>
+    (new Date(b.dateModified || b.dateCreated) - new Date(a.dateModified || a.dateCreated)) ||
+    String(b.id || '').localeCompare(String(a.id || ''))
+  );
   const limit = Math.max(0, Math.min(100, Number(query.limit || 0) || 0));
   return limit ? out.slice(0, limit) : out;
 }
@@ -499,7 +489,7 @@ function getStatus() {
       maxTextBytes: MAX_TEXT_BYTES
     },
     cloud: persistenceInfo(),
-    note: 'Voroa PostgreSQL is primary for core user snapshots, records, and media; local files are compatibility/cache storage. Legacy payment/storage integrations still use Supabase. Signed DWN protocol execution is not integrated.'
+    note: 'Voroa PostgreSQL is authoritative for core user snapshots, records, and media; local files are temporary cache. Signed DWN protocol execution is not integrated.'
   };
 }
 
@@ -562,7 +552,7 @@ async function createRecord(userId, ownerDid, body = {}) {
     favorite: !!body.favorite,
     dateCreated: now,
     dateModified: now,
-    storageEngine: 'Supabase-authoritative storage',
+    storageEngine: 'Voroa PostgreSQL-authoritative storage',
     dwnSdkReady: dwnInitStatus.sdkReady,
     storagePath: path.relative(path.join(__dirname, '..'), recordFile(userId, id)).replace(/\\/g, '/')
   };
@@ -587,7 +577,7 @@ async function createRecord(userId, ownerDid, body = {}) {
   writeIndex(all);
 
   // Chat messages can request synchronous cloud visibility so the recipient
-  // can read the message immediately from another Vercel instance.
+  // can read the message immediately from another MILAN service instance.
   if (awaitCloudSync) {
     let lastError = null;
     for (let attempt = 1; attempt <= 3; attempt += 1) {
@@ -641,7 +631,7 @@ async function createRecord(userId, ownerDid, body = {}) {
       throw lastError;
     }
   } else {
-    // Return the persisted record immediately; Supabase cloud sync continues in background.
+    // Return the persisted record immediately; Voroa PostgreSQL sync continues in background.
     runBackground(() => markCloudSync(record, ownerDid)
       .then(() => {
       record.cloudDwn = record.cloudDwn || {};
@@ -792,7 +782,7 @@ function scheduleMediaBackgroundProcessing(userId, ownerDid, recordId, reason = 
   }
 
   mediaProcessingQueue.add(key);
-  // Register the delayed FFmpeg + cloud-sync work with Vercel waitUntil.
+  // Register delayed FFmpeg + PostgreSQL sync work in the Node service process.
   // A bare setTimeout could outlive the request without keeping the function alive.
   runBackground(async () => {
     await new Promise(resolve => setTimeout(
@@ -906,7 +896,7 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
   }
 
   // Images are kept directly in the authoritative DWN snapshot so the feed can
-  // render them even when the app instance is ephemeral (for example on Vercel).
+  // render them even when the app instance is ephemeral (in a hosted runtime).
   // Cap the embedded payload to keep feed responses reasonably small.
   let embeddedImageDataUrl = "";
   if (detectedCategory === 'image') {
@@ -990,7 +980,7 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
       processingUpdatedAt: fastAcceptVideo ? now : undefined,
       uploadMode: meta.uploadMode || ''
     },
-    storageEngine: 'Supabase-authoritative storage',
+    storageEngine: 'Voroa PostgreSQL-authoritative storage',
     dwnSdkReady: dwnInitStatus.sdkReady,
     storagePath: path.relative(path.join(__dirname, '..'), recordFile(userId, id)).replace(/\\/g, '/')
   };
@@ -1023,7 +1013,7 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
 
   let mediaSync = {
     pushed: false,
-    backend: 'supabase',
+    backend: 'voroa',
     mode: String(meta.uploadMode || '') === 'resumable-chunked' ? 'synchronous-resumable' : 'synchronous-voroa',
     pending: true,
     queuedAt: new Date().toISOString()
@@ -1155,7 +1145,7 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
             console.error('[Background failed-media metadata sync failed]', record?.id, syncErr?.message || syncErr);
           }
         }
-        console.error('[Background Supabase media sync failed]', record?.id, err?.message || err);
+        console.error('[Background Voroa media sync failed]', record?.id, err?.message || err);
       }
 
       try {
@@ -1172,7 +1162,7 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
     err.status = 502;
     throw err;
   }
-  const embeddedMediaMode = !!(mediaSync && (mediaSync.skipped === 'supabase-backed-media-already-in-isolated-space' || mediaSync.mode === 'supabase-backed-direct'));
+  const embeddedMediaMode = !!(mediaSync && mediaSync.backend === 'voroa' && mediaSync.mode === 'voroa-postgresql');
   if (isRemoteOnlyMode() && mediaSync.pushed && !embeddedMediaMode) {
     record.mediaRemoteOnly = true;
     record.mediaRemoteUrl = mediaSync.mediaUrl || '';
@@ -1545,15 +1535,33 @@ async function listVisibleRecords(did, query = {}) {
   if (userResult.rowCount !== 1 || !userResult.rows[0].space_id) return [];
 
   const spaceId = String(userResult.rows[0].space_id).trim();
+  const useDatabasePage = String(query.dbPage || '') === '1' &&
+    !String(query.q || '').trim() &&
+    !String(query.type || '').trim() &&
+    !String(query.access || '').trim() &&
+    !String(query.tag || '').trim();
+  const rawLimit = Number(query.limit);
+  const rawOffset = Number(query.offset);
+  const pageLimit = Number.isSafeInteger(rawLimit) ? Math.max(1, Math.min(101, rawLimit)) : 11;
+  const pageOffset = Number.isSafeInteger(rawOffset) && rawOffset > 0
+    ? Math.min(rawOffset, 1000000)
+    : 0;
+  const pageClause = useDatabasePage ? ' LIMIT $3 OFFSET $4' : '';
+  const schemaPageClause = useDatabasePage
+    ? " AND schema_uri IS DISTINCT FROM 'profile-picture'"
+    : '';
+  const params = useDatabasePage
+    ? [ownerDid, spaceId, pageLimit, pageOffset]
+    : [ownerDid, spaceId];
   const result = await milanDb.query(
     `SELECT item_key, did, space_id, schema_uri, data_format, protocol,
             protocol_path, recipient, published, date_created, date_modified,
             deleted, metadata, data_bytes, data_cid, data_size
      FROM public.dwn_storage
      WHERE component_type = 'record'
-       AND did = $1 AND space_id = $2 AND deleted = FALSE
-     ORDER BY date_modified DESC`,
-    [ownerDid, spaceId]
+       AND did = $1 AND space_id = $2 AND deleted = FALSE${schemaPageClause}
+     ORDER BY date_modified DESC, item_key DESC${pageClause}`,
+    params
   );
 
   const cloudRecords = result.rows.map(row => {
@@ -1615,7 +1623,7 @@ async function listVisibleRecords(did, query = {}) {
   .filter(record => record.schema !== 'profile-picture' && canRead(record, ownerDid))
   .map(record => toClient(record, ownerDid));
 
-  return filterSort(cloudRecords, query);
+  return useDatabasePage ? cloudRecords : filterSort(cloudRecords, query);
 }
 
 async function listPublicRecords(did, query = {}) {

@@ -15,8 +15,8 @@ const storagePage = read('frontend/storage-upgrade.html');
 const payPage = read('frontend/milan-pay.html');
 const env = read('backend/.env.example');
 const pkg = JSON.parse(read('package.json'));
-const migration = read('backend/migrations/20261014_milan_pay_manual_verification.sql');
-const voroaMigration = read('backend/migrations/20261019_voroa_milan_pay.sql');
+const migration = read('backend/migrations/20261019_voroa_milan_pay.sql');
+const voroaMigration = migration;
 const rolesMigration = read('backend/migrations/20261019_voroa_00_roles.sql');
 const pendingOrdersMigration = read('backend/migrations/20261015_milan_pay_single_pending_order.sql');
 const pendingAudit = read('scripts/milan-pay-pending-audit.sql');
@@ -106,13 +106,12 @@ const checks = [
   ['Legacy hosted-payment route is not mounted', !server.includes("app.use('/api/payment'")],
   ['Direct UPI merchant setting is documented', env.includes('MILAN_PAY_UPI_ID=')],
   ['No dedicated hosted-payment SDK dependency is declared', !Object.keys({ ...pkg.dependencies, ...pkg.devDependencies }).some(name => /(?:payment|gateway|checkout).*(?:sdk|client)|(?:sdk|client).*(?:payment|gateway|checkout)/i.test(name))],
-  ['Migration adds the order link column', migration.includes('ADD COLUMN IF NOT EXISTS order_id')],
+  ['Voroa migration creates the order link column', migration.includes('order_id text')],
   ['Migration creates a unique order link index', migration.includes('CREATE UNIQUE INDEX IF NOT EXISTS storage_upgrade_requests_order_id_uidx')],
   ['Migration enforces case-insensitive UTR uniqueness', migration.includes('storage_upgrade_requests_utr_normalized_uidx')],
   ['Migration checks order, user, plan and amount', migration.includes("v_order.gateway IS DISTINCT FROM 'milanpay'") && migration.includes('v_order.amount_inr IS DISTINCT FROM v_expected_amount')],
   ['Migration checks reused UTRs', migration.includes('This transaction reference has already been used.')],
   ['Migration updates payment and quota transactionally', migration.includes("status = 'paid'") && migration.includes('dwn_quota_bytes = GREATEST')],
-  ['Legacy Supabase migration grants the RPC to service role', migration.includes('REVOKE ALL ON FUNCTION public.admin_approve_milan_pay_storage_request') && migration.includes('TO service_role')],
   ['Voroa role migration declares a least-privilege app role and non-login function owners',
     rolesMigration.includes('CREATE ROLE milan_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS') &&
     rolesMigration.includes('CREATE ROLE milan_pay_fn_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS') &&

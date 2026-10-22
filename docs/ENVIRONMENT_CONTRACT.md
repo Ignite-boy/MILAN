@@ -1,38 +1,34 @@
-# MILAN-ONE environment contract
+# MILAN-ONE environment contract — Voroa
 
-This file documents names and minimum intent. It contains no production secrets. Never commit actual keys or tokens.
+This file documents configuration names and minimum intent. It contains no production secrets. Never commit actual keys or tokens.
 
-## Main MILAN API — production required
+## Main MILAN web service
 
 | Variable | Required | Purpose / rule |
 |---|---|---|
-| `SUPABASE_URL` | Yes | Supabase project URL used by the main data store. |
-| `SUPABASE_SERVICE_KEY` | Yes | Server-only service key used by backend persistence. Must never reach browser code or Git. |
-| `JWT_SECRET` | Yes | Stable secret shared by every runtime that issues/verifies MILAN JWTs. Use high entropy (at least 32 random bytes); application currently refuses production secrets shorter than 16 characters. Rotating it invalidates active sessions. |
-| `CORS_ORIGIN` | Optional | Comma-separated exact allowed origins, e.g. `https://milanlife.in,https://www.milanlife.in`. If omitted, built-in production origins are used. Do not use wildcard origins for authenticated API requests. |
-| `SUPABASE_BUCKET` | Optional | Storage bucket used by general DWN helper; defaults to `milan-dwn-storage`. |
-| `SUPABASE_MEDIA_BUCKET` | Optional | Media bucket; defaults to `milan-dwn-storage`. Confirm bucket visibility/policies in Supabase before production use. |
-| `NODE_ENV` | Production host | Must be `production` on production hosts so auth startup safety applies. |
+| `MILAN_DATABASE_URL` (or `DATABASE_URL`) | Yes | PostgreSQL connection string for the Voroa managed database. `backend/services/milanDb.js` reads `MILAN_DATABASE_URL` first. |
+| `JWT_SECRET` | Yes | High-entropy secret for MILAN JWT issuance and verification; keep stable across deploys. Rotating it invalidates existing sessions. |
+| `DID_KEY_ENCRYPTION_SECRET` | Production use | Keep stable; rotating it can make encrypted portable DID material unreadable unless migrated. |
+| `NODE_ENV` | Production service | Set to `production` so production auth and cookie/security behavior is used. |
+| `CORS_ORIGIN` | Optional | Comma-separated exact browser origins, e.g. `https://milanlife.in,https://www.milanlife.in`. Avoid wildcards for authenticated requests. |
+| `PUBLIC_BASE_URL` | Recommended | Canonical HTTPS domain used for links and service URLs; set this to the Voroa-connected custom domain after DNS is switched. |
 
-## Optional providers
+## Persistence and uploads
 
-- Email: configure a supported mail-provider API key or SMTP credentials; otherwise mail features may skip sending.
-- Payments: MILAN Pay uses direct UPI intent and QR checkout with manual bank verification. Confirm the receiving VPA and prices before use. Automatic bank confirmation is not enabled; it requires an authorised bank/acquirer integration.
-- AI: API keys enable providers but do not make every AI route available or accurate.
-- `MILAN_DATA_ROOT` / `MILAN_CLOUD_DWN_ROOT`: file/cache location settings. On serverless storage, local disk is not a durability guarantee.
+- Voroa PostgreSQL is the authoritative store for users, snapshots, records, resumable upload sessions/chunks, and media bytes in `public.dwn_storage`.
+- The database must have the schema expected by the application. At minimum, the Voroa preflight checks `public.users` and `public.dwn_storage`; payment, WebAuthn, email-auth, and rate-limit features may require the additional migrations in `backend/migrations/`.
+- The local filesystem is scratch/cache storage for media processing, not a durability guarantee. Do not rely on local files as the only copy of user data or media.
+- Large media is written into PostgreSQL and is limited by `MILAN_MAX_VOROA_MEDIA_BYTES` (default 768 MiB). Set upload limits consistently; a route-level maximum does not override the PostgreSQL media cap.
 
-## Component-specific services
+## Optional integrations
 
-### Travel Agent
+- Email: configure one supported mail API key or SMTP credentials. Verify the sending domain/mailbox first. Without a provider, mail can be skipped/logged.
+- AI features: optional provider keys include `OPENAI_API_KEY`, `GEMINI_API_KEY`, and `ANTHROPIC_API_KEY`.
+- Redis-compatible cache: `KV_URL_REDIS_URL` is optional; when absent, Redis-specific login sync is disabled.
+- Travel Agent: if this companion API is enabled, deploy it as a separate Voroa service with the repository root directory `Travel-Agent`; configure `MILAN_AUTH_URL` to the main MILAN API and `TRAVEL_AGENT_URL` in the main service.
 
-`/chat` now requires an HTTP Bearer token and asks the primary MILAN identity endpoint (`MILAN_AUTH_URL`, default `https://milanlife.in/api/auth/me`) to verify it. The chat handler derives its user ID from the verified response, rejects a conflicting body `user_id`, and namespaces graph thread IDs under that account. Missing/invalid credentials are rejected; identity-service outages return 503 rather than silently trusting the caller. The default Render blueprint includes this URL, and `Travel-Agent/tests/test_auth.py` covers valid/invalid tokens, verifier outages, HTTPS enforcement and cross-account ID rejection.
+## Voroa web service
 
-**Deployment caveat:** the current Render service still points to the old pre-consolidation repository. Rebind it to `Ignite-boy/MILAN` with root directory `Travel-Agent` and redeploy before treating this new source behavior as live.
+Use the repository root, Node.js 24, build command `npm ci && npm run build`, and start command `npm start`. Configure database/authentication secrets in Voroa’s encrypted environment settings. Verify `/health`, `/api/health`, registration/auth, record CRUD, media uploads/playback, and persistent data across a service restart before changing the custom domain.
 
-### C++ DWN component
-
-`DWN/CMakeLists.txt` builds the LevelDB implementation and excludes `src/postgres_storage.cpp`. The old PostgreSQL connection settings were removed from `DWN/config/example.env` to avoid implying unsupported storage selection.
-
-## Validation rule
-
-Environment variables are configuration inputs, not proof of successful integrations. A deployment should expose only sanitized readiness flags (configured / unavailable) and use service-specific tests to verify actual writes, reads, authentication, authorization, retention and restart persistence.
+A successful build or HTTP liveness response is not proof that authentication, database writes, media retention, and all product flows work end-to-end.

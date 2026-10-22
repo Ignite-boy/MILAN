@@ -1,4 +1,4 @@
-name: Voroa Retirement Monitor
+name: Voroa Readiness Monitor
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   monitor:
-    name: Check migration readiness (non-destructive)
+    name: Check Voroa readiness and provider-independent code
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
@@ -24,7 +24,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
@@ -32,15 +32,15 @@ jobs:
 
       - name: Verify Voroa database (read-only)
         env:
-          VOROA_DATABASE_URL: ${{ secrets.VOROA_DATABASE_URL }}
+          MILAN_DATABASE_URL: ${{ secrets.MILAN_DATABASE_URL || secrets.VOROA_DATABASE_URL }}
         run: |
           node <<'NODE'
           const { Client } = require('pg');
 
           (async () => {
-            const connectionString = process.env.VOROA_DATABASE_URL;
+            const connectionString = process.env.MILAN_DATABASE_URL;
             if (!connectionString) {
-              console.error('BLOCKED: GitHub secret VOROA_DATABASE_URL is missing.');
+              console.error('BLOCKED: GitHub secret MILAN_DATABASE_URL is missing.');
               process.exitCode = 1;
               return;
             }
@@ -81,17 +81,18 @@ jobs:
           })();
           NODE
 
-      - name: Report retirement blockers
+      - name: Verify no active legacy provider dependencies
         shell: bash
         run: |
-          echo "This run is a read-only monitor. It does not delete or suspend any provider."
-          echo "Pending gates: verify all Supabase Storage objects and checksums are migrated;"
-          echo "verify Voroa-hosted production app, auth, uploads, payments, and milanlife.in;"
-          echo "then confirm Supabase, Render, and Vercel no longer serve production traffic."
-          echo "Legacy references in source (inventory only):"
-          if grep -RniE 'SUPABASE_URL|SUPABASE_SERVICE_KEY|@vercel/functions|@vercel/kv|render\.com|vercel\.app' backend api package.json vercel.json 2>/dev/null | head -80; then
-            echo "Legacy references remain; review before retiring providers."
-          else
-            echo "No matching legacy references found in scanned paths."
+          set -e
+          if grep -RniE --exclude='*.md' --exclude='*.txt' --exclude='*.html' --exclude-dir=.git --exclude-dir=node_modules 'SUPABASE_URL|SUPABASE_SERVICE_KEY|@supabase/supabase-js|@vercel/functions|@vercel/kv|render\.com' backend package.json package-lock.json 2>/dev/null; then
+            echo "Legacy provider references remain in active runtime/configuration paths."
+            exit 1
           fi
-          echo "No provider deletion was attempted."
+          echo "No active Supabase, Vercel, or Render runtime configuration found."
+      - name: Run integrity and upload regression tests
+        run: |
+          npm run build
+          npm run test:security
+          npm run test:chat
+          npm run test:upload
