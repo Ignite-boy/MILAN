@@ -384,7 +384,10 @@ function filterSort(rows, query = {}) {
   if (access) out = out.filter(r => r.accessMode === access);
   if (tag) out = out.filter(r => (r.tags || []).map(t => String(t).toLowerCase()).includes(tag));
   if (q) out = out.filter(r => JSON.stringify(r).toLowerCase().includes(q));
-  out = out.sort((a, b) => new Date(b.dateModified || b.dateCreated) - new Date(a.dateModified || a.dateCreated));
+  out = out.sort((a, b) =>
+    (new Date(b.dateModified || b.dateCreated) - new Date(a.dateModified || a.dateCreated)) ||
+    String(b.id || '').localeCompare(String(a.id || ''))
+  );
   const limit = Math.max(0, Math.min(100, Number(query.limit || 0) || 0));
   return limit ? out.slice(0, limit) : out;
 }
@@ -1532,15 +1535,33 @@ async function listVisibleRecords(did, query = {}) {
   if (userResult.rowCount !== 1 || !userResult.rows[0].space_id) return [];
 
   const spaceId = String(userResult.rows[0].space_id).trim();
+  const useDatabasePage = String(query.dbPage || '') === '1' &&
+    !String(query.q || '').trim() &&
+    !String(query.type || '').trim() &&
+    !String(query.access || '').trim() &&
+    !String(query.tag || '').trim();
+  const rawLimit = Number(query.limit);
+  const rawOffset = Number(query.offset);
+  const pageLimit = Number.isSafeInteger(rawLimit) ? Math.max(1, Math.min(101, rawLimit)) : 11;
+  const pageOffset = Number.isSafeInteger(rawOffset) && rawOffset > 0
+    ? Math.min(rawOffset, 1000000)
+    : 0;
+  const pageClause = useDatabasePage ? ' LIMIT $3 OFFSET $4' : '';
+  const schemaPageClause = useDatabasePage
+    ? " AND schema_uri IS DISTINCT FROM 'profile-picture'"
+    : '';
+  const params = useDatabasePage
+    ? [ownerDid, spaceId, pageLimit, pageOffset]
+    : [ownerDid, spaceId];
   const result = await milanDb.query(
     `SELECT item_key, did, space_id, schema_uri, data_format, protocol,
             protocol_path, recipient, published, date_created, date_modified,
             deleted, metadata, data_bytes, data_cid, data_size
      FROM public.dwn_storage
      WHERE component_type = 'record'
-       AND did = $1 AND space_id = $2 AND deleted = FALSE
-     ORDER BY date_modified DESC`,
-    [ownerDid, spaceId]
+       AND did = $1 AND space_id = $2 AND deleted = FALSE${schemaPageClause}
+     ORDER BY date_modified DESC, item_key DESC${pageClause}`,
+    params
   );
 
   const cloudRecords = result.rows.map(row => {
@@ -1602,7 +1623,7 @@ async function listVisibleRecords(did, query = {}) {
   .filter(record => record.schema !== 'profile-picture' && canRead(record, ownerDid))
   .map(record => toClient(record, ownerDid));
 
-  return filterSort(cloudRecords, query);
+  return useDatabasePage ? cloudRecords : filterSort(cloudRecords, query);
 }
 
 async function listPublicRecords(did, query = {}) {

@@ -37,42 +37,167 @@ Promise.allSettled([
   loadSummary(),
   loadPeople(),
   loadNotifications()
-]).catch(()=>{});}catch(e){console.warn("MILAN session restore failed:",e.message);if(e&&(401===e.status||403===e.status||/expired|invalid|unauthori[sz]ed|jwt/i.test(String(e.message||"")))){safeLocalRemove("milan_token"),safeLocalRemove("milanBootCache"),token="",window.location.href="/";const msg=$("authMsg");return void(msg&&(msg.textContent="Session expired. Please login again."))}if(native){showAppShellSafe("Network is slow. App is still open. Tap Refresh once.");const feed=$("feed");return feed&&(feed.innerHTML='<div class="empty">Network is slow while restoring login. Tap Refresh once, or close/open the app. Your saved login was not removed.</div>'),void setTimeout(()=>setBootStatus(""),7e3)}showAppShellSafe("Reconnecting to MILAN...");const feed=$("feed");feed&&(feed.innerHTML='<div class="empty">Could not refresh live data right now. Your login is still active. Tap Refresh to retry.</div>');setTimeout(()=>setBootStatus(""),7000);}finally{window.__milanBootPromise=null}})()),window.__milanBootPromise}function renderMe(){const p=me.profile||{},name=p.display_name||me.email.split("@")[0],avatar=p.avatar||window.__milanPersistentAvatar||$("myAvatar")?.querySelector("img")?.src||localStorage.getItem("milanAvatar")||"";$("myName").textContent=name,$("myEmail").textContent=me.email,$("myAvatar").outerHTML=avatarHtml({avatar:avatar,name:name},"avatar lg"),$("composerAvatar").outerHTML=avatarHtml({avatar:avatar,name:name},"avatar"),$("myDid").textContent=me.did,$("myDwn").textContent="Cloud DWN: "+(me.dwn?.spaceId||"Not assigned")}async function loadSummary(){try{const s=await api("/social/summary");window.__milanLastSummary=s.counts,$("peopleCount").textContent=s.counts.people,$("postCount").textContent=s.counts.visiblePosts,$("requestCount").textContent=s.counts.requests,$("notifCount").textContent=s.counts.unreadNotifications,updatePrivacyScore()}catch(e){}}function updatePrivacyScore(){let score=100;currentFeed.some(r=>"public"===r.accessMode)&&(score-=10),currentFeed.some(r=>"shared_did"===r.accessMode)&&(score-=5),score=Math.max(70,score),$("privacyScore").textContent=score+"%",$("privacyBar").style.width=score+"%"}function mediaPlaying(){return[...document.querySelectorAll("video,audio")].some(m=>!m.paused&&!m.ended)}async function loadFeed(){try{window.__milanPendingPosts=window.__milanPendingPosts||[];const __seq=window.__feedSeq=(window.__feedSeq||0)+1,q=$("globalSearch").value.trim(),access=$("filterAccess").value,type=$("filterType").value,native=document.body.classList.contains("native-apk")||/MilanNativeAudio/i.test(navigator.userAgent),qs=new URLSearchParams({scope:currentScope});native&&qs.set("limit",String(Number(window.__milanFeedLimit||5))),!native&&qs.set("limit",String(Number(window.__milanFeedLimit||10))),q&&qs.set("q",q),access&&qs.set("access",access),type&&qs.set("type",type),window.__feedTmp=await api("/social/feed?"+qs),__seq===window.__feedSeq&&(()=>{
-
-  const fresh=Array.isArray(window.__feedTmp)
-    ? window.__feedTmp
-    : [];
-
-  const serverIds=new Set(
-    fresh.map(r=>String(r?.id||""))
-  );
-
-  const pending=(
-    window.__milanPendingPosts||[]
-  ).filter(r=>{
-    const id=String(r?.id||"");
-
-    if(serverIds.has(id)){
-      return false;
+]).catch(()=>{});}catch(e){console.warn("MILAN session restore failed:",e.message);if(e&&(401===e.status||403===e.status||/expired|invalid|unauthori[sz]ed|jwt/i.test(String(e.message||"")))){safeLocalRemove("milan_token"),safeLocalRemove("milanBootCache"),token="",window.location.href="/";const msg=$("authMsg");return void(msg&&(msg.textContent="Session expired. Please login again."))}if(native){showAppShellSafe("Network is slow. App is still open. Tap Refresh once.");const feed=$("feed");return feed&&(feed.innerHTML='<div class="empty">Network is slow while restoring login. Tap Refresh once, or close/open the app. Your saved login was not removed.</div>'),void setTimeout(()=>setBootStatus(""),7e3)}showAppShellSafe("Reconnecting to MILAN...");const feed=$("feed");feed&&(feed.innerHTML='<div class="empty">Could not refresh live data right now. Your login is still active. Tap Refresh to retry.</div>');setTimeout(()=>setBootStatus(""),7000);}finally{window.__milanBootPromise=null}})()),window.__milanBootPromise}function renderMe(){const p=me.profile||{},name=p.display_name||me.email.split("@")[0],avatar=p.avatar||window.__milanPersistentAvatar||$("myAvatar")?.querySelector("img")?.src||localStorage.getItem("milanAvatar")||"";$("myName").textContent=name,$("myEmail").textContent=me.email,$("myAvatar").outerHTML=avatarHtml({avatar:avatar,name:name},"avatar lg"),$("composerAvatar").outerHTML=avatarHtml({avatar:avatar,name:name},"avatar"),$("myDid").textContent=me.did,$("myDwn").textContent="Cloud DWN: "+(me.dwn?.spaceId||"Not assigned")}async function loadSummary(){try{const s=await api("/social/summary");window.__milanLastSummary=s.counts,$("peopleCount").textContent=s.counts.people,$("postCount").textContent=s.counts.visiblePosts,$("requestCount").textContent=s.counts.requests,$("notifCount").textContent=s.counts.unreadNotifications,updatePrivacyScore()}catch(e){}}function updatePrivacyScore(){let score=100;currentFeed.some(r=>"public"===r.accessMode)&&(score-=10),currentFeed.some(r=>"shared_did"===r.accessMode)&&(score-=5),score=Math.max(70,score),$("privacyScore").textContent=score+"%",$("privacyBar").style.width=score+"%"}function mediaPlaying(){return[...document.querySelectorAll("video,audio")].some(m=>!m.paused&&!m.ended)}function feedPageDescriptor(){
+  const native=document.body.classList.contains("native-apk")||String(navigator.userAgent).includes("MilanNativeAudio");
+  const search=$("globalSearch")?.value.trim()||"";
+  const access=$("filterAccess")?.value||"";
+  const type=$("filterType")?.value||"";
+  const scope=String(currentScope||"all");
+  const pageSize=native?5:10;
+  return {native,search,access,type,scope,pageSize,signature:JSON.stringify([native,search,access,type,scope,pageSize])};
+}
+function feedPageUrl(descriptor,offset){
+  const qs=new URLSearchParams({scope:descriptor.scope,limit:String(descriptor.pageSize),offset:String(offset)});
+  if(descriptor.search)qs.set("q",descriptor.search);
+  if(descriptor.access)qs.set("access",descriptor.access);
+  if(descriptor.type)qs.set("type",descriptor.type);
+  return "/social/feed?"+qs.toString();
+}
+function ensureFeedPaginationUi(){
+  const feed=$("feed");
+  if(!feed)return null;
+  let root=$("milan-feed-pagination");
+  if(!root){
+    root=document.createElement("div");
+    root.id="milan-feed-pagination";
+    root.style.cssText="display:flex;flex-direction:column;align-items:center;gap:10px;padding:18px 10px;text-align:center;";
+    root.innerHTML='<div id="milan-feed-page-status" role="status" aria-live="polite" style="font-size:13px;color:var(--muted);min-height:1em;"></div><div id="milan-feed-page-sentinel" aria-hidden="true" style="width:100%;height:1px;"></div><button id="milan-feed-load-more" class="ghost" type="button" style="min-width:180px;">Load more posts</button>';
+    feed.insertAdjacentElement("afterend",root);
+  }
+  const button=$("milan-feed-load-more");
+  if(button&&button.dataset.bound!=="1"){
+    button.dataset.bound="1";
+    button.addEventListener("click",()=>loadNextFeedPage());
+  }
+  const descriptor=feedPageDescriptor();
+  const sentinel=$("milan-feed-page-sentinel");
+  if(!descriptor.native&&"IntersectionObserver" in window){
+    if(!window.__milanFeedPageObserver){
+      window.__milanFeedPageObserver=new IntersectionObserver(entries=>{
+        if(entries.some(entry=>entry.isIntersecting))loadNextFeedPage();
+      },{root:null,rootMargin:"800px 0px",threshold:0.01});
     }
-
-    const age=
-      Date.now()-
-      Number(r.__milanPendingAt||Date.now());
-
-    return age < 120000;
-  });
-
-  window.__milanPendingPosts=pending;
-
-  applyFeed(
-    [...pending,...fresh]
-  );
-
-  updatePrivacyScore();
-  renderSaved();
-
-})()}catch(e){$("feed").innerHTML='<div class="empty">'+esc(e.message)+"</div>"}}function formatBytes(n){if(!(n=Number(n||0)))return"";const u=["B","KB","MB","GB"];let i=0;for(;n>=1024&&i<u.length-1;)n/=1024,i++;return n.toFixed(i?1:0)+" "+u[i]}function fileIcon(cat,mime){return"image"===cat?"🖼️":"video"===cat?"🎬":"audio"===cat?"🎧":"pdf"===cat?"📄":(mime||"").includes("zip")?"🗜️":"📎"}function fileCardHtml(m,url,extra=""){const name=esc(m.fileName||"MILAN file"),mime=esc(m.mimeType||"file"),size=formatBytes(m.sizeBytes),open=esc(mediaSrc(url)),down=esc(mediaDownloadSrc(url));return`<div class="fileCard ${extra}"><div class="fileIcon">${fileIcon(m.previewCategory||"",m.mimeType)}</div><div class="fileMeta"><b>${name}</b><div class="mini">${mime}${size?" • "+esc(size):""}</div>${m.compatibilityWarning?`<div class="mini">${esc(m.compatibilityWarning)}</div>`:""}</div><div class="fileActions"><a href="${open}" target="_blank" rel="noopener">Open</a><a href="${down}" download>Download</a></div></div>`}function mediaHtml(r){const d=r.data||{},m=d.media||{},raw=r.mediaUrl||m.mediaUrl||d.mediaUrl||"",url=mediaSrc(raw);if(!url)return'';const mt=(m.mimeType||r.dataFormat||"application/octet-stream").toLowerCase(),cat=(m.previewCategory||r.mediaCompatibility?.previewCategory||(mt.startsWith("image/")?"image":mt.startsWith("video/")?"video":mt.startsWith("audio/")?"audio":"application/pdf"===mt?"pdf":mt.startsWith("text/")?"text":"file")).toLowerCase(),id=esc(r.id||""),err='<div class="mini mediaLoadError hidden">Preview is loading...</div>',onErr=`milanMediaError('${id}',this)`,onLoaded="clearMediaError(this)";if("image"===cat)return`<div class="media" data-record-id="${id}"><img loading="lazy" decoding="async" data-milan-observe="1" src="${esc(url)}" alt="${esc(r.title||"media")}" onload="${onLoaded}" onerror="${onErr}">${err}${fileCardHtml(m,raw,"hidden")}</div>`;if("video"===cat){const vurl=videoMediaSrc(raw),mime=!1===m.browserPlayable?"video/mp4":mt||"video/mp4";return`<div class="media" data-record-id="${id}"><video controls preload="none" data-milan-observe="1" playsinline webkit-playsinline x5-playsinline data-milan-inline-only="1" controlsList="nofullscreen nodownload noremoteplayback" onloadedmetadata="${onLoaded}" oncanplay="${onLoaded}" onplaying="${onLoaded}" onerror="${onErr}"><source src="${esc(vurl)}" type="${esc("video/quicktime"===mime?"video/mp4":mime)}"></video>${err}${fileCardHtml(m,raw,"hidden")}</div>`}return"audio"===cat?`<div class="media audioBox" data-record-id="${id}"><audio controls preload="metadata" src="${esc(url)}" type="${esc(mt||"audio/mpeg")}" onloadedmetadata="${onLoaded}" oncanplay="${onLoaded}" onplaying="${onLoaded}" onerror="${onErr}"></audio>${err}${fileCardHtml(m,raw,"hidden")}</div>`:"pdf"===cat?`<div class="media" data-record-id="${id}"><iframe loading="lazy" data-milan-observe="1" data-milan-src="${esc(url)}" title="${esc(m.fileName||r.title||"PDF")}" onload="${onLoaded}"></iframe>${err}${fileCardHtml(m,raw)}</div>`:`<div class="media" data-record-id="${id}">${fileCardHtml(m,raw)}${"video"===cat?'<div class="mini" style="padding:0 16px 14px">Video uploaded safely. Preview is still preparing or conversion is unavailable; use Open/Download and refresh after a few seconds.</div>':""}</div>`}function postText(r){const d=r.data||{};return"string"==typeof d?d:"media"===d.kind?d.caption||"":d.text||d.note||d.caption||""}function milanPostRenderFingerprint(value, contextKey){
+    if(sentinel&&sentinel.dataset.observed!=="1"){
+      sentinel.dataset.observed="1";
+      window.__milanFeedPageObserver.observe(sentinel);
+    }
+  }else if(!descriptor.native&&!window.__milanFeedScrollFallback){
+    window.__milanFeedScrollFallback=true;
+    window.addEventListener("scroll",()=>{
+      const state=window.__milanFeedPaging;
+      if(!state||state.native||!state.hasMore||state.loading)return;
+      const box=$("milan-feed-pagination");
+      if(box&&box.getBoundingClientRect().top<(window.innerHeight||0)+800)loadNextFeedPage();
+    },{passive:true});
+  }
+  return root;
+}
+function syncFeedPaginationUi(){
+  const root=ensureFeedPaginationUi();
+  if(!root)return;
+  const state=window.__milanFeedPaging;
+  const status=$("milan-feed-page-status");
+  const sentinel=$("milan-feed-page-sentinel");
+  const button=$("milan-feed-load-more");
+  if(!state){
+    root.style.display="none";
+    return;
+  }
+  root.style.display=state.native?"none":"flex";
+  if(status){
+    status.textContent=state.loading
+      ? (state.offset===0?"Loading feed…":"Loading more posts…")
+      : state.error
+        ? "Could not load posts. Tap Retry to try again."
+        : !state.hasMore&&currentFeed.length
+          ? "You’re all caught up."
+          : "";
+  }
+  if(sentinel)sentinel.hidden=state.native||!state.hasMore;
+  if(button){
+    button.hidden=state.native||!state.hasMore;
+    button.disabled=!!state.loading;
+    button.textContent=state.loading?"Loading…":state.error?"Retry loading posts":"Load more posts";
+  }
+}
+async function loadFeed(){
+  window.__milanPendingPosts=window.__milanPendingPosts||[];
+  const descriptor=feedPageDescriptor();
+  const sequence=window.__feedSeq=(window.__feedSeq||0)+1;
+  const state={signature:descriptor.signature,pageSize:descriptor.pageSize,native:descriptor.native,offset:0,hasMore:true,loading:true,error:""};
+  window.__milanFeedPaging=state;
+  syncFeedPaginationUi();
+  try{
+    const result=await api(feedPageUrl(descriptor,0));
+    if(sequence!==window.__feedSeq||state!==window.__milanFeedPaging)return;
+    const paged=!!result&&!Array.isArray(result)&&Array.isArray(result.items);
+    const fresh=(paged?result.items:Array.isArray(result)?result:[]).filter(r=>!isChatFeedRecord(r));
+    const serverIds=new Set(fresh.map(r=>String(r?.id||"")));
+    const pending=(window.__milanPendingPosts||[]).filter(r=>{
+      const id=String(r?.id||"");
+      if(serverIds.has(id))return false;
+      return Date.now()-Number(r.__milanPendingAt||Date.now())<120000;
+    });
+    window.__milanPendingPosts=pending;
+    applyFeed([...pending,...fresh]);
+    updatePrivacyScore();
+    renderSaved();
+    const serverOffset=paged?Number(result.nextOffset):NaN;
+    state.offset=Number.isSafeInteger(serverOffset)&&serverOffset>=0?serverOffset:fresh.length;
+    state.hasMore=paged&&typeof result.hasMore==="boolean"?result.hasMore:fresh.length>=descriptor.pageSize;
+    state.loading=false;
+    state.error="";
+    syncFeedPaginationUi();
+  }catch(e){
+    if(sequence!==window.__feedSeq||state!==window.__milanFeedPaging)return;
+    state.loading=false;
+    state.error=e?.message||"Could not load feed.";
+    if(!currentFeed.length)$("feed").innerHTML='<div class="empty">'+esc(state.error)+'</div>';
+    syncFeedPaginationUi();
+  }
+}
+async function loadNextFeedPage(){
+  const state=window.__milanFeedPaging;
+  const descriptor=feedPageDescriptor();
+  if(!state||state.signature!==descriptor.signature)return loadFeed();
+  if(state.loading||!state.hasMore)return;
+  state.loading=true;
+  state.error="";
+  const sequence=window.__feedSeq;
+  const offset=state.offset;
+  syncFeedPaginationUi();
+  try{
+    const result=await api(feedPageUrl(descriptor,offset));
+    if(state!==window.__milanFeedPaging||sequence!==window.__feedSeq||descriptor.signature!==feedPageDescriptor().signature)return;
+    const paged=!!result&&!Array.isArray(result)&&Array.isArray(result.items);
+    const page=(paged?result.items:Array.isArray(result)?result:[]).filter(r=>!isChatFeedRecord(r));
+    const seen=new Set(currentFeed.map(r=>String(r?.id||"")).filter(Boolean));
+    const additions=[];
+    for(const record of page){
+      const id=String(record?.id||"");
+      if(!id||seen.has(id))continue;
+      seen.add(id);
+      additions.push(record);
+    }
+    const serverOffset=paged?Number(result.nextOffset):NaN;
+    state.offset=Number.isSafeInteger(serverOffset)&&serverOffset>=offset?serverOffset:offset+page.length;
+    state.hasMore=paged&&typeof result.hasMore==="boolean"?result.hasMore:page.length>=state.pageSize;
+    state.loading=false;
+    state.error="";
+    if(additions.length){
+      applyFeed([...currentFeed,...additions]);
+      updatePrivacyScore();
+      renderSaved();
+    }
+    syncFeedPaginationUi();
+  }catch(e){
+    if(state!==window.__milanFeedPaging||sequence!==window.__feedSeq)return;
+    state.loading=false;
+    state.error=e?.message||"Could not load more posts.";
+    syncFeedPaginationUi();
+  }
+}
+function formatBytes(n){if(!(n=Number(n||0)))return"";const u=["B","KB","MB","GB"];let i=0;for(;n>=1024&&i<u.length-1;)n/=1024,i++;return n.toFixed(i?1:0)+" "+u[i]}function fileIcon(cat,mime){return"image"===cat?"🖼️":"video"===cat?"🎬":"audio"===cat?"🎧":"pdf"===cat?"📄":(mime||"").includes("zip")?"🗜️":"📎"}function fileCardHtml(m,url,extra=""){const name=esc(m.fileName||"MILAN file"),mime=esc(m.mimeType||"file"),size=formatBytes(m.sizeBytes),open=esc(mediaSrc(url)),down=esc(mediaDownloadSrc(url));return`<div class="fileCard ${extra}"><div class="fileIcon">${fileIcon(m.previewCategory||"",m.mimeType)}</div><div class="fileMeta"><b>${name}</b><div class="mini">${mime}${size?" • "+esc(size):""}</div>${m.compatibilityWarning?`<div class="mini">${esc(m.compatibilityWarning)}</div>`:""}</div><div class="fileActions"><a href="${open}" target="_blank" rel="noopener">Open</a><a href="${down}" download>Download</a></div></div>`}function mediaHtml(r){const d=r.data||{},m=d.media||{},raw=r.mediaUrl||m.mediaUrl||d.mediaUrl||"",url=mediaSrc(raw);if(!url)return'';const mt=(m.mimeType||r.dataFormat||"application/octet-stream").toLowerCase(),cat=(m.previewCategory||r.mediaCompatibility?.previewCategory||(mt.startsWith("image/")?"image":mt.startsWith("video/")?"video":mt.startsWith("audio/")?"audio":"application/pdf"===mt?"pdf":mt.startsWith("text/")?"text":"file")).toLowerCase(),id=esc(r.id||""),err='<div class="mini mediaLoadError hidden">Preview is loading...</div>',onErr=`milanMediaError('${id}',this)`,onLoaded="clearMediaError(this)";if("image"===cat)return`<div class="media" data-record-id="${id}"><img loading="lazy" decoding="async" data-milan-observe="1" src="${esc(url)}" alt="${esc(r.title||"media")}" onload="${onLoaded}" onerror="${onErr}">${err}${fileCardHtml(m,raw,"hidden")}</div>`;if("video"===cat){const vurl=videoMediaSrc(raw),mime=!1===m.browserPlayable?"video/mp4":mt||"video/mp4";return`<div class="media" data-record-id="${id}"><video controls preload="none" data-milan-observe="1" playsinline webkit-playsinline x5-playsinline data-milan-inline-only="1" controlsList="nofullscreen nodownload noremoteplayback" onloadedmetadata="${onLoaded}" oncanplay="${onLoaded}" onplaying="${onLoaded}" onerror="${onErr}"><source src="${esc(vurl)}" type="${esc("video/quicktime"===mime?"video/mp4":mime)}"></video>${err}${fileCardHtml(m,raw,"hidden")}</div>`}return"audio"===cat?`<div class="media audioBox" data-record-id="${id}"><audio controls preload="metadata" src="${esc(url)}" type="${esc(mt||"audio/mpeg")}" onloadedmetadata="${onLoaded}" oncanplay="${onLoaded}" onplaying="${onLoaded}" onerror="${onErr}"></audio>${err}${fileCardHtml(m,raw,"hidden")}</div>`:"pdf"===cat?`<div class="media" data-record-id="${id}"><iframe loading="lazy" data-milan-observe="1" data-milan-src="${esc(url)}" title="${esc(m.fileName||r.title||"PDF")}" onload="${onLoaded}"></iframe>${err}${fileCardHtml(m,raw)}</div>`:`<div class="media" data-record-id="${id}">${fileCardHtml(m,raw)}${"video"===cat?'<div class="mini" style="padding:0 16px 14px">Video uploaded safely. Preview is still preparing or conversion is unavailable; use Open/Download and refresh after a few seconds.</div>':""}</div>`}function postText(r){const d=r.data||{};return"string"==typeof d?d:"media"===d.kind?d.caption||"":d.text||d.note||d.caption||""}function milanPostRenderFingerprint(value, contextKey){
   const serialized=JSON.stringify(value)||"";
   let a=2166136261;
   let b=0x9e3779b9;
@@ -182,14 +307,16 @@ function renderFeed(){
   let more=document.getElementById("nativeLoadMoreBtn");
   if(more)more.remove();
 
-  if(native && currentFeed.length>rows.length){
+  if(native && (currentFeed.length>rows.length || window.__milanFeedPaging?.hasMore)){
     more=document.createElement("button");
     more.className="nativeLoadMore ghost";
     more.id="nativeLoadMoreBtn";
-    more.textContent="Load more posts";
+    more.textContent=currentFeed.length>rows.length ? "Show more loaded posts" : "Load more posts";
     more.onclick=()=>{
-      window.__milanFeedLimit+=10;
-      renderFeed();
+      const visible=Number(window.__milanFeedLimit||5);
+      window.__milanFeedLimit=visible+10;
+      if(currentFeed.length>visible) renderFeed();
+      else loadNextFeedPage();
     };
     feedEl.appendChild(more);
   }
