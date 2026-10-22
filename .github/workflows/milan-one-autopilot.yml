@@ -1,0 +1,302 @@
+name: MILAN-ONE Autopilot
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "13 */6 * * *"
+  workflow_run:
+    workflows: ["MILAN • Build & Production Pipeline"]
+    branches: [main]
+    types: [completed]
+
+permissions:
+  contents: read
+  pull-requests: read
+  checks: read
+  actions: read
+
+concurrency:
+  group: milan-one-autopilot
+  cancel-in-progress: false
+
+jobs:
+  cycle:
+    if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Gate on successful production pipeline
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          UPSTREAM_SHA: ${{ github.event.workflow_run.head_sha || '' }}
+          UPSTREAM_RESULT: ${{ github.event.workflow_run.conclusion || '' }}
+          UPSTREAM_EVENT: ${{ github.event.workflow_run.event || '' }}
+        run: |
+          set -euo pipefail
+          git fetch origin refs/heads/main
+          SHA="$(git rev-parse FETCH_HEAD)"
+
+          if [ "$EVENT_NAME" = "workflow_run" ]; then
+            if [ "$UPSTREAM_RESULT" != "success" ] || [ "$UPSTREAM_EVENT" != "push" ] || [ "$UPSTREAM_SHA" != "$SHA" ]; then
+              echo "ready=false" >> "$GITHUB_OUTPUT"
+              echo "No successful pipeline for current main. Stopping."
+              exit 0
+            fi
+          else
+            RUNS="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/milan-ci.yml/runs?branch=main&event=push&per_page=1")"
+            RUN_SHA="$(printf '%s' "$RUNS" | jq -r '.workflow_runs[0].head_sha // "missing"')"
+            STATUS="$(printf '%s' "$RUNS" | jq -r '.workflow_runs[0].status // "missing"')"
+            RESULT="$(printf '%s' "$RUNS" | jq -r '.workflow_runs[0].conclusion // "missing"')"
+            if [ "$RUN_SHA" != "$SHA" ] || [ "$STATUS" != "completed" ] || [ "$RESULT" != "success" ]; then
+              echo "ready=false" >> "$GITHUB_OUTPUT"
+              echo "Current main is not verified. Stopping."
+              exit 0
+            fi
+          fi
+
+          git reset --hard "$SHA"
+          echo "base_sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
+      - name: Select next roadmap task
+        id: plan
+        if: steps.gate.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.MILAN_GH_TOKEN }}
+          BASE_SHA: ${{ steps.gate.outputs.base_sha }}
+        run: |
+          set -euo pipefail
+
+          RUNS="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/milan-one-autopilot.yml/runs?branch=main&per_page=100")"
+          FAILURES="$(printf '%s' "$RUNS" | jq --arg sha "$BASE_SHA" '[.workflow_runs[] | select(.head_sha == $sha and .conclusion == "failure")] | length')"
+          if [ "$FAILURES" -ge 3 ]; then
+            echo "Three failed attempts for this main commit. Disabling autopilot."
+            gh workflow disable milan-one-autopilot.yml --repo "$GITHUB_REPOSITORY"
+            echo "has_task=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          from pathlib import Path
+          import re
+          text = Path("docs/MILAN_ONE_AUTOPILOT_ROADMAP.md").read_text()
+          tasks = []
+          for line in text.splitlines():
+              m = re.match(r"^- \[( |x)\] (A\d{2}) \((\d+)%\) (.+)$", line)
+              if m:
+                  tasks.append((m[1], m[2], int(m[3]), m[4]))
+          if not tasks or sum(t[2] for t in tasks) != 100:
+              raise SystemExit("Roadmap weights must total 100%.")
+          pending = [t for t in tasks if t[0] == " "]
+          print("progress=" + str(sum(t[2] for t in tasks if t[0] == "x")))
+          if pending:
+              print("has_task=true")
+              print("task_id=" + pending[0][1])
+              print("task_title=" + pending[0][3])
+          else:
+              print("has_task=false")
+          PY
+
+          if ! grep -qE '^- \[ \] A[0-9]{2} \([0-9]+%\)' docs/MILAN_ONE_AUTOPILOT_ROADMAP.md; then
+            echo "All tasks complete. Disabling autopilot."
+            gh workflow disable milan-one-autopilot.yml --repo "$GITHUB_REPOSITORY"
+          fi
+
+      - name: Set up Node.js
+        if: steps.plan.outputs.has_task == 'true'
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Set up Python
+        if: steps.plan.outputs.has_task == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        if: steps.plan.outputs.has_task == 'true'
+        run: |
+          set -euo pipefail
+          npm ci
+          npm --prefix Milan-Sentinel ci
+          python3 -m pip install --disable-pip-version-check pytest fastapi requests
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ libleveldb-dev
+          cd Milan-Sentinel
+          npx playwright install --with-deps chromium
+
+      - name: Run one bounded Codex task
+        if: steps.plan.outputs.has_task == 'true'
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: .github/prompts/milan-one-task.md
+          permission-profile: ":workspace"
+          safety-strategy: drop-sudo
+          effort: high
+
+      - name: Validate one-task changes
+        if: steps.plan.outputs.has_task == 'true'
+        env:
+          BASE_SHA: ${{ steps.gate.outputs.base_sha }}
+          TASK_ID: ${{ steps.plan.outputs.task_id }}
+        run: |
+          set -euo pipefail
+          git diff --check
+
+          python3 - <<'PY'
+          import os, re, subprocess
+          from pathlib import Path
+          roadmap = "docs/MILAN_ONE_AUTOPILOT_ROADMAP.md"
+          base = os.environ["BASE_SHA"]
+          expected = os.environ["TASK_ID"]
+          old = subprocess.check_output(["git", "show", f"{base}:{roadmap}"], text=True)
+          new = Path(roadmap).read_text()
+          rx = re.compile(r"^- \[( |x)\] (A\d{2}) \((\d+)%\) (.+)$")
+          def parse(s):
+              return [(m[2], m[1], int(m[3]), m[4]) for line in s.splitlines() if (m := rx.match(line))]
+          a, b = parse(old), parse(new)
+          if not a or sum(t[2] for t in a) != 100:
+              raise SystemExit("Invalid baseline roadmap.")
+          if [(t[0],t[2],t[3]) for t in a] != [(t[0],t[2],t[3]) for t in b]:
+              raise SystemExit("Roadmap titles, weights or ordering changed.")
+          pending = [t[0] for t in a if t[1] == " "]
+          changed = [x[0] for x,y in zip(a,b) if x[1] == " " and y[1] == "x"]
+          if [x[0] for x,y in zip(a,b) if x[1] == "x" and y[1] == " "] or len(changed) != 1 or not pending or changed[0] != pending[0] or changed[0] != expected:
+              raise SystemExit("Exactly the first pending task must be completed.")
+          tracked = subprocess.check_output(["git","diff","--name-only","-z"]).decode().split("\0")
+          untracked = subprocess.check_output(["git","ls-files","--others","--exclude-standard","-z"]).decode().split("\0")
+          paths = sorted(set(p for p in tracked + untracked if p))
+          if roadmap not in paths or len(paths) < 2 or len(paths) > 30:
+              raise SystemExit("Expected task code/tests and roadmap change; maximum 30 files.")
+          blocked = []
+          for value in paths:
+              p = Path(value)
+              n = p.name.lower()
+              if value.startswith((".github/workflows/",".github/prompts/")) or n in ("package.json","package-lock.json") or any(part == ".env" or part.startswith(".env.") for part in p.parts) or n.endswith((".pem",".key",".p12",".pfx",".sql")) or any(s in n for s in ("credential","private-key")):
+                  blocked.append(value)
+          if blocked:
+              raise SystemExit("Protected paths changed: " + ", ".join(blocked))
+          Path("/tmp/milan-task-paths.txt").write_text("\n".join(paths) + "\n")
+          print("Validated task", changed[0], "with", len(paths), "changed files.")
+          PY
+
+      - name: Run regression tests
+        if: steps.plan.outputs.has_task == 'true'
+        run: |
+          set -euo pipefail
+          npm run build
+          for TEST in test:chat test:payment test:milan-pay test:security test:upload test:distributed-rate-limit test:feed-pagination; do
+            npm run "$TEST"
+          done
+          if node -e "process.exit(require('./package.json').scripts?.['test:video-range'] ? 0 : 1)"; then
+            npm run test:video-range
+          fi
+          python3 -m pytest -q Travel-Agent/tests/test_auth.py
+          npm --prefix Milan-Sentinel run validate
+          npm --prefix Milan-Sentinel run smoke
+          if grep -q '^DWN/' /tmp/milan-task-paths.txt; then
+            cmake -S DWN -B /tmp/milan-dwn-build
+            cmake --build /tmp/milan-dwn-build --parallel 2
+          fi
+
+      - name: Commit and push one task
+        id: commit
+        if: steps.plan.outputs.has_task == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.MILAN_GH_TOKEN }}
+          BASE_SHA: ${{ steps.gate.outputs.base_sha }}
+          TASK_ID: ${{ steps.plan.outputs.task_id }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$BASE_SHA"
+          BRANCH="milan-one/autopilot-${TASK_ID,,}-${GITHUB_RUN_ID}"
+          git switch -c "$BRANCH"
+          git config user.name "MILAN-ONE Autopilot"
+          git config user.email "bot@milanlife.in"
+          git add --pathspec-from-file=/tmp/milan-task-paths.txt
+          git diff --cached --check
+          git commit -m "feat(milan-one): complete $TASK_ID"
+          echo "commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          gh auth setup-git
+          git push -u origin "$BRANCH"
+
+      - name: Create verification PR
+        id: pr
+        if: steps.plan.outputs.has_task == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.MILAN_GH_TOKEN }}
+          TASK_ID: ${{ steps.plan.outputs.task_id }}
+          TASK_TITLE: ${{ steps.plan.outputs.task_title }}
+        run: |
+          set -euo pipefail
+          BRANCH="milan-one/autopilot-${TASK_ID,,}-${GITHUB_RUN_ID}"
+          gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$BRANCH" \
+            --title "$TASK_ID - $TASK_TITLE" \
+            --body "MILAN-ONE automated task $TASK_ID. Local build and regression tests passed; required GitHub checks gate the merge."
+          PR="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --base main --state open --json number --jq '.[0].number')"
+          test -n "$PR"
+          echo "number=$PR" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for CI and verify exact checks
+        id: checks
+        if: steps.plan.outputs.has_task == 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.MILAN_GH_TOKEN }}
+          PR: ${{ steps.pr.outputs.number }}
+          EXPECTED_SHA: ${{ steps.commit.outputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          timeout 50m gh pr checks "$PR" --repo "$GITHUB_REPOSITORY" --watch --interval 10
+          META="$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json state,headRefOid,baseRefName,isDraft --jq '[.state,.headRefOid,.baseRefName,(.isDraft|tostring)] | @tsv')"
+          IFS=$'\t' read -r STATE SHA BASE DRAFT <<< "$META"
+          test "$STATE" = "OPEN" && test "$SHA" = "$EXPECTED_SHA" && test "$BASE" = "main" && test "$DRAFT" = "false"
+          JSON="$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/check-runs?per_page=100")"
+          for NAME in "PASS • Build verification" "validate-and-smoke" "android-build"; do
+            RESULT="$(printf '%s' "$JSON" | jq -r --arg n "$NAME" '[.check_runs[]|select(.name==$n)]|sort_by(.started_at // .created_at // "")|last|(.conclusion // "missing")')"
+            test "$RESULT" = "success" || { echo "Required check failed: $NAME ($RESULT)"; exit 1; }
+          done
+
+      - name: Close failed candidate
+        if: ${{ always() && steps.plan.outputs.has_task == 'true' && steps.checks.outcome != 'success' }}
+        env:
+          GH_TOKEN: ${{ secrets.MILAN_GH_TOKEN }}
+          PR: ${{ steps.pr.outputs.number }}
+        run: |
+          gh pr close "$PR" --repo "$GITHUB_REPOSITORY" --delete-branch \
+            --comment "Required checks did not pass. The roadmap task remains unchecked for retry."
+          exit 1
+
+      - name: Merge verified PR
+        id: merge
+        if: steps.plan.outputs.has_task == 'true' && steps.checks.outcome == 'success'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.MILAN_GH_TOKEN }}
+          PR: ${{ steps.pr.outputs.number }}
+        run: gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --squash --delete-branch
+
+      - name: Report blocked merge
+        if: ${{ always() && steps.plan.outputs.has_task == 'true' && steps.checks.outcome == 'success' && steps.merge.outcome != 'success' }}
+        env:
+          GH_TOKEN: ${{ secrets.MILAN_GH_TOKEN }}
+          PR: ${{ steps.pr.outputs.number }}
+        run: |
+          STATE="$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json state --jq '.state')"
+          if [ "$STATE" != "MERGED" ]; then
+            gh pr close "$PR" --repo "$GITHUB_REPOSITORY" --delete-branch \
+              --comment "Merge blocked by repository safeguards. The roadmap task remains unchecked."
+            exit 1
+          fi
