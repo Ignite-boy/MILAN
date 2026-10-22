@@ -31,10 +31,10 @@ const ADAPTERS = {
 const URLS = {
   'favicon-http-status': `${BASE}/favicon.svg`,
   'favicon-content-type': `${BASE}/favicon.svg`,
-  'favicon-html-reference': `${BASE}/app`,
+  'favicon-html-reference': `${BASE}/app.html`,
   'apple-touch-icon': `${BASE}/assets/milan-logo-circle.png`,
   'logo-http-status': `${BASE}/assets/milan-logo.png`,
-  'control-center-load': `${BASE}/app`,
+  'control-center-load': `${BASE}/app.html`,
   'health-control': `${API}/api/health`,
   'robots': `${BASE}/robots.txt`,
   'sitemap': `${BASE}/sitemap.xml`,
