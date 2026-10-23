@@ -24,4 +24,14 @@ One task per run. The next task starts only after the production pipeline succee
 - [ ] A10 (10%) Complete release readiness, recovery, restore, rollback and operating documentation.
   - Acceptance: supported backup/restore and rollback procedures are verifiable; build, security, integration and deployment checks pass.
 
+## Non-weighted production release gates
+
+These gates do not add to the A01–A10 implementation progress percentage. **100% weighted implementation progress is not a production-readiness claim while any R gate is open.** These gates require an explicit operator/owner decision and may not be ticked by the autonomous coding agent.
+
+- [ ] R01 (P0) Resolve and independently verify the 22 October 2026 production database incident.
+  - Audit baseline: the 22 October audit recorded 10 `milan_db` tables at zero rows after a TRUNCATE operation; no completed restore was evidenced in that audit. This is a historical finding, not confirmation of the database's current state.
+  - Acceptance: a database owner/provider documents the recovery outcome and recovery point; independently verifies representative user/login, record/media, payment and WebAuthn state in a safe recovery target; records the data-loss window; and confirms production cutover or an approved incident/recreation plan if restore is unavailable.
+  - Safety: autopilot must never connect to or mutate production data. It must leave this gate unchecked until an authorized owner records evidence and manually updates the gate through review.
+
 All tasks total 100%. A build passing alone does not mean MILAN-ONE is complete.
+Weighted progress measures accepted implementation tasks only. Release gates are independently enforced and must be closed before describing MILAN-ONE as production-ready.

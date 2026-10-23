@@ -85,6 +85,22 @@ jobs:
             exit 0
           fi
 
+          # P0 release gates pause all autonomous implementation cycles. This incident
+          # must be verified by an authorized owner; the agent must not touch production DB.
+          if grep -qE '^- \[ \] R[0-9]{2} \(' docs/MILAN_ONE_AUTOPILOT_ROADMAP.md; then
+            echo "has_task=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "## MILAN-ONE Autopilot paused at a P0 production release gate"
+              echo ""
+              echo "No autonomous implementation task will run until the operator-owned release gate(s) below are closed through independent evidence and review."
+              echo ""
+              grep -E '^- \[ \] R[0-9]{2} \(' docs/MILAN_ONE_AUTOPILOT_ROADMAP.md
+              echo ""
+              echo "Autopilot has not accessed production data and will retry on its next scheduled or eligible workflow run."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
           from pathlib import Path
           import re
@@ -107,25 +123,68 @@ jobs:
           PY
 
           if ! grep -qE '^- \[ \] A[0-9]{2} \([0-9]+%\)' docs/MILAN_ONE_AUTOPILOT_ROADMAP.md; then
-            echo "All tasks complete. Disabling autopilot."
-            gh workflow disable milan-one-autopilot.yml --repo "$GITHUB_REPOSITORY"
+            if grep -qE '^- \[ \] R[0-9]{2} \(' docs/MILAN_ONE_AUTOPILOT_ROADMAP.md; then
+              {
+                echo "## Weighted implementation tasks complete; release remains blocked"
+                echo ""
+                echo "Open release gates:"
+                grep -E '^- \[ \] R[0-9]{2} \(' docs/MILAN_ONE_AUTOPILOT_ROADMAP.md
+                echo ""
+                echo "Autopilot will not claim production readiness while a release gate remains open."
+              } >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "All weighted tasks and release gates complete. Disabling autopilot."
+              gh workflow disable milan-one-autopilot.yml --repo "$GITHUB_REPOSITORY"
+            fi
+          fi
+
+      - name: Avoid duplicate task pull requests
+        id: candidate
+        if: ${{ steps.plan.outputs.has_task == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.MILAN_GH_TOKEN }}
+          TASK_ID: ${{ steps.plan.outputs.task_id }}
+        run: |
+          set -euo pipefail
+          if [ "$TASK_ID" = "A07" ] && ! python3 -c 'import json,sys; sys.exit(0 if "test:video-range" in json.load(open("package.json")).get("scripts", {}) else 1)'; then
+            echo "has_task=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "## MILAN-ONE Autopilot blocked: video Range test is not wired into main"
+              echo ""
+              echo "A07 cannot be attempted or marked verified until package.json defines test:video-range and the required regression check can run."
+              echo "Resolve the existing video Range test integration through an independently reviewed change, then the scheduled cycle can retry."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          export PREFIX="milan-one/autopilot-${TASK_ID,,}-"
+          OPEN_COUNT="$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --limit 100 --json headRefName | python3 -c 'import json,os,sys; p=os.environ["PREFIX"]; print(sum(1 for x in json.load(sys.stdin) if x.get("headRefName", "").startswith(p)))')"
+          if [ "$OPEN_COUNT" -gt 0 ]; then
+            echo "has_task=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "## MILAN-ONE Autopilot: awaiting independent review"
+              echo ""
+              echo "Roadmap task ${TASK_ID} already has an open candidate PR."
+              echo "No duplicate PR was created; the next task waits until this PR is merged or closed."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "has_task=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Set up Node.js
-        if: steps.plan.outputs.has_task == 'true'
+        if: steps.plan.outputs.has_task == 'true' && steps.candidate.outputs.has_task == 'true'
         uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
 
       - name: Set up Python
-        if: steps.plan.outputs.has_task == 'true'
+        if: steps.plan.outputs.has_task == 'true' && steps.candidate.outputs.has_task == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Install dependencies
-        if: steps.plan.outputs.has_task == 'true'
+        if: steps.plan.outputs.has_task == 'true' && steps.candidate.outputs.has_task == 'true'
         run: |
           set -euo pipefail
           npm ci
@@ -137,7 +196,7 @@ jobs:
           npx playwright install --with-deps chromium
 
       - name: Run one bounded Codex task
-        if: steps.plan.outputs.has_task == 'true'
+        if: steps.plan.outputs.has_task == 'true' && steps.candidate.outputs.has_task == 'true'
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
@@ -147,7 +206,7 @@ jobs:
           effort: high
 
       - name: Validate one-task changes
-        if: steps.plan.outputs.has_task == 'true'
+        if: steps.plan.outputs.has_task == 'true' && steps.candidate.outputs.has_task == 'true'
         env:
           BASE_SHA: ${{ steps.gate.outputs.base_sha }}
           TASK_ID: ${{ steps.plan.outputs.task_id }}
@@ -175,6 +234,24 @@ jobs:
           changed = [x[0] for x,y in zip(a,b) if x[1] == " " and y[1] == "x"]
           if [x[0] for x,y in zip(a,b) if x[1] == "x" and y[1] == " "] or len(changed) != 1 or not pending or changed[0] != pending[0] or changed[0] != expected:
               raise SystemExit("Exactly the first pending task must be completed.")
+
+          # The non-weighted R## release gates are operator-owned sign-offs.
+          # Automated implementation work cannot change their state or wording.
+          gate_heading = "## Non-weighted production release gates"
+          def release_gate_section(value):
+              if gate_heading not in value:
+                  raise SystemExit("Required operator-owned production release gate section is missing.")
+              start = value.index(gate_heading)
+              tail = value[start:]
+              next_heading = re.search(r"^## ", tail[len(gate_heading):], re.M)
+              if next_heading:
+                  tail = tail[:len(gate_heading) + next_heading.start()]
+              return tail.strip()
+          old_gates = release_gate_section(before)
+          new_gates = release_gate_section(after)
+          if old_gates != new_gates:
+              raise SystemExit("Operator-owned production release gates cannot be changed by an automated task.")
+
           tracked = subprocess.check_output(["git","diff","--name-only","-z"]).decode().split("\0")
           untracked = subprocess.check_output(["git","ls-files","--others","--exclude-standard","-z"]).decode().split("\0")
           paths = sorted(set(p for p in tracked + untracked if p))
@@ -184,7 +261,7 @@ jobs:
           for value in paths:
               p = Path(value)
               n = p.name.lower()
-              if value.startswith((".github/workflows/",".github/prompts/")) or n in ("package.json","package-lock.json") or any(part == ".env" or part.startswith(".env.") for part in p.parts) or n.endswith((".pem",".key",".p12",".pfx",".sql")) or any(s in n for s in ("credential","private-key")):
+              if value.startswith((".github/workflows/",".github/prompts/")) or value == "docs/MILAN_ONE_DECISION_REGISTER.md" or n in ("package.json","package-lock.json") or any(part == ".env" or part.startswith(".env.") for part in p.parts) or n.endswith((".pem",".key",".p12",".pfx",".sql")) or any(s in n for s in ("credential","private-key")):
                   blocked.append(value)
           if blocked:
               raise SystemExit("Protected paths changed: " + ", ".join(blocked))
@@ -193,7 +270,7 @@ jobs:
           PY
 
       - name: Run regression tests
-        if: steps.plan.outputs.has_task == 'true'
+        if: steps.plan.outputs.has_task == 'true' && steps.candidate.outputs.has_task == 'true'
         run: |
           set -euo pipefail
           npm run build
@@ -213,7 +290,7 @@ jobs:
 
       - name: Commit and push one task
         id: commit
-        if: steps.plan.outputs.has_task == 'true'
+        if: steps.plan.outputs.has_task == 'true' && steps.candidate.outputs.has_task == 'true'
         env:
           GH_TOKEN: ${{ secrets.MILAN_GH_TOKEN }}
           BASE_SHA: ${{ steps.gate.outputs.base_sha }}
@@ -234,7 +311,7 @@ jobs:
 
       - name: Create verification PR
         id: pr
-        if: steps.plan.outputs.has_task == 'true'
+        if: steps.plan.outputs.has_task == 'true' && steps.candidate.outputs.has_task == 'true'
         env:
           GH_TOKEN: ${{ secrets.MILAN_GH_TOKEN }}
           TASK_ID: ${{ steps.plan.outputs.task_id }}
@@ -251,7 +328,7 @@ jobs:
 
       - name: Wait for CI and verify exact checks
         id: checks
-        if: steps.plan.outputs.has_task == 'true'
+        if: steps.plan.outputs.has_task == 'true' && steps.candidate.outputs.has_task == 'true'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.MILAN_GH_TOKEN }}
@@ -270,7 +347,7 @@ jobs:
           done
 
       - name: Close failed candidate
-        if: ${{ always() && steps.plan.outputs.has_task == 'true' && steps.checks.outcome != 'success' }}
+        if: ${{ always() && steps.plan.outputs.has_task == 'true' && steps.candidate.outputs.has_task == 'true' && steps.pr.outputs.number != '' && steps.checks.outcome != 'success' }}
         env:
           GH_TOKEN: ${{ secrets.MILAN_GH_TOKEN }}
           PR: ${{ steps.pr.outputs.number }}
@@ -279,24 +356,17 @@ jobs:
             --comment "Required checks did not pass. The roadmap task remains unchecked for retry."
           exit 1
 
-      - name: Merge verified PR
-        id: merge
-        if: steps.plan.outputs.has_task == 'true' && steps.checks.outcome == 'success'
-        continue-on-error: true
+      - name: Leave passing PR open for independent review
+        if: steps.plan.outputs.has_task == 'true' && steps.candidate.outputs.has_task == 'true' && steps.checks.outcome == 'success'
         env:
-          GH_TOKEN: ${{ secrets.MILAN_GH_TOKEN }}
-          PR: ${{ steps.pr.outputs.number }}
-        run: gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --squash --delete-branch
-
-      - name: Report blocked merge
-        if: ${{ always() && steps.plan.outputs.has_task == 'true' && steps.checks.outcome == 'success' && steps.merge.outcome != 'success' }}
-        env:
-          GH_TOKEN: ${{ secrets.MILAN_GH_TOKEN }}
-          PR: ${{ steps.pr.outputs.number }}
+          TASK_ID: ${{ steps.plan.outputs.task_id }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
         run: |
-          STATE="$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json state --jq '.state')"
-          if [ "$STATE" != "MERGED" ]; then
-            gh pr close "$PR" --repo "$GITHUB_REPOSITORY" --delete-branch \
-              --comment "Merge blocked by repository safeguards. The roadmap task remains unchecked."
-            exit 1
-          fi
+          {
+            echo "## MILAN-ONE task ready for independent review"
+            echo ""
+            echo "- Roadmap task: ${TASK_ID}"
+            echo "- Pull request: #${PR_NUMBER}"
+            echo "- Required automated checks: passed"
+            echo "- Merge: intentionally left to an independent reviewer"
+          } >> "$GITHUB_STEP_SUMMARY"
