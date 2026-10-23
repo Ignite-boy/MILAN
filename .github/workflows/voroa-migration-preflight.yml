@@ -52,10 +52,136 @@ jobs:
               );
               const required = await client.query(
                 "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = ANY($1::text[]) ORDER BY table_name",
-                [['users', 'dwn_storage', 'payments', 'webauthn_credentials']]
+                [['users', 'dwn_storage', 'webauthn_credentials', 'milan_database_snapshots',
+                  'payment_orders', 'storage_upgrade_requests',
+                  'milan_legacy_payment_orders', 'milan_legacy_storage_upgrade_requests']]
               );
               const found = new Set(required.rows.map(row => row.table_name));
-              const missing = ['users', 'dwn_storage'].filter(name => !found.has(name));
+              const requiredForPreflight = ['users', 'dwn_storage', 'milan_database_snapshots'];
+              const missing = requiredForPreflight.filter(name => !found.has(name));
+
+              // Read-only counts only; never print user or payment records.
+              for (const table of [
+                'users', 'dwn_storage', 'webauthn_credentials',
+                'milan_database_snapshots', 'payment_orders',
+                'storage_upgrade_requests', 'milan_legacy_payment_orders',
+                'milan_legacy_storage_upgrade_requests'
+              ]) {
+                if (!found.has(table)) {
+                  console.log(`Row count ${table}: TABLE_NOT_VISIBLE`);
+                  continue;
+                }
+                const count = await client.query(
+                  `SELECT COUNT(*)::text AS row_count FROM public.${table}`
+                );
+                console.log(`Row count ${table}: ${count.rows[0].row_count}`);
+              }
+
+              // Read-only DWN summary; never emit record IDs or payloads.
+              if (found.has('dwn_storage')) {
+                const summary = await client.query(`
+                  SELECT component_type,
+                         COALESCE(deleted, FALSE) AS is_deleted,
+                         COUNT(*)::text AS rows_count,
+                         COALESCE(SUM(data_size), 0)::text AS total_bytes,
+                         COUNT(data_bytes)::text AS binary_rows
+                  FROM public.dwn_storage
+                  GROUP BY component_type, COALESCE(deleted, FALSE)
+                  ORDER BY component_type, is_deleted
+                `);
+                for (const row of summary.rows) {
+                  console.log('DWN aggregate:', JSON.stringify({
+                    componentType: row.component_type,
+                    deleted: row.is_deleted,
+                    rows: row.rows_count,
+                    totalBytes: row.total_bytes,
+                    binaryRows: row.binary_rows
+                  }));
+                }
+              }
+
+              // Group DWN records by structural metadata only.
+              if (found.has('dwn_storage')) {
+                const categories = await client.query(`
+                  SELECT component_type,
+                         COALESCE(data_format, '(unspecified)') AS data_format,
+                         COALESCE(metadata->>'kind', '(unspecified)') AS metadata_kind,
+                         COUNT(*)::text AS rows_count,
+                         COALESCE(SUM(data_size), 0)::text AS total_bytes
+                  FROM public.dwn_storage
+                  WHERE COALESCE(deleted, FALSE) = FALSE
+                  GROUP BY component_type, data_format, COALESCE(metadata->>'kind', '(unspecified)')
+                  ORDER BY component_type, data_format, metadata_kind
+                  LIMIT 100
+                `);
+                for (const row of categories.rows) {
+                  console.log('DWN category summary:', JSON.stringify({
+                    componentType: row.component_type,
+                    dataFormat: row.data_format,
+                    metadataKind: row.metadata_kind,
+                    rows: row.rows_count,
+                    totalBytes: row.total_bytes
+                  }));
+                }
+              }
+
+              // Read-only freshness summary; never emit record IDs or owner identifiers.
+              if (found.has('dwn_storage')) {
+                const freshness = await client.query(`
+                  SELECT component_type,
+                         COUNT(*)::text AS active_rows,
+                         COUNT(DISTINCT did)::text AS owner_count,
+                         COUNT(DISTINCT space_id)::text AS space_count,
+                         MIN(date_created) AS oldest_created,
+                         MAX(date_modified) AS newest_modified
+                  FROM public.dwn_storage
+                  WHERE COALESCE(deleted, FALSE) = FALSE
+                  GROUP BY component_type
+                  ORDER BY component_type
+                `);
+                for (const row of freshness.rows) {
+                  console.log('DWN freshness:', JSON.stringify({
+                    componentType: row.component_type,
+                    activeRows: row.active_rows,
+                    owners: row.owner_count,
+                    spaces: row.space_count,
+                    oldestCreated: row.oldest_created,
+                    newestModified: row.newest_modified
+                  }));
+                }
+              }
+
+              // Report snapshot metadata only; never log snapshot payloads.
+              if (found.has('milan_database_snapshots')) {
+                const snapshots = await client.query(`
+                  SELECT s.name, s.pushed_at,
+                    jsonb_typeof(s.data) AS payload_type,
+                    CASE WHEN jsonb_typeof(s.data) = 'object'
+                      THEN (SELECT COUNT(*)::int FROM jsonb_object_keys(s.data))
+                    END AS top_level_keys,
+                    CASE WHEN jsonb_typeof(s.data) = 'array'
+                      THEN jsonb_array_length(s.data)
+                    END AS array_items
+                  FROM public.milan_database_snapshots s
+                  ORDER BY s.name
+                  LIMIT 100
+                `);
+                for (const row of snapshots.rows) {
+                  console.log('Snapshot metadata:', JSON.stringify({
+                    name: row.name,
+                    pushedAt: row.pushed_at,
+                    payloadType: row.payload_type,
+                    topLevelKeys: row.top_level_keys,
+                    arrayItems: row.array_items
+                  }));
+                }
+              }
+
+              // Read-only inventory: discover existing public tables without reading their data.
+              const inventory = await client.query(
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name LIMIT 250"
+              );
+              console.log('Public table inventory:', inventory.rows.map(row => row.table_name).join(', '));
 
               console.log('Voroa connection: OK');
               console.log('Database:', identity.rows[0].database);

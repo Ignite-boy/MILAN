@@ -27,7 +27,7 @@ Add SMTP or an email API key and any optional AI/payment integration values need
 
 ## Database readiness
 
-Before using a new Voroa database, verify connectivity and required tables. The preflight workflow checks for `public.users` and `public.dwn_storage`; additional features can require migrations in `backend/migrations/`. Review the SQL against the target database and take a backup before applying schema changes.
+Before using a new Voroa database, verify connectivity and required tables. The preflight workflow checks for `public.users`, `public.dwn_storage`, and `public.milan_database_snapshots`, which is required by snapshot sync. Additional features can require migrations in `backend/migrations/`. Review the SQL against the target database and take a backup before applying schema changes.
 
 The app's authoritative record and media code uses PostgreSQL. The normal server filesystem is only a processing/cache area. The default PostgreSQL media cap is 768 MiB, so configure upload limits consistently and test at the boundary.
 
