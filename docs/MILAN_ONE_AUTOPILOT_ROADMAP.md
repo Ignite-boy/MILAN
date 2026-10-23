@@ -17,8 +17,9 @@ One task per run. The next task starts only after the production pipeline succee
   - Acceptance: private data never leaks into public feeds; deterministic cursors produce no duplicates or gaps in tested cases.
 - [x] A07 (10%) Harden uploads, retries, resumable chunks and video range playback.
   - Acceptance: ownership, idempotency, size limits and byte-range behavior have regression coverage.
-- [ ] A08 (10%) Harden payment ownership, idempotency and storage quota upgrades.
+- [x] A08 (10%) Harden payment ownership, idempotency and storage quota upgrades.
   - Acceptance: unauthorized and repeated payment transitions cannot grant quota twice; manual verification is represented truthfully.
+  - Verification: merged payment regression checks cover ownership, unique order/UTR constraints, guarded state transitions, row-lock contracts, monotonic quota activation and truthful manual-verification status. The HTTP route harness passes 10 cases using an isolated in-memory database double; it is not a live PostgreSQL concurrency test.
 - [ ] A09 (20%) Verify the real-DWN adapter and signed record read/write integration.
   - Acceptance: use an actual selected protocol engine and verify signatures, authorization and round trips; otherwise report a blocker and never claim protocol readiness.
 - [ ] A10 (10%) Complete release readiness, recovery, restore, rollback and operating documentation.
