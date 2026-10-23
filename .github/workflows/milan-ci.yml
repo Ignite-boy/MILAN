@@ -65,6 +65,8 @@ jobs:
 
       - name: Verify MILAN Pay checkout details
         run: npm run test:milan-pay
+      - name: Snapshot persistence regression tests
+        run: npm run test:snapshot-persistence
 
       - name: Verify critical frontend files
         run: |
