@@ -52,10 +52,11 @@ jobs:
               );
               const required = await client.query(
                 "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = ANY($1::text[]) ORDER BY table_name",
-                [['users', 'dwn_storage', 'payments', 'webauthn_credentials']]
+                [['users', 'dwn_storage', 'payments', 'webauthn_credentials', 'milan_database_snapshots']]
               );
               const found = new Set(required.rows.map(row => row.table_name));
-              const missing = ['users', 'dwn_storage'].filter(name => !found.has(name));
+              const requiredForPreflight = ['users', 'dwn_storage', 'milan_database_snapshots'];
+              const missing = requiredForPreflight.filter(name => !found.has(name));
 
               console.log('Voroa connection: OK');
               console.log('Database:', identity.rows[0].database);
