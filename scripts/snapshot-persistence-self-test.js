@@ -9,6 +9,8 @@ const Module = require('node:module');
 const storePath = require.resolve('../backend/utils/store');
 const originalLoad = Module._load;
 const snapshots = new Map();
+const syncWrites = [];
+let syncResponse = { ok: true, backend: 'voroa' };
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'milan-snapshot-test-'));
 
 Module._load = function (request, parent, isMain) {
@@ -18,7 +20,11 @@ Module._load = function (request, parent, isMain) {
       pullDatabaseSnapshot: async name =>
         snapshots.has(name)
           ? snapshots.get(name)
-          : { ok: false, error: 'snapshot-not-found' }
+          : { ok: false, error: 'snapshot-not-found' },
+      syncDatabaseSnapshot: async (name, data) => {
+        syncWrites.push({ name, data });
+        return syncResponse;
+      }
     };
   }
   return originalLoad.call(this, request, parent, isMain);
@@ -94,6 +100,32 @@ async function main() {
 
     assert.equal(global.__milanHydratingFromDwn, false);
     console.log('PASS: hydration flag is reset after completion.');
+
+    const { writeJsonAndSync } = require(storePath);
+
+    const successFile = path.join(tempDir, 'securityReports.json');
+    syncResponse = { ok: true, backend: 'voroa' };
+    const successWrite = await writeJsonAndSync(
+      successFile, [{ probe: 'success' }]
+    );
+    assert.equal(successWrite.ok, true);
+    assert.equal(syncWrites.at(-1).name, 'securityReports.json');
+    assert.deepEqual(syncWrites.at(-1).data, [{ probe: 'success' }]);
+    console.log('PASS: writeJsonAndSync reports successful remote persistence.');
+
+    const failedFile = path.join(tempDir, 'feedback.json');
+    syncResponse = { ok: false, error: 'database-unavailable' };
+    const failedWrite = await writeJsonAndSync(
+      failedFile, [{ probe: 'failure' }]
+    );
+    assert.equal(failedWrite.ok, false);
+    assert.match(failedWrite.error, /database-unavailable/);
+    assert.deepEqual(
+      JSON.parse(fs.readFileSync(failedFile, 'utf8')),
+      [{ probe: 'failure' }]
+    );
+    console.log('PASS: failed remote sync is surfaced to the caller.');
+
     console.log('ALL SNAPSHOT PERSISTENCE SELF-TESTS PASSED.');
   } finally {
     Module._load = originalLoad;
