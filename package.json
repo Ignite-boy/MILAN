@@ -15,7 +15,8 @@
     "test:security": "node --test scripts/security-self-test.js",
     "test:upload": "node scripts/upload-chunk-self-test.js && node scripts/upload-chunk-self-test.js --shared && node scripts/resumable-upload-store-self-test.js && node scripts/resumable-media-commit-self-test.js",
     "test:distributed-rate-limit": "node scripts/distributed-rate-limit-self-test.js",
-    "test:feed-pagination": "node scripts/feed-pagination-self-test.js"
+    "test:feed-pagination": "node scripts/feed-pagination-self-test.js",
+    "test:readiness": "node scripts/readiness-contract-self-test.js"
   },
   "dependencies": {
     "@simplewebauthn/server": "^13.3.2",

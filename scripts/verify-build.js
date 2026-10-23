@@ -89,6 +89,8 @@ const syntaxCheckFiles = [
   'backend/services/resumableMediaCommit.js',
   'scripts/upload-chunk-self-test.js',
   'backend/routes/isolatedDwn.js',
+  'backend/services/readiness.js',
+  'backend/routes/launch.js',
   'frontend/assets/js/inline-05.js',
   'frontend/assets/js/inline-07.js',
   'Milan-Sentinel/scripts/run-matrix.js',
@@ -106,6 +108,10 @@ if (exists('backend/server.js')) {
     'API version must be sourced from root package.json.');
   check(server.includes("healthSemantics:") && server.includes("level: 'liveness'"),
     'API health must label liveness separately from provider/protocol readiness.');
+  check(server.includes("app.get('/api/ready'") && server.includes("checkDatabaseReadiness"),
+    'Dedicated database-readiness endpoint must perform a live database probe.');
+  check(server.includes("app.get('/api/dwn/readiness'"),
+    'Real-DWN protocol readiness must have a separate endpoint.');
   check(!server.includes("origin: process.env.CORS_ORIGIN || true"),
     'Unsafe permissive CORS fallback remains.');
 }
