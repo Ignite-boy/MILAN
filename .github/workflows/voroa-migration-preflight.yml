@@ -58,6 +58,18 @@ jobs:
               const requiredForPreflight = ['users', 'dwn_storage', 'milan_database_snapshots'];
               const missing = requiredForPreflight.filter(name => !found.has(name));
 
+              // Read-only counts only; never print user or payment records.
+              for (const table of ['users', 'dwn_storage', 'payments', 'webauthn_credentials', 'milan_database_snapshots']) {
+                if (!found.has(table)) {
+                  console.log(`Row count ${table}: TABLE_NOT_VISIBLE`);
+                  continue;
+                }
+                const count = await client.query(
+                  `SELECT COUNT(*)::text AS row_count FROM public.${table}`
+                );
+                console.log(`Row count ${table}: ${count.rows[0].row_count}`);
+              }
+
               console.log('Voroa connection: OK');
               console.log('Database:', identity.rows[0].database);
               console.log('Connected role:', identity.rows[0].role);
