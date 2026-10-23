@@ -218,6 +218,24 @@ jobs:
           changed = [x[0] for x,y in zip(a,b) if x[1] == " " and y[1] == "x"]
           if [x[0] for x,y in zip(a,b) if x[1] == "x" and y[1] == " "] or len(changed) != 1 or not pending or changed[0] != pending[0] or changed[0] != expected:
               raise SystemExit("Exactly the first pending task must be completed.")
+
+          # The non-weighted R## release gates are operator-owned sign-offs.
+          # Automated implementation work cannot change their state or wording.
+          gate_heading = "## Non-weighted production release gates"
+          def release_gate_section(value):
+              if gate_heading not in value:
+                  raise SystemExit("Required operator-owned production release gate section is missing.")
+              start = value.index(gate_heading)
+              tail = value[start:]
+              next_heading = re.search(r"^## ", tail[len(gate_heading):], re.M)
+              if next_heading:
+                  tail = tail[:len(gate_heading) + next_heading.start()]
+              return tail.strip()
+          old_gates = release_gate_section(before)
+          new_gates = release_gate_section(after)
+          if old_gates != new_gates:
+              raise SystemExit("Operator-owned production release gates cannot be changed by an automated task.")
+
           tracked = subprocess.check_output(["git","diff","--name-only","-z"]).decode().split("\0")
           untracked = subprocess.check_output(["git","ls-files","--others","--exclude-standard","-z"]).decode().split("\0")
           paths = sorted(set(p for p in tracked + untracked if p))
