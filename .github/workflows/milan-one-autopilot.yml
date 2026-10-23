@@ -107,8 +107,19 @@ jobs:
           PY
 
           if ! grep -qE '^- \[ \] A[0-9]{2} \([0-9]+%\)' docs/MILAN_ONE_AUTOPILOT_ROADMAP.md; then
-            echo "All tasks complete. Disabling autopilot."
-            gh workflow disable milan-one-autopilot.yml --repo "$GITHUB_REPOSITORY"
+            if grep -qE '^- \[ \] R[0-9]{2} \(' docs/MILAN_ONE_AUTOPILOT_ROADMAP.md; then
+              {
+                echo "## Weighted implementation tasks complete; release remains blocked"
+                echo ""
+                echo "Open release gates:"
+                grep -E '^- \[ \] R[0-9]{2} \(' docs/MILAN_ONE_AUTOPILOT_ROADMAP.md
+                echo ""
+                echo "Autopilot will not claim production readiness while a release gate remains open."
+              } >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "All weighted tasks and release gates complete. Disabling autopilot."
+              gh workflow disable milan-one-autopilot.yml --repo "$GITHUB_REPOSITORY"
+            fi
           fi
 
       - name: Avoid duplicate task pull requests
@@ -119,6 +130,16 @@ jobs:
           TASK_ID: ${{ steps.plan.outputs.task_id }}
         run: |
           set -euo pipefail
+          if [ "$TASK_ID" = "A07" ] && ! python3 -c 'import json,sys; sys.exit(0 if "test:video-range" in json.load(open("package.json")).get("scripts", {}) else 1)'; then
+            echo "has_task=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "## MILAN-ONE Autopilot blocked: video Range test is not wired into main"
+              echo ""
+              echo "A07 cannot be attempted or marked verified until package.json defines test:video-range and the required regression check can run."
+              echo "Resolve the existing video Range test integration through an independently reviewed change, then the scheduled cycle can retry."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           export PREFIX="milan-one/autopilot-${TASK_ID,,}-"
           OPEN_COUNT="$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --limit 100 --json headRefName | python3 -c 'import json,os,sys; p=os.environ["PREFIX"]; print(sum(1 for x in json.load(sys.stdin) if x.get("headRefName", "").startswith(p)))')"
           if [ "$OPEN_COUNT" -gt 0 ]; then
