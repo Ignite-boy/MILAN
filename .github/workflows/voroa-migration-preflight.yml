@@ -100,6 +100,31 @@ jobs:
                 }
               }
 
+              // Group DWN records by structural metadata only.
+              if (found.has('dwn_storage')) {
+                const categories = await client.query(`
+                  SELECT component_type,
+                         COALESCE(data_format, '(unspecified)') AS data_format,
+                         COALESCE(metadata->>'kind', '(unspecified)') AS metadata_kind,
+                         COUNT(*)::text AS rows_count,
+                         COALESCE(SUM(data_size), 0)::text AS total_bytes
+                  FROM public.dwn_storage
+                  WHERE COALESCE(deleted, FALSE) = FALSE
+                  GROUP BY component_type, data_format, COALESCE(metadata->>'kind', '(unspecified)')
+                  ORDER BY component_type, data_format, metadata_kind
+                  LIMIT 100
+                `);
+                for (const row of categories.rows) {
+                  console.log('DWN category summary:', JSON.stringify({
+                    componentType: row.component_type,
+                    dataFormat: row.data_format,
+                    metadataKind: row.metadata_kind,
+                    rows: row.rows_count,
+                    totalBytes: row.total_bytes
+                  }));
+                }
+              }
+
               // Read-only freshness summary; never emit record IDs or owner identifiers.
               if (found.has('dwn_storage')) {
                 const freshness = await client.query(`
