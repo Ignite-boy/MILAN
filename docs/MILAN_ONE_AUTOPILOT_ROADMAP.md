@@ -13,7 +13,7 @@ One task per run. The next task starts only after the production pipeline succee
   - Acceptance: cross-user access to protected resources is rejected and tested.
 - [x] A05 (10%) Make authoritative persistence failures observable and social-state persistence consistent.
   - Acceptance: critical PostgreSQL write failures cannot be reported as successful; persistence semantics are documented and tested.
-- [ ] A06 (10%) Verify private-chat isolation, feed ordering and pagination.
+- [x] A06 (10%) Verify private-chat isolation, feed ordering and pagination.
   - Acceptance: private data never leaks into public feeds; deterministic cursors produce no duplicates or gaps in tested cases.
 - [ ] A07 (10%) Harden uploads, retries, resumable chunks and video range playback.
   - Acceptance: ownership, idempotency, size limits and byte-range behavior have regression coverage.
