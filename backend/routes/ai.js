@@ -8,6 +8,8 @@
  */
 
 const express = require('express');
+const auth = require('../middleware/auth');
+const { collectOwnInteractionEvents, countHours } = require('../services/aiBestTime');
 const router  = express.Router();
 const fs      = require('fs');
 const path    = require('path');
@@ -142,60 +144,47 @@ router.get('/style-filters', (_req, res) => {
    3. BEST TIME TO POST
    GET /api/ai/best-time/:userId
 ═══════════════════════════════════════════ */
-router.get('/best-time/:userId', (req, res) => {
+router.get('/best-time/:userId', auth, (req, res) => {
   try {
-    const { userId } = req.params;
+    const userId = String(req.params.userId || '').trim();
 
-    // Try to read activity data
-    const activity   = readJson('activity.json');
-    const reactions  = readJson('socialReactions.json');
+    // The URL cannot be used to inspect another account's engagement data.
+    if (!userId || userId !== String(req.userId || '')) {
+      return res.status(403).json({ success: false, error: 'You can only view your own posting-time analytics.' });
+    }
 
-    // Collect timestamps from user's post interactions
-    const hourCounts = new Array(24).fill(0);
-    let hasData = false;
-
-    // activity.json: array of {userId, type, timestamp}
-    const acts = Array.isArray(activity) ? activity : Object.values(activity);
-    acts.forEach(a => {
-      if (a && (a.userId === userId || a.actorId === userId)) {
-        const h = new Date(a.timestamp || a.createdAt || 0).getHours();
-        if (!isNaN(h)) { hourCounts[h]++; hasData = true; }
-      }
+    const events = collectOwnInteractionEvents({
+      activity: readJson('activity.json'),
+      reactions: readJson('socialReactions.json'),
+      userId: req.userId,
+      did: req.account?.did || req.did || ''
     });
-
-    // reactions: { postId: [{userId, timestamp}] }
-    Object.values(reactions || {}).forEach(arr => {
-      if (!Array.isArray(arr)) return;
-      arr.forEach(r => {
-        const h = new Date(r.timestamp || r.createdAt || 0).getHours();
-        if (!isNaN(h)) { hourCounts[h]++; hasData = true; }
-      });
-    });
+    const { hourCounts, validEvents } = countHours(events);
 
     let recommendation;
-    if (hasData) {
-      // Find top 2 hours
+    if (validEvents > 0) {
       const sorted = hourCounts
         .map((count, hour) => ({ hour, count }))
         .sort((a, b) => b.count - a.count);
-      const top = sorted.slice(0, 2).map(s => s.hour);
-      const fmt = h => `${h % 12 || 12}:00 ${h < 12 ? 'AM' : 'PM'}`;
+      const top = sorted.slice(0, 2).map(item => item.hour);
+      const fmt = hour => `${hour % 12 || 12}:00 ${hour < 12 ? 'AM' : 'PM'}`;
       recommendation = {
         source: 'your_data',
-        primary:   { hour: top[0], label: fmt(top[0]) },
+        primary: { hour: top[0], label: fmt(top[0]) },
         secondary: { hour: top[1], label: fmt(top[1]) },
         message: `Your audience is most active around ${fmt(top[0])} and ${fmt(top[1])}.`,
         hourCounts
       };
     } else {
-      // Global defaults (IST peak times)
       recommendation = {
         source: 'global_default',
-        primary:   { hour: 19, label: '7:00 PM' },
+        primary: { hour: 19, label: '7:00 PM' },
         secondary: { hour: 10, label: '10:00 AM' },
         message: 'Best times globally: Evening 7–9 PM & Morning 10–11 AM. Post more to get personalized data!',
-        hourCounts: Array.from({length: 24}, (_, i) =>
-          (i >= 18 && i <= 21) ? 80 : (i >= 9 && i <= 11) ? 60 : (i >= 12 && i <= 14) ? 40 : 10
+        hourCounts: Array.from({ length: 24 }, (_, hour) =>
+          (hour >= 18 && hour <= 21) ? 80 :
+          (hour >= 9 && hour <= 11) ? 60 :
+          (hour >= 12 && hour <= 14) ? 40 : 10
         )
       };
     }
@@ -203,7 +192,7 @@ router.get('/best-time/:userId', (req, res) => {
     res.json({ success: true, recommendation });
   } catch (err) {
     console.error('[MILAN AI] best-time error:', err.message);
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({ success: false, error: 'Could not calculate posting-time analytics.' });
   }
 });
 
