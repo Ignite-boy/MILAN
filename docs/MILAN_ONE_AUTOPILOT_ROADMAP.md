@@ -3,7 +3,7 @@
 Progress is the sum of verified, merged task weights.
 One task per run. The next task starts only after the production pipeline succeeds.
 
-- [ ] A01 (5%) Align media byte limits and regression tests.
+- [x] A01 (5%) Align media byte limits and regression tests.
   - Acceptance: backend, frontend and storage limits agree with the canonical architecture contract; boundary tests pass.
 - [ ] A02 (5%) Separate liveness, database readiness and real-DWN readiness.
   - Acceptance: health reporting is truthful; no mock or logical namespace is labelled a real protocol engine; regression tests pass.
