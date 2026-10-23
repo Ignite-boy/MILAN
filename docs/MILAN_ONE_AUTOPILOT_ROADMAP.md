@@ -9,7 +9,7 @@ One task per run. The next task starts only after the production pipeline succee
   - Acceptance: health reporting is truthful; no mock or logical namespace is labelled a real protocol engine; regression tests pass.
 - [x] A03 (10%) Verify authentication, session invalidation and token-version behavior.
   - Acceptance: login, revocation, token expiry and session boundaries have regression tests; no security test is weakened.
-- [ ] A04 (10%) Verify authenticated-user and DID/space authorization boundaries.
+- [x] A04 (10%) Verify authenticated-user and DID/space authorization boundaries.
   - Acceptance: cross-user access to protected resources is rejected and tested.
 - [ ] A05 (10%) Make authoritative persistence failures observable and social-state persistence consistent.
   - Acceptance: critical PostgreSQL write failures cannot be reported as successful; persistence semantics are documented and tested.
