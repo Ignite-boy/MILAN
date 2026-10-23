@@ -2,7 +2,8 @@ const express = require('express');
 const crypto = require('crypto');
 const uuidv4 = () => crypto.randomUUID();
 const auth = require('../middleware/auth');
-const { readJson, writeJson, findUserById, findUserByDid, addActivity } = require('../utils/store');
+const { readJson, writeJsonAndSync, findUserById, findUserByDid, addActivity } = require('../utils/store');
+const { sendSnapshotSyncFailure } = require('../services/persistenceFailure');
 const dwnStore = require('../services/dwnService');
 const notify = require('../services/notifyService');
 
@@ -12,7 +13,7 @@ function displayNameOf(user){ return user?.profile?.display_name || user?.email?
 function now(){ return new Date().toISOString(); }
 function users(){ return readJson(global.usersFile, {}); }
 function requests(){ return readJson(global.requestsFile, {}); }
-function saveRequests(data){ writeJson(global.requestsFile, data); }
+async function saveRequests(data){ return writeJsonAndSync(global.requestsFile, data); }
 function current(req){ return findUserById(users(), req.userId); }
 async function findRecordById(id){
   const found = await dwnStore.findRecordById(id);
@@ -36,7 +37,7 @@ function publicRequest(r){
   };
 }
 function listAll(){ return Object.values(requests()).flatMap(v => Array.isArray(v) ? v : []); }
-function upsertForUsers(reqObj, userIds){
+async function upsertForUsers(reqObj, userIds){
   const all = requests();
   for (const userId of userIds) {
     if (!Array.isArray(all[userId])) all[userId] = [];
@@ -45,7 +46,7 @@ function upsertForUsers(reqObj, userIds){
     else all[userId].unshift(reqObj);
     all[userId] = all[userId].slice(0, 300);
   }
-  saveRequests(all);
+  return await saveRequests(all);
 }
 function removeDuplicateView(rows){
   const seen = new Set();
@@ -94,7 +95,8 @@ router.post('/', auth, async (req, res) => {
     createdAt: now(),
     updatedAt: now()
   };
-  upsertForUsers(r, [req.userId, target.user.id]);
+  const persistence = await upsertForUsers(r, [req.userId, target.user.id]);
+  if (sendSnapshotSyncFailure(res, persistence, 'Access request')) return;
   addActivity(req.userId, 'access.request.sent', { toDid, recordId });
   addActivity(target.user.id, 'access.request.received', { fromDid: me.user.did, recordId });
   notify.emailEvent(target.user.id, 'access_request', { actorName: displayNameOf(me.user), message: r.message, recordTitle: recordTitle });
@@ -115,14 +117,15 @@ router.patch('/:id/approve', auth, async (req, res) => {
     await dwnStore.approveAccessForRecord(existing.recordId, me.user.did, existing.fromDid, existing.id);
   }
 
-  upsertForUsers(existing, [existing.fromUserId, existing.toUserId]);
+  const persistence = await upsertForUsers(existing, [existing.fromUserId, existing.toUserId]);
+  if (sendSnapshotSyncFailure(res, persistence, 'Access-request approval')) return;
   addActivity(req.userId, 'access.request.approved', { requestId: existing.id, fromDid: existing.fromDid, recordId: existing.recordId });
   addActivity(existing.fromUserId, 'access.request.approved.by.receiver', { requestId: existing.id, toDid: existing.toDid, recordId: existing.recordId });
   notify.emailEvent(existing.fromUserId, 'access_request_approved', { actorName: displayNameOf(me.user) });
   res.json(publicRequest(existing));
 });
 
-router.patch('/:id/reject', auth, (req, res) => {
+router.patch('/:id/reject', auth, async (req, res) => {
   const me = current(req);
   if (!me) return res.status(404).json({ error: 'User not found' });
   const existing = listAll().find(r => r.id === req.params.id);
@@ -131,20 +134,22 @@ router.patch('/:id/reject', auth, (req, res) => {
   existing.status = 'rejected';
   existing.decisionNote = String(req.body.note || '').trim();
   existing.updatedAt = now();
-  upsertForUsers(existing, [existing.fromUserId, existing.toUserId]);
+  const persistence = await upsertForUsers(existing, [existing.fromUserId, existing.toUserId]);
+  if (sendSnapshotSyncFailure(res, persistence, 'Access-request rejection')) return;
   addActivity(req.userId, 'access.request.rejected', { requestId: existing.id, fromDid: existing.fromDid });
   addActivity(existing.fromUserId, 'access.request.rejected.by.receiver', { requestId: existing.id, toDid: existing.toDid });
   res.json(publicRequest(existing));
 });
 
-router.delete('/:id', auth, (req, res) => {
+router.delete('/:id', auth, async (req, res) => {
   const me = current(req);
   if (!me) return res.status(404).json({ error: 'User not found' });
   const all = requests();
   for (const [uid, list] of Object.entries(all)) {
     all[uid] = (Array.isArray(list) ? list : []).filter(r => !(r.id === req.params.id && (r.fromDid === me.user.did || r.toDid === me.user.did)));
   }
-  saveRequests(all);
+  const persistence = await saveRequests(all);
+  if (sendSnapshotSyncFailure(res, persistence, 'Access-request removal')) return;
   res.json({ ok: true });
 });
 
