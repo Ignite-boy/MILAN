@@ -100,6 +100,32 @@ jobs:
                 }
               }
 
+              // Read-only freshness summary; never emit record IDs or owner identifiers.
+              if (found.has('dwn_storage')) {
+                const freshness = await client.query(`
+                  SELECT component_type,
+                         COUNT(*)::text AS active_rows,
+                         COUNT(DISTINCT did)::text AS owner_count,
+                         COUNT(DISTINCT space_id)::text AS space_count,
+                         MIN(date_created) AS oldest_created,
+                         MAX(date_modified) AS newest_modified
+                  FROM public.dwn_storage
+                  WHERE COALESCE(deleted, FALSE) = FALSE
+                  GROUP BY component_type
+                  ORDER BY component_type
+                `);
+                for (const row of freshness.rows) {
+                  console.log('DWN freshness:', JSON.stringify({
+                    componentType: row.component_type,
+                    activeRows: row.active_rows,
+                    owners: row.owner_count,
+                    spaces: row.space_count,
+                    oldestCreated: row.oldest_created,
+                    newestModified: row.newest_modified
+                  }));
+                }
+              }
+
               // Report snapshot metadata only; never log snapshot payloads.
               if (found.has('milan_database_snapshots')) {
                 const snapshots = await client.query(`
