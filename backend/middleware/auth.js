@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { readJson, cleanUsersDb } = require('../utils/store');
 const { getAuthoritativeUserById } = require('../services/authoritativeUser');
+const { tokenVersionMatches } = require('../services/sessionTokens');
 
 // Lightweight TTL cache of { email -> {tokenVersion, status} } so we can enforce
 // "sign out of all sessions" and deactivation without a disk read on every request.
@@ -37,24 +38,26 @@ module.exports = async (req, res, next) => {
     req.userId = decoded.userId;
     req.userEmail = decoded.email;
 
-    // Enforce token version + account status only for tokens that carry the claim
-    // (backward compatible with older tokens issued before this feature).
-    if (decoded.tv !== undefined) {
-      const u = userState(decoded.email);
-      if (u) {
-        if ((u.tokenVersion || 0) !== decoded.tv) {
-          return res.status(401).json({ error: 'Session expired. Please sign in again.', code: 'token_revoked' });
-        }
-        if (u.status === 'deactivated') {
-          return res.status(403).json({ error: 'Account is deactivated. Sign in again to reactivate.', code: 'deactivated' });
-        }
-      }
-    }
-
-    // Authoritative identity mapping: JWT userId -> Supabase user -> DID -> DWN space.
+    // Legacy tokens without a version cannot bypass revocation.
+    // This lookup returns the current authoritative PostgreSQL session version.
     const account = await getAuthoritativeUserById(req.userId);
     if (!account) {
       return res.status(401).json({ error: 'Account not found.' });
+    }
+
+    if (!tokenVersionMatches(decoded.tv, account.auth_token_version)) {
+      return res.status(401).json({
+        error: 'Session expired. Please sign in again.',
+        code: 'token_revoked'
+      });
+    }
+
+    const localState = userState(decoded.email);
+    if (localState && localState.status === 'deactivated') {
+      return res.status(403).json({
+        error: 'Account is deactivated. Sign in again to reactivate.',
+        code: 'deactivated'
+      });
     }
 
     req.account = account;

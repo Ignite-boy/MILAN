@@ -11,6 +11,7 @@ const totp = require('../utils/totp');
 const { readJson, writeJson, writeJsonAndSync, addActivity, normalizePulledSnapshot, cleanUsersDb, repairUsersFile } = require('../utils/store');
 const { assignDwnEndpoint, ensureUserDwn, getDwnInfo, provisionRemoteUserDwn, pullDatabaseSnapshot } = require('../services/cloudDwnRegistry');
 const auth = require('../middleware/auth');
+const { parseTokenVersion } = require('../services/sessionTokens');
 const { sendWelcomeEmail, sendVerificationEmail, sendPasswordResetEmail, sendLoginAlertEmail } = require('../services/mailService');
 
 function deriveUserSpaceId(userId = '', email = '') {
@@ -223,8 +224,29 @@ router.post('/login', authThrottle(15, 60_000), asyncRoute(async (req, res) => {
   }
 
   const userId = user.user_id;
+  const tv = parseTokenVersion(user.auth_token_version);
+  if (tv === null) {
+    return res.status(503).json({ error: 'Session security is temporarily unavailable. Please try again.' });
+  }
+
+  // Signing in again reactivates a previously deactivated local snapshot.
+  try {
+    const snapshotUsers = cleanUsersDb(readJson(global.usersFile, {}));
+    const snapshotUser = snapshotUsers[email];
+    if (snapshotUser &&
+        String(snapshotUser.id || snapshotUser.user_id || '') === String(userId) &&
+        snapshotUser.status === 'deactivated') {
+      snapshotUser.status = 'active';
+      delete snapshotUser.deactivatedAt;
+      writeJson(global.usersFile, snapshotUsers);
+      auth.invalidateAuthCache();
+    }
+  } catch (err) {
+    console.warn('[auth] local reactivation snapshot update failed:', err.message);
+  }
+
   const token = jwt.sign(
-    { userId, email: user.email },
+    { userId, email: user.email, tv },
     secret(),
     { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
   );
@@ -504,6 +526,7 @@ router.post('/reset-password', authThrottle(15, 60_000), asyncRoute(async (req, 
     const result = await milanDb.query(
       `UPDATE public.users
        SET password_hash = $1,
+           auth_token_version = COALESCE(auth_token_version, 0) + 1,
            password_reset_token_hash = NULL,
            password_reset_code_hash = NULL,
            password_reset_expires_at = NULL,

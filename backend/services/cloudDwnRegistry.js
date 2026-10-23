@@ -1,3 +1,5 @@
+const { MAX_MEDIA_BYTES } = require('./mediaLimits');
+
 const crypto = require('crypto');
 const APP_VERSION = require('../../package.json').version;
 const fs = require('fs');
@@ -573,7 +575,7 @@ async function pushMediaToCloudDwn(record, user, absoluteFilePath) {
     }
     const spaceId = String(owner.rows[0].space_id);
     const stat = fs.statSync(absoluteFilePath);
-    const maxBytes = Number(process.env.MILAN_MAX_VOROA_MEDIA_BYTES || 768 * 1024 * 1024);
+    const maxBytes = MAX_MEDIA_BYTES;
     if (!stat.isFile() || stat.size < 1) throw new Error('Media file is empty or invalid');
     if (stat.size > maxBytes) throw new Error('Media exceeds configured PostgreSQL media limit');
 
