@@ -52,14 +52,21 @@ jobs:
               );
               const required = await client.query(
                 "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = ANY($1::text[]) ORDER BY table_name",
-                [['users', 'dwn_storage', 'payments', 'webauthn_credentials', 'milan_database_snapshots']]
+                [['users', 'dwn_storage', 'webauthn_credentials', 'milan_database_snapshots',
+                  'payment_orders', 'storage_upgrade_requests',
+                  'milan_legacy_payment_orders', 'milan_legacy_storage_upgrade_requests']]
               );
               const found = new Set(required.rows.map(row => row.table_name));
               const requiredForPreflight = ['users', 'dwn_storage', 'milan_database_snapshots'];
               const missing = requiredForPreflight.filter(name => !found.has(name));
 
               // Read-only counts only; never print user or payment records.
-              for (const table of ['users', 'dwn_storage', 'payments', 'webauthn_credentials', 'milan_database_snapshots']) {
+              for (const table of [
+                'users', 'dwn_storage', 'webauthn_credentials',
+                'milan_database_snapshots', 'payment_orders',
+                'storage_upgrade_requests', 'milan_legacy_payment_orders',
+                'milan_legacy_storage_upgrade_requests'
+              ]) {
                 if (!found.has(table)) {
                   console.log(`Row count ${table}: TABLE_NOT_VISIBLE`);
                   continue;
