@@ -2,7 +2,8 @@ const express = require('express');
 const crypto = require('crypto');
 const auth = require('../middleware/auth');
 const dwnStore = require('../services/dwnService');
-const { readJson, writeJson, atomicWriteJson, findUserById, findUserByDid, addActivity } = require('../utils/store');
+const { readJson, writeJson, writeJsonAndSync, atomicWriteJson, findUserById, findUserByDid, addActivity } = require('../utils/store');
+const { sendSnapshotSyncFailure } = require('../services/persistenceFailure');
 const { pullDatabaseSnapshot } = require('../services/cloudDwnRegistry');
 const notify = require('../services/notifyService');
 const milanDb = require('../services/milanDb');
@@ -41,14 +42,14 @@ function reactionFile(){ return global.socialReactionsFile; }
 function commentFile(){ return global.socialCommentsFile; }
 function notifyFile(){ return global.notificationsFile; }
 function readReactions(){ return readJson(reactionFile(), {}); }
-function saveReactions(data){ writeJson(reactionFile(), data); }
+function saveReactions(data){ return writeJsonAndSync(reactionFile(), data); }
 function readComments(){ return readJson(commentFile(), {}); }
-function saveComments(data){ writeJson(commentFile(), data); }
+function saveComments(data){ return writeJsonAndSync(commentFile(), data); }
 function readNotifications(){ return readJson(notifyFile(), {}); }
 function saveNotifications(data){ writeJson(notifyFile(), data); }
 function saveFile(){ return global.socialSavesFile; }
 function readSaves(){ return readJson(saveFile(), {}); }
-function writeSaves(data){ writeJson(saveFile(), data); }
+function writeSaves(data){ return writeJsonAndSync(saveFile(), data); }
 function profileFor(user){
   const p = user.profile || {};
   return {
@@ -341,7 +342,9 @@ router.post('/records/:id/comments', auth, async (req, res) => {
   const all = readComments();
   if (!Array.isArray(all[req.params.id])) all[req.params.id] = [];
   const c = { id: uuidv4(), recordId:req.params.id, authorDid:me.user.did, text:text.slice(0, 2000), createdAt:now(), updatedAt:now() };
-  all[req.params.id].push(c); saveComments(all);
+  all[req.params.id].push(c);
+  const persistence = await saveComments(all);
+  if (sendSnapshotSyncFailure(res, persistence, 'Comment')) return;
   addActivity(req.userId, 'social.comment.created', { recordId:req.params.id });
   if (record.owner && record.owner !== me.user.did) {
     notifyByDid(record.owner, 'comment', me.user.did, { recordId:req.params.id, title:record.title });
@@ -362,7 +365,8 @@ router.post('/records/:id/reactions', auth, async (req, res) => {
   const existingReaction = all[req.params.id][me.user.did]?.type;
   if (existingReaction === type) delete all[req.params.id][me.user.did];
   else all[req.params.id][me.user.did] = { type, at:now() };
-  saveReactions(all);
+  const persistence = await saveReactions(all);
+  if (sendSnapshotSyncFailure(res, persistence, 'Reaction')) return;
   addActivity(req.userId, 'social.reaction.updated', { recordId:req.params.id, type });
   if (record.owner && record.owner !== me.user.did && all[req.params.id][me.user.did]) {
     notifyByDid(record.owner, 'reaction', me.user.did, { recordId:req.params.id, title:record.title, type });
@@ -390,7 +394,8 @@ router.post('/records/:id/save', auth, async (req, res) => {
   if (!Array.isArray(saves[req.userId])) saves[req.userId] = [];
   const exists = saves[req.userId].includes(req.params.id);
   saves[req.userId] = exists ? saves[req.userId].filter(id => id !== req.params.id) : [req.params.id, ...saves[req.userId]];
-  writeSaves(saves);
+  const persistence = await writeSaves(saves);
+  if (sendSnapshotSyncFailure(res, persistence, 'Saved-post update')) return;
   addActivity(req.userId, exists ? 'social.post.unsaved' : 'social.post.saved', { recordId: req.params.id });
   res.json({ saved: !exists, count: saves[req.userId].length });
 });
