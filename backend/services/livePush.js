@@ -72,21 +72,42 @@ function attachWs(server) {
   try { ({ WebSocketServer } = require('ws')); }
   catch (_) { return false; } // ws not installed: SSE remains the only transport
   const jwt = require('jsonwebtoken');
+  const { getAuthoritativeUserById } = require('./authoritativeUser');
+  const { tokenVersionMatches } = require('./sessionTokens');
   const wss = new WebSocketServer({ noServer: true });
+
   server.on('upgrade', (req, socket, head) => {
-    if (!String(req.url || '').startsWith('/ws')) return; // not ours
-    let userId = null;
-    try {
-      const token = new URL(req.url, 'http://x').searchParams.get('token') || '';
-      userId = jwt.verify(token, require('../utils/jwtSecret')).userId;
-    } catch (_) {}
-    if (!userId) { socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n'); socket.destroy(); return; }
-    wss.handleUpgrade(req, socket, head, (ws) => {
-      addTo(wsClients, userId, ws);
-      ws.on('close', () => removeFrom(wsClients, userId, ws));
-      ws.on('error', () => removeFrom(wsClients, userId, ws));
-      try { ws.send(JSON.stringify({ type: 'hello' })); } catch (_) {}
-    });
+    if (!String(req.url || '').startsWith('/ws')) return;
+
+    const reject = () => {
+      if (socket.destroyed) return;
+      try { socket.write('HTTP/1.1 401 Unauthorized\\r\\nConnection: close\\r\\n\\r\\n'); } catch (_) {}
+      socket.destroy();
+    };
+
+    void (async () => {
+      let decoded;
+      try {
+        const token = new URL(req.url, 'http://x').searchParams.get('token') || '';
+        decoded = jwt.verify(token, require('../utils/jwtSecret'));
+        if (!decoded.userId) return reject();
+
+        const account = await getAuthoritativeUserById(decoded.userId);
+        if (!account || !tokenVersionMatches(decoded.tv, account.auth_token_version)) {
+          return reject();
+        }
+      } catch (_) {
+        return reject();
+      }
+
+      if (socket.destroyed) return;
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        addTo(wsClients, decoded.userId, ws);
+        ws.on('close', () => removeFrom(wsClients, decoded.userId, ws));
+        ws.on('error', () => removeFrom(wsClients, decoded.userId, ws));
+        try { ws.send(JSON.stringify({ type: 'hello' })); } catch (_) {}
+      });
+    })();
   });
   return true;
 }

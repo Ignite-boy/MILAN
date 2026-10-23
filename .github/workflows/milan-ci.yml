@@ -66,6 +66,9 @@ jobs:
       - name: Verify MILAN Pay checkout details
         run: npm run test:milan-pay
 
+      - name: Verify authoritative session revocation
+        run: npm run test:session-token
+
       - name: Verify shared media limit contract
         run: npm run test:media-limits
 

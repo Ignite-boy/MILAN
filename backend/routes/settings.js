@@ -14,6 +14,9 @@ const { readJson, writeJson, writeJsonAndSync, findUserById, addActivity, cleanU
 const totp = require('../utils/totp');
 const notify = require('../services/notifyService');
 const auth = require('../middleware/auth');
+const milanDb = require('../services/milanDb');
+const { createAuthSessionStore } = require('../services/authSessionStore');
+const authSessions = createAuthSessionStore(milanDb);
 
 const router = express.Router();
 const asyncRoute = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -202,18 +205,58 @@ router.put('/notifications', auth, asyncRoute(async (req, res) => {
 router.post('/security/password', auth, asyncRoute(async (req, res) => {
   const { users, email, user } = locate(req);
   if (!user) return res.status(404).json({ error: 'User not found' });
+
   const currentPassword = String(req.body.currentPassword || '');
   const newPassword = String(req.body.newPassword || '');
   if (newPassword.length < 8) return res.status(400).json({ error: 'New password must be at least 8 characters' });
-  if (!(await bcrypt.compare(currentPassword, user.password_hash || ''))) return res.status(401).json({ error: 'Current password is incorrect' });
-  user.password_hash = await bcrypt.hash(newPassword, 10);
+
+  let dbUser;
+  try {
+    const result = await milanDb.query(
+      'SELECT user_id, password_hash FROM public.users WHERE user_id::text = $1 LIMIT 1',
+      [String(req.userId)]
+    );
+    dbUser = result.rows[0];
+  } catch (err) {
+    console.error('[settings] authoritative password lookup failed:', err.message);
+    return res.status(503).json({ error: 'Password change is temporarily unavailable.' });
+  }
+  if (!dbUser || !dbUser.password_hash) return res.status(404).json({ error: 'User not found' });
+  if (!(await bcrypt.compare(currentPassword, dbUser.password_hash))) {
+    return res.status(401).json({ error: 'Current password is incorrect' });
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  let changed;
+  try {
+    changed = await authSessions.changePasswordAndRevoke({
+      userId: req.userId,
+      expectedPasswordHash: dbUser.password_hash,
+      passwordHash
+    });
+  } catch (err) {
+    console.error('[settings] authoritative password update failed:', err.message);
+    return res.status(503).json({ error: 'Password change is temporarily unavailable.' });
+  }
+  if (!changed.ok) {
+    return res.status(409).json({ error: 'Password changed concurrently. Please sign in again.' });
+  }
+
+  user.password_hash = passwordHash;
   user.passwordChangedAt = new Date().toISOString();
-  user.tokenVersion = (user.tokenVersion || 0) + 1; // invalidate other sessions
+  user.tokenVersion = changed.tokenVersion;
   users[email] = user;
-  await saveUsers(users);
+  try { writeJson(global.usersFile, users); }
+  catch (err) { console.warn('[settings] local password snapshot update failed:', err.message); }
+  auth.invalidateAuthCache();
   addActivity(user.id, 'settings.password_changed');
-  notify.emailSecurity(user, { subject: 'Your MILAN password was changed', heading: 'Password changed', intro: 'Your MILAN account password was just changed. All other devices have been signed out.', bullets: [`When: ${new Date().toUTCString()}`, "If this wasn't you, reset your password immediately."] });
-  res.json({ ok: true, message: 'Password changed. Other devices have been signed out.', tokenVersion: user.tokenVersion });
+  notify.emailSecurity(user, {
+    subject: 'Your MILAN password was changed',
+    heading: 'Password changed',
+    intro: 'Your MILAN password was changed. All existing sessions have been invalidated.',
+    bullets: [`When: ${new Date().toUTCString()}`, "If this wasn't you, reset your password immediately."]
+  });
+  res.json({ ok: true, message: 'Password changed. Please sign in again.', tokenVersion: user.tokenVersion });
 }));
 
 /* ── Security: 2FA (TOTP) ────────────────────────────────────────── */
@@ -267,17 +310,43 @@ router.get('/security/sessions', auth, asyncRoute(async (req, res) => {
   const mine = Array.isArray(activity[user.id]) ? activity[user.id] : [];
   const logins = mine.filter(a => a.action === 'auth.login').slice(0, 20)
     .map(a => ({ at: a.at, ip: a.details?.ip || 'unknown', userAgent: a.details?.userAgent || '' }));
-  res.json({ ok: true, currentTokenVersion: user.tokenVersion || 0, lastLoginAt: user.last_login_at || null, loginCount: user.login_count || 0, recentLogins: logins });
+  let tokenVersion;
+  try {
+    const result = await milanDb.query(
+      'SELECT auth_token_version FROM public.users WHERE user_id::text = $1 LIMIT 1',
+      [String(req.userId)]
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: 'User not found' });
+    tokenVersion = Number(result.rows[0].auth_token_version);
+    if (!Number.isSafeInteger(tokenVersion) || tokenVersion < 0) {
+      return res.status(503).json({ error: 'Session state is unavailable.' });
+    }
+  } catch (err) {
+    console.error('[settings] authoritative session-state lookup failed:', err.message);
+    return res.status(503).json({ error: 'Session state is temporarily unavailable.' });
+  }
+  res.json({ ok: true, currentTokenVersion: tokenVersion, lastLoginAt: user.last_login_at || null, loginCount: user.login_count || 0, recentLogins: logins });
 }));
 
 router.post('/security/logout-all', auth, asyncRoute(async (req, res) => {
   const { users, email, user } = locate(req);
   if (!user) return res.status(404).json({ error: 'User not found' });
-  user.tokenVersion = (user.tokenVersion || 0) + 1;
+
+  let tokenVersion;
+  try {
+    tokenVersion = await authSessions.bumpTokenVersion(req.userId);
+  } catch (err) {
+    console.error('[settings] authoritative session revocation failed:', err.message);
+    return res.status(503).json({ error: 'Session revocation is temporarily unavailable.' });
+  }
+
+  user.tokenVersion = tokenVersion;
   users[email] = user;
-  await saveUsers(users);
+  try { writeJson(global.usersFile, users); }
+  catch (err) { console.warn('[settings] local session snapshot update failed:', err.message); }
+  auth.invalidateAuthCache();
   addActivity(user.id, 'settings.logout_all');
-  res.json({ ok: true, message: 'Signed out of all other sessions. Your current device may need to sign in again.', tokenVersion: user.tokenVersion });
+  res.json({ ok: true, message: 'All sessions have been invalidated. Please sign in again.', tokenVersion });
 }));
 
 /* ── Blocking ────────────────────────────────────────────────────── */
@@ -326,11 +395,22 @@ router.get('/data/export', auth, asyncRoute(async (req, res) => {
 router.post('/account/deactivate', auth, asyncRoute(async (req, res) => {
   const { users, email, user } = locate(req);
   if (!user) return res.status(404).json({ error: 'User not found' });
+
+  let tokenVersion;
+  try {
+    tokenVersion = await authSessions.bumpTokenVersion(req.userId);
+  } catch (err) {
+    console.error('[settings] deactivation session revocation failed:', err.message);
+    return res.status(503).json({ error: 'Account deactivation is temporarily unavailable.' });
+  }
+
   user.status = 'deactivated';
   user.deactivatedAt = new Date().toISOString();
-  user.tokenVersion = (user.tokenVersion || 0) + 1;
+  user.tokenVersion = tokenVersion;
   users[email] = user;
-  await saveUsers(users);
+  try { writeJson(global.usersFile, users); }
+  catch (err) { console.warn('[settings] local deactivation snapshot update failed:', err.message); }
+  auth.invalidateAuthCache();
   addActivity(user.id, 'account.deactivated');
   res.json({ ok: true, message: 'Account deactivated. Sign in again any time to reactivate.' });
 }));
@@ -340,6 +420,17 @@ router.post('/account/delete', auth, asyncRoute(async (req, res) => {
   if (!user) return res.status(404).json({ error: 'User not found' });
   const password = String(req.body.password || '');
   if (!(await bcrypt.compare(password, user.password_hash || ''))) return res.status(401).json({ error: 'Password is incorrect' });
+
+  // Revoke every existing JWT in PostgreSQL before removing the local account snapshot.
+  // If the authoritative update fails, do not report or proceed with account deletion.
+  try {
+    await authSessions.bumpTokenVersion(req.userId);
+  } catch (err) {
+    console.error('[settings] account-deletion session revocation failed:', err.message);
+    return res.status(503).json({ error: 'Account deletion is temporarily unavailable.' });
+  }
+  auth.invalidateAuthCache();
+
   const uid = user.id;
   // Purge from central index files (DWN isolated records are owner-controlled and removed with the node).
   delete users[email];
