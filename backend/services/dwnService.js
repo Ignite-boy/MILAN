@@ -22,7 +22,7 @@ function runBackground(task) {
 
 const ACCESS = ['private', 'public', 'shared_did'];
 const MAX_TEXT_BYTES = Number(process.env.MAX_RECORD_TEXT_BYTES || 10 * 1024 * 1024);
-const MAX_MEDIA_BYTES = Number(process.env.MAX_MEDIA_BYTES || 5000 * 1024 * 1024);
+const { MAX_MEDIA_BYTES } = require('./mediaLimits');
 const MAX_MEDIA_MB = Math.round(MAX_MEDIA_BYTES / 1024 / 1024);
 // V49 accepts every file type. BROWSER_SAFE_MEDIA is used only to decide inline preview, not to block uploads.
 const INLINE_PREVIEW_MIME = BROWSER_SAFE_MEDIA;
