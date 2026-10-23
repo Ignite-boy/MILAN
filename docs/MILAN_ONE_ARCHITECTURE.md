@@ -17,7 +17,7 @@ This document describes the intended production architecture for the provider-re
 - PostgreSQL persistence is the main app's authoritative backend. A successful HTTP health response means the process is alive; it does not prove every database write, auth path, upload, payment, or media-playback flow works.
 - Per-user DID/space identifiers provide application-level scoping; the identifier alone is not proof of a standards-compliant, signed Decentralized Web Node protocol engine.
 - The main API currently reports `realDwnProtocol: false`. Do not describe the experimental C++ DWN folder or the wallet prototype as the production protocol engine without end-to-end evidence.
-- The media path writes file bytes into `public.dwn_storage`. The default server-side PostgreSQL media cap is 768 MiB; keep frontend and request limits consistent with that cap unless the storage architecture is changed and tested.
+- The media path writes file bytes into `public.dwn_storage`. A shared limit governs chunk initialization, direct upload, DWN ingestion and PostgreSQL persistence; the default is 768 MiB and the canonical setting is `MILAN_MAX_VOROA_MEDIA_BYTES`.
 - Local files are temporary processing/cache copies. Durable user records and media must be committed to PostgreSQL, and that data must survive a service restart.
 
 ## Voroa deployment settings

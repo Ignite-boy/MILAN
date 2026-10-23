@@ -137,7 +137,7 @@ global.feedbackFile = migrateLegacyJson('feedback.json', []);
 global.securityReportsFile = migrateLegacyJson('securityReports.json', []);
 ensureFile(path.join(DATA_DIR, 'DATABASE_MANIFEST.json'), { app: 'MILAN', version: APP_VERSION, storage: 'voroa-postgresql-primary/core-records-media-snapshots', cloud: persistenceInfo(), createdAt: new Date().toISOString() });
 
-app.get('/health', (_req, res) => res.json({ ok: dwnStore.getStatus().storageOperational === true, app: 'MILAN', version: APP_VERSION, storage: { dwnRoot: DWN_ROOT, databaseDir: DATA_DIR, cloud: persistenceInfo() }, time: new Date().toISOString() }));
+app.get('/health', (_req, res) => res.json({ ok: true, healthSemantics: { level: 'liveness' }, app: 'MILAN', version: APP_VERSION, storage: { dwnRoot: DWN_ROOT, databaseDir: DATA_DIR, cloud: persistenceInfo() }, time: new Date().toISOString() }));
 
 app.get('/api/health', (_req, res) => {
   const cloud = persistenceInfo();
@@ -158,6 +158,42 @@ app.get('/api/health', (_req, res) => {
     dwn: dwnStore.getStatus(),
     storage: { dwnRoot: DWN_ROOT, databaseDir: DATA_DIR, cloud, rule: 'Voroa PostgreSQL is authoritative for core snapshots, records, and media' },
     features: ['Integrated universal video player', 'automatic browser-safe MP4 stream healing', 'MILAN branding', 'DID auth', 'DID-scoped logical user spaces (Voroa PostgreSQL)', 'Voroa PostgreSQL-backed user records', 'privacy modes', 'DID sharing', 'access requests', 'backup', 'activity', 'crypto helper', 'reel viewer', 'bulk actions', 'analytics dashboard', 'PWA shell', 'streaming uploads', 'video range streaming', 'rate limiting', 'security headers', 'social home feed', 'people discovery', 'friend requests', 'reactions', 'comments', 'notifications', 'Milan-style private social UI with explicit DID-scoped permissions', 'V3 Avatar Jaadu', 'V3 Gamification Engine', 'V3 XP & Levels', 'V3 Mystery Rewards', 'V3 Badge Wall', 'V3 AI Chips', 'V3 500-Technique Engagement System']
+  });
+});
+
+// Database/storage readiness is distinct from HTTP liveness and DWN protocol readiness.
+app.get('/api/ready', async (_req, res) => {
+  const database = await require('./services/readiness')
+    .checkDatabaseReadiness(require('./services/milanDb'));
+  const dwn = dwnStore.getStatus();
+  const storageReady = dwn.storageOperational === true;
+  const ready = database.ready && storageReady;
+
+  res.status(ready ? 200 : 503).json({
+    ok: ready,
+    readinessSemantics: {
+      level: 'database-and-storage-readiness',
+      realDwnProtocolIsSeparateGate: true
+    },
+    checks: {
+      database: { ready: database.ready, status: database.status },
+      storage: { ready: storageReady, status: storageReady ? 'ready' : 'unavailable' }
+    },
+    time: new Date().toISOString()
+  });
+});
+
+app.get('/api/dwn/readiness', (_req, res) => {
+  const protocol = require('./services/readiness')
+    .getRealDwnProtocolReadiness(persistenceInfo());
+
+  res.status(protocol.ready ? 200 : 503).json({
+    ok: protocol.ready,
+    readinessSemantics: { level: 'real-dwn-protocol-readiness' },
+    realDwnProtocolReady: protocol.ready,
+    status: protocol.status,
+    reason: protocol.reason,
+    time: new Date().toISOString()
   });
 });
 

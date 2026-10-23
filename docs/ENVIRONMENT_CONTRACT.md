@@ -18,7 +18,7 @@ This file documents configuration names and minimum intent. It contains no produ
 - Voroa PostgreSQL is the authoritative store for users, snapshots, records, resumable upload sessions/chunks, and media bytes in `public.dwn_storage`.
 - The database must have the schema expected by the application. At minimum, the Voroa preflight checks `public.users` and `public.dwn_storage`; payment, WebAuthn, email-auth, and rate-limit features may require the additional migrations in `backend/migrations/`.
 - The local filesystem is scratch/cache storage for media processing, not a durability guarantee. Do not rely on local files as the only copy of user data or media.
-- Large media is written into PostgreSQL and is limited by `MILAN_MAX_VOROA_MEDIA_BYTES` (default 768 MiB). Set upload limits consistently; a route-level maximum does not override the PostgreSQL media cap.
+- Large media uses one shared byte limit from `MILAN_MAX_VOROA_MEDIA_BYTES` (default 768 MiB). Legacy `MAX_MEDIA_BYTES` is a fallback when the canonical variable is unset. Chunk initialization, direct upload, DWN ingestion and PostgreSQL persistence use the same resolved limit.
 
 ## Optional integrations
 
