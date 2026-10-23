@@ -59,6 +59,8 @@ jobs:
 
       - name: Verify payment idempotency and quota invariants
         run: npm run test:payment-idempotency
+      - name: Exercise payment ownership and idempotent transitions
+        run: npm run test:payment-idempotency-runtime
 
       - name: Verify chat architecture
         run: npm run test:chat
