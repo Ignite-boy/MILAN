@@ -16,6 +16,7 @@ const {
 } = require('@simplewebauthn/server');
 
 const auth = require('../middleware/auth');
+const { parseTokenVersion } = require('../services/sessionTokens');
 const {
   readJson,
   writeJson,
@@ -149,10 +150,13 @@ async function consumeWebAuthnChallenge(id) {
 
 
 function issueJwt(user) {
+  const tv = parseTokenVersion(user.auth_token_version);
+  if (tv === null) throw new Error('Authoritative session version is unavailable.');
   return jwt.sign(
     {
       userId: user.id,
-      email: user.email
+      email: user.email,
+      tv
     },
     JWT_SECRET,
     {
@@ -725,7 +729,7 @@ if (!challengeRow) {
     let user;
 try {
   const result = await milanDb.query(
-    `SELECT user_id AS id, email, name, did, email_verified
+    `SELECT user_id AS id, email, name, did, email_verified, auth_token_version
        FROM public.users
       WHERE user_id = $1
       LIMIT 1`,

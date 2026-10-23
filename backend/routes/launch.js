@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const { readJson, writeJson } = require('../utils/store');
 const dwnStore = require('../services/dwnService');
+const { checkDatabaseReadiness, getRealDwnProtocolReadiness } = require('../services/readiness');
 
 const router = express.Router();
 const feedbackFile = path.join(__dirname, '..', 'data', 'feedback.json');
@@ -20,16 +21,22 @@ const phases = [
 
 function allUsers() { return readJson(global.usersFile, {}); }
 function flatten(obj) { return Object.values(obj || {}).flatMap(v => Array.isArray(v) ? v : []); }
-function readiness() {
+async function readiness() {
   const users = allUsers();
   const dwn = dwnStore.getStatus();
   const recordsIndex = readJson(dwn.indexFile, {});
   const records = flatten(recordsIndex);
   const requests = flatten(readJson(global.requestsFile, {}));
+
+  const database = await checkDatabaseReadiness(require('../services/milanDb'));
+  const protocol = getRealDwnProtocolReadiness(dwn.cloud || {});
+
   const checks = {
     apiOnline: true,
+    databaseReady: database.ready,
     dwnStorageOperational: dwn.storageOperational === true,
     voroaPostgresqlPrimaryMode: dwn.mode === 'voroa-postgresql',
+    realDwnProtocolIntegrated: protocol.ready,
     userRegistrationAvailable: true,
     loginAvailable: true,
     privateByDefault: true,
@@ -42,6 +49,7 @@ function readiness() {
     feedbackCollectionAvailable: true,
     productionRoutingConfigured: true
   };
+
   const score = Object.values(checks).filter(Boolean).length;
   return {
     ok: score === Object.keys(checks).length,
@@ -49,15 +57,35 @@ function readiness() {
     total: Object.keys(checks).length,
     launchTarget: '2026-09-04',
     generatedAt: new Date().toISOString(),
+    readinessSemantics: {
+      database: { ready: database.ready, status: database.status },
+      realDwnProtocol: protocol
+    },
     checks,
-    counts: { users: Object.keys(users).length, records: records.length, accessRequests: requests.length, feedback: readJson(feedbackFile, []).length },
+    counts: {
+      users: Object.keys(users).length,
+      records: records.length,
+      accessRequests: requests.length,
+      feedback: readJson(feedbackFile, []).length
+    },
     dwn
   };
 }
 
 router.get('/roadmap', (_req, res) => res.json({ ok: true, launchTarget: '2026-09-04', phases }));
-router.get('/readiness', (_req, res) => res.json(readiness()));
-router.get('/checklist', (_req, res) => res.json({ ok: true, phases, readiness: readiness(), nextAction: 'Run all-phases-smoke-test.bat and then test two real users from the browser.' }));
+router.get('/readiness', async (_req, res) => {
+  const status = await readiness();
+  res.status(status.ok ? 200 : 503).json(status);
+});
+router.get('/checklist', async (_req, res) => {
+  const status = await readiness();
+  res.status(status.ok ? 200 : 503).json({
+    ok: status.ok,
+    phases,
+    readiness: status,
+    nextAction: 'Resolve every reported readiness gate and test two real users from the browser.'
+  });
+});
 router.post('/feedback', (req, res) => {
   const all = readJson(feedbackFile, []);
   const item = {

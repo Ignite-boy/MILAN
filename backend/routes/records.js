@@ -10,6 +10,8 @@ const crypto = require('crypto');
 const { detectMimeFromFile } = require('../utils/mediaCompat');
 const resumableUploadStore = require('../services/resumableUploadStore');
 
+const { MAX_MEDIA_BYTES } = require('../services/mediaLimits');
+
 const router = express.Router();
 
 async function current(req) {
@@ -254,7 +256,7 @@ router.post('/media/chunk/init', auth, async (req, res) => {
     if (!usesSharedUploadStorage()) cleanupOldUploadSessions();
     const u = await current(req);
     if (!u) return res.status(404).json({ error: 'User not found' });
-    const limit = Number(process.env.MAX_MEDIA_BYTES || 5000 * 1024 * 1024);
+    const limit = MAX_MEDIA_BYTES;
     const sizeBytes = Number(req.body?.sizeBytes || 0);
     if (!Number.isFinite(sizeBytes) || sizeBytes <= 0) return res.status(400).json({ error: 'Valid file size is required.' });
     if (sizeBytes > limit) return res.status(413).json({ error: `Media exceeds the configured upload limit of ${Math.round(limit / 1024 / 1024)} MB.` });
@@ -697,7 +699,7 @@ router.post('/media', auth, async (req, res) => {
   const tmpDir = path.join(os.tmpdir(), 'web5-dwn-uploads');
   fs.mkdirSync(tmpDir, { recursive: true });
   const tmpFile = path.join(tmpDir, `${Date.now()}-${Math.random().toString(16).slice(2)}.upload`);
-  const limit = Number(process.env.MAX_MEDIA_BYTES || 5000 * 1024 * 1024);
+  const limit = MAX_MEDIA_BYTES;
   const contentLength = Number(req.headers['content-length'] || 0);
   let received = 0;
   let settled = false;
