@@ -57,6 +57,9 @@ jobs:
       - name: Verify video byte-range semantics
         run: npm run test:video-range
 
+      - name: Verify payment idempotency and quota invariants
+        run: npm run test:payment-idempotency
+
       - name: Verify chat architecture
         run: npm run test:chat
       - name: Verify feed pagination contract

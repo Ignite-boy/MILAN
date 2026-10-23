@@ -12,6 +12,7 @@
     "test:chat": "node scripts/chat-self-test.js",
     "test:payment": "node scripts/payment-self-test.js",
     "test:milan-pay": "node scripts/milan-pay-self-test.js",
+    "test:payment-idempotency": "node scripts/payment-idempotency-self-test.js",
     "test:security": "node --test scripts/security-self-test.js",
     "test:upload": "node scripts/upload-chunk-self-test.js && node scripts/upload-chunk-self-test.js --shared && node scripts/resumable-upload-store-self-test.js && node scripts/resumable-media-commit-self-test.js",
     "test:distributed-rate-limit": "node scripts/distributed-rate-limit-self-test.js",
