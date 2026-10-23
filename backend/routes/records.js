@@ -8,6 +8,7 @@ const dwnStore = require('../services/dwnService');
 const { Readable } = require('stream');
 const crypto = require('crypto');
 const { detectMimeFromFile } = require('../utils/mediaCompat');
+const { parseByteRange } = require('../utils/byteRange');
 const resumableUploadStore = require('../services/resumableUploadStore');
 
 const { MAX_MEDIA_BYTES } = require('../services/mediaLimits');
@@ -63,16 +64,7 @@ function isVideoMime(mime = '') {
   return String(mime || '').toLowerCase().startsWith('video/');
 }
 
-function parseByteRange(range, total) {
-  const match = String(range || '').match(/bytes=(\d*)-(\d*)/);
-  if (!match) return null;
-  let start = match[1] ? parseInt(match[1], 10) : 0;
-  let end = match[2] ? parseInt(match[2], 10) : total - 1;
-  if (!Number.isFinite(start) || start < 0) start = 0;
-  if (!Number.isFinite(end) || end >= total) end = total - 1;
-  if (start >= total || end < start) return { invalid: true };
-  return { start, end };
-}
+
 
 
 function safeAsciiFileName(value = 'milan-media') {
