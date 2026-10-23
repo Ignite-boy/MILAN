@@ -77,6 +77,29 @@ jobs:
                 console.log(`Row count ${table}: ${count.rows[0].row_count}`);
               }
 
+              // Read-only DWN summary; never emit record IDs or payloads.
+              if (found.has('dwn_storage')) {
+                const summary = await client.query(`
+                  SELECT component_type,
+                         COALESCE(deleted, FALSE) AS is_deleted,
+                         COUNT(*)::text AS rows_count,
+                         COALESCE(SUM(data_size), 0)::text AS total_bytes,
+                         COUNT(data_bytes)::text AS binary_rows
+                  FROM public.dwn_storage
+                  GROUP BY component_type, COALESCE(deleted, FALSE)
+                  ORDER BY component_type, is_deleted
+                `);
+                for (const row of summary.rows) {
+                  console.log('DWN aggregate:', JSON.stringify({
+                    componentType: row.component_type,
+                    deleted: row.is_deleted,
+                    rows: row.rows_count,
+                    totalBytes: row.total_bytes,
+                    binaryRows: row.binary_rows
+                  }));
+                }
+              }
+
               // Report snapshot metadata only; never log snapshot payloads.
               if (found.has('milan_database_snapshots')) {
                 const snapshots = await client.query(`
