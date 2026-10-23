@@ -38,6 +38,9 @@ async function main() {
     const recordIndex = path.join(tempDir, 'APP_RECORD_INDEX.json');
     const connections = path.join(tempDir, 'connections.json');
     const missingSnapshot = path.join(tempDir, 'requests.json');
+    const emptyArraySnapshot = path.join(tempDir, 'records.json');
+    const originalRecords = [{ id: 'local-record' }];
+    fs.writeFileSync(emptyArraySnapshot, JSON.stringify(originalRecords));
 
     fs.writeFileSync(recordIndex, JSON.stringify({
       alice: [
@@ -65,10 +68,11 @@ async function main() {
     });
 
     snapshots.set('connections.json', { ok: true, data: {} });
+    snapshots.set('records.json', { ok: true, data: [] });
     snapshots.set('requests.json', { ok: false, error: 'database-unavailable' });
 
     const result = await hydrateFilesFromVoroa([
-      activity, recordIndex, connections, missingSnapshot
+      activity, recordIndex, connections, emptyArraySnapshot, missingSnapshot
     ]);
 
     assert.equal(result.ok, true);
@@ -89,7 +93,17 @@ async function main() {
       result.results.find(r => r.name === 'connections.json').reason,
       'remote-empty-kept-local-cache'
     );
-    console.log('PASS: empty remote snapshot does not overwrite non-empty local cache.');
+    console.log('PASS: empty remote object does not overwrite non-empty local cache.');
+
+    assert.deepEqual(
+      JSON.parse(fs.readFileSync(emptyArraySnapshot, 'utf8')),
+      originalRecords
+    );
+    assert.equal(
+      result.results.find(r => r.name === 'records.json').reason,
+      'remote-empty-kept-local-cache'
+    );
+    console.log('PASS: empty remote array does not overwrite non-empty local records.');
 
     assert.equal(fs.existsSync(missingSnapshot), false);
     assert.equal(

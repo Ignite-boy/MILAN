@@ -257,8 +257,9 @@ async function hydrateFilesFromVoroa(files = []) {
       const normalized = normalizePulledSnapshot(pulled);
       if (normalized.ok && normalized.data !== undefined) {
         const isEmptyObject = normalized.data && typeof normalized.data === 'object' && !Array.isArray(normalized.data) && Object.keys(normalized.data).length === 0;
+        const isEmptyArray = Array.isArray(normalized.data) && normalized.data.length === 0;
         const currentRawForSkip = fs.existsSync(file) ? fs.readFileSync(file, 'utf8').trim() : '';
-        if (isEmptyObject && currentRawForSkip && currentRawForSkip !== '{}' && currentRawForSkip !== '[]') {
+        if ((isEmptyObject || isEmptyArray) && currentRawForSkip && currentRawForSkip !== '{}' && currentRawForSkip !== '[]') {
           results.push({ name, hydrated: false, reason: 'remote-empty-kept-local-cache' });
           continue;
         }
