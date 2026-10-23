@@ -11,7 +11,7 @@ One task per run. The next task starts only after the production pipeline succee
   - Acceptance: login, revocation, token expiry and session boundaries have regression tests; no security test is weakened.
 - [x] A04 (10%) Verify authenticated-user and DID/space authorization boundaries.
   - Acceptance: cross-user access to protected resources is rejected and tested.
-- [ ] A05 (10%) Make authoritative persistence failures observable and social-state persistence consistent.
+- [x] A05 (10%) Make authoritative persistence failures observable and social-state persistence consistent.
   - Acceptance: critical PostgreSQL write failures cannot be reported as successful; persistence semantics are documented and tested.
 - [ ] A06 (10%) Verify private-chat isolation, feed ordering and pagination.
   - Acceptance: private data never leaks into public feeds; deterministic cursors produce no duplicates or gaps in tested cases.
