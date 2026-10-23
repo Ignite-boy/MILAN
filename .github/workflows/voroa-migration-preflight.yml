@@ -103,6 +103,12 @@ jobs:
                 }
               }
 
+              // Read-only inventory: discover existing public tables without reading their data.
+              const inventory = await client.query(
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name LIMIT 250"
+              );
+              console.log('Public table inventory:', inventory.rows.map(row => row.table_name).join(', '));
+
               console.log('Voroa connection: OK');
               console.log('Database:', identity.rows[0].database);
               console.log('Connected role:', identity.rows[0].role);
