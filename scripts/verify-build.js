@@ -87,6 +87,7 @@ const syntaxCheckFiles = [
   'backend/routes/auth.js',
   'backend/routes/did.js',
   'backend/services/resumableMediaCommit.js',
+  'backend/services/aiBestTime.js',
   'scripts/upload-chunk-self-test.js',
   'backend/routes/isolatedDwn.js',
   'frontend/assets/js/inline-05.js',

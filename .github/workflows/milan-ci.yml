@@ -66,6 +66,9 @@ jobs:
       - name: Verify MILAN Pay checkout details
         run: npm run test:milan-pay
 
+      - name: Verify AI analytics data boundaries
+        run: npm run test:ai-boundary
+
       - name: Verify critical frontend files
         run: |
           test -s frontend/app.html
