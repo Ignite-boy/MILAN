@@ -54,6 +54,9 @@ jobs:
       - name: Run project build check
         run: npm run build
 
+      - name: Verify video byte-range semantics
+        run: npm run test:video-range
+
       - name: Verify chat architecture
         run: npm run test:chat
       - name: Verify feed pagination contract
