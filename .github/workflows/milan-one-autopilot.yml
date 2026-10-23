@@ -111,21 +111,43 @@ jobs:
             gh workflow disable milan-one-autopilot.yml --repo "$GITHUB_REPOSITORY"
           fi
 
+      - name: Avoid duplicate task pull requests
+        id: candidate
+        if: ${{ steps.plan.outputs.has_task == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.MILAN_GH_TOKEN }}
+          TASK_ID: ${{ steps.plan.outputs.task_id }}
+        run: |
+          set -euo pipefail
+          export PREFIX="milan-one/autopilot-${TASK_ID,,}-"
+          OPEN_COUNT="$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --limit 100 --json headRefName | python3 -c 'import json,os,sys; p=os.environ["PREFIX"]; print(sum(1 for x in json.load(sys.stdin) if x.get("headRefName", "").startswith(p)))')"
+          if [ "$OPEN_COUNT" -gt 0 ]; then
+            echo "has_task=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "## MILAN-ONE Autopilot: awaiting independent review"
+              echo ""
+              echo "Roadmap task ${TASK_ID} already has an open candidate PR."
+              echo "No duplicate PR was created; the next task waits until this PR is merged or closed."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "has_task=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Set up Node.js
-        if: steps.plan.outputs.has_task == 'true'
+        if: steps.plan.outputs.has_task == 'true' && steps.candidate.outputs.has_task == 'true'
         uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
 
       - name: Set up Python
-        if: steps.plan.outputs.has_task == 'true'
+        if: steps.plan.outputs.has_task == 'true' && steps.candidate.outputs.has_task == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Install dependencies
-        if: steps.plan.outputs.has_task == 'true'
+        if: steps.plan.outputs.has_task == 'true' && steps.candidate.outputs.has_task == 'true'
         run: |
           set -euo pipefail
           npm ci
@@ -137,7 +159,7 @@ jobs:
           npx playwright install --with-deps chromium
 
       - name: Run one bounded Codex task
-        if: steps.plan.outputs.has_task == 'true'
+        if: steps.plan.outputs.has_task == 'true' && steps.candidate.outputs.has_task == 'true'
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
@@ -147,7 +169,7 @@ jobs:
           effort: high
 
       - name: Validate one-task changes
-        if: steps.plan.outputs.has_task == 'true'
+        if: steps.plan.outputs.has_task == 'true' && steps.candidate.outputs.has_task == 'true'
         env:
           BASE_SHA: ${{ steps.gate.outputs.base_sha }}
           TASK_ID: ${{ steps.plan.outputs.task_id }}
@@ -193,7 +215,7 @@ jobs:
           PY
 
       - name: Run regression tests
-        if: steps.plan.outputs.has_task == 'true'
+        if: steps.plan.outputs.has_task == 'true' && steps.candidate.outputs.has_task == 'true'
         run: |
           set -euo pipefail
           npm run build
@@ -213,7 +235,7 @@ jobs:
 
       - name: Commit and push one task
         id: commit
-        if: steps.plan.outputs.has_task == 'true'
+        if: steps.plan.outputs.has_task == 'true' && steps.candidate.outputs.has_task == 'true'
         env:
           GH_TOKEN: ${{ secrets.MILAN_GH_TOKEN }}
           BASE_SHA: ${{ steps.gate.outputs.base_sha }}
@@ -234,7 +256,7 @@ jobs:
 
       - name: Create verification PR
         id: pr
-        if: steps.plan.outputs.has_task == 'true'
+        if: steps.plan.outputs.has_task == 'true' && steps.candidate.outputs.has_task == 'true'
         env:
           GH_TOKEN: ${{ secrets.MILAN_GH_TOKEN }}
           TASK_ID: ${{ steps.plan.outputs.task_id }}
@@ -251,7 +273,7 @@ jobs:
 
       - name: Wait for CI and verify exact checks
         id: checks
-        if: steps.plan.outputs.has_task == 'true'
+        if: steps.plan.outputs.has_task == 'true' && steps.candidate.outputs.has_task == 'true'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.MILAN_GH_TOKEN }}
@@ -270,7 +292,7 @@ jobs:
           done
 
       - name: Close failed candidate
-        if: ${{ always() && steps.plan.outputs.has_task == 'true' && steps.checks.outcome != 'success' }}
+        if: ${{ always() && steps.plan.outputs.has_task == 'true' && steps.candidate.outputs.has_task == 'true' && steps.pr.outputs.number != '' && steps.checks.outcome != 'success' }}
         env:
           GH_TOKEN: ${{ secrets.MILAN_GH_TOKEN }}
           PR: ${{ steps.pr.outputs.number }}
@@ -279,24 +301,17 @@ jobs:
             --comment "Required checks did not pass. The roadmap task remains unchecked for retry."
           exit 1
 
-      - name: Merge verified PR
-        id: merge
-        if: steps.plan.outputs.has_task == 'true' && steps.checks.outcome == 'success'
-        continue-on-error: true
+      - name: Leave passing PR open for independent review
+        if: steps.plan.outputs.has_task == 'true' && steps.candidate.outputs.has_task == 'true' && steps.checks.outcome == 'success'
         env:
-          GH_TOKEN: ${{ secrets.MILAN_GH_TOKEN }}
-          PR: ${{ steps.pr.outputs.number }}
-        run: gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --squash --delete-branch
-
-      - name: Report blocked merge
-        if: ${{ always() && steps.plan.outputs.has_task == 'true' && steps.checks.outcome == 'success' && steps.merge.outcome != 'success' }}
-        env:
-          GH_TOKEN: ${{ secrets.MILAN_GH_TOKEN }}
-          PR: ${{ steps.pr.outputs.number }}
+          TASK_ID: ${{ steps.plan.outputs.task_id }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
         run: |
-          STATE="$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json state --jq '.state')"
-          if [ "$STATE" != "MERGED" ]; then
-            gh pr close "$PR" --repo "$GITHUB_REPOSITORY" --delete-branch \
-              --comment "Merge blocked by repository safeguards. The roadmap task remains unchecked."
-            exit 1
-          fi
+          {
+            echo "## MILAN-ONE task ready for independent review"
+            echo ""
+            echo "- Roadmap task: ${TASK_ID}"
+            echo "- Pull request: #${PR_NUMBER}"
+            echo "- Required automated checks: passed"
+            echo "- Merge: intentionally left to an independent reviewer"
+          } >> "$GITHUB_STEP_SUMMARY"
