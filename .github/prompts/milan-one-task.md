@@ -9,6 +9,13 @@ code/test improvement; run relevant tests. Change only that task's checkbox
 from [ ] to [x] after its acceptance criteria are genuinely met. Do not change
 roadmap weights, task order, titles, or other checkboxes.
 
+
+Release-gate separation:
+- The A01–A10 weights measure implementation progress only, not production readiness.
+- Never edit, check, uncheck, rename or remove any R## non-weighted production release gate in the roadmap. These are operator-owned sign-offs requiring independent evidence and review.
+- If an R## gate is open, blocked, or its current status is unknown, do not claim MILAN-ONE is production-ready, even when weighted task progress reaches 100%.
+- Historical production incidents must be independently re-verified by an authorized owner. Never access production data to satisfy a release gate.
+
 Safety:
 - Never print, inspect, copy or exfiltrate secrets, tokens, keys, or production
   database URLs.
