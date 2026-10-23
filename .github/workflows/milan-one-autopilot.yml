@@ -261,7 +261,7 @@ jobs:
           for value in paths:
               p = Path(value)
               n = p.name.lower()
-              if value.startswith((".github/workflows/",".github/prompts/")) or n in ("package.json","package-lock.json") or any(part == ".env" or part.startswith(".env.") for part in p.parts) or n.endswith((".pem",".key",".p12",".pfx",".sql")) or any(s in n for s in ("credential","private-key")):
+              if value.startswith((".github/workflows/",".github/prompts/")) or value == "docs/MILAN_ONE_DECISION_REGISTER.md" or n in ("package.json","package-lock.json") or any(part == ".env" or part.startswith(".env.") for part in p.parts) or n.endswith((".pem",".key",".p12",".pfx",".sql")) or any(s in n for s in ("credential","private-key")):
                   blocked.append(value)
           if blocked:
               raise SystemExit("Protected paths changed: " + ", ".join(blocked))
