@@ -5,7 +5,7 @@ One task per run. The next task starts only after the production pipeline succee
 
 - [x] A01 (5%) Align media byte limits and regression tests.
   - Acceptance: backend, frontend and storage limits agree with the canonical architecture contract; boundary tests pass.
-- [ ] A02 (5%) Separate liveness, database readiness and real-DWN readiness.
+- [x] A02 (5%) Separate liveness, database readiness and real-DWN readiness.
   - Acceptance: health reporting is truthful; no mock or logical namespace is labelled a real protocol engine; regression tests pass.
 - [ ] A03 (10%) Verify authentication, session invalidation and token-version behavior.
   - Acceptance: login, revocation, token expiry and session boundaries have regression tests; no security test is weakened.
