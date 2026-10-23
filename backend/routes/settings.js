@@ -420,6 +420,17 @@ router.post('/account/delete', auth, asyncRoute(async (req, res) => {
   if (!user) return res.status(404).json({ error: 'User not found' });
   const password = String(req.body.password || '');
   if (!(await bcrypt.compare(password, user.password_hash || ''))) return res.status(401).json({ error: 'Password is incorrect' });
+
+  // Revoke every existing JWT in PostgreSQL before removing the local account snapshot.
+  // If the authoritative update fails, do not report or proceed with account deletion.
+  try {
+    await authSessions.bumpTokenVersion(req.userId);
+  } catch (err) {
+    console.error('[settings] account-deletion session revocation failed:', err.message);
+    return res.status(503).json({ error: 'Account deletion is temporarily unavailable.' });
+  }
+  auth.invalidateAuthCache();
+
   const uid = user.id;
   // Purge from central index files (DWN isolated records are owner-controlled and removed with the node).
   delete users[email];

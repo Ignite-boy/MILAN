@@ -78,6 +78,11 @@ async function main() {
   assert.match(middleware, /tokenVersionMatches\(decoded\.tv, account\.auth_token_version\)/);
   assert.match(settings, /authSessions\.changePasswordAndRevoke/);
   assert.match(settings, /authSessions\.bumpTokenVersion/);
+  const deleteRouteStart = settings.indexOf("router.post('/account/delete'");
+  const deleteRouteEnd = settings.indexOf("router.use((err", deleteRouteStart + 1);
+  assert.ok(deleteRouteStart >= 0 && deleteRouteEnd > deleteRouteStart);
+  assert.match(settings.slice(deleteRouteStart, deleteRouteEnd), /authSessions\.bumpTokenVersion\(req\.userId\)/);
+
   assert.match(settings, /SELECT auth_token_version FROM public\.users/);
   assert.match(livePush, /tokenVersionMatches\(decoded\.tv, account\.auth_token_version\)/);
   assert.match(migration, /ADD COLUMN IF NOT EXISTS auth_token_version integer NOT NULL DEFAULT 0/);
