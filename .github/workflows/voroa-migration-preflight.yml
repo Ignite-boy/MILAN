@@ -70,6 +70,32 @@ jobs:
                 console.log(`Row count ${table}: ${count.rows[0].row_count}`);
               }
 
+              // Report snapshot metadata only; never log snapshot payloads.
+              if (found.has('milan_database_snapshots')) {
+                const snapshots = await client.query(`
+                  SELECT s.name, s.pushed_at,
+                    jsonb_typeof(s.data) AS payload_type,
+                    CASE WHEN jsonb_typeof(s.data) = 'object'
+                      THEN (SELECT COUNT(*)::int FROM jsonb_object_keys(s.data))
+                    END AS top_level_keys,
+                    CASE WHEN jsonb_typeof(s.data) = 'array'
+                      THEN jsonb_array_length(s.data)
+                    END AS array_items
+                  FROM public.milan_database_snapshots s
+                  ORDER BY s.name
+                  LIMIT 100
+                `);
+                for (const row of snapshots.rows) {
+                  console.log('Snapshot metadata:', JSON.stringify({
+                    name: row.name,
+                    pushedAt: row.pushed_at,
+                    payloadType: row.payload_type,
+                    topLevelKeys: row.top_level_keys,
+                    arrayItems: row.array_items
+                  }));
+                }
+              }
+
               console.log('Voroa connection: OK');
               console.log('Database:', identity.rows[0].database);
               console.log('Connected role:', identity.rows[0].role);
