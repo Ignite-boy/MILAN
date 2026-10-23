@@ -15,7 +15,7 @@ One task per run. The next task starts only after the production pipeline succee
   - Acceptance: critical PostgreSQL write failures cannot be reported as successful; persistence semantics are documented and tested.
 - [x] A06 (10%) Verify private-chat isolation, feed ordering and pagination.
   - Acceptance: private data never leaks into public feeds; deterministic cursors produce no duplicates or gaps in tested cases.
-- [ ] A07 (10%) Harden uploads, retries, resumable chunks and video range playback.
+- [x] A07 (10%) Harden uploads, retries, resumable chunks and video range playback.
   - Acceptance: ownership, idempotency, size limits and byte-range behavior have regression coverage.
 - [ ] A08 (10%) Harden payment ownership, idempotency and storage quota upgrades.
   - Acceptance: unauthorized and repeated payment transitions cannot grant quota twice; manual verification is represented truthfully.
