@@ -79,6 +79,7 @@ assert(chat.includes('livePush.push(req.userId'), 'Sender other-device push miss
 
 assert(social.includes('function isChatRecord(record)'), 'Feed chat-record guard missing.');
 assert(social.includes('if (isChatRecord(record)) return false;'), 'Social feed does not reject chat records.');
+assert(uiActions.includes('"/api/social/feed?scope=all"'), 'Home-feed refresh must use the chat-filtered social feed endpoint.');
 
 const commentsGetStart = social.indexOf("router.get('/records/:id/comments'");
 const commentsPostStart = social.indexOf("router.post('/records/:id/comments'");
