@@ -69,7 +69,7 @@ async function main() {
 
     snapshots.set('connections.json', { ok: true, data: {} });
     snapshots.set('records.json', { ok: true, data: [] });
-    snapshots.set('requests.json', { ok: false, error: 'database-unavailable' });
+    snapshots.set('requests.json', { ok: true, data: {}, missing: true });
 
     const result = await hydrateFilesFromVoroa([
       activity, recordIndex, connections, emptyArraySnapshot, missingSnapshot
@@ -110,7 +110,11 @@ async function main() {
       result.results.find(r => r.name === 'requests.json').hydrated,
       false
     );
-    console.log('PASS: failed snapshot pull does not create replacement data.');
+    assert.equal(
+      result.results.find(r => r.name === 'requests.json').reason,
+      'snapshot-not-found'
+    );
+    console.log('PASS: missing remote snapshot does not create replacement data.');
 
     assert.equal(global.__milanHydratingFromDwn, false);
     console.log('PASS: hydration flag is reset after completion.');

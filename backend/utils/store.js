@@ -180,7 +180,7 @@ async function writeJsonAndSync(file, data) {
   }
 }
 function normalizePulledSnapshot(pulled) {
-  if (!pulled || pulled.ok === false) return { ok: false, error: pulled?.error || pulled?.skipped || 'not-found' };
+  if (!pulled || pulled.ok === false || pulled.missing === true) return { ok: false, error: pulled?.error || pulled?.skipped || (pulled?.missing === true ? 'snapshot-not-found' : 'not-found') };
   let data = pulled.data !== undefined ? pulled.data : pulled;
   data = unwrapDwnSnapshotValue(data);
   return { ok: true, data };
