@@ -81,6 +81,10 @@ if(entry.isIntersecting&&entry.intersectionRatio>=.15){
  delete video.dataset.milanOffscreen;
  if(video.dataset.milanPausedOffscreen!=="1")return;
  delete video.dataset.milanPausedOffscreen;
+ if(video.dataset.milanTempDownloadInProgress==="1"){
+  video.dataset.milanResumeAfterTempDownload="1";
+  return;
+ }
  if(video.isConnected&&!video.ended&&video.dataset.finalFailed!=="1"){
   try{const pending=video.play();if(pending&&typeof pending.catch==="function")pending.catch(()=>{})}catch(_){}
  }
@@ -127,8 +131,8 @@ setTemporaryDownloadMessage(video,"");
 showLoading(video,false);
 if(!video.isConnected)return;
 delete video.dataset.milanTempDownloadInProgress;
-if(video.dataset.milanOffscreen==="1"){video.dataset.milanPausedOffscreen="1";return}
 delete video.dataset.milanResumeAfterTempDownload;
+if(video.dataset.milanOffscreen==="1"){video.dataset.milanPausedOffscreen="1";return}
 try{const pending=video.play();if(pending&&typeof pending.catch==="function")pending.catch(()=>{})}catch(_){}
 };
 (async()=>{
