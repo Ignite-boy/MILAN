@@ -72,7 +72,7 @@ const recovered=()=>{clearTimer();if(!video.paused){showLoading(video,false);mar
 video.addEventListener("playing",()=>{setTemporaryDownloadMessage(video,"");recovered()});
 video.addEventListener("canplay",()=>{if(video.readyState>=3)recovered()});
 video.addEventListener("play",()=>{
-if(video.dataset.milanTempDownloadAttempted==="1"||video.dataset.milanDirectReady!=="1"||video.dataset.milanDirectFallback==="1")return;
+if(window.MILAN_ENABLE_TEMP_PLAYBACK_DOWNLOAD!==true||video.dataset.milanTempDownloadAttempted==="1"||video.dataset.milanDirectReady!=="1"||video.dataset.milanDirectFallback==="1")return;
 const source=video.querySelector("source[data-milan-direct-source],source");
 const direct=String(source&&source.getAttribute("src")||"");
 if(!/^https?:\/\//i.test(direct)||typeof fetch!=="function"||typeof URL.createObjectURL!=="function")return;
