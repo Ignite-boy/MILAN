@@ -24,7 +24,7 @@ const contracts = [
   ['ready Voroa media uses the authenticated stream fallback', /readyStatus==="ready"&&source&&proxy[\s\S]*?source\.setAttribute\("src",proxy\)/],
   ['Data Saver bypasses eager full-file download', /connection\.saveData/],
   ['slow mobile connections bypass eager full-file download', /slow-2g\|2g\|3g/],
-  ['full-file Blob playback is explicitly opt-in', /window\\.MILAN_ENABLE_TEMP_PLAYBACK_DOWNLOAD!==true/],
+  ['full-file Blob playback is explicitly opt-in', /window\.MILAN_ENABLE_TEMP_PLAYBACK_DOWNLOAD!==true/],
   ['actual streamed bytes are bounded before Blob allocation', /async function readBoundedVideoBlob[\s\S]*?total>maxBytes[\s\S]*?reader\.cancel/],
   ['temporary video buffers are capped at 24 MiB on low-memory devices', /24\*1024\*1024/],
   ['temporary video buffers are capped at 48 MiB on regular devices', /48\*1024\*1024/],
