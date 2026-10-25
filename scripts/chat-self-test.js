@@ -130,7 +130,7 @@ assert(homeShell.includes('currentFeed=bc.feed.filter(r=>!isChatFeedRecord(r))')
 assert(homeShell.includes('const safe=(Array.isArray(fresh)?fresh:[]).filter(r=>!isChatFeedRecord(r))'), 'Boot feed updates must filter chat records.');
 assert(uiActions.includes('if (isChatFeedRecord(record)) continue;'), 'Home feed merges must filter chat records.');
 assert(uiActions.includes('records = (Array.isArray(records) ? records : []).filter(record => !isChatFeedRecord(record));'), 'Final feed rendering must filter chat records.');
-assert(appShell.includes('milan-ui-actions.js?v=instant-upload-single-init-20261015-1'), 'Changed UI script must have a fresh cache-busting version.');
+assert(appShell.includes('milan-ui-actions.js?v=instant-upload-8m-20261026-1'), 'Changed UI script must have a fresh cache-busting version.');
 
 console.log('✅ MILAN chat architecture checks passed.');
 console.log('✅ Backend syntax checks passed.');
