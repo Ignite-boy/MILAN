@@ -2,6 +2,7 @@
 function releaseTemporaryPlayback(video){try{const old=video&&video.dataset&&video.dataset.milanTempBlobUrl;if(old){URL.revokeObjectURL(old);temporaryPlaybackUrls.delete(old);delete video.dataset.milanTempBlobUrl}}catch(_){}}
 function setTemporaryDownloadMessage(video,message){try{const box=playerBox(video);if(!box)return;const target=box.querySelector(".milanVideoOverlay")||box;if(message)target.setAttribute("data-milan-loading-message",message);else target.removeAttribute("data-milan-loading-message")}catch(_){}}
 function cleanupTemporaryPlayback(){try{for(const video of observedVideos){if(video&&video.isConnected)continue;try{directObserver&&directObserver.unobserve(video)}catch(_){}try{visibilityObserver&&visibilityObserver.unobserve(video)}catch(_){}observedVideos.delete(video)}for(const [url,video] of temporaryPlaybackUrls){if(!video||!video.isConnected){try{URL.revokeObjectURL(url)}catch(_){}temporaryPlaybackUrls.delete(url);if(video&&video.dataset)delete video.dataset.milanTempBlobUrl}}}catch(_){}}
+async function readBoundedVideoBlob(response,maxBytes){const reader=response&&response.body&&typeof response.body.getReader==="function"?response.body.getReader():null;if(!reader)throw new Error("Streaming video download unavailable");const chunks=[];let total=0;try{for(;;){const item=await reader.read();if(item.done)break;const chunk=item.value;const size=Number(chunk&&(chunk.byteLength??chunk.length));if(!Number.isSafeInteger(size)||size<0){try{await reader.cancel("Invalid video chunk")}catch(_){}throw new Error("Invalid video chunk")}total+=size;if(total>maxBytes){try{await reader.cancel("Temporary video buffer limit exceeded")}catch(_){}throw new Error("Temporary video exceeds playback buffer limit")}chunks.push(chunk)}}finally{try{reader.releaseLock()}catch(_){}}const type=String(response.headers&&typeof response.headers.get==="function"&&response.headers.get("content-type")||"video/mp4");return new Blob(chunks,{type})}
 try{if(typeof MutationObserver==="function"&&document.documentElement)new MutationObserver(cleanupTemporaryPlayback).observe(document.documentElement,{childList:true,subtree:true});window.addEventListener("pagehide",event=>{if(event&&event.persisted)return;for(const [url] of temporaryPlaybackUrls){try{URL.revokeObjectURL(url)}catch(_){}}temporaryPlaybackUrls.clear()})}catch(_){}
 function setVideoSrc(video,src){try{releaseTemporaryPlayback(video);const source=video.querySelector("source"),next=addParam(src,"r",Date.now());source?source.setAttribute("src",next):video.setAttribute("src",next),video.load()}catch(_){}}function updateRecordFromResponse(id,res){try{if(!res||!res.record||typeof updateRecordLocal!=="function")return;const el=document.getElementById("post-"+id),video=el&&el.querySelector(".milanUniversalPlayer video"),box=video&&video.closest(".milanUniversalPlayer"),preserveVideo=!!(video&&(!video.paused||box&&box.classList.contains("loading")||video.dataset.watchdogStarted==="1"||video.dataset.healReloaded==="1"||video.dataset.errorCount));updateRecordLocal(id,res.record,{preserveVideo})}catch(_){}}async function loadDirectMedia(video,id,attempt){
 attempt=Number(attempt||0);
@@ -76,12 +77,23 @@ if(id)loadDirectMedia(entry.target,id);
 const visibilityObserver=typeof IntersectionObserver==="function"?new IntersectionObserver(entries=>{
 entries.forEach(entry=>{
 const video=entry.target;
-if(entry.isIntersecting&&entry.intersectionRatio>=.15)return;
+if(entry.isIntersecting&&entry.intersectionRatio>=.15){
+ delete video.dataset.milanOffscreen;
+ if(video.dataset.milanPausedOffscreen!=="1")return;
+ delete video.dataset.milanPausedOffscreen;
+ if(video.isConnected&&!video.ended&&video.dataset.finalFailed!=="1"){
+  try{const pending=video.play();if(pending&&typeof pending.catch==="function")pending.catch(()=>{})}catch(_){}
+ }
+ return;
+}
+video.dataset.milanOffscreen="1";
 if(!video.paused&&!video.ended){
  video.dataset.milanPausedOffscreen="1";
  try{video.pause()}catch(_){}
  setTemporaryDownloadMessage(video,"");
  showLoading(video,false);
+}else if(video.dataset.milanTempDownloadInProgress==="1"&&video.dataset.milanResumeAfterTempDownload==="1"){
+ video.dataset.milanPausedOffscreen="1";
 }
 });
 },{rootMargin:"0px",threshold:[0,.15]}):null;
@@ -102,6 +114,8 @@ const source=video.querySelector("source[data-milan-direct-source],source");
 const direct=String(source&&source.getAttribute("src")||"");
 if(!/^https?:\/\//i.test(direct)||typeof fetch!=="function"||typeof URL.createObjectURL!=="function")return;
 video.dataset.milanTempDownloadAttempted="1";
+video.dataset.milanTempDownloadInProgress="1";
+video.dataset.milanResumeAfterTempDownload="1";
 video.pause();
 showLoading(video,true);
 setTemporaryDownloadMessage(video,"Downloading video for smooth, uninterrupted playback…");
@@ -112,6 +126,9 @@ const resumeStreaming=()=>{
 setTemporaryDownloadMessage(video,"");
 showLoading(video,false);
 if(!video.isConnected)return;
+delete video.dataset.milanTempDownloadInProgress;
+if(video.dataset.milanOffscreen==="1"){video.dataset.milanPausedOffscreen="1";return}
+delete video.dataset.milanResumeAfterTempDownload;
 try{const pending=video.play();if(pending&&typeof pending.catch==="function")pending.catch(()=>{})}catch(_){}
 };
 (async()=>{
@@ -124,17 +141,24 @@ if(!Number.isFinite(length)||length<=0||length>limit){
 try{await response.body.cancel()}catch(_){}
 return resumeStreaming();
 }
-const blob=await response.blob();
+const blob=await readBoundedVideoBlob(response,limit);
 if(!blob.size||blob.size>limit)return resumeStreaming();
 releaseTemporaryPlayback(video);
 const blobUrl=URL.createObjectURL(blob);
 temporaryPlaybackUrls.set(blobUrl,video);
 video.dataset.milanTempBlobUrl=blobUrl;
 video.dataset.milanTempDownloadComplete="1";
+delete video.dataset.milanTempDownloadInProgress;
 source.setAttribute("src",blobUrl);
 setTemporaryDownloadMessage(video,"");
 showLoading(video,false);
 video.load();
+if(video.dataset.milanOffscreen==="1"){
+ video.dataset.milanPausedOffscreen="1";
+ delete video.dataset.milanResumeAfterTempDownload;
+ return;
+}
+delete video.dataset.milanResumeAfterTempDownload;
 try{
 const pending=video.play();
 if(pending&&typeof pending.catch==="function")pending.catch(()=>{
