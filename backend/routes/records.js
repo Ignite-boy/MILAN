@@ -647,7 +647,7 @@ router.get('/', auth, async (req, res) => {
 
 router.get('/stats', auth, async (req, res) => {
   try {
-    const u = current(req);
+    const u = await current(req);
     if (!u) return res.status(404).json({ error: 'User not found' });
     res.json(await dwnStore.statsFor(u.user.did));
   } catch (err) { handleError(res, err); }
