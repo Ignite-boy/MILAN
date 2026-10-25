@@ -134,6 +134,20 @@ for (const workflow of ['.github/workflows/milan-live-auto.yml', '.github/workfl
   if (exists(workflow)) check(!read(workflow).includes('while true; do'), `Unbounded self-trigger/retry loop found in ${workflow}.`);
 }
 
+const videoScrollTest = 'scripts/video-scroll-playback-self-test.js';
+if (exists(videoScrollTest)) {
+  const result = spawnSync(process.execPath, [path.join(root, videoScrollTest)], {
+    encoding: 'utf8'
+  });
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.status !== 0) {
+    if (result.stderr) process.stderr.write(result.stderr);
+    failures.push(
+      `Video scroll playback self-test failed: ${result.error ? result.error.message : `exit status ${result.status}`}`
+    );
+  }
+}
+
 if (failures.length) {
   console.error('MILAN repository integrity check FAILED:');
   for (const failure of failures) console.error(` - ${failure}`);
