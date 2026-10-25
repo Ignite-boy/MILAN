@@ -18,6 +18,7 @@
     "test:distributed-rate-limit": "node scripts/distributed-rate-limit-self-test.js",
     "test:feed-pagination": "node scripts/feed-pagination-self-test.js",
     "test:video-range": "node scripts/video-range-self-test.js",
+    "test:video-scroll": "node scripts/video-scroll-playback-self-test.js",
     "test:persistence-visibility": "node scripts/persistence-visibility-self-test.js",
     "test:ai-boundary": "node scripts/ai-best-time-self-test.js",
     "test:session-token": "node scripts/session-token-self-test.js",
