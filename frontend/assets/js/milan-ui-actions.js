@@ -220,7 +220,7 @@
 
     async function uploadVideoChunked(file, meta, onProgress) {
         const token = getToken();
-        const chunkBytes = Number(window.MILAN_UPLOAD_CHUNK_BYTES || 4194304);
+        const chunkBytes = Number(window.MILAN_UPLOAD_CHUNK_BYTES || 8388608);
 
         const signature = JSON.stringify({
             name: file.name,
@@ -557,7 +557,32 @@
         }
     }
 
+    let pendingVideoUploadProgress = null;
+    let videoUploadProgressFrame = 0;
+
     function showVideoUploadProgress(percent) {
+        if (percent === null || percent === undefined) {
+            pendingVideoUploadProgress = null;
+            if (videoUploadProgressFrame) {
+                cancelAnimationFrame(videoUploadProgressFrame);
+            }
+            videoUploadProgressFrame = 0;
+            renderVideoUploadProgress(null);
+            return;
+        }
+
+        pendingVideoUploadProgress = percent;
+        if (videoUploadProgressFrame) return;
+
+        videoUploadProgressFrame = requestAnimationFrame(() => {
+            videoUploadProgressFrame = 0;
+            const nextPercent = pendingVideoUploadProgress;
+            pendingVideoUploadProgress = null;
+            renderVideoUploadProgress(nextPercent);
+        });
+    }
+
+    function renderVideoUploadProgress(percent) {
         let box = $("milanVideoUploadProgress");
 
         if (percent === null || percent === undefined) {
