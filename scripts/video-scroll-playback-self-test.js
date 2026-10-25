@@ -158,8 +158,9 @@ function makeHarness(options = {}) {
   };
   const response = options.response;
   let fetchCount = 0;
-  const fetchStub = async () => {
+  const fetchStub = async (...args) => {
     fetchCount += 1;
+    if (typeof options.fetch === 'function') return options.fetch(...args);
     if (!response) throw new Error('Unexpected fetch in playback test');
     return response;
   };
@@ -338,13 +339,41 @@ async function testDataSaverSkipsDownload() {
   console.log('PASS: Data Saver keeps playback on native streaming');
 }
 
+async function testReentryWaitsForInFlightDownload() {
+  let resolveFetch;
+  const fetchPending = new Promise(resolve => { resolveFetch = resolve; });
+  const smallStream = makeStreamResponse({
+    declaredLength: 3,
+    chunks: [new Uint8Array([1, 2, 3])]
+  });
+  const video = makeVideo('scroll-during-download');
+  video.dataset.milanDirectReady = '1';
+  const harness = makeHarness({ videos: [video], fetch: () => fetchPending });
+  harness.attachFeedVideos();
+  const observer = visibilityObserver(harness);
+  video.dispatch('play');
+  assert.equal(harness.fetchCount, 1, 'play should start a bounded download');
+  await Promise.resolve();
+
+  observer.callback([{ target: video, isIntersecting: false, intersectionRatio: 0 }]);
+  assert.equal(video.dataset.milanPausedOffscreen, '1', 'in-flight download should remember offscreen state');
+  observer.callback([{ target: video, isIntersecting: true, intersectionRatio: 0.9 }]);
+  assert.equal(video.playCount, 0, 're-entry must not restart the stream before the download settles');
+
+  resolveFetch(smallStream.response);
+  await flushAsyncWork();
+  assert.equal(video.playCount, 1, 'completed download should resume exactly once after the video is visible');
+  assert.match(video.source.getAttribute('src'), /^blob:video-scroll-test-/);
+  console.log('PASS: returning during a download waits for completion without resetting playback');
+}
 async function main() {
   await testPauseAndResumeAcrossScrolling();
   await testDetachedVideoCleanup();
   await testActualStreamBytesAreBounded();
   await testSmallStreamCanUseTemporaryBlob();
   await testDataSaverSkipsDownload();
-  console.log('ALL VIDEO SCROLL PLAYBACK SELF-TESTS PASSED (' + (contracts.length + 6) + ' checks).');
+  await testReentryWaitsForInFlightDownload();
+  console.log('ALL VIDEO SCROLL PLAYBACK SELF-TESTS PASSED (' + (contracts.length + 7) + ' checks).');
 }
 
 main().catch(error => {
