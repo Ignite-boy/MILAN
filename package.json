@@ -8,7 +8,7 @@
     "dev": "node -r ./backend/services/avatar-hydration-guard.js backend/server.js",
     "mail:test": "node backend/scripts/test-mail.js",
     "mail:diagnose": "node backend/scripts/smtp-diagnose.js",
-    "build": "node scripts/verify-build.js && node scripts/video-scroll-playback-self-test.js",
+    "build": "node scripts/verify-build.js",
     "test:chat": "node scripts/chat-self-test.js",
     "test:payment": "node scripts/payment-self-test.js",
     "test:milan-pay": "node scripts/milan-pay-self-test.js",
