@@ -24,6 +24,7 @@ const contracts = [
   ['ready Voroa media uses the authenticated stream fallback', /readyStatus==="ready"&&source&&proxy[\s\S]*?source\.setAttribute\("src",proxy\)/],
   ['Data Saver bypasses eager full-file download', /connection\.saveData/],
   ['slow mobile connections bypass eager full-file download', /slow-2g\|2g\|3g/],
+  ['full-file Blob playback is explicitly opt-in', /window\.MILAN_ENABLE_TEMP_PLAYBACK_DOWNLOAD!==true/],
   ['actual streamed bytes are bounded before Blob allocation', /async function readBoundedVideoBlob[\s\S]*?total>maxBytes[\s\S]*?reader\.cancel/],
   ['temporary video buffers are capped at 24 MiB on low-memory devices', /24\*1024\*1024/],
   ['temporary video buffers are capped at 48 MiB on regular devices', /48\*1024\*1024/],
@@ -156,6 +157,9 @@ function makeHarness(options = {}) {
     mediaHtml() { return 'legacy-media-renderer'; },
     renderFeed() {}
   };
+  if (options.enableTemporaryDownload === true) {
+    window.MILAN_ENABLE_TEMP_PLAYBACK_DOWNLOAD = true;
+  }
   const response = options.response;
   let fetchCount = 0;
   const fetchStub = async (...args) => {
@@ -281,6 +285,24 @@ function makeStreamResponse({ declaredLength, chunks }) {
   };
 }
 
+async function testDefaultUsesNativeStreaming() {
+  const response = makeStreamResponse({
+    declaredLength: 3,
+    chunks: [new Uint8Array([1, 2, 3])]
+  });
+  const video = makeVideo('default-streaming');
+  video.dataset.milanDirectReady = '1';
+  const harness = makeHarness({ videos: [video], response: response.response });
+  harness.attachFeedVideos();
+  video.dispatch('play');
+  await flushAsyncWork();
+
+  assert.equal(harness.fetchCount, 0, 'default playback must not fetch the entire video file');
+  assert.equal(harness.objectUrls.created.length, 0, 'default playback must not allocate a temporary Blob URL');
+  assert.equal(video.source.getAttribute('src'), 'https://cdn.example.test/video.mp4?token=test-token');
+  console.log('PASS: default playback stays on native range streaming');
+}
+
 async function testActualStreamBytesAreBounded() {
   const largeActualStream = makeStreamResponse({
     declaredLength: 16 * 1024 * 1024,
@@ -291,7 +313,7 @@ async function testActualStreamBytesAreBounded() {
   });
   const video = makeVideo('large-stream');
   video.dataset.milanDirectReady = '1';
-  const harness = makeHarness({ videos: [video], deviceMemory: 2, response: largeActualStream.response });
+  const harness = makeHarness({ videos: [video], deviceMemory: 2, response: largeActualStream.response, enableTemporaryDownload: true });
   harness.attachFeedVideos();
   video.dispatch('play');
   await flushAsyncWork();
@@ -310,7 +332,7 @@ async function testSmallStreamCanUseTemporaryBlob() {
   });
   const video = makeVideo('small-stream');
   video.dataset.milanDirectReady = '1';
-  const harness = makeHarness({ videos: [video], response: smallStream.response });
+  const harness = makeHarness({ videos: [video], response: smallStream.response, enableTemporaryDownload: true });
   harness.attachFeedVideos();
   video.dispatch('play');
   await flushAsyncWork();
@@ -329,7 +351,8 @@ async function testDataSaverSkipsDownload() {
   const harness = makeHarness({
     videos: [video],
     response: response.response,
-    connection: { saveData: true, effectiveType: '4g' }
+    connection: { saveData: true, effectiveType: '4g' },
+    enableTemporaryDownload: true
   });
   harness.attachFeedVideos();
   video.dispatch('play');
@@ -348,7 +371,7 @@ async function testReentryWaitsForInFlightDownload() {
   });
   const video = makeVideo('scroll-during-download');
   video.dataset.milanDirectReady = '1';
-  const harness = makeHarness({ videos: [video], fetch: () => fetchPending });
+  const harness = makeHarness({ videos: [video], fetch: () => fetchPending, enableTemporaryDownload: true });
   harness.attachFeedVideos();
   const observer = visibilityObserver(harness);
   video.dispatch('play');
@@ -369,6 +392,7 @@ async function testReentryWaitsForInFlightDownload() {
 async function main() {
   await testPauseAndResumeAcrossScrolling();
   await testDetachedVideoCleanup();
+  await testDefaultUsesNativeStreaming();
   await testActualStreamBytesAreBounded();
   await testSmallStreamCanUseTemporaryBlob();
   await testDataSaverSkipsDownload();

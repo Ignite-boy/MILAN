@@ -111,7 +111,7 @@ const recovered=()=>{clearTimer();if(!video.paused){showLoading(video,false);mar
 video.addEventListener("playing",()=>{setTemporaryDownloadMessage(video,"");recovered()});
 video.addEventListener("canplay",()=>{if(video.readyState>=3)recovered()});
 video.addEventListener("play",()=>{
-if(video.dataset.milanTempDownloadAttempted==="1"||video.dataset.milanDirectReady!=="1"||video.dataset.milanDirectFallback==="1")return;
+if(window.MILAN_ENABLE_TEMP_PLAYBACK_DOWNLOAD!==true||video.dataset.milanTempDownloadAttempted==="1"||video.dataset.milanDirectReady!=="1"||video.dataset.milanDirectFallback==="1")return;
 const connection=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
 if(connection&&(connection.saveData||/^(slow-2g|2g|3g)$/i.test(String(connection.effectiveType||""))))return;
 const source=video.querySelector("source[data-milan-direct-source],source");
