@@ -98,6 +98,8 @@ const syntaxCheckFiles = [
   'backend/routes/launch.js',
   'frontend/assets/js/inline-05.js',
   'frontend/assets/js/inline-07.js',
+  'frontend/assets/js/milan-ui-actions.js',
+  'frontend/milan-live.js',
   'Milan-Sentinel/scripts/run-matrix.js',
   'Milan-Sentinel/scripts/execute-case.js',
 ];
@@ -133,6 +135,41 @@ if (exists('backend/services/cloudDwnRegistry.js')) {
 for (const workflow of ['.github/workflows/milan-live-auto.yml', '.github/workflows/milan-ui-plan.yml']) {
   if (exists(workflow)) check(!read(workflow).includes('while true; do'), `Unbounded self-trigger/retry loop found in ${workflow}.`);
 }
+
+const performanceAppShell = read('frontend/app.html');
+const performanceFeedSource = read('frontend/assets/js/inline-05.js');
+const performanceVideoSource = read('frontend/assets/js/inline-07.js');
+const performanceUploadSource = read('frontend/assets/js/milan-ui-actions.js');
+const performanceLiveSource = read('frontend/milan-live.js');
+check(performanceAppShell.includes('/assets/js/inline-05.js?v=milan-feed-media-20261026-1'),
+  'Feed optimizations must be referenced through the refreshed script URL.');
+check(performanceAppShell.includes('/assets/js/inline-07.js?v=milan-streaming-first-20261026-1'),
+  'Streaming-first video changes must have a fresh cache-busting URL.');
+check(performanceAppShell.includes('/milan-live.js?v=milan-live-chat-filter-20261026-1'),
+  'Live refresh optimizations must be referenced through the refreshed script URL.');
+check(performanceAppShell.includes('/assets/js/milan-ui-actions.js?v=instant-upload-8m-20261026-1'),
+  'Upload improvements must be referenced through the refreshed script URL.');
+check(performanceFeedSource.includes('rootMargin:"300px 0px"'),
+  'Feed media should be prepared near the viewport.');
+check(performanceFeedSource.includes('800px 0px'),
+  'Feed pagination should request the next page before reaching the bottom.');
+check(performanceVideoSource.includes('MILAN_ENABLE_TEMP_PLAYBACK_DOWNLOAD!==true'),
+  'Full-file video downloads must remain opt-in; native streaming is the default.');
+check(performanceVideoSource.includes('milanTempDownloadInProgress'),
+  'Video download fallback must avoid duplicate in-flight downloads.');
+check(performanceVideoSource.includes('visibilityObserver'),
+  'Off-screen video visibility/pause lifecycle must remain installed.');
+check(performanceUploadSource.includes('window.MILAN_UPLOAD_CHUNK_BYTES || 8388608'),
+  'Resumable video upload default chunk size must be 8 MiB.');
+check(performanceUploadSource.includes('requestAnimationFrame'),
+  'Upload progress DOM updates must be coalesced to animation frames.');
+check(performanceUploadSource.includes('error?.retryable === false') &&
+  performanceUploadSource.includes('[408, 425, 429].includes(status)'),
+  'Upload retries must stop on cancellation/permanent failures and retry transient failures only.');
+check(performanceLiveSource.includes('notifType === "chat_typing"') &&
+  performanceLiveSource.includes('window.__milanLivePollingActive = true;') &&
+  performanceLiveSource.includes('window.__milanLivePushActive = viaSharedWorker() || direct();'),
+  'Live refresh transport/event ownership guards must remain in place.');
 
 const videoScrollTest = 'scripts/video-scroll-playback-self-test.js';
 if (exists(videoScrollTest)) {

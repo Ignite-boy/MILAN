@@ -750,6 +750,130 @@
   .chat-compose-box:focus-within{transform:none}
 }
 </style>
+
+<style id="milan-chat-message-actions">
+  #conversation .chat-bubble{position:relative;overflow:visible}
+  #conversation .chat-message-more{
+    position:absolute;top:50%;display:grid;place-items:center;width:30px;height:30px;
+    border:1px solid rgba(182,195,226,.17);border-radius:11px;
+    background:rgba(10,18,39,.92);color:#b8c6e4;cursor:pointer;
+    opacity:0;transform:translateY(-45%) scale(.94);transition:opacity .16s,transform .16s,border-color .16s;
+    z-index:2;box-shadow:0 7px 20px rgba(0,0,0,.22)
+  }
+  #conversation .chat-message-row.mine .chat-message-more{left:-36px;right:auto}
+  #conversation .chat-message-row:not(.mine) .chat-message-more{right:-36px;left:auto}
+  #conversation .chat-message-row:hover .chat-message-more,
+  #conversation .chat-message-more:focus-visible{opacity:1;transform:translateY(-50%) scale(1);outline:none;border-color:rgba(255,156,56,.45)}
+  #conversation .chat-message-more svg{width:16px;height:16px}
+  #conversation .chat-message-row .chat-bubble.is-deleted{
+    border-color:rgba(148,163,184,.14)!important;background:rgba(148,163,184,.045)!important;
+    color:#9aa9c8;font-style:italic;box-shadow:none
+  }
+  #conversation .chat-deleted-copy{display:flex;align-items:center;gap:7px}
+  #conversation .chat-deleted-copy svg{width:13px;height:13px;opacity:.78;flex:0 0 13px}
+  #chatMessageActionLayer [hidden]{display:none!important}
+  #chatMessageActionLayer{position:fixed;inset:0;z-index:10000;pointer-events:none}
+  #chatMessageActionLayer .chat-action-backdrop{
+    position:fixed;inset:0;background:rgba(1,4,14,.55);backdrop-filter:blur(7px);
+    -webkit-backdrop-filter:blur(7px);pointer-events:auto;animation:chat-action-fade .16s ease both
+  }
+  #chatMessageActionLayer .chat-action-menu,
+  #chatMessageActionLayer .chat-delete-dialog{
+    position:fixed;z-index:2;pointer-events:auto;width:min(292px,calc(100vw - 24px));
+    padding:10px;border:1px solid rgba(160,177,215,.20);border-radius:20px;
+    background:linear-gradient(155deg,rgba(17,29,58,.98),rgba(7,12,27,.985));
+    box-shadow:0 28px 90px rgba(0,0,0,.58),inset 0 1px rgba(255,255,255,.045);
+    backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);color:#f7f9ff;
+    animation:chat-action-rise .18s cubic-bezier(.2,.8,.2,1) both
+  }
+  #chatMessageActionLayer .chat-action-menu{display:flex;flex-direction:column;gap:4px}
+  #chatMessageActionLayer .chat-action-heading{
+    display:flex;align-items:center;gap:10px;padding:8px 8px 10px;
+    border-bottom:1px solid rgba(160,177,215,.13);margin-bottom:3px
+  }
+  #chatMessageActionLayer .chat-action-heading-icon{
+    display:grid;place-items:center;flex:0 0 35px;width:35px;height:35px;border-radius:12px;
+    background:linear-gradient(140deg,rgba(255,156,56,.18),rgba(223,70,200,.16));color:#ffd6a2;font-size:17px
+  }
+  #chatMessageActionLayer .chat-action-heading strong{display:block;font-size:12px;letter-spacing:.015em}
+  #chatMessageActionLayer .chat-action-heading span{display:block;max-width:205px;margin-top:3px;color:#92a2c4;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #chatMessageActionLayer .chat-action-option{
+    display:flex;align-items:center;gap:11px;width:100%;min-height:54px;padding:7px 9px;
+    border:1px solid transparent;border-radius:13px;background:transparent;color:#eef2ff;
+    text-align:left;cursor:pointer;transition:background .15s,border-color .15s,transform .15s
+  }
+  #chatMessageActionLayer .chat-action-option:hover{background:rgba(255,255,255,.055);border-color:rgba(160,177,215,.12);transform:translateY(-1px)}
+  #chatMessageActionLayer .chat-action-option:focus-visible,
+  #chatMessageActionLayer .chat-action-cancel:focus-visible,
+  #chatMessageActionLayer .chat-delete-confirm:focus-visible{outline:2px solid rgba(255,156,56,.8);outline-offset:2px}
+  #chatMessageActionLayer .chat-action-icon{
+    display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border-radius:11px;
+    background:rgba(164,180,216,.09);color:#b8c7e6
+  }
+  #chatMessageActionLayer .chat-action-icon svg{width:17px;height:17px}
+  #chatMessageActionLayer .chat-action-copy{display:block;min-width:0;flex:1}
+  #chatMessageActionLayer .chat-action-copy strong{display:block;font-size:12px;font-weight:800}
+  #chatMessageActionLayer .chat-action-copy small{display:block;margin-top:3px;color:#91a0bf;font-size:10px;line-height:1.35}
+  #chatMessageActionLayer .chat-action-arrow{color:#64779b;font-size:20px;line-height:1}
+  #chatMessageActionLayer .chat-action-option.is-danger .chat-action-icon{background:rgba(251,113,133,.10);color:#ff9eaf}
+  #chatMessageActionLayer .chat-action-option.is-danger .chat-action-copy strong{color:#ffb4c0}
+  #chatMessageActionLayer .chat-action-cancel{
+    min-height:39px;margin-top:3px;border:1px solid rgba(160,177,215,.13);border-radius:12px;
+    background:rgba(255,255,255,.03);color:#b5c2df;font-size:11px;font-weight:800;cursor:pointer
+  }
+  #chatMessageActionLayer .chat-delete-dialog{
+    left:50%;top:50%;transform:translate(-50%,-50%);width:min(410px,calc(100vw - 28px));padding:23px;
+    animation:chat-action-dialog .18s ease both
+  }
+  #chatMessageActionLayer .chat-delete-symbol{
+    display:grid;place-items:center;width:46px;height:46px;margin-bottom:15px;border:1px solid rgba(251,113,133,.18);
+    border-radius:15px;background:rgba(251,113,133,.09);color:#ffa0b1
+  }
+  #chatMessageActionLayer .chat-delete-symbol svg{width:21px;height:21px}
+  #chatMessageActionLayer .chat-delete-dialog h2{margin:0;color:#f8faff;font-size:18px;letter-spacing:-.025em}
+  #chatMessageActionLayer .chat-delete-dialog p{margin:9px 0 0;color:#a3b0cd;font-size:12px;line-height:1.65}
+  #chatMessageActionLayer .chat-delete-buttons{display:flex;justify-content:flex-end;gap:9px;margin-top:22px}
+  #chatMessageActionLayer .chat-delete-cancel,#chatMessageActionLayer .chat-delete-confirm{
+    min-height:40px;padding:0 15px;border-radius:12px;font-size:11px;font-weight:900;cursor:pointer
+  }
+  #chatMessageActionLayer .chat-delete-cancel{border:1px solid rgba(160,177,215,.17);background:rgba(255,255,255,.04);color:#c3cee6}
+  #chatMessageActionLayer .chat-delete-confirm{
+    border:1px solid rgba(251,113,133,.20);background:linear-gradient(135deg,#fb7185,#e54873);color:#260811;
+    box-shadow:0 9px 24px rgba(251,113,133,.15)
+  }
+  #chatMessageActionLayer .chat-delete-confirm:disabled{opacity:.55;cursor:wait}
+  #chatMessageActionLayer .chat-action-toast{
+    position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom));z-index:4;transform:translateX(-50%);
+    max-width:calc(100vw - 28px);padding:12px 16px;border:1px solid rgba(52,211,153,.20);
+    border-radius:14px;background:rgba(8,25,34,.97);color:#bbf7d0;font-size:12px;font-weight:800;
+    box-shadow:0 18px 55px rgba(0,0,0,.42);pointer-events:none;animation:chat-action-rise .18s ease both
+  }
+  #chatMessageActionLayer .chat-action-toast.is-error{border-color:rgba(251,113,133,.25);background:rgba(43,12,27,.97);color:#fecdd3}
+  @keyframes chat-action-fade{from{opacity:0}to{opacity:1}}
+  @keyframes chat-action-rise{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes chat-action-dialog{from{opacity:0;transform:translate(-50%,-47%)}to{opacity:1;transform:translate(-50%,-50%)}}
+  @media(max-width:900px){
+    #conversation .chat-message-more{opacity:1;transform:translateY(-50%) scale(1);width:28px;height:28px}
+    #conversation .chat-message-row.mine .chat-message-more{left:-31px}
+    #conversation .chat-message-row:not(.mine) .chat-message-more{right:-31px}
+    #chatMessageActionLayer .chat-action-menu.is-mobile{
+      left:12px!important;right:12px!important;top:auto!important;bottom:max(12px,env(safe-area-inset-bottom));
+      width:auto;max-width:none;padding:12px;border-radius:24px;
+      animation:chat-action-sheet .22s cubic-bezier(.16,.84,.44,1) both
+    }
+    #chatMessageActionLayer .chat-action-menu.is-mobile::before{
+      content:"";display:block;width:36px;height:4px;margin:0 auto 6px;border-radius:999px;background:rgba(178,192,222,.28)
+    }
+    #chatMessageActionLayer .chat-action-menu.is-mobile .chat-action-option{min-height:58px}
+    #chatMessageActionLayer .chat-delete-dialog{top:auto;bottom:max(12px,env(safe-area-inset-bottom));left:12px;right:12px;transform:none;width:auto;max-width:none;border-radius:24px}
+    #chatMessageActionLayer .chat-action-toast{bottom:calc(20px + env(safe-area-inset-bottom))}
+  }
+  @keyframes chat-action-sheet{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}
+  @media(prefers-reduced-motion:reduce){
+    #conversation .chat-message-more,#chatMessageActionLayer *{animation:none!important;transition:none!important}
+  }
+</style>
+
 </head>
 <body>
   <div class="chat-page">
@@ -895,6 +1019,68 @@
   const CHAT_OUTBOX_KEY = "milan_chat_outbox_v1";
   const MAX_CLIENT_RETRIES = 3;
   const CHAT_REQUEST_TIMEOUT_MS = 20000;
+
+
+  const CHAT_MESSAGE_LONG_PRESS_MS = 520;
+  let messageActionState = null;
+  let pendingMessageDelete = null;
+  let messageActionPress = null;
+  let chatActionToastTimer = null;
+
+  const messageActionLayer = document.createElement('div');
+  messageActionLayer.id = 'chatMessageActionLayer';
+  messageActionLayer.innerHTML = [
+    '<div class="chat-action-backdrop" data-chat-action-dismiss hidden></div>',
+    '<div class="chat-action-menu" role="menu" aria-label="Message actions" hidden>',
+      '<div class="chat-action-heading"><span class="chat-action-heading-icon" aria-hidden="true">✦</span>',
+        '<div><strong>Message options</strong><span data-chat-action-preview></span></div></div>',
+      '<button type="button" class="chat-action-option" role="menuitem" data-chat-action-choice="me">',
+        '<span class="chat-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13M10 11v5m4-5v5"/></svg></span>',
+        '<span class="chat-action-copy"><strong>Delete for me</strong><small>Remove it from your chat</small></span><span class="chat-action-arrow" aria-hidden="true">›</span></button>',
+      '<button type="button" class="chat-action-option is-danger" role="menuitem" data-chat-action-choice="everyone">',
+        '<span class="chat-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13M10 11v5m4-5v5"/><path d="M3 3l18 18"/></svg></span>',
+        '<span class="chat-action-copy"><strong>Delete for everyone</strong><small>Remove it from both chats</small></span><span class="chat-action-arrow" aria-hidden="true">›</span></button>',
+      '<button type="button" class="chat-action-cancel" data-chat-action-dismiss>Cancel</button>',
+    '</div>',
+    '<div class="chat-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="chatDeleteTitle" hidden>',
+      '<div class="chat-delete-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13"/></svg></div>',
+      '<h2 id="chatDeleteTitle" data-chat-delete-title>Delete message?</h2>',
+      '<p data-chat-delete-copy></p>',
+      '<div class="chat-delete-buttons"><button type="button" class="chat-delete-cancel" data-chat-delete-cancel>Keep message</button>',
+      '<button type="button" class="chat-delete-confirm" data-chat-delete-confirm>Delete</button></div>',
+    '</div>',
+    '<div class="chat-action-toast" role="status" aria-live="polite" hidden></div>'
+  ].join('');
+  document.body.appendChild(messageActionLayer);
+
+  const messageActionBackdrop = messageActionLayer.querySelector('.chat-action-backdrop');
+  const messageActionMenu = messageActionLayer.querySelector('.chat-action-menu');
+  const messageActionPreview = messageActionLayer.querySelector('[data-chat-action-preview]');
+  const messageDeleteDialog = messageActionLayer.querySelector('.chat-delete-dialog');
+  const messageDeleteTitle = messageActionLayer.querySelector('[data-chat-delete-title]');
+  const messageDeleteCopy = messageActionLayer.querySelector('[data-chat-delete-copy]');
+  const messageDeleteConfirm = messageActionLayer.querySelector('[data-chat-delete-confirm]');
+  const messageDeleteCancel = messageActionLayer.querySelector('[data-chat-delete-cancel]');
+  const chatActionToast = messageActionLayer.querySelector('.chat-action-toast');
+
+  messageActionLayer.addEventListener('click', event => {
+    const choice = event.target?.closest?.('[data-chat-action-choice]');
+    if (choice && messageActionMenu.contains(choice)) {
+      showMessageDeleteConfirmation(choice.dataset.chatActionChoice);
+      return;
+    }
+    if (event.target?.closest?.('[data-chat-action-dismiss]')) closeMessageActionUi();
+    if (event.target?.closest?.('[data-chat-delete-cancel]')) closeMessageActionUi();
+    if (event.target?.closest?.('[data-chat-delete-confirm]')) runMessageDeletion().catch(() => {});
+  });
+
+  messageActionBackdrop.addEventListener('click', closeMessageActionUi);
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && (!messageActionMenu.hidden || !messageDeleteDialog.hidden)) {
+      event.preventDefault();
+      closeMessageActionUi();
+    }
+  });
 
   // Never let a second account on a shared browser restore another person's
   // draft, failed message, read marker, or cached private conversation.
@@ -1175,20 +1361,31 @@
         previousMine = null;
       }
       const grouped = previousMine === mine;
+      const messageKey = String(message.messageId || message.id || "");
+      const deletedForEveryone = message.deletedForEveryone === true;
+      const displayText = deletedForEveryone
+        ? (String(message.deletedByDid || "") === String(myDid || "") ? "You deleted this message" : "This message was deleted")
+        : String(message.text || "");
+      const canManageMessage = !!messageKey && !deletedForEveryone &&
+        message.status !== "sending" && message.status !== "failed" &&
+        !String(message.id || "").startsWith("pending-");
+      const actionButton = canManageMessage
+        ? '<button class="chat-message-more" type="button" data-message-options="' + esc(messageKey) + '" aria-label="Message options" aria-haspopup="menu" title="Message options"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="19" cy="12" r="1.8"></circle></svg></button>'
+        : "";
       const time = message.sentAt ? new Date(message.sentAt).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}) : "";
-      const state = message.status === "sending"
+      const state = deletedForEveryone ? "" : (message.status === "sending"
         ? "Sending…"
         : (message.status === "failed"
           ? "Failed · Retry"
-          : (mine ? (message.readAt ? "Read" : (message.deliveryStatus === "delivered" ? "Delivered" : "Sent")) : ""));
+          : (mine ? (message.readAt ? "Read" : (message.deliveryStatus === "delivered" ? "Delivered" : "Sent")) : "")));
       const retry = message.status === "failed" && message.messageId
         ? ' <button class="chat-retry-btn" type="button" data-retry-id="' + esc(message.messageId) + '">Retry</button>'
         : "";
       const avatar = !mine ? '<span class="chat-in-avatar">' + avatarMarkup(selected) + '</span>' : '<span class="chat-message-spacer"></span>';
-      html += '<div class="chat-message-row ' + (mine ? "mine" : "") + (grouped ? "" : " group-gap") + '">' + avatar
-        + '<div class="chat-bubble"><div>' + esc(message.text).replace(/\n/g, "<br>")
+      html += '<div class="chat-message-row ' + (mine ? "mine" : "") + (grouped ? "" : " group-gap") + '" data-chat-message data-message-id="' + esc(messageKey) + '">' + avatar
+        + '<div class="chat-bubble' + (deletedForEveryone ? " is-deleted" : "") + '"><div class="' + (deletedForEveryone ? "chat-deleted-copy" : "") + '">' + (deletedForEveryone ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13"/></svg>' : "") + esc(displayText).replace(/\n/g, "<br>")
         + '</div><div class="chat-meta">' + esc(time) + (state ? ' <span class="chat-status-icon">' + esc(state) + '</span>' : '') + retry
-        + '</div></div></div>';
+        + '</div>' + actionButton + '</div></div>';
       previousMine = mine;
       return html;
     }).join("");
@@ -1217,12 +1414,167 @@
       message.status || "",
       message.deliveryStatus || "",
       message.deliveredAt || "",
-      message.readAt || ""
+      message.readAt || "",
+      message.deletedForEveryone ? "deleted" : "",
+      message.deletedAt || "",
+      message.deletedByDid || ""
     ].join("\u001f");
     const changed = merged.length !== currentMessages.length ||
       merged.some((message, index) => fingerprint(message) !== fingerprint(currentMessages[index] || {}));
     currentMessages = merged;
     return changed;
+  }
+
+
+  function findChatMessage(messageId) {
+    const key = String(messageId || '');
+    return currentMessages.find(message =>
+      String(message.messageId || message.id || '') === key
+    ) || null;
+  }
+
+  function canOfferMessageActions(message) {
+    return !!message && !!String(message.messageId || message.id || '') &&
+      !message.deletedForEveryone &&
+      message.status !== 'sending' &&
+      message.status !== 'failed' &&
+      !String(message.id || '').startsWith('pending-');
+  }
+
+  function showMessageActionMenu(messageId, clientX = 0, clientY = 0, trigger = null, fromTouch = false) {
+    const message = findChatMessage(messageId);
+    if (!selected || !canOfferMessageActions(message)) return;
+
+    messageActionState = {
+      messageId: String(message.messageId || message.id || ''),
+      conversationDid: String(selected.did || ''),
+      message,
+      trigger
+    };
+    pendingMessageDelete = null;
+    messageActionPreview.textContent = String(message.text || '').trim() || 'Message';
+    const everyoneOption = messageActionMenu.querySelector('[data-chat-action-choice="everyone"]');
+    everyoneOption.hidden = String(message.senderDid || '') !== String(myDid || '');
+
+    const mobile = fromTouch || !!window.matchMedia?.('(max-width: 900px)').matches;
+    messageActionMenu.classList.toggle('is-mobile', mobile);
+    messageDeleteDialog.hidden = true;
+    messageActionBackdrop.hidden = !mobile;
+    messageActionMenu.hidden = false;
+    document.body.classList.add('chat-action-open');
+
+    if (mobile) {
+      messageActionMenu.style.left = '';
+      messageActionMenu.style.top = '';
+      messageActionMenu.style.right = '';
+    } else {
+      const rect = trigger?.getBoundingClientRect?.();
+      const x = Number(clientX) > 0 ? Number(clientX) : (rect ? rect.right : 24);
+      const y = Number(clientY) > 0 ? Number(clientY) : (rect ? rect.bottom : 80);
+      const menuWidth = 292;
+      const menuHeight = everyoneOption.hidden ? 178 : 226;
+      messageActionMenu.style.left = Math.max(12, Math.min(window.innerWidth - menuWidth - 12, x)) + 'px';
+      messageActionMenu.style.top = Math.max(12, Math.min(window.innerHeight - menuHeight - 12, y)) + 'px';
+      messageActionMenu.style.right = '';
+    }
+    const firstOption = messageActionMenu.querySelector('[data-chat-action-choice="me"]');
+    firstOption?.focus({preventScroll:true});
+  }
+
+  function showMessageDeleteConfirmation(mode) {
+    if (!messageActionState || (mode !== 'me' && mode !== 'everyone')) return;
+    const message = messageActionState.message;
+    if (mode === 'everyone' && String(message.senderDid || '') !== String(myDid || '')) return;
+
+    pendingMessageDelete = {...messageActionState, mode};
+    messageActionMenu.hidden = true;
+    messageDeleteDialog.hidden = false;
+    messageActionBackdrop.hidden = false;
+    messageDeleteTitle.textContent = mode === 'everyone' ? 'Delete for everyone?' : 'Delete for me?';
+    messageDeleteCopy.textContent = mode === 'everyone'
+      ? 'This message will be removed from both chat histories. You cannot undo this action.'
+      : 'This message will be removed from your chat on your devices. The other person can still see their copy.';
+    messageDeleteConfirm.textContent = mode === 'everyone' ? 'Delete for everyone' : 'Delete for me';
+    messageDeleteConfirm.disabled = false;
+    messageDeleteCancel.disabled = false;
+    document.body.classList.add('chat-action-open');
+    messageDeleteConfirm.focus({preventScroll:true});
+  }
+
+  function closeMessageActionUi() {
+    const trigger = messageActionState?.trigger;
+    messageActionMenu.hidden = true;
+    messageDeleteDialog.hidden = true;
+    messageActionBackdrop.hidden = true;
+    messageActionMenu.classList.remove('is-mobile');
+    messageDeleteDialog.classList.remove('is-mobile');
+    messageActionMenu.style.left = '';
+    messageActionMenu.style.top = '';
+    messageActionMenu.style.right = '';
+    messageActionState = null;
+    pendingMessageDelete = null;
+    document.body.classList.remove('chat-action-open');
+    if (trigger?.isConnected && typeof trigger.focus === 'function') {
+      try { trigger.focus({preventScroll:true}); } catch (_) {}
+    }
+  }
+
+  function showChatActionToast(message, isError = false) {
+    if (chatActionToastTimer) clearTimeout(chatActionToastTimer);
+    chatActionToast.textContent = String(message || '');
+    chatActionToast.classList.toggle('is-error', !!isError);
+    chatActionToast.hidden = false;
+    chatActionToastTimer = setTimeout(() => { chatActionToast.hidden = true; }, 2800);
+  }
+
+  async function runMessageDeletion() {
+    const target = pendingMessageDelete;
+    if (!target || !target.messageId || !target.conversationDid) return;
+
+    messageDeleteConfirm.disabled = true;
+    messageDeleteCancel.disabled = true;
+    messageDeleteConfirm.textContent = 'Deleting…';
+    try {
+      const data = await api(
+        '/api/chat/with/' + encodeURIComponent(target.conversationDid) +
+          '/messages/' + encodeURIComponent(target.messageId),
+        {method:'DELETE', body:JSON.stringify({mode:target.mode})}
+      );
+
+      if (selected && String(selected.did || '') === target.conversationDid) {
+        if (target.mode === 'me') {
+          currentMessages = currentMessages.filter(message =>
+            String(message.messageId || message.id || '') !== target.messageId
+          );
+        } else if (data.message) {
+          mergeMessages([data.message]);
+        }
+        renderMessages(currentMessages);
+        saveChatCache(target.conversationDid, currentMessages);
+        scrollConversationToBottom(false);
+      } else {
+        const cached = readChatCache(target.conversationDid);
+        if (Array.isArray(cached?.messages)) {
+          const updated = target.mode === 'me'
+            ? cached.messages.filter(message => String(message.messageId || message.id || '') !== target.messageId)
+            : cached.messages.map(message =>
+                String(message.messageId || message.id || '') === target.messageId && data.message
+                  ? data.message : message
+              );
+          saveChatCache(target.conversationDid, updated);
+        }
+      }
+
+      closeMessageActionUi();
+      loadConversations().catch(() => {});
+      showChatActionToast(target.mode === 'everyone' ? 'Message deleted for everyone' : 'Message deleted for you');
+    } catch (err) {
+      closeMessageActionUi();
+      showChatActionToast(err?.message || 'Message could not be deleted. Please retry.', true);
+    } finally {
+      messageDeleteConfirm.disabled = false;
+      messageDeleteCancel.disabled = false;
+    }
   }
 
   function scrollConversationToBottom(force) {
@@ -1445,8 +1797,16 @@
       if (!selected || selected.did !== did) return;
 
       const serverMessages = Array.isArray(data.messages) ? data.messages : [];
+      const hiddenMessageIds = new Set((Array.isArray(data.hiddenMessageIds) ? data.hiddenMessageIds : []).map(String));
+      const removeHiddenFromCurrent = () => {
+        if (!hiddenMessageIds.size) return false;
+        const previousLength = currentMessages.length;
+        currentMessages = currentMessages.filter(message => message.deletedForEveryone || !hiddenMessageIds.has(String(message.messageId || message.id || "")));
+        return currentMessages.length !== previousLength;
+      };
       if (incremental) {
-        const changed = mergeMessages(serverMessages);
+        let changed = mergeMessages(serverMessages);
+        changed = removeHiddenFromCurrent() || changed;
         if (changed) {
           renderMessages(currentMessages);
           saveChatCache(did, currentMessages);
@@ -1458,6 +1818,7 @@
         // the authoritative mailbox is being read.
         currentMessages = serverMessages;
         mergeOutboxForConversation(did);
+        removeHiddenFromCurrent();
         renderMessages(currentMessages);
         scrollConversationToBottom(forceBottom);
       }
@@ -1670,6 +2031,35 @@
             return;
           }
 
+          if (String(data.notifType || "") === "chat_message_deleted") {
+            const deletedId = String(data.messageId || "");
+            const mode = String(data.mode || "");
+            const ownerDid = String(data.ownerDid || "");
+            const otherDid = String(data.otherDid || "");
+            if (mode === "me" && ownerDid === String(myDid || "")) {
+              if (selected && String(selected.did || "") === otherDid && deletedId) {
+                const before = currentMessages.length;
+                currentMessages = currentMessages.filter(message => String(message.messageId || message.id || "") !== deletedId);
+                if (currentMessages.length !== before) { renderMessages(currentMessages); saveChatCache(selected.did, currentMessages); }
+              }
+              const cached = readChatCache(otherDid);
+              if (otherDid && Array.isArray(cached?.messages)) saveChatCache(otherDid, cached.messages.filter(message => String(message.messageId || message.id || "") !== deletedId));
+            } else if (mode === "everyone" && data.message) {
+              const incomingDeleted = data.message;
+              const counterpartDid = String(incomingDeleted.senderDid || "") === String(myDid || "")
+                ? String(incomingDeleted.recipientDid || "") : String(incomingDeleted.senderDid || "");
+              if (selected && String(selected.did || "") === counterpartDid) {
+                const changed = mergeMessages([incomingDeleted]);
+                if (changed) { renderMessages(currentMessages); saveChatCache(selected.did, currentMessages); }
+              } else {
+                const cached = readChatCache(counterpartDid);
+                if (Array.isArray(cached?.messages)) saveChatCache(counterpartDid, cached.messages.map(message => String(message.messageId || message.id || "") === String(incomingDeleted.messageId || "") ? incomingDeleted : message));
+              }
+            }
+            loadConversations().catch(() => {});
+            return;
+          }
+
           if (String(data.notifType || "") !== "chat_message") return;
 
           // Messenger-style instant delivery: the sender-side server has
@@ -1827,13 +2217,61 @@
   });
 
   conversation.addEventListener("click", event => {
+    const options = event.target?.closest?.("[data-message-options]");
+    if (options?.dataset?.messageOptions) {
+      event.preventDefault();
+      showMessageActionMenu(options.dataset.messageOptions, event.clientX, event.clientY, options, false);
+      return;
+    }
     const retry = event.target?.closest?.("[data-retry-id]");
     if (!retry?.dataset?.retryId) return;
     retry.disabled = true;
-    retryOutboxMessage(retry.dataset.retryId)
-      .catch(() => {})
-      .finally(() => { retry.disabled = false; });
+    retryOutboxMessage(retry.dataset.retryId).catch(() => {}).finally(() => { retry.disabled = false; });
   });
+
+
+  conversation.addEventListener('pointerdown', event => {
+    if (event.pointerType === 'mouse' || event.target?.closest?.('[data-message-options]')) return;
+    const row = event.target?.closest?.('[data-chat-message]');
+    const messageId = String(row?.dataset?.messageId || '');
+    if (!messageId || !canOfferMessageActions(findChatMessage(messageId))) return;
+
+    if (messageActionPress?.timer) clearTimeout(messageActionPress.timer);
+    const press = {pointerId:event.pointerId, x:event.clientX, y:event.clientY, messageId, timer:null};
+    press.timer = setTimeout(() => {
+      messageActionPress = null;
+      showMessageActionMenu(press.messageId, press.x, press.y, null, true);
+    }, CHAT_MESSAGE_LONG_PRESS_MS);
+    messageActionPress = press;
+  }, {passive:true});
+
+  conversation.addEventListener('pointermove', event => {
+    if (!messageActionPress || messageActionPress.pointerId !== event.pointerId) return;
+    if (Math.abs(event.clientX - messageActionPress.x) > 12 ||
+        Math.abs(event.clientY - messageActionPress.y) > 12) {
+      clearTimeout(messageActionPress.timer);
+      messageActionPress = null;
+    }
+  }, {passive:true});
+
+  const cancelMessageLongPress = event => {
+    if (!messageActionPress || (event?.pointerId != null && messageActionPress.pointerId !== event.pointerId)) return;
+    clearTimeout(messageActionPress.timer);
+    messageActionPress = null;
+  };
+  conversation.addEventListener('pointerup', cancelMessageLongPress, {passive:true});
+  conversation.addEventListener('pointercancel', cancelMessageLongPress, {passive:true});
+  conversation.addEventListener('pointerleave', cancelMessageLongPress, {passive:true});
+
+  conversation.addEventListener('contextmenu', event => {
+    const row = event.target?.closest?.('[data-chat-message]');
+    const messageId = String(row?.dataset?.messageId || '');
+    if (!messageId || !canOfferMessageActions(findChatMessage(messageId))) return;
+    event.preventDefault();
+    showMessageActionMenu(messageId, event.clientX, event.clientY, null, false);
+  });
+
+
 
   document.getElementById("peopleBtn")?.addEventListener("click", () => shell.classList.add("people-open"));
   document.getElementById("peopleBackdrop")?.addEventListener("click", () => shell.classList.remove("people-open"));
