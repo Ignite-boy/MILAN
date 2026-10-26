@@ -103,14 +103,14 @@ jobs:
             echo
             echo "- **Schedule:** every 15 minutes (UTC)"
             echo "- **Run:** #${GITHUB_RUN_NUMBER}"
-            echo "- **Commit:** `$GITHUB_SHA`"
+            echo "- **Commit:** \`$GITHUB_SHA\`"
             echo "- **Latency target:** each successful health response in **≤ 1.5 seconds**"
-            echo "- **Availability target:** HTTP 200 with a valid JSON `ok: true` response"
+            echo "- **Availability target:** HTTP 200 with a valid JSON \`ok: true\` response"
             echo
             echo "| Check | HTTP | Response time | Latency target | JSON/health | Attempts |"
             echo "|---|---:|---:|---|---|---:|"
-            echo "| `/health` | $HEALTH_HTTP | ${HEALTH_SECONDS}s | $HEALTH_LATENCY_TARGET | $HEALTH_OK | $HEALTH_ATTEMPTS/3 |"
-            echo "| `/api/health` | $API_HTTP | ${API_SECONDS}s | $API_LATENCY_TARGET | $API_OK | $API_ATTEMPTS/3 |"
+            echo "| \`/health\` | $HEALTH_HTTP | ${HEALTH_SECONDS}s | $HEALTH_LATENCY_TARGET | $HEALTH_OK | $HEALTH_ATTEMPTS/3 |"
+            echo "| \`/api/health\` | $API_HTTP | ${API_SECONDS}s | $API_LATENCY_TARGET | $API_OK | $API_ATTEMPTS/3 |"
             echo
             echo "## What this measurement means"
             echo "- This run checks public service health and request latency. It does **not** claim to measure authenticated video playback, buffering, or browser scroll frame drops."
