@@ -348,7 +348,7 @@ function initMilanMediaObserver(){
     }
   },{
     root:null,
-    rootMargin:"0px 0px",
+    rootMargin:"300px 0px",
     threshold:0.01
   });
   }
@@ -788,8 +788,10 @@ async function loadPeople(){try{const q=($("peopleSearch")?.value||$("globalSear
 
   const refresh=()=>{
     if(!token || document.hidden || mediaPlaying())return;
-    loadNotifications();
-    loadSummary();
+    if(!window.__milanLivePushActive && !window.__milanLivePollingActive){
+      loadNotifications();
+      loadSummary();
+    }
   };
 
   window.__milanTick=setInterval(refresh,interval);
@@ -806,7 +808,7 @@ async function loadPeople(){try{const q=($("peopleSearch")?.value||$("globalSear
     if(!document.hidden){
       requestAnimationFrame(refresh);
       loadPeople().catch(()=>{});
-      loadNotifications();
+      if(!window.__milanLivePushActive && !window.__milanLivePollingActive) loadNotifications();
     }
   },{passive:true});
 
@@ -832,10 +834,20 @@ async function loadPeople(){try{const q=($("peopleSearch")?.value||$("globalSear
             toast("Friend request declined");
           }
 
-          Promise.resolve(loadNotifications()).catch(()=>{});
-          Promise.resolve(loadSummary()).catch(()=>{});
-          Promise.resolve(loadPeople()).catch(()=>{});
-          if(typeof loadFeed==="function"){
+          const isChatEvent = notifType==="chat_typing" ||
+            notifType==="chat_read" || notifType==="chat_message";
+          const isConnectionEvent = notifType==="connection_request" ||
+            notifType==="connection_approved" || notifType==="connection_rejected";
+          const isFeedEvent = notifType==="comment" || notifType==="reaction";
+
+          if(!isChatEvent && !window.__milanLivePushActive && !window.__milanLivePollingActive){
+            Promise.resolve(loadNotifications()).catch(()=>{});
+            Promise.resolve(loadSummary()).catch(()=>{});
+          }
+          if(isConnectionEvent){
+            Promise.resolve(loadPeople()).catch(()=>{});
+          }
+          if(isFeedEvent && typeof loadFeed==="function"){
             Promise.resolve(loadFeed()).catch(()=>{});
           }
         }catch(_){}
