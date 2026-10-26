@@ -846,7 +846,7 @@ async function streamMedia(req, res) {
       return streamLocalFile(media.fallbackFullPath, 'app-cache-after-dwn-sync');
     }
 
-    return streamLocalFile(media.fullPath, 'app-local-media');
+    return streamLocalFile(media.fullPath, media.authoritativeCloud ? (media.backend || 'voroa-postgresql-verified-local-cache') : 'app-local-media');
   } catch (err) { handleError(res, err); }
 }
 

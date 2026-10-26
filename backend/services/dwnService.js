@@ -1827,17 +1827,62 @@ async function statsFor(did) {
 }
 
 
-async function getAuthoritativeCloudMedia(id, did) {
+const verifiedAuthoritativeMediaFiles = new Map();
+
+async function verifyAuthoritativeMediaFile(filePath, expectedCid, sizeBytes) {
+  const cid = String(expectedCid || '').trim().toLowerCase();
+  if (!/^sha256:[a-f0-9]{64}$/.test(cid)) return false;
+
+  let stat;
+  try {
+    stat = fs.statSync(filePath);
+  } catch (_) {
+    return false;
+  }
+
+  if (!stat.isFile() || stat.size !== Number(sizeBytes)) return false;
+
+  const resolved = path.resolve(filePath);
+  const signature = [cid, stat.size, stat.mtimeMs, stat.ino].join('\0');
+  if (verifiedAuthoritativeMediaFiles.get(resolved) === signature) return true;
+
+  const hash = crypto.createHash('sha256');
+  await new Promise((resolve, reject) => {
+    const stream = fs.createReadStream(filePath);
+    stream.on('data', chunk => hash.update(chunk));
+    stream.on('error', reject);
+    stream.on('end', resolve);
+  });
+
+  if ('sha256:' + hash.digest('hex') !== cid) {
+    verifiedAuthoritativeMediaFiles.delete(resolved);
+    return false;
+  }
+
+  verifiedAuthoritativeMediaFiles.set(resolved, signature);
+  if (verifiedAuthoritativeMediaFiles.size > 512) {
+    const oldest = verifiedAuthoritativeMediaFiles.keys().next().value;
+    if (oldest) verifiedAuthoritativeMediaFiles.delete(oldest);
+  }
+  return true;
+}
+
+async function getAuthoritativeCloudMedia(id, did, options = {}) {
   const recordId = String(id || '').trim();
   const readerDid = String(did || '').trim();
   if (!recordId || !readerDid) return null;
 
+  const metadataOnly = options.metadataOnly === true;
+  const localFullPath = typeof options.localFullPath === 'string'
+    ? options.localFullPath : '';
+
   try {
+    // Playback URL discovery must never fetch the full MP4.
     const result = await milanDb.query(
       `SELECT r.did, r.space_id, r.item_key, r.recipient, r.published,
               r.metadata AS record_metadata, r.data_format,
               m.metadata AS media_metadata, m.data_format AS media_format,
-              m.data_bytes, m.data_size, m.data_cid
+              m.data_size, m.data_cid
        FROM public.dwn_storage r
        JOIN public.dwn_storage m
          ON m.component_type='record_data'
@@ -1848,6 +1893,7 @@ async function getAuthoritativeCloudMedia(id, did) {
        LIMIT 1`,
       [recordId]
     );
+
     if (result.rowCount !== 1) return null;
 
     const row = result.rows[0];
@@ -1861,33 +1907,28 @@ async function getAuthoritativeCloudMedia(id, did) {
     const spaceId = String(row.space_id || '').trim();
 
     const owner = await milanDb.query(
-      'SELECT space_id FROM public.users WHERE did=$1 LIMIT 1', [ownerDid]
+      'SELECT space_id FROM public.users WHERE did=$1 LIMIT 1',
+      [ownerDid]
     );
     if (owner.rowCount !== 1 || String(owner.rows[0].space_id) !== spaceId) {
       throw new Error('DID/space ownership verification failed');
     }
 
-    const accessMode = String(meta.accessMode || (row.published ? 'public' : 'private')).toLowerCase();
+    const accessMode = String(
+      meta.accessMode || (row.published ? 'public' : 'private')
+    ).toLowerCase();
     const shared = Array.isArray(meta.sharedWithDids) ? meta.sharedWithDids : [];
-    if (readerDid !== ownerDid && accessMode !== 'public' && !row.published && !shared.includes(readerDid)) {
+
+    if (readerDid !== ownerDid && accessMode !== 'public' &&
+        !row.published && !shared.includes(readerDid)) {
       const error = new Error('No access');
       error.status = 403;
       throw error;
     }
 
-    const buffer = Buffer.from(row.data_bytes || []);
-    const sizeBytes = Number(row.data_size || buffer.length);
-    if (!buffer.length || sizeBytes !== buffer.length) {
-      throw new Error('Voroa media byte-size verification failed');
-    }
+    const sizeBytes = Number(row.data_size || 0);
     const expectedCid = String(row.data_cid || '');
-    if (expectedCid.startsWith('sha256:')) {
-      const actualCid = 'sha256:' + crypto.createHash('sha256').update(buffer).digest('hex');
-      if (actualCid !== expectedCid) throw new Error('Voroa media SHA-256 verification failed');
-    }
-
-    return {
-      buffer,
+    const baseMedia = {
       mimeType: String(media.mimeType || row.media_format || row.data_format || 'application/octet-stream'),
       fileName: String(media.fileName || meta.title || 'milan-media'),
       sizeBytes,
@@ -1905,13 +1946,167 @@ async function getAuthoritativeCloudMedia(id, did) {
       spaceId,
       dataCid: expectedCid
     };
+
+    if (metadataOnly) return baseMedia;
+
+    const cacheRoot = path.join(MEDIA_DIR, 'voroa-authoritative-cache');
+    const cacheEligible = /^sha256:[a-f0-9]{64}$/i.test(expectedCid) && sizeBytes > 0;
+    const cacheFilePath = cacheEligible
+      ? path.join(
+          cacheRoot,
+          crypto.createHash('sha256').update(recordId).digest('hex') +
+            '-' + expectedCid.slice(7).toLowerCase() + '.media'
+        )
+      : '';
+
+    // Prefer a content-verified local media file or reusable cache.
+    const candidates = [...new Set([localFullPath, cacheFilePath].filter(Boolean))];
+    for (const candidate of candidates) {
+      if (!fs.existsSync(candidate)) continue;
+
+      if (await verifyAuthoritativeMediaFile(candidate, expectedCid, sizeBytes)) {
+        return {
+          ...baseMedia,
+          fullPath: candidate,
+          backend: 'voroa-postgresql-verified-local-cache',
+          verifiedLocalCache: true
+        };
+      }
+
+      // A bad cache entry must not persist or be served.
+      if (candidate === cacheFilePath) {
+        try { fs.unlinkSync(candidate); } catch (_) {}
+      }
+    }
+
+    // Cache miss: read the bytes once, scoped to the same record/owner/space/CID.
+    const byteResult = await milanDb.query(
+      `SELECT m.data_bytes, m.data_size, m.data_cid
+       FROM public.dwn_storage r
+       JOIN public.dwn_storage m
+         ON m.component_type='record_data'
+        AND m.did=r.did AND m.space_id=r.space_id
+        AND m.parent_key=r.item_key AND m.item_key='media:' || r.item_key
+        AND m.deleted=FALSE
+       WHERE r.component_type='record' AND r.item_key=$1
+         AND r.did=$2 AND r.space_id=$3 AND r.deleted=FALSE
+         AND ($4::text IS NULL OR m.data_cid=$4)
+         AND ($5::bigint IS NULL OR m.data_size=$5::bigint)
+       LIMIT 1`,
+      [
+        recordId, ownerDid, spaceId,
+        expectedCid || null,
+        sizeBytes > 0 ? String(sizeBytes) : null
+      ]
+    );
+
+    if (byteResult.rowCount !== 1) {
+      throw new Error('Voroa media changed during read; retry the request');
+    }
+
+    const bytesRow = byteResult.rows[0];
+    const buffer = Buffer.from(bytesRow.data_bytes || []);
+    const verifiedSize = Number(bytesRow.data_size || buffer.length);
+    if (!buffer.length || verifiedSize !== buffer.length ||
+        (sizeBytes > 0 && sizeBytes !== buffer.length)) {
+      throw new Error('Voroa media byte-size verification failed');
+    }
+
+    const cidToVerify = String(bytesRow.data_cid || expectedCid || '');
+    if (/^sha256:[a-f0-9]{64}$/i.test(cidToVerify)) {
+      const actualCid = 'sha256:' + crypto.createHash('sha256').update(buffer).digest('hex');
+      if (actualCid !== cidToVerify.toLowerCase()) {
+        throw new Error('Voroa media SHA-256 verification failed');
+      }
+    }
+
+    // Only cache verified SHA-256 content, within bounded per-file and total limits.
+    const maxFileBytes = Number(
+      process.env.MILAN_VOROA_STREAM_CACHE_MAX_FILE_BYTES || 512 * 1024 * 1024
+    );
+    const maxCacheBytes = Number(
+      process.env.MILAN_VOROA_STREAM_CACHE_MAX_BYTES || 1024 * 1024 * 1024
+    );
+
+    if (
+      cacheFilePath &&
+      cidToVerify.toLowerCase() === expectedCid.toLowerCase() &&
+      Number.isFinite(maxFileBytes) && maxFileBytes > 0 &&
+      Number.isFinite(maxCacheBytes) && maxCacheBytes > 0 &&
+      buffer.length <= maxFileBytes && buffer.length <= maxCacheBytes
+    ) {
+      try {
+        fs.mkdirSync(cacheRoot, { recursive: true });
+
+        const entries = fs.readdirSync(cacheRoot, { withFileTypes: true })
+          .filter(entry => entry.isFile() && entry.name.endsWith('.media'))
+          .map(entry => {
+            const filePath = path.join(cacheRoot, entry.name);
+            try {
+              const stat = fs.statSync(filePath);
+              return { filePath, sizeBytes: stat.size, atimeMs: stat.atimeMs };
+            } catch (_) {
+              return null;
+            }
+          })
+          .filter(Boolean)
+          .sort((a, b) => a.atimeMs - b.atimeMs);
+
+        let totalBytes = entries.reduce((sum, entry) => sum + entry.sizeBytes, 0);
+        for (const entry of entries) {
+          if (totalBytes + buffer.length <= maxCacheBytes) break;
+          try {
+            fs.unlinkSync(entry.filePath);
+            totalBytes -= entry.sizeBytes;
+            verifiedAuthoritativeMediaFiles.delete(path.resolve(entry.filePath));
+          } catch (_) {}
+        }
+
+        if (totalBytes + buffer.length <= maxCacheBytes) {
+          const temporaryPath = `${cacheFilePath}.${process.pid}.${crypto.randomUUID()}.tmp`;
+          try {
+            fs.writeFileSync(temporaryPath, buffer, { flag: 'wx' });
+            fs.renameSync(temporaryPath, cacheFilePath);
+          } finally {
+            try { if (fs.existsSync(temporaryPath)) fs.unlinkSync(temporaryPath); } catch (_) {}
+          }
+
+          const stat = fs.statSync(cacheFilePath);
+          const signature = [
+            path.resolve(cacheFilePath),
+            cidToVerify.toLowerCase(), stat.size, stat.mtimeMs, stat.ino
+          ];
+          verifiedAuthoritativeMediaFiles.set(
+            path.resolve(cacheFilePath),
+            [cidToVerify.toLowerCase(), stat.size, stat.mtimeMs, stat.ino].join('\0')
+          );
+
+          return {
+            ...baseMedia,
+            fullPath: cacheFilePath,
+            sizeBytes: buffer.length,
+            dataCid: cidToVerify,
+            backend: 'voroa-postgresql-verified-local-cache',
+            verifiedLocalCache: true
+          };
+        }
+      } catch (cacheError) {
+        console.warn('[Voroa media cache skipped]', recordId, cacheError.message);
+      }
+    }
+
+    return {
+      ...baseMedia,
+      buffer,
+      sizeBytes: buffer.length,
+      dataCid: cidToVerify
+    };
   } catch (error) {
     if (error.status === 403) throw error;
     console.error('[Voroa media read failed]', recordId, error.message);
     return null;
   }
 }
-
 async function getDirectMediaPlaybackUrl(id, did) {
   const recordId = String(id || '').trim();
   const readerDid = String(did || '').trim();
@@ -1921,7 +2116,7 @@ async function getDirectMediaPlaybackUrl(id, did) {
     throw err;
   }
 
-  const media = await getAuthoritativeCloudMedia(recordId, readerDid);
+  const media = await getAuthoritativeCloudMedia(recordId, readerDid, { metadataOnly: true });
 
   // Voroa stores authoritative media bytes in PostgreSQL. When the verified
   // MP4 is ready but has no remote signed URL, let the frontend use the
@@ -2040,8 +2235,14 @@ async function getMediaStream(id, did) {
     throw err;
   }
 
-  // Prefer verified authoritative bytes in Voroa; retain local/remote fallback for legacy media.
-  const authoritativeMedia = await getAuthoritativeCloudMedia(id, did);
+  // Verify a local copy or disk-cache entry before falling back to PostgreSQL bytes.
+  const localMediaRel = found.record.mediaStoragePath || found.record.mediaCachePath || '';
+  const localCandidate = localMediaRel ? absoluteBackendPath(localMediaRel) : '';
+  const localMediaPath = localCandidate && fs.existsSync(localCandidate)
+    ? localCandidate : '';
+  const authoritativeMedia = await getAuthoritativeCloudMedia(id, did, {
+    localFullPath: localMediaPath
+  });
   if (authoritativeMedia) return authoritativeMedia;
 
   const data = found.record.data || {};

@@ -688,6 +688,65 @@ async function pushMediaToCloudDwn(record, user, absoluteFilePath) {
       }
     );
 
+    // Warm the exact verified playback cache only after the DB transaction commits.
+    // Cache failures must never turn a successful media upload into a failed upload.
+    try {
+      const cid = 'sha256:' + digest;
+      const maxFileBytes = Number(
+        process.env.MILAN_VOROA_STREAM_CACHE_MAX_FILE_BYTES || 512 * 1024 * 1024
+      );
+      const maxCacheBytes = Number(
+        process.env.MILAN_VOROA_STREAM_CACHE_MAX_BYTES || 1024 * 1024 * 1024
+      );
+      const cacheRoot = path.join(dwnRoot(), 'media', 'voroa-authoritative-cache');
+      const cacheName = crypto.createHash('sha256').update(recordId).digest('hex') +
+        '-' + digest + '.media';
+      const cacheFile = path.join(cacheRoot, cacheName);
+
+      if (
+        /^sha256:[a-f0-9]{64}$/i.test(cid) &&
+        bytes.length > 0 &&
+        Number.isFinite(maxFileBytes) && maxFileBytes > 0 &&
+        Number.isFinite(maxCacheBytes) && maxCacheBytes > 0 &&
+        bytes.length <= maxFileBytes &&
+        bytes.length <= maxCacheBytes
+      ) {
+        fs.mkdirSync(cacheRoot, { recursive: true });
+        const entries = fs.readdirSync(cacheRoot, { withFileTypes: true })
+          .filter(entry => entry.isFile() && entry.name.endsWith('.media'))
+          .map(entry => {
+            try {
+              const filePath = path.join(cacheRoot, entry.name);
+              return { filePath, size: fs.statSync(filePath).size };
+            } catch (_) {
+              return null;
+            }
+          })
+          .filter(Boolean);
+        const totalOtherBytes = entries
+          .filter(entry => path.resolve(entry.filePath) !== path.resolve(cacheFile))
+          .reduce((sum, entry) => sum + entry.size, 0);
+
+        if (totalOtherBytes + bytes.length <= maxCacheBytes) {
+          const temporaryPath = cacheFile + '.' + process.pid + '.' +
+            crypto.randomUUID() + '.tmp';
+          try {
+            fs.writeFileSync(temporaryPath, bytes, { flag: 'wx' });
+            fs.renameSync(temporaryPath, cacheFile);
+          } finally {
+            try {
+              if (fs.existsSync(temporaryPath)) fs.unlinkSync(temporaryPath);
+            } catch (_) {}
+          }
+          console.info('[Voroa media cache warmed]', recordId, bytes.length);
+        } else {
+          console.info('[Voroa media cache warm skipped: capacity]', recordId);
+        }
+      }
+    } catch (cacheError) {
+      console.warn('[Voroa media cache warm failed]', recordId, cacheError.message);
+    }
+
     return {
       pushed: true, backend: 'voroa', mode: 'voroa-postgresql',
       spaceId, recordId, itemKey, dataCid: 'sha256:' + digest,
