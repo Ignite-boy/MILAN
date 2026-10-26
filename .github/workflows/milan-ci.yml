@@ -57,6 +57,12 @@ jobs:
       - name: Verify video byte-range semantics
         run: npm run test:video-range
 
+      - name: Verify video scroll playback lifecycle
+        run: npm run test:video-scroll
+
+      - name: Verify resumable media upload behavior
+        run: npm run test:upload
+
       - name: Verify payment idempotency and quota invariants
         run: npm run test:payment-idempotency
       - name: Exercise payment ownership and idempotent transitions
