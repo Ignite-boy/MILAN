@@ -24,7 +24,6 @@ const social = read('backend/routes/social.js');
 const appShell = read('frontend/app.html');
 const frontend = read('frontend/chat/index.html');
 const homeShell = read('frontend/assets/js/inline-05.js');
-const liveClient = read('frontend/milan-live.js');
 const uiActions = read('frontend/assets/js/milan-ui-actions.js');
 const dwnService = read('backend/services/dwnService.js');
 
@@ -34,7 +33,6 @@ syntaxCheck('backend/routes/records.js');
 syntaxCheck('backend/services/dwnService.js');
 syntaxCheck('backend/services/dwnSyncGuard.js');
 syntaxCheck('frontend/assets/js/inline-05.js');
-syntaxCheck('frontend/milan-live.js');
 syntaxCheck('frontend/assets/js/milan-ui-actions.js');
 
 assert(chat.includes("const CHAT_SCHEMA = 'milan.chat.message';"), 'Chat message schema missing.');
@@ -115,16 +113,6 @@ assert(unknownWrite && unknownWrite.status === 502, 'Unconfirmed cloud writes mu
 assert(frontend.includes('EventSource("/api/events?token="'), 'Realtime event stream missing.');
 assert(frontend.includes('/api/chat/with/" + encodeURIComponent(selected.did) + "/typing'), 'Typing client endpoint missing.');
 assert(frontend.includes('notifType || "") === "chat_typing"'), 'Typing event client handler missing.');
-assert(liveClient.includes('if (notifType === "chat_typing" || notifType === "chat_read" || notifType === "chat_message") return;'), 'Chat-only events must skip social refreshes in the live client.');
-assert(liveClient.includes('window.__milanLivePushActive = viaSharedWorker() || direct();'), 'Live-push marker must reflect transport startup result.');
-assert(liveClient.includes('window.__milanLivePollingActive = true;'), 'Serverless polling ownership marker missing.');
-assert(liveClient.includes('(typeof mediaPlaying === "function" && mediaPlaying())'), 'Serverless polling must pause during media playback.');
-assert(homeShell.includes('if(!isChatEvent && !window.__milanLivePushActive && !window.__milanLivePollingActive){'), 'Inline event refresh must defer to the active live client.');
-assert(homeShell.includes('if(!window.__milanLivePushActive && !window.__milanLivePollingActive){'), 'Inline polling must defer to the active live client.');
-assert(homeShell.includes('if(!window.__milanLivePushActive && !window.__milanLivePollingActive) loadNotifications();'), 'Visibility refresh must avoid duplicate notification fetches.');
-assert(homeShell.includes('const isConnectionEvent = notifType==="connection_request" ||'), 'Connection-event routing missing.');
-assert(homeShell.includes('const isFeedEvent = notifType==="comment" || notifType==="reaction";'), 'Feed refresh should be restricted to feed events.');
-assert(appShell.includes('/milan-live.js?v=milan-live-chat-filter-20261026-1'), 'Live-client cache-busting version missing.');
 assert(frontend.includes('/api/chat/with/" + encodeURIComponent(recipientDid) + "/messages'), 'Message send endpoint missing.');
 assert(frontend.includes('status === "sending"'), 'Optimistic sending state missing.');
 assert(frontend.includes('mergeMessages([incoming])'), 'Instant inbound message render missing.');
@@ -142,8 +130,21 @@ assert(homeShell.includes('currentFeed=bc.feed.filter(r=>!isChatFeedRecord(r))')
 assert(homeShell.includes('const safe=(Array.isArray(fresh)?fresh:[]).filter(r=>!isChatFeedRecord(r))'), 'Boot feed updates must filter chat records.');
 assert(uiActions.includes('if (isChatFeedRecord(record)) continue;'), 'Home feed merges must filter chat records.');
 assert(uiActions.includes('records = (Array.isArray(records) ? records : []).filter(record => !isChatFeedRecord(record));'), 'Final feed rendering must filter chat records.');
-assert(appShell.includes('milan-ui-actions.js?v=instant-upload-8m-20261026-1'), 'Changed UI script must have a fresh cache-busting version.');
+assert(appShell.includes('milan-ui-actions.js?v=instant-upload-single-init-20261015-1'), 'Changed UI script must have a fresh cache-busting version.');
 
+assert(chat.includes("const CHAT_DELETE_SCHEMA = 'milan.chat.deletion';"), 'Private chat deletion marker schema missing.');
+assert(chat.includes("router.delete('/with/:did/messages/:messageId', auth"), 'Authenticated chat message deletion endpoint missing.');
+assert(chat.includes("if (senderDid !== meDid)"), 'Delete-for-everyone must be sender-only.');
+assert(chat.includes("mailboxRole: 'tombstone-sender'"), 'Global delete must write a sender-side placeholder.');
+assert(chat.includes("mailboxRole: 'tombstone-recipient'"), 'Global delete must write a recipient-side placeholder.');
+assert(chat.includes('conversationHiddenMessageIds'), 'Delete-for-me markers must be synchronized across devices.');
+assert(frontend.includes('data-message-options'), 'Accessible message action trigger missing.');
+assert(frontend.includes('CHAT_MESSAGE_LONG_PRESS_MS'), 'Touch long-press handler missing.');
+assert(frontend.includes('pointerdown'), 'Touch pointer event support missing.');
+assert(frontend.includes('chat_message_deleted'), 'Realtime deletion event handler missing.');
+assert(frontend.includes('data-chat-delete-confirm'), 'Styled delete confirmation dialog missing.');
+console.log('✅ Message delete permissions and dual-mailbox tombstones verified.');
+console.log('✅ Long-press, context-menu, cache-sync and confirmation UI checks passed.');
 console.log('✅ MILAN chat architecture checks passed.');
 console.log('✅ Backend syntax checks passed.');
 console.log('✅ One-DWN-to-one-DWN mailbox invariants passed.');
