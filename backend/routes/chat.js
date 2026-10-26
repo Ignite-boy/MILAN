@@ -16,6 +16,8 @@ const CHAT_PROTOCOL = 'milan.chat';
 const CHAT_PATH = 'messages';
 const CHAT_RECEIPT_SCHEMA = 'milan.chat.receipt';
 const CHAT_RECEIPT_PATH = 'receipts';
+const CHAT_DELETE_SCHEMA = 'milan.chat.deletion';
+const CHAT_DELETE_PATH = 'message-deletions';
 const MAX_MESSAGE_CHARS = 5000;
 const MAX_HISTORY = 200;
 const CHAT_QUERY_RECORD_LIMIT = MAX_HISTORY * 2;
@@ -129,7 +131,10 @@ function toMessage(record) {
     dateModified: record?.dateModified || record?.dateCreated || null,
     deliveryStatus: String(data.deliveryStatus || 'sent'),
     deliveredAt: data.deliveredAt || null,
-    readAt: data.readAt || null
+    readAt: data.readAt || null,
+    deletedForEveryone: data.deletedForEveryone === true,
+    deletedByDid: didOf(data.deletedByDid),
+    deletedAt: data.deletedAt || null
   };
 }
 
@@ -261,6 +266,128 @@ async function createChatReceiptRecord(userId, ownerDid, data) {
   });
 }
 
+
+function chatDeletionRecordId(conversationId, messageId, ownerDid) {
+  return crypto.createHash('sha256')
+    .update(['milan-chat-hidden-v1', conversationId, messageId, ownerDid].join('|'))
+    .digest('hex')
+    .slice(0, 64);
+}
+
+function chatDeletionRecordOptions(data) {
+  return {
+    schema: CHAT_DELETE_SCHEMA,
+    title: 'MILAN Chat Message Deletion',
+    dataFormat: 'application/json',
+    protocol: CHAT_PROTOCOL,
+    protocolPath: CHAT_DELETE_PATH,
+    accessMode: 'private',
+    sharedWithDids: [],
+    awaitCloudSync: true,
+    data
+  };
+}
+
+async function createChatDeletionMarker(userId, ownerDid, data) {
+  return dwnStore.createRecord(userId, ownerDid, {
+    ...chatDeletionRecordOptions(data),
+    recordId: chatDeletionRecordId(data.conversationId, data.messageId, ownerDid)
+  });
+}
+
+async function chatDeletionMarker(ownerDid, conversationId, messageId) {
+  const owner = didOf(ownerDid);
+  const recordId = chatDeletionRecordId(conversationId, messageId, owner);
+  if (!owner || !recordId) return null;
+
+  const result = await milanDb.query(
+    `SELECT item_key AS record_id, data_bytes
+       FROM public.dwn_storage
+      WHERE component_type = 'record'
+        AND did = $1
+        AND space_id = (SELECT space_id FROM public.users WHERE did = $1 LIMIT 1)
+        AND item_key = $2
+        AND protocol = $3
+        AND protocol_path = $4
+        AND deleted = FALSE
+      LIMIT 1`,
+    [owner, recordId, CHAT_PROTOCOL, CHAT_DELETE_PATH]
+  );
+
+  if (result.rowCount !== 1) return null;
+  const data = decodeStoredData(result.rows[0].data_bytes);
+  if (!data || data.kind !== 'chat_message_hidden') return null;
+  return { id: String(result.rows[0].record_id || recordId), data };
+}
+
+async function conversationHiddenMessageIds(meDid, otherDid) {
+  const owner = didOf(meDid);
+  const other = didOf(otherDid);
+  if (!owner || !other) return [];
+
+  const conversationId = conversationIdFor(owner, other);
+  const result = await milanDb.query(
+    `SELECT data_bytes
+       FROM public.dwn_storage
+      WHERE component_type = 'record'
+        AND did = $1
+        AND space_id = (SELECT space_id FROM public.users WHERE did = $1 LIMIT 1)
+        AND deleted = FALSE
+        AND protocol = $2
+        AND protocol_path = $3
+      ORDER BY date_created DESC
+      LIMIT $4`,
+    [owner, CHAT_PROTOCOL, CHAT_DELETE_PATH, CHAT_GLOBAL_RECORD_LIMIT]
+  );
+
+  const hidden = new Set();
+  for (const row of result.rows) {
+    const data = decodeStoredData(row.data_bytes);
+    if (!data || data.kind !== 'chat_message_hidden') continue;
+    if (String(data.conversationId || '') !== conversationId) continue;
+    const senderDid = didOf(data.senderDid);
+    const recipientDid = didOf(data.recipientDid);
+    if (!(
+      (senderDid === owner && recipientDid === other) ||
+      (senderDid === other && recipientDid === owner)
+    )) continue;
+    const messageId = didOf(data.messageId);
+    if (messageId) hidden.add(messageId);
+  }
+  return [...hidden];
+}
+
+async function activeChatMailboxRecordExists(ownerDid, recordId) {
+  const owner = didOf(ownerDid);
+  const id = didOf(recordId);
+  if (!owner || !id) return false;
+
+  const result = await milanDb.query(
+    `SELECT 1
+       FROM public.dwn_storage
+      WHERE component_type = 'record'
+        AND did = $1
+        AND space_id = (SELECT space_id FROM public.users WHERE did = $1 LIMIT 1)
+        AND item_key = $2
+        AND deleted = FALSE
+      LIMIT 1`,
+    [owner, id]
+  );
+  return result.rowCount > 0;
+}
+
+async function deleteChatMailboxRecordIfPresent(userId, ownerDid, recordId) {
+  if (!(await activeChatMailboxRecordExists(ownerDid, recordId))) return false;
+
+  const deleted = await dwnStore.deleteRecord(userId, ownerDid, recordId);
+  if (!deleted && await activeChatMailboxRecordExists(ownerDid, recordId)) {
+    const err = new Error('The chat message could not be permanently removed from its DWN mailbox.');
+    err.status = 502;
+    throw err;
+  }
+  return !!deleted;
+}
+
 function decodeStoredData(value) {
   if (value == null) return {};
   try {
@@ -311,6 +438,7 @@ async function conversationMessages(meDid, otherDid, options = {}) {
 
   const rows = messages.rows;
   if (!rows.length) return [];
+  const hiddenMessageIds = new Set(await conversationHiddenMessageIds(meDid, otherDid));
 
   const receipts = await milanDb.query(
     `SELECT data_bytes
@@ -364,12 +492,17 @@ async function conversationMessages(meDid, otherDid, options = {}) {
       deliveredAt: data.deliveredAt || null,
       readAt: data.readAt ||
         readAtByMessageId.get(String(data.messageId || row.record_id || '')) || null,
+      deletedForEveryone: data.deletedForEveryone === true,
+      deletedByDid: didOf(data.deletedByDid),
+      deletedAt: data.deletedAt || null,
       ownerDid: String(row.owner_did || ''),
       sharedWithDids: Array.isArray(metadata.sharedWithDids) ? metadata.sharedWithDids : []
     };
   }).filter(message =>
-    (!Number.isFinite(afterMs) || Date.parse(message.sentAt || '') >= afterMs) &&
+    (!Number.isFinite(afterMs) || Date.parse(message.sentAt || '') >= afterMs ||
+      (message.deletedForEveryone && Date.parse(message.deletedAt || message.dateModified || '') >= afterMs)) &&
     message.conversationId === conversationId &&
+    (!hiddenMessageIds.has(String(message.messageId || message.id || '')) || message.deletedForEveryone) &&
     message.ownerDid === meDid &&
     (
       (message.senderDid === meDid && message.recipientDid === otherDid) ||
@@ -381,7 +514,11 @@ async function conversationMessages(meDid, otherDid, options = {}) {
   for (const message of visible) {
     const key = message.messageId || message.id;
     const previous = byMessageId.get(key);
-    if (!previous || message.ownerDid === meDid) byMessageId.set(key, message);
+    if (!previous ||
+        (message.deletedForEveryone && !previous.deletedForEveryone) ||
+        (!previous.deletedForEveryone && message.ownerDid === meDid)) {
+      byMessageId.set(key, message);
+    }
   }
 
   return [...byMessageId.values()]
@@ -443,12 +580,15 @@ async function listConversations(meDid) {
 
     const candidate = {
       recordId, messageId, ownerDid, conversationId, otherDid, senderDid,
-      text: String(data.text || '').slice(0, 160),
-      sentAt: data.sentAt || row.date_created || row.date_modified || ''
+      text: data.deletedForEveryone ? 'This message was deleted' : String(data.text || '').slice(0, 160),
+      sentAt: data.sentAt || row.date_created || row.date_modified || '',
+      deletedForEveryone: data.deletedForEveryone === true
     };
 
     const previous = uniqueMessages.get(messageId);
-    if (!previous || candidate.ownerDid === currentDid) {
+    if (!previous ||
+        (candidate.deletedForEveryone && !previous.deletedForEveryone) ||
+        (!previous.deletedForEveryone && candidate.ownerDid === currentDid)) {
       uniqueMessages.set(messageId, candidate);
     }
   }
@@ -721,10 +861,12 @@ router.get('/with/:did', auth, async (req, res) => {
     }
 
     const messages = await conversationMessages(meDid, otherDid);
+    const hiddenMessageIds = await conversationHiddenMessageIds(meDid, otherDid);
     res.setHeader('Cache-Control', 'no-store');
     return res.json({
       ok: true,
       conversationId: conversationIdFor(meDid, otherDid),
+      hiddenMessageIds,
       person: {
         id: recipient.id,
         name: recipient.name || recipient.email?.split('@')[0] || 'MILAN User',
@@ -757,11 +899,13 @@ router.get('/with/:did/messages', auth, async (req, res) => {
     }
 
     const messages = await conversationMessages(meDid, otherDid, { after });
+    const hiddenMessageIds = await conversationHiddenMessageIds(meDid, otherDid);
     res.setHeader('Cache-Control', 'no-store');
     return res.json({
       ok: true,
       conversationId: conversationIdFor(meDid, otherDid),
-      messages
+      messages,
+      hiddenMessageIds
     });
   } catch (err) {
     console.error('[chat/messages]', err);
@@ -793,6 +937,18 @@ router.post('/with/:did/messages', auth, async (req, res) => {
     const messageId = clientMessageId || crypto.randomUUID();
     const conversationId = conversationIdFor(meDid, otherDid);
     const sendMessage = async () => {
+      const [senderTombstone, recipientTombstone, senderHidden, recipientHidden] = await Promise.all([
+        chatMailboxRecord(meDid, conversationId, messageId, 'tombstone-sender'),
+        chatMailboxRecord(otherDid, conversationId, messageId, 'tombstone-recipient'),
+        chatDeletionMarker(meDid, conversationId, messageId),
+        chatDeletionMarker(otherDid, conversationId, messageId)
+      ]);
+      if (senderTombstone || recipientTombstone || senderHidden || recipientHidden) {
+        const err = new Error('This message was already deleted and cannot be sent again with the same message ID.');
+        err.status = 409;
+        throw err;
+      }
+
       // The only records read here are the deterministic private mailbox
       // records for these two DIDs. A retry never scans an arbitrary history,
       // so it stays correct even after a busy conversation exceeds its window.
@@ -871,5 +1027,192 @@ router.post('/with/:did/messages', auth, async (req, res) => {
     });
   }
 });
+
+
+router.delete('/with/:did/messages/:messageId', auth, async (req, res) => {
+  const meDid = didOf(req.did || req.account?.did);
+  const otherDid = didOf(req.params.did);
+  const messageId = cleanClientMessageId(req.params.messageId);
+  const mode = String(req.body?.mode || 'me').trim().toLowerCase();
+
+  if (!meDid) return res.status(401).json({ error: 'Authenticated DID unavailable' });
+  if (!otherDid) return res.status(400).json({ error: 'Recipient DID required' });
+  if (meDid === otherDid) return res.status(400).json({ error: 'Cannot delete a message from a self-chat' });
+  if (!messageId) return res.status(400).json({ error: 'Valid message ID required' });
+  if (mode !== 'me' && mode !== 'everyone') {
+    return res.status(400).json({ error: 'Delete mode must be me or everyone' });
+  }
+
+  try {
+    const other = await recipientByDid(otherDid);
+    if (!other) return res.status(404).json({ error: 'Person not found' });
+
+    const friendDids = await friendDidsFor(meDid);
+    if (!friendDids.has(otherDid)) {
+      return res.status(403).json({ error: 'You can only delete messages in connected-friend chats' });
+    }
+
+    const conversationId = conversationIdFor(meDid, otherDid);
+    const [ownSender, ownRecipient, ownTombstoneSender, ownTombstoneRecipient] = await Promise.all([
+      chatMailboxRecord(meDid, conversationId, messageId, 'sender'),
+      chatMailboxRecord(meDid, conversationId, messageId, 'recipient'),
+      chatMailboxRecord(meDid, conversationId, messageId, 'tombstone-sender'),
+      chatMailboxRecord(meDid, conversationId, messageId, 'tombstone-recipient')
+    ]);
+    const ownOriginal = ownSender || ownRecipient;
+    const ownTombstone = ownTombstoneSender || ownTombstoneRecipient;
+    const source = ownOriginal?.data || ownTombstone?.data;
+
+    if (!source) return res.status(404).json({ error: 'Message not found in your private DWN mailbox' });
+
+    const senderDid = didOf(source.senderDid);
+    const recipientDid = didOf(source.recipientDid);
+    const matchesConversation = String(source.conversationId || '') === conversationId &&
+      ((senderDid === meDid && recipientDid === otherDid) ||
+       (senderDid === otherDid && recipientDid === meDid));
+    if (!matchesConversation) {
+      return res.status(404).json({ error: 'Message does not belong to this conversation' });
+    }
+
+    if (mode === 'me') {
+      if (ownOriginal && source.deletedForEveryone !== true &&
+          !(await chatDeletionMarker(meDid, conversationId, messageId))) {
+        await createChatDeletionMarker(req.userId, meDid, {
+          kind: 'chat_message_hidden',
+          messageId,
+          conversationId,
+          senderDid,
+          recipientDid,
+          hiddenByDid: meDid,
+          hiddenAt: new Date().toISOString()
+        });
+      }
+
+      let deletedCopies = 0;
+      for (const record of [ownSender, ownRecipient, ownTombstoneSender, ownTombstoneRecipient].filter(Boolean)) {
+        if (await deleteChatMailboxRecordIfPresent(req.userId, meDid, record.id)) deletedCopies += 1;
+      }
+      if (!deletedCopies && !ownOriginal && !ownTombstone) {
+        return res.status(404).json({ error: 'Message not found in your private DWN mailbox' });
+      }
+
+      try {
+        livePush.push(req.userId, 'notify', {
+          notifType: 'chat_message_deleted',
+          mode: 'me',
+          ownerDid: meDid,
+          otherDid,
+          conversationId,
+          messageId
+        });
+      } catch (_) {}
+
+      res.setHeader('Cache-Control', 'no-store');
+      return res.json({ ok: true, mode: 'me', conversationId, messageId, hiddenMessageIds: [messageId] });
+    }
+
+    if (senderDid !== meDid) {
+      return res.status(403).json({ error: 'Only the sender can delete this message for everyone' });
+    }
+    if (!ownSender && !ownTombstoneSender) {
+      return res.status(404).json({ error: 'Your sender mailbox copy is unavailable' });
+    }
+
+    const [recipientCopy, recipientTombstone, recipientHidden] = await Promise.all([
+      chatMailboxRecord(otherDid, conversationId, messageId, 'recipient'),
+      chatMailboxRecord(otherDid, conversationId, messageId, 'tombstone-recipient'),
+      chatDeletionMarker(otherDid, conversationId, messageId)
+    ]);
+    if (recipientCopy &&
+        (didOf(recipientCopy.data.senderDid) !== meDid ||
+         didOf(recipientCopy.data.recipientDid) !== otherDid ||
+         String(recipientCopy.data.conversationId || '') !== conversationId)) {
+      return res.status(409).json({ error: 'Recipient mailbox copy does not match this message' });
+    }
+
+    const senderData = ownSender?.data || ownTombstoneSender?.data || source;
+    const deletedAt = ownTombstoneSender?.data?.deletedAt || senderData.deletedAt || new Date().toISOString();
+    const tombstoneData = {
+      kind: 'chat_message',
+      messageId,
+      conversationId,
+      senderDid: meDid,
+      recipientDid: otherDid,
+      text: '',
+      sentAt: senderData.sentAt || new Date().toISOString(),
+      deliveryStatus: 'delivered',
+      deliveredAt: senderData.deliveredAt || deletedAt,
+      readAt: senderData.readAt || null,
+      deletedForEveryone: true,
+      deletedByDid: meDid,
+      deletedAt
+    };
+
+    const senderTombstoneRecord = ownTombstoneSender ||
+      await createChatMailboxRecord(req.userId, meDid, {
+        ...tombstoneData,
+        mailboxRole: 'tombstone-sender'
+      });
+
+    const recipientHadVisibleCopy = !!recipientCopy || !!recipientTombstone;
+    let recipientTombstoneRecord = recipientTombstone;
+    if (recipientHadVisibleCopy && !recipientHidden && !recipientTombstoneRecord) {
+      recipientTombstoneRecord = await createChatMailboxRecord(other.id, otherDid, {
+        ...tombstoneData,
+        mailboxRole: 'tombstone-recipient'
+      });
+    }
+
+    if (ownSender) await deleteChatMailboxRecordIfPresent(req.userId, meDid, ownSender.id);
+    if (recipientCopy) await deleteChatMailboxRecordIfPresent(other.id, otherDid, recipientCopy.id);
+
+    const deletedMessage = {
+      id: String(senderTombstoneRecord?.id || mailboxRecordId(conversationId, messageId, 'tombstone-sender')),
+      messageId,
+      conversationId,
+      senderDid: meDid,
+      recipientDid: otherDid,
+      text: '',
+      sentAt: tombstoneData.sentAt,
+      dateModified: deletedAt,
+      deliveryStatus: 'delivered',
+      deliveredAt: tombstoneData.deliveredAt,
+      readAt: tombstoneData.readAt,
+      deletedForEveryone: true,
+      deletedByDid: meDid,
+      deletedAt
+    };
+
+    try {
+      livePush.push(req.userId, 'notify', {
+        notifType: 'chat_message_deleted',
+        mode: 'everyone',
+        ownerDid: meDid,
+        otherDid,
+        conversationId,
+        messageId,
+        message: deletedMessage
+      });
+      if (recipientHadVisibleCopy && !recipientHidden) {
+        livePush.push(other.id, 'notify', {
+          notifType: 'chat_message_deleted',
+          mode: 'everyone',
+          ownerDid: otherDid,
+          otherDid: meDid,
+          conversationId,
+          messageId,
+          message: deletedMessage
+        });
+      }
+    } catch (_) {}
+
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({ ok: true, mode: 'everyone', conversationId, messageId, message: deletedMessage });
+  } catch (err) {
+    console.error('[chat/delete]', err);
+    return res.status(err.status || 500).json({ error: err.message || 'Message deletion failed' });
+  }
+});
+
 
 module.exports = router;
