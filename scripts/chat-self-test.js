@@ -24,6 +24,7 @@ const social = read('backend/routes/social.js');
 const appShell = read('frontend/app.html');
 const frontend = read('frontend/chat/index.html');
 const homeShell = read('frontend/assets/js/inline-05.js');
+const liveClient = read('frontend/milan-live.js');
 const uiActions = read('frontend/assets/js/milan-ui-actions.js');
 const dwnService = read('backend/services/dwnService.js');
 
@@ -33,6 +34,7 @@ syntaxCheck('backend/routes/records.js');
 syntaxCheck('backend/services/dwnService.js');
 syntaxCheck('backend/services/dwnSyncGuard.js');
 syntaxCheck('frontend/assets/js/inline-05.js');
+syntaxCheck('frontend/milan-live.js');
 syntaxCheck('frontend/assets/js/milan-ui-actions.js');
 
 assert(chat.includes("const CHAT_SCHEMA = 'milan.chat.message';"), 'Chat message schema missing.');
@@ -113,6 +115,16 @@ assert(unknownWrite && unknownWrite.status === 502, 'Unconfirmed cloud writes mu
 assert(frontend.includes('EventSource("/api/events?token="'), 'Realtime event stream missing.');
 assert(frontend.includes('/api/chat/with/" + encodeURIComponent(selected.did) + "/typing'), 'Typing client endpoint missing.');
 assert(frontend.includes('notifType || "") === "chat_typing"'), 'Typing event client handler missing.');
+assert(liveClient.includes('if (notifType === "chat_typing" || notifType === "chat_read" || notifType === "chat_message") return;'), 'Chat-only events must skip social refreshes in the live client.');
+assert(liveClient.includes('window.__milanLivePushActive = viaSharedWorker() || direct();'), 'Live-push marker must reflect transport startup result.');
+assert(liveClient.includes('window.__milanLivePollingActive = true;'), 'Serverless polling ownership marker missing.');
+assert(liveClient.includes('(typeof mediaPlaying === "function" && mediaPlaying())'), 'Serverless polling must pause during media playback.');
+assert(homeShell.includes('if(!isChatEvent && !window.__milanLivePushActive && !window.__milanLivePollingActive){'), 'Inline event refresh must defer to the active live client.');
+assert(homeShell.includes('if(!window.__milanLivePushActive && !window.__milanLivePollingActive){'), 'Inline polling must defer to the active live client.');
+assert(homeShell.includes('if(!window.__milanLivePushActive && !window.__milanLivePollingActive) loadNotifications();'), 'Visibility refresh must avoid duplicate notification fetches.');
+assert(homeShell.includes('const isConnectionEvent = notifType==="connection_request" ||'), 'Connection-event routing missing.');
+assert(homeShell.includes('const isFeedEvent = notifType==="comment" || notifType==="reaction";'), 'Feed refresh should be restricted to feed events.');
+assert(appShell.includes('/milan-live.js?v=milan-live-chat-filter-20261026-1'), 'Live-client cache-busting version missing.');
 assert(frontend.includes('/api/chat/with/" + encodeURIComponent(recipientDid) + "/messages'), 'Message send endpoint missing.');
 assert(frontend.includes('status === "sending"'), 'Optimistic sending state missing.');
 assert(frontend.includes('mergeMessages([incoming])'), 'Instant inbound message render missing.');

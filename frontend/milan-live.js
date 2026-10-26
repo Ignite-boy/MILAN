@@ -65,6 +65,8 @@
     var msg = raw;
     try { if (typeof raw === "string") msg = JSON.parse(raw); } catch (_) { return; }
     if (!msg || msg.type !== "notify") return;
+    var notifType = String(msg.notifType || "");
+    if (notifType === "chat_typing" || notifType === "chat_read" || notifType === "chat_message") return;
     try {
       if (typeof loadNotifications === "function") loadNotifications();
       if (typeof loadSummary === "function") loadSummary();
@@ -134,11 +136,12 @@
       host === "www.milanlife.in" ||
       host.endsWith(".vercel.app")
     ) {
-      // Vercel serverless fallback: refresh persisted notification/summary APIs.
+      // Serverless fallback owns notification/summary polling on this host.
+      window.__milanLivePollingActive = true;
       var refreshing = false;
 
       function refresh() {
-        if (refreshing || document.hidden) return;
+        if (refreshing || document.hidden || (typeof mediaPlaying === "function" && mediaPlaying())) return;
         refreshing = true;
 
         var tasks = [];
@@ -170,7 +173,7 @@
       return;
     }
 
-    viaSharedWorker() || direct();
+    window.__milanLivePushActive = viaSharedWorker() || direct();
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
   else start();
