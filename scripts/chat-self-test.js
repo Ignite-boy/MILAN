@@ -132,6 +132,19 @@ assert(uiActions.includes('if (isChatFeedRecord(record)) continue;'), 'Home feed
 assert(uiActions.includes('records = (Array.isArray(records) ? records : []).filter(record => !isChatFeedRecord(record));'), 'Final feed rendering must filter chat records.');
 assert(appShell.includes('milan-ui-actions.js?v=instant-upload-single-init-20261015-1'), 'Changed UI script must have a fresh cache-busting version.');
 
+assert(chat.includes("const CHAT_DELETE_SCHEMA = 'milan.chat.deletion';"), 'Private chat deletion marker schema missing.');
+assert(chat.includes("router.delete('/with/:did/messages/:messageId', auth"), 'Authenticated chat message deletion endpoint missing.');
+assert(chat.includes("if (senderDid !== meDid)"), 'Delete-for-everyone must be sender-only.');
+assert(chat.includes("mailboxRole: 'tombstone-sender'"), 'Global delete must write a sender-side placeholder.');
+assert(chat.includes("mailboxRole: 'tombstone-recipient'"), 'Global delete must write a recipient-side placeholder.');
+assert(chat.includes('conversationHiddenMessageIds'), 'Delete-for-me markers must be synchronized across devices.');
+assert(frontend.includes('data-message-options'), 'Accessible message action trigger missing.');
+assert(frontend.includes('CHAT_MESSAGE_LONG_PRESS_MS'), 'Touch long-press handler missing.');
+assert(frontend.includes('pointerdown'), 'Touch pointer event support missing.');
+assert(frontend.includes('chat_message_deleted'), 'Realtime deletion event handler missing.');
+assert(frontend.includes('data-chat-delete-confirm'), 'Styled delete confirmation dialog missing.');
+console.log('✅ Message delete permissions and dual-mailbox tombstones verified.');
+console.log('✅ Long-press, context-menu, cache-sync and confirmation UI checks passed.');
 console.log('✅ MILAN chat architecture checks passed.');
 console.log('✅ Backend syntax checks passed.');
 console.log('✅ One-DWN-to-one-DWN mailbox invariants passed.');
