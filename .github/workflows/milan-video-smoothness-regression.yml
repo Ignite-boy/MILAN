@@ -16,6 +16,7 @@ on:
       - "scripts/video-range-self-test.js"
       - "scripts/video-scroll-playback-self-test.js"
       - "scripts/media-limit-contract-self-test.js"
+      - ".github/workflows/milan-video-smoothness-regression.yml"
   pull_request:
     paths:
       - "backend/routes/records.js"
@@ -25,6 +26,7 @@ on:
       - "scripts/video-range-self-test.js"
       - "scripts/video-scroll-playback-self-test.js"
       - "scripts/media-limit-contract-self-test.js"
+      - ".github/workflows/milan-video-smoothness-regression.yml"
 
 permissions:
   contents: read
