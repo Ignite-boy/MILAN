@@ -56,6 +56,59 @@ const fakeDb = {
       return { rows: [], rowCount: 1 };
     }
 
+    if (q.startsWith("select item_key, data_bytes from public.dwn_storage")) {
+      const [did, space_id, parent_key, item_keys] = params;
+      const wanted = new Set(item_keys);
+      const found = [...rows.values()].filter(r =>
+        r.component_type === "event" &&
+        r.did === did &&
+        r.space_id === space_id &&
+        r.parent_key === parent_key &&
+        wanted.has(r.item_key) &&
+        r.data_bytes != null
+      );
+      return {
+        rows: found.map(r => ({
+          item_key: r.item_key,
+          data_bytes: r.data_bytes
+        })),
+        rowCount: found.length
+      };
+    }
+
+    if (q.startsWith("with owner as (") && q.includes("insert into public.dwn_storage")) {
+      const [sessionKey, did, space_id, item_key, parent_key, bytes, size, pattern] = params;
+      const owner = [...rows.values()].find(r =>
+        r.component_type === "event" &&
+        r.did === did &&
+        r.space_id === space_id &&
+        r.item_key === sessionKey
+      );
+      if (!owner) return { rows: [], rowCount: 0 };
+
+      const row = {
+        did, space_id, item_key, parent_key,
+        component_type: "event",
+        payload: null,
+        data_bytes: Buffer.from(bytes),
+        data_size: size
+      };
+      rows.set(rowKey(row), row);
+
+      const prefix = String(pattern).replace(/%$/, "");
+      const found = [...rows.values()].filter(r =>
+        r.component_type === "event" &&
+        r.did === did &&
+        r.space_id === space_id &&
+        r.parent_key === parent_key &&
+        r.item_key.startsWith(prefix)
+      );
+      return {
+        rows: found.map(r => ({ item_key: r.item_key })),
+        rowCount: found.length
+      };
+    }
+
     if (q.startsWith("select item_key from public.dwn_storage")) {
       const [did, space_id, parent_key, pattern] = params;
       const prefix = String(pattern).replace(/%$/, "");
@@ -133,11 +186,25 @@ const store = require(storePath);
     console.log("PASS: PostgreSQL adapter session metadata write/read (mocked DB).");
 
     await store.writeChunk(session.id, 0, Buffer.from("abcd"));
-    await store.writeChunk(session.id, 1, Buffer.from("efgh"));
-    await store.writeChunk(session.id, 2, Buffer.from("i"));
+    const afterSecond = await store.writeChunkAndListChunkIndexes(
+      session.id, 1, Buffer.from("efgh"), session
+    );
+    assert.deepEqual(afterSecond, [0, 1]);
+    const afterThird = await store.writeChunkAndListChunkIndexes(
+      session.id, 2, Buffer.from("i"), session
+    );
+    assert.deepEqual(afterThird, [0, 1, 2]);
 
     assert.deepEqual(await store.listChunkIndexes(session.id), [0, 1, 2]);
-    console.log("PASS: chunk listing and ordering.");
+    console.log("PASS: combined chunk write returns sorted received indexes.");
+
+    const batch = await store.readChunks(session.id, [2, 0, 1, 99]);
+    assert.deepEqual([...batch.keys()].sort((a, b) => a - b), [0, 1, 2]);
+    assert.equal(
+      Buffer.concat([0, 1, 2].map(index => batch.get(index))).toString(),
+      "abcdefghi"
+    );
+    console.log("PASS: batch chunk reads preserve bytes and index mapping.");
 
     const assembled = Buffer.concat([
       await store.readChunk(session.id, 0),

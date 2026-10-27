@@ -181,6 +181,7 @@ const RESUMABLE_ROOT = path.join(os.tmpdir(), 'milan-resumable-media-uploads');
 const DEFAULT_CHUNK_BYTES = Number(process.env.MILAN_UPLOAD_CHUNK_BYTES || 8 * 1024 * 1024);
 const MAX_CHUNK_BYTES = Number(process.env.MILAN_UPLOAD_MAX_CHUNK_BYTES || 8 * 1024 * 1024);
 const SESSION_TTL_MS = Number(process.env.MILAN_UPLOAD_SESSION_TTL_MS || 24 * 60 * 60 * 1000);
+const SHARED_UPLOAD_READ_BATCH_SIZE = 4;
 
 function ensureUploadRoot() { fs.mkdirSync(RESUMABLE_ROOT, { recursive: true }); }
 function uploadSessionDir(id) { return path.join(RESUMABLE_ROOT, safeUploadId(id)); }
@@ -364,9 +365,10 @@ router.post('/media/chunk/:uploadId', auth, async (req, res) => {
       }
 
       if (shared) {
-        await resumableUploadStore.writeChunk(uploadId, index, fs.readFileSync(tmp));
+        const received = await resumableUploadStore.writeChunkAndListChunkIndexes(
+          uploadId, index, await fs.promises.readFile(tmp), latest
+        );
         try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {}
-        const received = await resumableUploadStore.listChunkIndexes(uploadId);
         settled = true;
         return res.json({
           ok: true,
@@ -378,7 +380,7 @@ router.post('/media/chunk/:uploadId', auth, async (req, res) => {
         });
       }
 
-      fs.renameSync(tmp, part);
+      await fs.promises.rename(tmp, part);
       const previous = Number(latest.received[index] || 0);
       latest.received[index] = bytes;
       latest.receivedBytes = Math.max(
@@ -500,25 +502,77 @@ router.post('/media/chunk/:uploadId/complete', auth, async (req, res) => {
     try { if (fs.existsSync(assembled)) fs.unlinkSync(assembled); } catch (_) {}
 
     if (shared) {
-      for (let index = 0; index < session.totalChunks; index++) {
-        const chunk = await resumableUploadStore.readChunk(uploadId, index);
-        if (!chunk) {
-          const err = new Error(`Missing chunk ${index + 1}/${session.totalChunks}.`);
-          err.status = 409;
-          throw err;
+      const out = fs.createWriteStream(assembled, { flags: 'w' });
+      let streamError = null;
+      out.on('error', err => { streamError = streamError || err; });
+
+      const writeChunk = async chunk => {
+        if (streamError) throw streamError;
+
+        if (!out.write(chunk)) {
+          await new Promise((resolve, reject) => {
+            const cleanup = () => {
+              out.removeListener('drain', onDrain);
+              out.removeListener('error', onError);
+            };
+            const onDrain = () => { cleanup(); resolve(); };
+            const onError = err => { cleanup(); reject(err); };
+            out.once('drain', onDrain);
+            out.once('error', onError);
+          });
         }
 
-        const expectedBytes = index === session.totalChunks - 1
-          ? session.sizeBytes - (index * session.chunkBytes)
-          : session.chunkBytes;
+        if (streamError) throw streamError;
+      };
 
-        if (chunk.length !== expectedBytes) {
-          const err = new Error(`Chunk ${index + 1} has an invalid size.`);
-          err.status = 409;
-          throw err;
+      try {
+        for (
+          let offset = 0;
+          offset < session.totalChunks;
+          offset += SHARED_UPLOAD_READ_BATCH_SIZE
+        ) {
+          const indexes = [];
+          const end = Math.min(
+            offset + SHARED_UPLOAD_READ_BATCH_SIZE,
+            session.totalChunks
+          );
+
+          for (let index = offset; index < end; index++) {
+            indexes.push(index);
+          }
+
+          const batch = await resumableUploadStore.readChunks(uploadId, indexes);
+
+          for (const index of indexes) {
+            const chunk = batch.get(index);
+            if (!chunk) {
+              const err = new Error(`Missing chunk ${index + 1}/${session.totalChunks}.`);
+              err.status = 409;
+              throw err;
+            }
+
+            const expectedBytes = index === session.totalChunks - 1
+              ? session.sizeBytes - (index * session.chunkBytes)
+              : session.chunkBytes;
+
+            if (chunk.length !== expectedBytes) {
+              const err = new Error(`Chunk ${index + 1} has an invalid size.`);
+              err.status = 409;
+              throw err;
+            }
+
+            await writeChunk(chunk);
+          }
         }
 
-        await fs.promises.appendFile(assembled, chunk);
+        await new Promise((resolve, reject) => {
+          out.once('finish', resolve);
+          out.once('error', reject);
+          out.end();
+        });
+      } catch (err) {
+        try { out.destroy(); } catch (_) {}
+        throw err;
       }
     } else {
       await new Promise((resolve, reject) => {

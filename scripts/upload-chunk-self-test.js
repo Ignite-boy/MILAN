@@ -109,6 +109,18 @@ if (sharedMode) {
       chunks.get(id).set(index, Buffer.from(bytes));
     },
 
+    async writeChunkAndListChunkIndexes(id, index, bytes, session) {
+      const savedSession = sessions.get(id);
+      if (!savedSession ||
+          savedSession.ownerDid !== session?.ownerDid ||
+          savedSession.spaceId !== session?.spaceId) {
+        throw new Error("Upload session not found.");
+      }
+      if (!chunks.has(id)) chunks.set(id, new Map());
+      chunks.get(id).set(index, Buffer.from(bytes));
+      return [...chunks.get(id).keys()].sort((a, b) => a - b);
+    },
+
     async listChunkIndexes(id) {
       return [...(chunks.get(id) || new Map()).keys()]
         .sort((a, b) => a - b);
@@ -117,6 +129,15 @@ if (sharedMode) {
     async readChunk(id, index) {
       const chunk = chunks.get(id)?.get(index);
       return chunk ? Buffer.from(chunk) : null;
+    },
+
+    async readChunks(id, indexes) {
+      const saved = chunks.get(id) || new Map();
+      return new Map(
+        indexes
+          .filter(index => saved.has(index))
+          .map(index => [index, Buffer.from(saved.get(index))])
+      );
     },
 
     async deleteSession(id) {

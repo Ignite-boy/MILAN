@@ -79,6 +79,73 @@ async function writeChunk(id, index, bytes) {
     [owner.did, owner.spaceId, key, String(id), bytes, bytes.length]
   );
 }
+async function writeChunkAndListChunkIndexes(id, index, bytes, session) {
+  const safe = safeId(id);
+  const key = chunkKey(safe, index);
+  const did = String(session?.ownerDid || "");
+  const spaceId = String(session?.spaceId || "");
+
+  if (!key || !Buffer.isBuffer(bytes)) {
+    throw new Error("Invalid upload chunk.");
+  }
+  if (!did.startsWith("did:") || !spaceId) {
+    throw new Error("Upload session requires a valid owner DID and space ID.");
+  }
+
+  const result = await db.query(
+    `WITH owner AS (
+       SELECT did, space_id
+         FROM public.dwn_storage
+        WHERE component_type = 'event'
+          AND did = $2 AND space_id = $3 AND item_key = $1
+        LIMIT 1
+     ),
+     written AS (
+       INSERT INTO public.dwn_storage
+         (component_type, did, space_id, item_key, parent_key, data_format,
+          metadata, data_bytes, data_size, date_modified, updated_at)
+       SELECT 'event', owner.did, owner.space_id, $4, $5,
+              'application/octet-stream',
+              '{"kind":"resumable-upload-chunk"}'::jsonb, $6, $7, NOW(), NOW()
+         FROM owner
+        WHERE TRUE
+       ON CONFLICT (did, space_id, component_type, item_key)
+       DO UPDATE SET data_bytes = EXCLUDED.data_bytes,
+                     data_size = EXCLUDED.data_size,
+                     date_modified = NOW(), updated_at = NOW()
+       RETURNING did, space_id, item_key
+     ),
+     chunks AS (
+       SELECT d.item_key
+         FROM public.dwn_storage d
+         JOIN written w ON w.did = d.did AND w.space_id = d.space_id
+        WHERE d.component_type = 'event'
+          AND d.parent_key = $5
+          AND d.item_key LIKE $8
+       UNION
+       SELECT item_key FROM written
+     )
+     SELECT item_key FROM chunks ORDER BY item_key`,
+    [
+      sessionKey(safe), did, spaceId, key, String(safe),
+      bytes, bytes.length, `upload-chunk:${safe}:%`
+    ]
+  );
+
+  const received = result.rows.map(row => {
+    const match = String(row.item_key || "")
+      .match(/^upload-chunk:[A-Za-z0-9_-]+:(\d{8})$/);
+    return match ? Number(match[1]) : -1;
+  }).filter(value => Number.isInteger(value) && value >= 0)
+    .sort((a, b) => a - b);
+
+  if (!received.includes(index)) {
+    throw new Error("Upload session not found or chunk write failed.");
+  }
+
+  return received;
+}
+
 async function listChunkIndexes(id) {
   if (!safeId(id)) return [];
   const owner = await findSession(id);
@@ -108,6 +175,45 @@ async function readChunk(id, index) {
   if (!result.rowCount || result.rows[0].data_bytes == null) return null;
   return Buffer.from(result.rows[0].data_bytes);
 }
+async function readChunks(id, indexes) {
+  const safe = safeId(id);
+  const requested = [...new Set(
+    (Array.isArray(indexes) ? indexes : [])
+      .filter(index => Number.isInteger(index) && index >= 0)
+  )];
+
+  if (!safe || requested.length === 0) return new Map();
+
+  const owner = await findSession(safe);
+  if (!owner) return new Map();
+
+  const keys = requested.map(index => chunkKey(safe, index));
+  const result = await db.query(
+    `SELECT item_key, data_bytes
+       FROM public.dwn_storage
+      WHERE component_type = 'event' AND did = $1 AND space_id = $2
+        AND parent_key = $3 AND item_key = ANY($4::text[])`,
+    [owner.did, owner.spaceId, String(safe), keys]
+  );
+
+  const requestedSet = new Set(requested);
+  const chunks = new Map();
+
+  for (const row of result.rows) {
+    const match = String(row.item_key || "")
+      .match(/^upload-chunk:[A-Za-z0-9_-]+:(\d{8})$/);
+
+    if (!match || row.data_bytes == null) continue;
+
+    const index = Number(match[1]);
+    if (!requestedSet.has(index)) continue;
+
+    chunks.set(index, Buffer.from(row.data_bytes));
+  }
+
+  return chunks;
+}
+
 async function deleteSession(id) {
   if (!safeId(id)) return;
   const owner = await findSession(id);
@@ -121,5 +227,5 @@ async function deleteSession(id) {
 }
 module.exports = {
   bucketName: "voroa-postgres",
-  readSession, writeSession, writeChunk, listChunkIndexes, readChunk, deleteSession
+  readSession, writeSession, writeChunk, writeChunkAndListChunkIndexes, listChunkIndexes, readChunk, readChunks, deleteSession
 };
