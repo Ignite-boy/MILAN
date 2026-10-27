@@ -54,6 +54,9 @@ jobs:
       - name: Run project build check
         run: npm run build
 
+      - name: Verify avatar persistence across refresh
+        run: npm run test:avatar-persistence
+
       - name: Verify video byte-range semantics
         run: npm run test:video-range
 
