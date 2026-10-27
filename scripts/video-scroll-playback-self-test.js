@@ -389,6 +389,340 @@ async function testReentryWaitsForInFlightDownload() {
   assert.match(video.source.getAttribute('src'), /^blob:video-scroll-test-/);
   console.log('PASS: returning during a download waits for completion without resetting playback');
 }
+
+
+async function testTenThousandVisibilityScenarios() {
+  const total = 10000;
+  const videos = Array.from({ length: total }, (_, i) => makeVideo('visibility-' + i));
+  const harness = makeHarness({ videos });
+  harness.attachFeedVideos();
+  const observer = visibilityObserver(harness);
+  const failures = new Map();
+
+  observer.callback(videos.map(target => ({
+    target, isIntersecting: false, intersectionRatio: 0
+  })));
+
+  for (let i = 0; i < total; i++) {
+    try {
+      assert.equal(videos[i].paused, true, 'off-screen video must pause');
+      assert.equal(videos[i].dataset.milanPausedOffscreen, '1',
+        'off-screen pause must be remembered');
+    } catch (error) {
+      failures.set('scroll-' + i, String(error.message || error));
+    }
+  }
+
+  observer.callback(videos.map((target, i) => ({
+    target,
+    isIntersecting: true,
+    intersectionRatio: i % 2 === 0 ? 0.15 + (i % 85) / 100 : 0.149
+  })));
+
+  for (let i = 0; i < total; i++) {
+    try {
+      if (i % 2 === 0) {
+        assert.equal(videos[i].paused, false, 'visible video should resume');
+        assert.equal(videos[i].playCount, 1, 'resume should happen once');
+      } else {
+        assert.equal(videos[i].paused, true, 'video below 15% must stay paused');
+        assert.equal(videos[i].playCount, 0, 'below-threshold video must not resume');
+      }
+    } catch (error) {
+      failures.set('scroll-' + i,
+        (failures.get('scroll-' + i) || '') + ' ' + String(error.message || error));
+    }
+  }
+
+  console.log('SCROLL scenarios: executed=' + total +
+    ' passed=' + (total - failures.size) + ' failed=' + failures.size);
+  return { total, failures };
+}
+
+async function testTenThousandBufferingScenarios() {
+  const failures = new Map();
+  const stallTotal = 5000;
+  const stallVideos = Array.from({ length: stallTotal }, (_, i) => makeVideo('stall-' + i));
+  const stallHarness = makeHarness({ videos: stallVideos });
+  stallHarness.attachFeedVideos();
+
+  for (let i = 0; i < stallTotal; i++) {
+    const video = stallVideos[i];
+    const shouldBePaused = i % 2 === 1;
+    video.paused = shouldBePaused;
+    try {
+      video.dispatch(i % 2 === 0 ? 'waiting' : 'stalled');
+      if (shouldBePaused) {
+        assert.equal(video.__milanStallTimer, undefined,
+          'paused video must not start stall recovery');
+      } else {
+        assert.ok(video.__milanStallTimer,
+          'playing video must schedule stall recovery');
+        assert.ok(stallHarness.timers.some(timer => timer.delay === 12000),
+          'stall recovery should use the configured 12-second delay');
+      }
+    } catch (error) {
+      failures.set('stall-' + i, String(error.message || error));
+    }
+  }
+
+  const groups = [
+    { label: '4g-regular-memory', connection: { saveData: false, effectiveType: '4g' }, deviceMemory: 8, download: true },
+    { label: '4g-low-memory', connection: { saveData: false, effectiveType: '4g' }, deviceMemory: 2, download: true },
+    { label: 'data-saver', connection: { saveData: true, effectiveType: '4g' }, deviceMemory: 8, download: false },
+    { label: 'slow-2g', connection: { saveData: false, effectiveType: 'slow-2g' }, deviceMemory: 8, download: false },
+    { label: '3g', connection: { saveData: false, effectiveType: '3g' }, deviceMemory: 8, download: false }
+  ];
+  const perGroup = 1000;
+
+  for (const group of groups) {
+    const videos = Array.from({ length: perGroup },
+      (_, i) => makeVideo('download-' + group.label + '-' + i));
+    for (const video of videos) video.dataset.milanDirectReady = '1';
+
+    const harness = makeHarness({
+      videos,
+      connection: group.connection,
+      deviceMemory: group.deviceMemory,
+      enableTemporaryDownload: true,
+      fetch: () => {
+        const size = 1 + (harness.fetchCount % 8);
+        const first = Math.ceil(size / 2);
+        const second = Math.floor(size / 2);
+        const chunks = [new Uint8Array(first)];
+        if (second) chunks.push(new Uint8Array(second));
+        return makeStreamResponse({ declaredLength: size, chunks }).response;
+      }
+    });
+
+    harness.attachFeedVideos();
+    for (const video of videos) video.dispatch('play');
+    await flushAsyncWork();
+    await flushAsyncWork();
+
+    for (let i = 0; i < perGroup; i++) {
+      const video = videos[i];
+      const id = 'download-' + group.label + '-' + i;
+      try {
+        if (group.download) {
+          assert.equal(video.dataset.milanTempDownloadComplete, '1',
+            'eligible connection should complete bounded temporary playback');
+          assert.match(video.source.getAttribute('src'), /^blob:video-scroll-test-/,
+            'successful download should switch to a Blob URL');
+          assert.equal(video.playCount, 1, 'completed download should resume playback once');
+        } else {
+          assert.equal(video.dataset.milanTempDownloadAttempted, undefined,
+            'Data Saver or slow mobile must bypass temporary download');
+          assert.equal(video.dataset.milanTempDownloadComplete, undefined);
+        }
+      } catch (error) {
+        failures.set(id, String(error.message || error));
+      }
+    }
+
+    try {
+      assert.equal(harness.fetchCount, group.download ? perGroup : 0,
+        'network policy should determine the number of full-file downloads');
+      assert.equal(harness.objectUrls.created.length, group.download ? perGroup : 0,
+        'Blob URLs should only be created for permitted successful downloads');
+    } catch (error) {
+      failures.set('download-batch-' + group.label, String(error.message || error));
+    }
+  }
+
+  const total = stallTotal + groups.length * perGroup;
+  console.log('BUFFERING scenarios: executed=' + total +
+    ' passed=' + (total - failures.size) + ' failed=' + failures.size +
+    ' (5,000 waiting/stalled events; 5,000 network/download cases)');
+  return { total, failures };
+}
+
+
+async function testAdditionalNinetyThousandScrollingScenarios() {
+  const total = 90000;
+  const batchSize = 1000;
+  const failures = new Map();
+
+  for (let offset = 0; offset < total; offset += batchSize) {
+    const count = Math.min(batchSize, total - offset);
+    const videos = Array.from({ length: count },
+      (_, i) => makeVideo('scroll-extra-' + (offset + i)));
+    const harness = makeHarness({ videos });
+    harness.attachFeedVideos();
+    const observer = visibilityObserver(harness);
+
+    observer.callback(videos.map(target => ({
+      target, isIntersecting: false, intersectionRatio: 0
+    })));
+
+    for (let i = 0; i < count; i++) {
+      const id = offset + i;
+      try {
+        assert.equal(videos[i].paused, true);
+        assert.equal(videos[i].dataset.milanPausedOffscreen, '1');
+      } catch (error) {
+        failures.set('scroll-extra-' + id, String(error.message || error));
+      }
+    }
+
+    observer.callback(videos.map((target, i) => {
+      const id = offset + i;
+      const shouldResume = id % 2 === 0;
+      return {
+        target,
+        isIntersecting: shouldResume || id % 4 !== 1,
+        intersectionRatio: shouldResume
+          ? 0.15 + (id % 86) / 100
+          : (id % 149) / 1000
+      };
+    }));
+
+    for (let i = 0; i < count; i++) {
+      const id = offset + i;
+      try {
+        if (id % 2 === 0) {
+          assert.equal(videos[i].paused, false);
+          assert.equal(videos[i].playCount, 1);
+        } else {
+          assert.equal(videos[i].paused, true);
+          assert.equal(videos[i].playCount, 0);
+        }
+      } catch (error) {
+        failures.set('scroll-extra-' + id,
+          (failures.get('scroll-extra-' + id) || '') + ' ' +
+          String(error.message || error));
+      }
+    }
+  }
+
+  console.log('ADDITIONAL SCROLL: executed=' + total +
+    ' passed=' + (total - failures.size) + ' failed=' + failures.size);
+  return { total, failures };
+}
+
+async function testAdditionalNinetyThousandBufferingScenarios() {
+  const failures = new Map();
+  const stallTotal = 45000;
+  const batchSize = 1000;
+
+  for (let offset = 0; offset < stallTotal; offset += batchSize) {
+    const count = Math.min(batchSize, stallTotal - offset);
+    const videos = Array.from({ length: count },
+      (_, i) => makeVideo('stall-extra-' + (offset + i)));
+    const harness = makeHarness({ videos });
+    harness.attachFeedVideos();
+
+    for (let i = 0; i < count; i++) {
+      const id = offset + i;
+      const video = videos[i];
+      const position = (id % 240) / 2;
+      video.currentTime = position;
+      video.paused = false;
+
+      try {
+        video.dispatch(id % 2 === 0 ? 'waiting' : 'stalled');
+        const timerId = video.__milanStallTimer;
+        assert.ok(timerId, 'playing video should schedule stall recovery');
+        const stallTimer = harness.timers[timerId - 1];
+        assert.ok(stallTimer, 'stall timer should be registered');
+        assert.equal(stallTimer.delay, 12000);
+
+        stallTimer.callback();
+
+        const recoveredSrc = video.source.getAttribute('src') || '';
+        const baseSrc = video.getAttribute('data-base-src') || '';
+        assert.ok(
+          recoveredSrc === baseSrc || recoveredSrc.startsWith(baseSrc + '&r='),
+          'stall recovery should switch to the base media source, allowing its cache-buster'
+        );
+
+        video.dispatch('loadedmetadata');
+        if (position > 0 && position < video.duration) {
+          assert.equal(video.currentTime, position,
+            'recovery should restore the previous playback position');
+        }
+        assert.ok(video.playCount >= 1,
+          'recovery should request playback after metadata is restored');
+      } catch (error) {
+        failures.set('stall-extra-' + id, String(error.message || error));
+      }
+    }
+  }
+
+  const groups = [
+    { label: '4g-regular', connection: { saveData: false, effectiveType: '4g' }, memory: 8, download: true },
+    { label: '4g-low-memory', connection: { saveData: false, effectiveType: '4g' }, memory: 2, download: true },
+    { label: 'data-saver', connection: { saveData: true, effectiveType: '4g' }, memory: 8, download: false },
+    { label: 'slow-2g', connection: { saveData: false, effectiveType: 'slow-2g' }, memory: 8, download: false },
+    { label: '3g', connection: { saveData: false, effectiveType: '3g' }, memory: 8, download: false }
+  ];
+  const perGroup = 9000;
+  let downloadExecuted = 0;
+
+  for (const group of groups) {
+    for (let offset = 0; offset < perGroup; offset += batchSize) {
+      const count = Math.min(batchSize, perGroup - offset);
+      const videos = Array.from({ length: count }, (_, i) =>
+        makeVideo('download-extra-' + group.label + '-' + (offset + i)));
+      for (const video of videos) video.dataset.milanDirectReady = '1';
+
+      const harness = makeHarness({
+        videos,
+        connection: group.connection,
+        deviceMemory: group.memory,
+        enableTemporaryDownload: true,
+        fetch: () => {
+          const size = 1 + (harness.fetchCount % 8);
+          const first = Math.ceil(size / 2);
+          const second = Math.floor(size / 2);
+          const chunks = [new Uint8Array(first)];
+          if (second) chunks.push(new Uint8Array(second));
+          return makeStreamResponse({ declaredLength: size, chunks }).response;
+        }
+      });
+
+      harness.attachFeedVideos();
+      for (const video of videos) video.dispatch('play');
+      await flushAsyncWork();
+      await flushAsyncWork();
+
+      for (let i = 0; i < count; i++) {
+        const id = offset + i;
+        const video = videos[i];
+        const key = 'download-extra-' + group.label + '-' + id;
+        downloadExecuted++;
+        try {
+          if (group.download) {
+            assert.equal(video.dataset.milanTempDownloadComplete, '1');
+            assert.match(video.source.getAttribute('src'),
+              /^blob:video-scroll-test-/);
+            assert.equal(video.playCount, 1);
+          } else {
+            assert.equal(video.dataset.milanTempDownloadAttempted, undefined);
+            assert.equal(video.dataset.milanTempDownloadComplete, undefined);
+          }
+        } catch (error) {
+          failures.set(key, String(error.message || error));
+        }
+      }
+
+      try {
+        assert.equal(harness.fetchCount, group.download ? count : 0);
+        assert.equal(harness.objectUrls.created.length, group.download ? count : 0);
+      } catch (error) {
+        failures.set('download-extra-batch-' + group.label + '-' + offset,
+          String(error.message || error));
+      }
+    }
+  }
+
+  const total = stallTotal + downloadExecuted;
+  console.log('ADDITIONAL BUFFERING: executed=' + total +
+    ' passed=' + (total - failures.size) + ' failed=' + failures.size +
+    ' (45,000 stall-recovery; ' + downloadExecuted + ' network/download)');
+  return { total, failures };
+}
+
 async function main() {
   await testPauseAndResumeAcrossScrolling();
   await testDetachedVideoCleanup();
@@ -397,7 +731,31 @@ async function main() {
   await testSmallStreamCanUseTemporaryBlob();
   await testDataSaverSkipsDownload();
   await testReentryWaitsForInFlightDownload();
-  console.log('ALL VIDEO SCROLL PLAYBACK SELF-TESTS PASSED (' + (contracts.length + 7) + ' checks).');
+
+  const oldScroll = await testTenThousandVisibilityScenarios();
+  const oldBuffer = await testTenThousandBufferingScenarios();
+  const newScroll = await testAdditionalNinetyThousandScrollingScenarios();
+  const newBuffer = await testAdditionalNinetyThousandBufferingScenarios();
+
+  const failures = new Map([
+    ...oldScroll.failures,
+    ...oldBuffer.failures,
+    ...newScroll.failures,
+    ...newBuffer.failures
+  ]);
+  const total = oldScroll.total + oldBuffer.total + newScroll.total + newBuffer.total;
+
+  if (failures.size) {
+    console.error('SCENARIO FAILURES (' + failures.size + '):');
+    for (const [id, message] of [...failures.entries()].slice(0, 50)) {
+      console.error('FAIL:', id, message);
+    }
+    throw new Error(failures.size + ' scenario(s) failed out of ' + total);
+  }
+
+  console.log('ALL VIDEO SCROLL PLAYBACK SELF-TESTS PASSED (' +
+    (contracts.length + 1 + 7) + ' baseline checks; ' + total +
+    ' scenario cases; 0 scenario failures).');
 }
 
 main().catch(error => {
