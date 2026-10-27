@@ -1,0 +1,103 @@
+/* MILAN UI polish layer — loaded last. Remove its <link> in app.html to revert. */
+:root{
+  --p-ease:var(--milan-motion-ease,cubic-bezier(.22,1,.36,1));
+  --p-accent:var(--milan-ui-accent,#ff9c38);
+  --p-accent2:var(--milan-ui-accent-2,#df46c8);
+  --p-blue:var(--milan-ui-blue,#5879ff);
+  --p-line:var(--milan-ui-line,rgba(148,163,184,.14));
+  --p-radius:var(--milan-ui-radius,22px);
+}
+html{scroll-behavior:smooth}
+
+/* Ambient animated background glow behind everything */
+body.map::before{
+  content:"";position:fixed;inset:-20%;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(40% 35% at 15% 20%,rgba(88,121,255,.16),transparent 70%),
+    radial-gradient(35% 30% at 85% 25%,rgba(223,70,200,.13),transparent 70%),
+    radial-gradient(40% 35% at 60% 90%,rgba(255,156,56,.10),transparent 70%);
+  animation:pAmbient 22s ease-in-out infinite alternate;
+}
+@keyframes pAmbient{
+  0%{transform:translate3d(0,0,0) scale(1)}
+  100%{transform:translate3d(2%,-2%,0) scale(1.08)}
+}
+
+/* Glass cards with lift on hover */
+.card,#milanHomeFeed,#milanControlPanel,.composer{
+  backdrop-filter:blur(14px) saturate(140%);
+  -webkit-backdrop-filter:blur(14px) saturate(140%);
+  border:1px solid var(--p-line);
+  border-radius:var(--p-radius);
+  transition:transform .42s var(--p-ease),box-shadow .42s var(--p-ease),border-color .3s;
+}
+.card:hover,.composer:hover{
+  transform:translateY(-3px);
+  border-color:rgba(255,255,255,.16);
+  box-shadow:0 24px 60px rgba(0,0,0,.34),0 0 0 1px rgba(255,156,56,.08);
+}
+
+/* Entrance animation for cards and feed */
+.card,.milan-feed-header,.composer{animation:pRise .6s var(--p-ease) both}
+.card:nth-of-type(2){animation-delay:.06s}
+.card:nth-of-type(3){animation-delay:.12s}
+.card:nth-of-type(4){animation-delay:.18s}
+@keyframes pRise{
+  from{opacity:0;transform:translateY(18px) scale(.985)}
+  to{opacity:1;transform:none}
+}
+
+/* Buttons: gradient, shine sweep, press feedback */
+button,.btn{
+  position:relative;overflow:hidden;
+  transition:transform .18s var(--p-ease),box-shadow .3s,filter .3s;
+}
+button:hover:not(:disabled){transform:translateY(-1px);filter:brightness(1.08)}
+button:active:not(:disabled){transform:translateY(0) scale(.97)}
+button:not(:disabled)::after{
+  content:"";position:absolute;top:0;left:-120%;width:60%;height:100%;
+  background:linear-gradient(120deg,transparent,rgba(255,255,255,.22),transparent);
+  transform:skewX(-20deg);transition:left .7s var(--p-ease);pointer-events:none;
+}
+button:hover:not(:disabled)::after{left:140%}
+
+/* Inputs: glowing focus ring */
+input:not([type=file]),textarea,select{
+  transition:border-color .25s,box-shadow .3s,background .3s;
+}
+input:not([type=file]):focus,textarea:focus,select:focus{
+  outline:none;
+  border-color:var(--p-blue);
+  box-shadow:0 0 0 4px rgba(88,121,255,.2),0 8px 30px rgba(88,121,255,.12);
+}
+
+/* Avatars: gradient ring + gentle zoom */
+.avatar{
+  transition:transform .35s var(--p-ease),box-shadow .35s;
+  box-shadow:0 0 0 2px rgba(255,156,56,.55),0 6px 20px rgba(0,0,0,.35);
+}
+.avatar:hover{transform:scale(1.07);box-shadow:0 0 0 2px var(--p-accent2),0 10px 28px rgba(223,70,200,.3)}
+
+/* Sidebar / nav links: slide-in accent bar */
+.sidebar a,.nav a,nav a{position:relative;transition:color .25s,transform .3s var(--p-ease),background .3s}
+.sidebar a:hover,.nav a:hover,nav a:hover{transform:translateX(4px)}
+.sidebar a::before,.nav a::before,nav a::before{
+  content:"";position:absolute;left:0;top:20%;height:60%;width:3px;border-radius:3px;
+  background:linear-gradient(var(--p-accent),var(--p-accent2));
+  transform:scaleY(0);transition:transform .3s var(--p-ease);
+}
+.sidebar a:hover::before,.nav a:hover::before,nav a:hover::before{transform:scaleY(1)}
+
+/* Slim themed scrollbar */
+*{scrollbar-width:thin;scrollbar-color:rgba(148,163,184,.35) transparent}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:rgba(148,163,184,.3);border-radius:8px}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,156,56,.55)}
+
+/* Selection colour */
+::selection{background:rgba(223,70,200,.4);color:#fff}
+
+/* Respect users who prefer less motion */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
