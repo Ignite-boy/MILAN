@@ -24,7 +24,8 @@
     "test:session-token": "node scripts/session-token-self-test.js",
     "test:media-limits": "node scripts/media-limit-contract-self-test.js",
     "test:readiness": "node scripts/readiness-contract-self-test.js",
-    "test:payment-idempotency-runtime": "node scripts/payment-idempotency-runtime-self-test.js"
+    "test:payment-idempotency-runtime": "node scripts/payment-idempotency-runtime-self-test.js",
+    "test:avatar-persistence": "node scripts/avatar-persistence-self-test.js"
   },
   "dependencies": {
     "@simplewebauthn/server": "^13.3.2",
