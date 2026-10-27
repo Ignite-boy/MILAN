@@ -117,6 +117,9 @@
                 "Accept": "application/json"
             };
 
+            const identityVersion =
+                Number(window.__milanAvatarUploadVersion) || 0;
+
             const [profileResponse, meResponse] = await Promise.all([
                 fetch("/api/profile", {
                     method: "GET",
@@ -138,12 +141,10 @@
                 ? await meResponse.json().catch(() => ({}))
                 : {};
 
-            const identityVersion =
-                Number(window.__milanAvatarUploadVersion) || 0;
-
             if (
                 identityVersion !==
-                (Number(window.__milanAvatarUploadVersion) || 0)
+                (Number(window.__milanAvatarUploadVersion) || 0) ||
+                window.__milanAvatarUploadActive
             ) {
                 return;
             }
@@ -1442,6 +1443,12 @@
                             avatar;
                     }
 
+                    // Invalidate profile reads that started before this avatar save.
+                    if (payload.avatar) {
+                        window.__milanAvatarUploadVersion =
+                            (Number(window.__milanAvatarUploadVersion) || 0) + 1;
+                    }
+
                     const response =
                         await fetch(
                             "/api/profile",
@@ -1519,6 +1526,8 @@
                     }
 
                     if (saved.avatar) {
+                        window.__milanPersistentAvatar = String(saved.avatar);
+                        window.__milanAvatarUploadCommittedAt = Date.now();
                         try {
                             localStorage.setItem("milanAvatar", String(saved.avatar));
                         } catch (_) {}
