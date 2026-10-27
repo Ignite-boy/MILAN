@@ -861,6 +861,12 @@ async function testAdditionalFourHundredThousandBufferingStateScenarios() {
       video.loadCount = 0;
       video.playCount = 0;
       video.pauseCount = 0;
+      // Model the browser playhead reset that occurs when the source is reloaded.
+      // Recovery must explicitly restore a valid saved position on loadedmetadata.
+      video.load = function () {
+        this.loadCount += 1;
+        this.currentTime = 0;
+      };
       video.source.setAttribute('src', originalSrc);
       video.setAttribute('data-base-src', hasBaseSource ? baseSource : '');
       if (recoveryAlreadyTried) video.dataset.milanStallFallbackTried = '1';
@@ -869,7 +875,7 @@ async function testAdditionalFourHundredThousandBufferingStateScenarios() {
         video.dispatch(id % 2 === 0 ? 'waiting' : 'stalled');
 
         if (initiallyPaused) {
-          assert.equal(video.__milanStallTimer, undefined,
+          assert.ok(!video.__milanStallTimer,
             'a paused video must not schedule stall recovery');
           assert.equal(video.loadCount, 0,
             'paused buffering events must not reload media');
