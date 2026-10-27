@@ -214,18 +214,23 @@ function dwnByteaToBuffer(value) {
 
 async function readProfilePicture(user) {
   const did = String(user?.did || '').trim();
-  const spaceId = String(
-    user?.dwn?.spaceId ||
-    user?.settings?.dwnSpaceId ||
-    user?.spaceId ||
-    ''
-  ).trim();
-
   if (!did) throw new Error('User DID is missing.');
-  if (!spaceId) throw new Error('User DWN space is missing.');
+
+  // Resolve the space from Voroa's authoritative DID mapping on every read.
+  // The hydrated users.json / token account may carry an older spaceId; using
+  // that stale value makes a successfully written avatar look missing after
+  // refresh even though the record exists in the current PostgreSQL space.
+  const milanDb = require('../services/milanDb');
+  const owner = await milanDb.query(
+    'SELECT space_id FROM public.users WHERE did = $1 LIMIT 1',
+    [did]
+  );
+  const spaceId = String(owner.rows?.[0]?.space_id || '').trim();
+  if (owner.rowCount !== 1 || !spaceId) {
+    throw new Error('Authoritative Voroa DID/space mapping is missing.');
+  }
 
   const recordId = profileRecordId(did);
-  const milanDb = require('../services/milanDb');
   const result = await milanDb.query(
     `SELECT schema_uri, data_format, metadata, data_bytes, data_size, deleted
      FROM public.dwn_storage

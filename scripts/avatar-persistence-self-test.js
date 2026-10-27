@@ -24,8 +24,10 @@ const checks = [
     assert.match(guard, /if \(!current\)\s*\{/);
     assert.doesNotMatch(guard, /if \(!current \|\| current !== avatar\)/);
   }],
-  ['profile GET reads avatar from Voroa DWN storage', () => {
+  ['profile GET reads avatar from Voroa DWN storage using authoritative DID space mapping', () => {
     assert.match(profile, /async function readProfilePicture\(user\)/);
+    assert.match(profile, /SELECT space_id FROM public\.users WHERE did = \$1 LIMIT 1/);
+    assert.match(profile, /const spaceId = String\(owner\.rows\?\.\[0\]\?\.space_id/);
     assert.match(profile, /FROM public\.dwn_storage/);
     assert.match(profile, /readProfilePictureFromUserDwn\(/);
   }],
