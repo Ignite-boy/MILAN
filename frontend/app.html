@@ -3581,6 +3581,19 @@ body.map #privacyBar{
 })();
 </script>
 <script src="/assets/js/milan-travel-location.js?v=travel-location-20261008" defer></script>
+
+<style id="milan-feed-performance-overrides">
+/* Keep feed cards visually consistent while reducing scroll paint cost. */
+body.milan-app-visible #feed > .post,
+body.milan-app-visible #feed > .milan-feed-card,
+body.milan-app-visible #feed > .feed-card {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,.16),
+              inset 0 1px 0 rgba(255,255,255,.025) !important;
+}
+</style>
+
 </body>
 </html>
 
