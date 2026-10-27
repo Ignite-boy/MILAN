@@ -2299,7 +2299,11 @@
 
     button.addEventListener(
       "click",
-      () => input.click()
+      () => {
+        const liveInput =
+          document.getElementById("editProfilePhoto") || input;
+        liveInput.click();
+      }
     );
 
     orbit.appendChild(button);

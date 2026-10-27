@@ -225,6 +225,7 @@
       // can briefly return the previous record while the new write propagates.
     } catch (error) {
       console.error("[MILAN] DP upload failed:", error);
+      try { alert("DP upload failed: " + (error && error.message ? error.message : error)); } catch (_) {}
     } finally {
       window.__milanAvatarUploadActive = false;
       URL.revokeObjectURL(previewUrl);
