@@ -101,3 +101,81 @@ input:not([type=file]):focus,textarea:focus,select:focus{
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important;transition:none!important}
 }
+
+/* ===== Layer 2: feed posts, hero, composer ===== */
+.card.post{position:relative;overflow:hidden}
+.card.post::before{
+  content:"";position:absolute;left:0;top:0;width:100%;height:2px;
+  background:linear-gradient(90deg,var(--p-blue),var(--p-accent2),var(--p-accent));
+  transform:scaleX(0);transform-origin:left;transition:transform .6s var(--p-ease);
+}
+.card.post:hover::before{transform:scaleX(1)}
+
+.postHead{display:flex;align-items:center;gap:12px}
+.postUser{font-weight:700;letter-spacing:.2px;transition:color .25s}
+.card.post:hover .postUser{color:var(--p-accent)}
+.postTitle{
+  font-weight:800;line-height:1.25;
+  background:linear-gradient(90deg,#fff,#c9d4ff);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+}
+.postText{line-height:1.65;opacity:.92}
+.postBody img,.postBody video{
+  border-radius:16px;transition:transform .5s var(--p-ease),box-shadow .5s;
+}
+.postBody img:hover{transform:scale(1.015);box-shadow:0 16px 40px rgba(0,0,0,.4)}
+.postMetrics{display:flex;gap:10px;flex-wrap:wrap}
+.postMetrics button{
+  border-radius:999px;border:1px solid var(--p-line);
+  backdrop-filter:blur(8px);transition:transform .25s var(--p-ease),background .25s,border-color .25s;
+}
+.postMetrics button:hover{border-color:var(--p-accent2);background:rgba(223,70,200,.12)}
+.postMetrics button:active{animation:pPop .35s var(--p-ease)}
+@keyframes pPop{0%{transform:scale(1)}50%{transform:scale(1.22)}100%{transform:scale(1)}}
+.milan-delete-post{opacity:.55;transition:opacity .25s,transform .25s,color .25s}
+.milan-delete-post:hover{opacity:1;color:#ff6b6b;transform:rotate(-6deg) scale(1.08)}
+
+/* Feed header: gradient underline that breathes */
+.milan-feed-header{position:relative;padding-bottom:10px}
+.milan-feed-header::after{
+  content:"";position:absolute;left:0;bottom:0;height:2px;width:90px;border-radius:2px;
+  background:linear-gradient(90deg,var(--p-accent),var(--p-accent2));
+  animation:pBreath 3.4s ease-in-out infinite;
+}
+@keyframes pBreath{0%,100%{width:60px;opacity:.7}50%{width:140px;opacity:1}}
+
+/* Profile hero: rotating gradient ring around the DP */
+.milan-profile-avatar-orbit{position:relative;border-radius:50%}
+.milan-profile-avatar-orbit::before{
+  content:"";position:absolute;inset:-5px;border-radius:50%;z-index:0;
+  background:conic-gradient(from 0deg,var(--p-accent),var(--p-accent2),var(--p-blue),var(--p-accent));
+  animation:pSpin 7s linear infinite;
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2px));
+          mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2px));
+}
+@keyframes pSpin{to{transform:rotate(360deg)}}
+.milan-profile-upload{
+  transition:transform .3s var(--p-ease),box-shadow .3s;
+}
+.milan-profile-upload:hover{transform:scale(1.12) rotate(-8deg);box-shadow:0 8px 24px rgba(255,156,56,.4)}
+
+/* Composer: lifted glow when typing */
+.composer:focus-within{
+  border-color:rgba(88,121,255,.5);
+  box-shadow:0 20px 60px rgba(88,121,255,.14);
+}
+
+/* Skeleton shimmer for "Opening your MILAN space..." style empties */
+.empty{position:relative;overflow:hidden}
+.empty::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.07) 50%,transparent 70%);
+  transform:translateX(-100%);animation:pShimmer 1.8s ease-in-out infinite;
+}
+@keyframes pShimmer{to{transform:translateX(100%)}}
+
+/* Phones: calmer motion, no hover lift (touch) */
+@media (hover:none){
+  .card:hover,.composer:hover{transform:none;box-shadow:none}
+  .sidebar a:hover,.nav a:hover,nav a:hover{transform:none}
+}
