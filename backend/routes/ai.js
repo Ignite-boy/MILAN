@@ -467,4 +467,90 @@ router.post('/chat', async (req, res) => {
   }
 });
 
+/* Optional, authenticated performance-AI scoring endpoint.
+   This is additive: feed, uploads, and media playback do not depend on it. */
+const { scoreCandidates } = require('../services/performanceAiClient');
+
+router.post('/performance/prefetch-score', auth, async (req, res) => {
+  try {
+    const results = await scoreCandidates(req.body && req.body.candidates);
+    res.json({ success: true, results });
+  } catch (err) {
+    if (err && err.code === 'INVALID_CANDIDATES') {
+      return res.status(400).json({ success: false, error: err.message });
+    }
+    if (err && err.code === 'NOT_CONFIGURED') {
+      return res.status(503).json({ success: false, error: 'Performance AI is not configured.' });
+    }
+    return res.status(503).json({
+      success: false,
+      error: 'Performance AI is unavailable. Continue with standard media behavior.'
+    });
+  }
+});
+
+
+/* Temporary, aggregate-only performance telemetry for the authenticated account.
+   Values stay in this process's memory; no media URLs or content are accepted. */
+const performanceMetricsByUser = new Map();
+const PERFORMANCE_METRIC_FIELDS = [
+  'sampledImageLoads',
+  'imageLoadP50Ms',
+  'imageLoadP95Ms',
+  'scrollFrameSamples',
+  'scrollFrameP95Ms',
+  'longTaskCount',
+  'longTaskP95Ms'
+];
+
+function normalizePerformanceMetrics(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
+
+  const result = {};
+  for (const key of PERFORMANCE_METRIC_FIELDS) {
+    const value = input[key];
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return null;
+    if (key.endsWith('Samples') || key === 'sampledImageLoads' || key === 'longTaskCount') {
+      if (!Number.isInteger(value) || value > 120) return null;
+    } else if (value > 120000) {
+      return null;
+    }
+    result[key] = value;
+  }
+  return result;
+}
+
+router.post('/performance/metrics', auth, (req, res) => {
+  const metrics = normalizePerformanceMetrics(req.body);
+  if (!metrics) {
+    return res.status(400).json({ success: false, error: 'Invalid aggregate performance metrics.' });
+  }
+
+  const userKey = String(req.userId || '');
+  if (!userKey) return res.status(401).json({ success: false, error: 'Authentication required.' });
+
+  performanceMetricsByUser.delete(userKey);
+  performanceMetricsByUser.set(userKey, {
+    metrics,
+    collectedAt: new Date().toISOString()
+  });
+
+  // Keep the in-memory store bounded.
+  while (performanceMetricsByUser.size > 500) {
+    performanceMetricsByUser.delete(performanceMetricsByUser.keys().next().value);
+  }
+
+  return res.status(202).json({ success: true, stored: true });
+});
+
+router.get('/performance/metrics', auth, (req, res) => {
+  const entry = performanceMetricsByUser.get(String(req.userId || ''));
+  return res.json({
+    success: true,
+    collected: Boolean(entry),
+    collectedAt: entry ? entry.collectedAt : null,
+    metrics: entry ? entry.metrics : null
+  });
+});
+
 module.exports = router;
