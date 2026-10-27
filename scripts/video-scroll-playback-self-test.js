@@ -723,6 +723,218 @@ async function testAdditionalNinetyThousandBufferingScenarios() {
   return { total, failures };
 }
 
+// These matrix cases execute the production inline-07.js player in the same
+// VM harness as the existing suite. Each case checks observable playback state.
+async function testAdditionalFourHundredThousandScrollStateScenarios() {
+  const total = 400000;
+  const batchSize = 1000;
+  const ratios = [0, 0.149, 0.15, 0.151, 0.3, 0.75, 1];
+  const failures = new Map();
+
+  for (let offset = 0; offset < total; offset += batchSize) {
+    const count = Math.min(batchSize, total - offset);
+    const videos = Array.from({ length: count }, (_, i) =>
+      makeVideo('scroll-matrix-' + (offset + i)));
+    const harness = makeHarness({ videos });
+    harness.attachFeedVideos();
+    const observer = visibilityObserver(harness);
+    const expected = [];
+
+    for (let i = 0; i < count; i++) {
+      const id = offset + i;
+      const video = videos[i];
+      const ratio = ratios[id % ratios.length];
+      const isIntersecting = Math.floor(id / ratios.length) % 2 === 0;
+      video.paused = Math.floor(id / 14) % 2 === 0;
+      video.ended = Math.floor(id / 28) % 2 === 0;
+      video.isConnected = Math.floor(id / 56) % 2 === 0;
+      if (Math.floor(id / 112) % 2 === 0) video.dataset.milanPausedOffscreen = '1';
+      if (Math.floor(id / 224) % 2 === 0) video.dataset.milanTempDownloadInProgress = '1';
+      if (Math.floor(id / 448) % 2 === 0) video.dataset.milanResumeAfterTempDownload = '1';
+      if (Math.floor(id / 896) % 2 === 0) video.dataset.finalFailed = '1';
+      if (id % 3 === 0) video.dataset.milanOffscreen = '1';
+
+      const qualifies = isIntersecting && ratio >= 0.15;
+      const hadPausedMarker = video.dataset.milanPausedOffscreen === '1';
+      const tempDownload = video.dataset.milanTempDownloadInProgress === '1';
+      const resumeAfterDownload = video.dataset.milanResumeAfterTempDownload === '1';
+      let expectedPaused = video.paused;
+      let expectedPauseCount = video.pauseCount;
+      let expectedPlayCount = video.playCount;
+      let expectedPausedMarker = video.dataset.milanPausedOffscreen;
+      let expectedResumeMarker = video.dataset.milanResumeAfterTempDownload;
+
+      if (qualifies) {
+        expectedPausedMarker = undefined;
+        if (hadPausedMarker) {
+          if (tempDownload) {
+            expectedResumeMarker = '1';
+          } else if (video.isConnected && !video.ended && video.dataset.finalFailed !== '1') {
+            expectedPaused = false;
+            expectedPlayCount += 1;
+          }
+        }
+      } else if (!video.paused && !video.ended) {
+        expectedPaused = true;
+        expectedPauseCount += 1;
+        expectedPausedMarker = '1';
+      } else if (tempDownload && resumeAfterDownload) {
+        expectedPausedMarker = '1';
+      }
+
+      expected.push({
+        id, video, qualifies, isIntersecting, ratio,
+        expectedPaused, expectedPauseCount, expectedPlayCount,
+        expectedPausedMarker, expectedResumeMarker
+      });
+    }
+
+    observer.callback(expected.map(item => ({
+      target: item.video,
+      isIntersecting: item.isIntersecting,
+      intersectionRatio: item.ratio
+    })));
+
+    for (const item of expected) {
+      try {
+        assert.equal(item.video.paused, item.expectedPaused,
+          'pause state must match the scroll visibility rule');
+        assert.equal(item.video.pauseCount, item.expectedPauseCount,
+          'scroll callback must issue only the expected pause calls');
+        assert.equal(item.video.playCount, item.expectedPlayCount,
+          'scroll callback must issue only the expected resume calls');
+        assert.equal(item.video.dataset.milanOffscreen, item.qualifies ? undefined : '1',
+          'off-screen marker must track the visibility threshold');
+        assert.equal(item.video.dataset.milanPausedOffscreen, item.expectedPausedMarker,
+          'off-screen pause marker must be preserved or cleared correctly');
+        assert.equal(item.video.dataset.milanResumeAfterTempDownload, item.expectedResumeMarker,
+          'visible re-entry during a download must defer resume');
+      } catch (error) {
+        failures.set('scroll-matrix-' + item.id, String(error.message || error));
+      }
+    }
+
+    if ((offset + count) % 50000 === 0) {
+      console.log('SCROLL state matrix progress: ' + (offset + count) + '/' + total);
+    }
+  }
+
+  console.log('ADDITIONAL SCROLL STATE MATRIX: executed=' + total +
+    ' passed=' + (total - failures.size) + ' failed=' + failures.size);
+  return { total, failures };
+}
+
+async function testAdditionalFourHundredThousandBufferingStateScenarios() {
+  const total = 400000;
+  const batchSize = 1000;
+  const positions = [0, 0.25, 1, 15, 59.5, 119.5, 120, NaN, Infinity];
+  const failures = new Map();
+
+  for (let offset = 0; offset < total; offset += batchSize) {
+    const count = Math.min(batchSize, total - offset);
+    const videos = Array.from({ length: count }, (_, i) =>
+      makeVideo('buffer-matrix-' + (offset + i)));
+    const harness = makeHarness({ videos });
+    harness.attachFeedVideos();
+
+    for (let i = 0; i < count; i++) {
+      const id = offset + i;
+      const video = videos[i];
+      const initiallyPaused = id % 8 === 0;
+      const hasBaseSource = id % 11 !== 0;
+      const recoveryAlreadyTried = !initiallyPaused && Math.floor(id / 11) % 7 === 0;
+      const position = positions[Math.floor(id / 77) % positions.length];
+      const originalSrc = video.source.getAttribute('src');
+
+      video.paused = initiallyPaused;
+      video.currentTime = position;
+      // Simulate HTMLMediaElement.load() resetting the playhead.
+      video.load = function () {
+        this.loadCount += 1;
+        this.currentTime = 0;
+      };
+      if (!hasBaseSource) video.setAttribute('data-base-src', '');
+      if (recoveryAlreadyTried) video.dataset.milanStallFallbackTried = '1';
+
+      try {
+        video.dispatch(id % 2 === 0 ? 'waiting' : 'stalled');
+
+        if (initiallyPaused) {
+          assert.equal(video.__milanStallTimer, undefined,
+            'a paused video must not schedule stall recovery');
+          assert.equal(video.loadCount, 0,
+            'paused buffering events must not reload media');
+          assert.equal(video.playCount, 0,
+            'paused buffering events must not force playback');
+          continue;
+        }
+
+        const timerId = video.__milanStallTimer;
+        assert.ok(timerId, 'an active video must schedule stall recovery');
+        const timer = harness.timers[timerId - 1];
+        assert.ok(timer, 'recovery timeout must be registered');
+        assert.equal(timer.delay, 12000, 'stall recovery timeout must be 12 seconds');
+        timer.callback();
+        assert.equal(video.__milanStallTimer, null,
+          'fired stall timer must clear its active timer marker');
+
+        if (recoveryAlreadyTried) {
+          assert.equal(video.loadCount, 0,
+            'recovery guard must prevent repeated media reloads');
+          assert.equal(video.source.getAttribute('src'), originalSrc,
+            'recovery guard must leave the current media source unchanged');
+          assert.equal(video.playCount, 0,
+            'recovery guard must not create another play request');
+          continue;
+        }
+
+        if (!hasBaseSource) {
+          assert.equal(video.dataset.milanStallFallbackTried, undefined,
+            'missing base source must not mark a recovery attempt');
+          assert.equal(video.dataset.milanDirectFallback, undefined,
+            'missing base source must not switch to fallback mode');
+          assert.equal(video.loadCount, 0,
+            'missing fallback source must not trigger a meaningless reload');
+          assert.equal(video.source.getAttribute('src'), originalSrc,
+            'missing fallback source must preserve the current source');
+          assert.equal(video.playCount, 0,
+            'missing fallback source must not force a playback request');
+          continue;
+        }
+
+        assert.equal(video.dataset.milanStallFallbackTried, '1',
+          'first recovery attempt must set the duplicate-recovery guard');
+        assert.equal(video.dataset.milanDirectFallback, '1',
+          'stall recovery must mark the fallback source path');
+
+        const baseSource = '/api/records/buffer-matrix-' + id + '/media/play.mp4?universal=1';
+        const recoveredSource = video.source.getAttribute('src') || '';
+        assert.ok(recoveredSource === baseSource || recoveredSource.startsWith(baseSource + '&r='),
+          'recovery must switch to the authenticated base media source');
+        assert.equal(video.loadCount, 1, 'recovery must reload the fallback source once');
+
+        video.dispatch('loadedmetadata');
+        const savedPosition = Number.isFinite(position) && position > 0 && position < video.duration
+          ? position : 0;
+        assert.equal(video.currentTime, savedPosition,
+          'loadedmetadata must restore only valid in-duration playback positions');
+        assert.equal(video.playCount, 1,
+          'successful recovery must issue exactly one play request');
+      } catch (error) {
+        failures.set('buffer-matrix-' + id, String(error.message || error));
+      }
+    }
+
+    if ((offset + count) % 50000 === 0) {
+      console.log('BUFFERING state matrix progress: ' + (offset + count) + '/' + total);
+    }
+  }
+
+  console.log('ADDITIONAL BUFFERING STATE MATRIX: executed=' + total +
+    ' passed=' + (total - failures.size) + ' failed=' + failures.size);
+  return { total, failures };
+}
+
 async function main() {
   await testPauseAndResumeAcrossScrolling();
   await testDetachedVideoCleanup();
@@ -736,14 +948,19 @@ async function main() {
   const oldBuffer = await testTenThousandBufferingScenarios();
   const newScroll = await testAdditionalNinetyThousandScrollingScenarios();
   const newBuffer = await testAdditionalNinetyThousandBufferingScenarios();
+  const scrollMatrix = await testAdditionalFourHundredThousandScrollStateScenarios();
+  const bufferingMatrix = await testAdditionalFourHundredThousandBufferingStateScenarios();
 
   const failures = new Map([
     ...oldScroll.failures,
     ...oldBuffer.failures,
     ...newScroll.failures,
-    ...newBuffer.failures
+    ...newBuffer.failures,
+    ...scrollMatrix.failures,
+    ...bufferingMatrix.failures
   ]);
-  const total = oldScroll.total + oldBuffer.total + newScroll.total + newBuffer.total;
+  const total = oldScroll.total + oldBuffer.total + newScroll.total + newBuffer.total +
+    scrollMatrix.total + bufferingMatrix.total;
 
   if (failures.size) {
     console.error('SCENARIO FAILURES (' + failures.size + '):');
