@@ -83,15 +83,18 @@ function makeVideo(id) {
     pauseCount: 0,
     playCount: 0,
     loadCount: 0,
-    addEventListener(type, listener) {
+    addEventListener(type, listener, options) {
       if (!listeners.has(type)) listeners.set(type, []);
-      listeners.get(type).push(listener);
+      listeners.get(type).push({ listener, once: Boolean(options && options.once) });
     },
     removeEventListener(type, listener) {
-      listeners.set(type, (listeners.get(type) || []).filter(item => item !== listener));
+      listeners.set(type, (listeners.get(type) || []).filter(item => item.listener !== listener));
     },
     dispatch(type) {
-      for (const listener of [...(listeners.get(type) || [])]) listener();
+      for (const item of [...(listeners.get(type) || [])]) {
+        if (item.once) this.removeEventListener(type, item.listener);
+        item.listener();
+      }
     },
     closest() { return box; },
     querySelector() { return source; },
@@ -730,37 +733,40 @@ async function testAdditionalFourHundredThousandScrollStateScenarios() {
   const batchSize = 1000;
   const ratios = [0, 0.149, 0.15, 0.151, 0.3, 0.75, 1];
   const failures = new Map();
+  // Reuse a fixed-size browser harness. Creating a new VM context per batch
+  // retained enough V8 state to exhaust the default heap before all cases ran.
+  const videos = Array.from({ length: batchSize }, (_, i) =>
+    makeVideo('scroll-matrix-slot-' + i));
+  const harness = makeHarness({ videos });
+  harness.attachFeedVideos();
+  const observer = visibilityObserver(harness);
 
   for (let offset = 0; offset < total; offset += batchSize) {
-    const count = Math.min(batchSize, total - offset);
-    const videos = Array.from({ length: count }, (_, i) =>
-      makeVideo('scroll-matrix-' + (offset + i)));
-    const harness = makeHarness({ videos });
-    harness.attachFeedVideos();
-    const observer = visibilityObserver(harness);
-    const expected = [];
-
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < batchSize; i++) {
       const id = offset + i;
       const video = videos[i];
-      const ratio = ratios[id % ratios.length];
-      const isIntersecting = Math.floor(id / ratios.length) % 2 === 0;
+      video.dataset = {};
       video.paused = Math.floor(id / 14) % 2 === 0;
       video.ended = Math.floor(id / 28) % 2 === 0;
       video.isConnected = Math.floor(id / 56) % 2 === 0;
+      video.pauseCount = 0;
+      video.playCount = 0;
+      video.loadCount = 0;
       if (Math.floor(id / 112) % 2 === 0) video.dataset.milanPausedOffscreen = '1';
       if (Math.floor(id / 224) % 2 === 0) video.dataset.milanTempDownloadInProgress = '1';
       if (Math.floor(id / 448) % 2 === 0) video.dataset.milanResumeAfterTempDownload = '1';
       if (Math.floor(id / 896) % 2 === 0) video.dataset.finalFailed = '1';
       if (id % 3 === 0) video.dataset.milanOffscreen = '1';
 
+      const ratio = ratios[id % ratios.length];
+      const isIntersecting = Math.floor(id / ratios.length) % 2 === 0;
       const qualifies = isIntersecting && ratio >= 0.15;
       const hadPausedMarker = video.dataset.milanPausedOffscreen === '1';
       const tempDownload = video.dataset.milanTempDownloadInProgress === '1';
       const resumeAfterDownload = video.dataset.milanResumeAfterTempDownload === '1';
       let expectedPaused = video.paused;
-      let expectedPauseCount = video.pauseCount;
-      let expectedPlayCount = video.playCount;
+      let expectedPauseCount = 0;
+      let expectedPlayCount = 0;
       let expectedPausedMarker = video.dataset.milanPausedOffscreen;
       let expectedResumeMarker = video.dataset.milanResumeAfterTempDownload;
 
@@ -782,40 +788,41 @@ async function testAdditionalFourHundredThousandScrollStateScenarios() {
         expectedPausedMarker = '1';
       }
 
-      expected.push({
-        id, video, qualifies, isIntersecting, ratio,
-        expectedPaused, expectedPauseCount, expectedPlayCount,
-        expectedPausedMarker, expectedResumeMarker
-      });
+      video.__scrollScenario = {
+        id, ratio, isIntersecting, qualifies, expectedPaused,
+        expectedPauseCount, expectedPlayCount, expectedPausedMarker, expectedResumeMarker
+      };
     }
 
-    observer.callback(expected.map(item => ({
-      target: item.video,
-      isIntersecting: item.isIntersecting,
-      intersectionRatio: item.ratio
+    observer.callback(videos.map(video => ({
+      target: video,
+      isIntersecting: video.__scrollScenario.isIntersecting,
+      intersectionRatio: video.__scrollScenario.ratio
     })));
 
-    for (const item of expected) {
+    for (const video of videos) {
+      const scenario = video.__scrollScenario;
       try {
-        assert.equal(item.video.paused, item.expectedPaused,
+        assert.equal(video.paused, scenario.expectedPaused,
           'pause state must match the scroll visibility rule');
-        assert.equal(item.video.pauseCount, item.expectedPauseCount,
+        assert.equal(video.pauseCount, scenario.expectedPauseCount,
           'scroll callback must issue only the expected pause calls');
-        assert.equal(item.video.playCount, item.expectedPlayCount,
+        assert.equal(video.playCount, scenario.expectedPlayCount,
           'scroll callback must issue only the expected resume calls');
-        assert.equal(item.video.dataset.milanOffscreen, item.qualifies ? undefined : '1',
+        assert.equal(video.dataset.milanOffscreen, scenario.qualifies ? undefined : '1',
           'off-screen marker must track the visibility threshold');
-        assert.equal(item.video.dataset.milanPausedOffscreen, item.expectedPausedMarker,
+        assert.equal(video.dataset.milanPausedOffscreen, scenario.expectedPausedMarker,
           'off-screen pause marker must be preserved or cleared correctly');
-        assert.equal(item.video.dataset.milanResumeAfterTempDownload, item.expectedResumeMarker,
+        assert.equal(video.dataset.milanResumeAfterTempDownload, scenario.expectedResumeMarker,
           'visible re-entry during a download must defer resume');
       } catch (error) {
-        failures.set('scroll-matrix-' + item.id, String(error.message || error));
+        failures.set('scroll-matrix-' + scenario.id, String(error.message || error));
       }
+      delete video.__scrollScenario;
     }
 
-    if ((offset + count) % 50000 === 0) {
-      console.log('SCROLL state matrix progress: ' + (offset + count) + '/' + total);
+    if ((offset + batchSize) % 50000 === 0) {
+      console.log('SCROLL state matrix progress: ' + (offset + batchSize) + '/' + total);
     }
   }
 
@@ -829,31 +836,33 @@ async function testAdditionalFourHundredThousandBufferingStateScenarios() {
   const batchSize = 1000;
   const positions = [0, 0.25, 1, 15, 59.5, 119.5, 120, NaN, Infinity];
   const failures = new Map();
+  // Reuse a fixed harness and reset the fake timeout queue per scenario batch.
+  const videos = Array.from({ length: batchSize }, (_, i) =>
+    makeVideo('buffer-matrix-slot-' + i));
+  const harness = makeHarness({ videos });
+  harness.attachFeedVideos();
 
   for (let offset = 0; offset < total; offset += batchSize) {
-    const count = Math.min(batchSize, total - offset);
-    const videos = Array.from({ length: count }, (_, i) =>
-      makeVideo('buffer-matrix-' + (offset + i)));
-    const harness = makeHarness({ videos });
-    harness.attachFeedVideos();
-
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < batchSize; i++) {
       const id = offset + i;
       const video = videos[i];
       const initiallyPaused = id % 8 === 0;
       const hasBaseSource = id % 11 !== 0;
       const recoveryAlreadyTried = !initiallyPaused && Math.floor(id / 11) % 7 === 0;
       const position = positions[Math.floor(id / 77) % positions.length];
-      const originalSrc = video.source.getAttribute('src');
+      const originalSrc = 'https://cdn.example.test/video.mp4?token=test-token';
+      const baseSource = '/api/records/buffer-matrix-' + id + '/media/play.mp4?universal=1';
 
+      harness.timers.length = 0;
+      video.dataset = {};
+      video.__milanStallTimer = null;
       video.paused = initiallyPaused;
       video.currentTime = position;
-      // Simulate HTMLMediaElement.load() resetting the playhead.
-      video.load = function () {
-        this.loadCount += 1;
-        this.currentTime = 0;
-      };
-      if (!hasBaseSource) video.setAttribute('data-base-src', '');
+      video.loadCount = 0;
+      video.playCount = 0;
+      video.pauseCount = 0;
+      video.source.setAttribute('src', originalSrc);
+      video.setAttribute('data-base-src', hasBaseSource ? baseSource : '');
       if (recoveryAlreadyTried) video.dataset.milanStallFallbackTried = '1';
 
       try {
@@ -907,7 +916,6 @@ async function testAdditionalFourHundredThousandBufferingStateScenarios() {
         assert.equal(video.dataset.milanDirectFallback, '1',
           'stall recovery must mark the fallback source path');
 
-        const baseSource = '/api/records/buffer-matrix-' + id + '/media/play.mp4?universal=1';
         const recoveredSource = video.source.getAttribute('src') || '';
         assert.ok(recoveredSource === baseSource || recoveredSource.startsWith(baseSource + '&r='),
           'recovery must switch to the authenticated base media source');
@@ -925,8 +933,8 @@ async function testAdditionalFourHundredThousandBufferingStateScenarios() {
       }
     }
 
-    if ((offset + count) % 50000 === 0) {
-      console.log('BUFFERING state matrix progress: ' + (offset + count) + '/' + total);
+    if ((offset + batchSize) % 50000 === 0) {
+      console.log('BUFFERING state matrix progress: ' + (offset + batchSize) + '/' + total);
     }
   }
 
