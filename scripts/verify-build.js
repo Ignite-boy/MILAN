@@ -147,7 +147,7 @@ check(performanceAppShell.includes('/assets/js/inline-07.js?v=milan-streaming-fi
   'Streaming-first video changes must have a fresh cache-busting URL.');
 check(performanceAppShell.includes('/milan-live.js?v=milan-live-chat-filter-20261026-1'),
   'Live refresh optimizations must be referenced through the refreshed script URL.');
-check(performanceAppShell.includes('/assets/js/milan-ui-actions.js?v=instant-upload-8m-20261026-1'),
+check(performanceAppShell.includes('/assets/js/milan-ui-actions.js?v=avatar-persist-20261027-1'),
   'Upload improvements must be referenced through the refreshed script URL.');
 check(performanceFeedSource.includes('rootMargin:"300px 0px"'),
   'Feed media should be prepared near the viewport.');
