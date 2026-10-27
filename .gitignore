@@ -67,3 +67,6 @@ backend/dwn/database/*.json
 
 # Local Supabase CLI metadata
 supabase/.temp/
+
+# Local Python virtual environments
+.venv/

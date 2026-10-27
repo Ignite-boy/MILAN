@@ -197,7 +197,7 @@ async function loadNextFeedPage(){
     syncFeedPaginationUi();
   }
 }
-function formatBytes(n){if(!(n=Number(n||0)))return"";const u=["B","KB","MB","GB"];let i=0;for(;n>=1024&&i<u.length-1;)n/=1024,i++;return n.toFixed(i?1:0)+" "+u[i]}function fileIcon(cat,mime){return"image"===cat?"🖼️":"video"===cat?"🎬":"audio"===cat?"🎧":"pdf"===cat?"📄":(mime||"").includes("zip")?"🗜️":"📎"}function fileCardHtml(m,url,extra=""){const name=esc(m.fileName||"MILAN file"),mime=esc(m.mimeType||"file"),size=formatBytes(m.sizeBytes),open=esc(mediaSrc(url)),down=esc(mediaDownloadSrc(url));return`<div class="fileCard ${extra}"><div class="fileIcon">${fileIcon(m.previewCategory||"",m.mimeType)}</div><div class="fileMeta"><b>${name}</b><div class="mini">${mime}${size?" • "+esc(size):""}</div>${m.compatibilityWarning?`<div class="mini">${esc(m.compatibilityWarning)}</div>`:""}</div><div class="fileActions"><a href="${open}" target="_blank" rel="noopener">Open</a><a href="${down}" download>Download</a></div></div>`}function mediaHtml(r){const d=r.data||{},m=d.media||{},raw=r.mediaUrl||m.mediaUrl||d.mediaUrl||"",url=mediaSrc(raw);if(!url)return'';const mt=(m.mimeType||r.dataFormat||"application/octet-stream").toLowerCase(),cat=(m.previewCategory||r.mediaCompatibility?.previewCategory||(mt.startsWith("image/")?"image":mt.startsWith("video/")?"video":mt.startsWith("audio/")?"audio":"application/pdf"===mt?"pdf":mt.startsWith("text/")?"text":"file")).toLowerCase(),id=esc(r.id||""),err='<div class="mini mediaLoadError hidden">Preview is loading...</div>',onErr=`milanMediaError('${id}',this)`,onLoaded="clearMediaError(this)";if("image"===cat)return`<div class="media" data-record-id="${id}"><img loading="lazy" decoding="async" data-milan-observe="1" src="${esc(url)}" alt="${esc(r.title||"media")}" onload="${onLoaded}" onerror="${onErr}">${err}${fileCardHtml(m,raw,"hidden")}</div>`;if("video"===cat){const vurl=videoMediaSrc(raw),mime=!1===m.browserPlayable?"video/mp4":mt||"video/mp4";return`<div class="media" data-record-id="${id}"><video controls preload="none" data-milan-observe="1" playsinline webkit-playsinline x5-playsinline data-milan-inline-only="1" controlsList="nofullscreen nodownload noremoteplayback" onloadedmetadata="${onLoaded}" oncanplay="${onLoaded}" onplaying="${onLoaded}" onerror="${onErr}"><source src="${esc(vurl)}" type="${esc("video/quicktime"===mime?"video/mp4":mime)}"></video>${err}${fileCardHtml(m,raw,"hidden")}</div>`}return"audio"===cat?`<div class="media audioBox" data-record-id="${id}"><audio controls preload="metadata" src="${esc(url)}" type="${esc(mt||"audio/mpeg")}" onloadedmetadata="${onLoaded}" oncanplay="${onLoaded}" onplaying="${onLoaded}" onerror="${onErr}"></audio>${err}${fileCardHtml(m,raw,"hidden")}</div>`:"pdf"===cat?`<div class="media" data-record-id="${id}"><iframe loading="lazy" data-milan-observe="1" data-milan-src="${esc(url)}" title="${esc(m.fileName||r.title||"PDF")}" onload="${onLoaded}"></iframe>${err}${fileCardHtml(m,raw)}</div>`:`<div class="media" data-record-id="${id}">${fileCardHtml(m,raw)}${"video"===cat?'<div class="mini" style="padding:0 16px 14px">Video uploaded safely. Preview is still preparing or conversion is unavailable; use Open/Download and refresh after a few seconds.</div>':""}</div>`}function postText(r){const d=r.data||{};return"string"==typeof d?d:"media"===d.kind?d.caption||"":d.text||d.note||d.caption||""}function milanPostRenderFingerprint(value, contextKey){
+function formatBytes(n){if(!(n=Number(n||0)))return"";const u=["B","KB","MB","GB"];let i=0;for(;n>=1024&&i<u.length-1;)n/=1024,i++;return n.toFixed(i?1:0)+" "+u[i]}function fileIcon(cat,mime){return"image"===cat?"🖼️":"video"===cat?"🎬":"audio"===cat?"🎧":"pdf"===cat?"📄":(mime||"").includes("zip")?"🗜️":"📎"}function fileCardHtml(m,url,extra=""){const name=esc(m.fileName||"MILAN file"),mime=esc(m.mimeType||"file"),size=formatBytes(m.sizeBytes),open=esc(mediaSrc(url)),down=esc(mediaDownloadSrc(url));return`<div class="fileCard ${extra}"><div class="fileIcon">${fileIcon(m.previewCategory||"",m.mimeType)}</div><div class="fileMeta"><b>${name}</b><div class="mini">${mime}${size?" • "+esc(size):""}</div>${m.compatibilityWarning?`<div class="mini">${esc(m.compatibilityWarning)}</div>`:""}</div><div class="fileActions"><a href="${open}" target="_blank" rel="noopener">Open</a><a href="${down}" download>Download</a></div></div>`}function mediaHtml(r){const d=r.data||{},m=d.media||{},raw=r.mediaUrl||m.mediaUrl||d.mediaUrl||"",url=mediaSrc(raw);if(!url)return'';const mt=(m.mimeType||r.dataFormat||"application/octet-stream").toLowerCase(),cat=(m.previewCategory||r.mediaCompatibility?.previewCategory||(mt.startsWith("image/")?"image":mt.startsWith("video/")?"video":mt.startsWith("audio/")?"audio":"application/pdf"===mt?"pdf":mt.startsWith("text/")?"text":"file")).toLowerCase(),id=esc(r.id||""),err='<div class="mini mediaLoadError hidden">Preview is loading...</div>',onErr=`milanMediaError('${id}',this)`,onLoaded="clearMediaError(this)";if("image"===cat)return`<div class="media" data-record-id="${id}" data-size-bytes="${Math.max(0, Number(m.sizeBytes)||0)}"><img loading="lazy" decoding="async" data-milan-observe="1" src="${esc(url)}" alt="${esc(r.title||"media")}" onload="${onLoaded}" onerror="${onErr}">${err}${fileCardHtml(m,raw,"hidden")}</div>`;if("video"===cat){const vurl=videoMediaSrc(raw),mime=!1===m.browserPlayable?"video/mp4":mt||"video/mp4";return`<div class="media" data-record-id="${id}" data-size-bytes="${Math.max(0, Number(m.sizeBytes)||0)}"><video controls preload="none" data-milan-observe="1" playsinline webkit-playsinline x5-playsinline data-milan-inline-only="1" controlsList="nofullscreen nodownload noremoteplayback" onloadedmetadata="${onLoaded}" oncanplay="${onLoaded}" onplaying="${onLoaded}" onerror="${onErr}"><source src="${esc(vurl)}" type="${esc("video/quicktime"===mime?"video/mp4":mime)}"></video>${err}${fileCardHtml(m,raw,"hidden")}</div>`}return"audio"===cat?`<div class="media audioBox" data-record-id="${id}" data-size-bytes="${Math.max(0, Number(m.sizeBytes)||0)}"><audio controls preload="metadata" src="${esc(url)}" type="${esc(mt||"audio/mpeg")}" onloadedmetadata="${onLoaded}" oncanplay="${onLoaded}" onplaying="${onLoaded}" onerror="${onErr}"></audio>${err}${fileCardHtml(m,raw,"hidden")}</div>`:"pdf"===cat?`<div class="media" data-record-id="${id}" data-size-bytes="${Math.max(0, Number(m.sizeBytes)||0)}"><iframe loading="lazy" data-milan-observe="1" data-milan-src="${esc(url)}" title="${esc(m.fileName||r.title||"PDF")}" onload="${onLoaded}"></iframe>${err}${fileCardHtml(m,raw)}</div>`:`<div class="media" data-record-id="${id}" data-size-bytes="${Math.max(0, Number(m.sizeBytes)||0)}">${fileCardHtml(m,raw)}${"video"===cat?'<div class="mini" style="padding:0 16px 14px">Video uploaded safely. Preview is still preparing or conversion is unavailable; use Open/Download and refresh after a few seconds.</div>':""}</div>`}function postText(r){const d=r.data||{};return"string"==typeof d?d:"media"===d.kind?d.caption||"":d.text||d.note||d.caption||""}function milanPostRenderFingerprint(value, contextKey){
   const serialized=JSON.stringify(value)||"";
   let a=2166136261;
   let b=0x9e3779b9;
@@ -356,6 +356,233 @@ function initMilanMediaObserver(){
   feed.querySelectorAll(
     "img[data-milan-observe],video[data-milan-observe],iframe[data-milan-observe]"
   ).forEach(el=>window.__milanMediaObserver.observe(el));
+  schedulePerformanceAiPrefetch();
+}
+
+
+
+/* Privacy-preserving, in-memory performance measurements. */
+(function installMilanPerformanceTelemetry() {
+  if (window.MilanPerformanceTelemetry) return;
+
+  const LIMIT = 120;
+  const imageLoadMs = [];
+  const scrollFrameMs = [];
+  const longTaskMs = [];
+
+  function addSample(target, value) {
+    if (!Number.isFinite(value) || value < 0) return;
+    target.push(Math.min(120000, value));
+    if (target.length > LIMIT) target.shift();
+  }
+
+  function percentile(values, fraction) {
+    if (!values.length) return 0;
+    const sorted = values.slice().sort((a, b) => a - b);
+    return Math.round(sorted[Math.min(
+      sorted.length - 1,
+      Math.floor((sorted.length - 1) * fraction)
+    )] * 10) / 10;
+  }
+
+  document.addEventListener('load', function(event) {
+    const image = event.target;
+    if (!image || image.tagName !== 'IMG' ||
+        !image.closest('.media[data-record-id]')) return;
+
+    try {
+      const url = new URL(image.currentSrc || image.src, document.baseURI).href;
+      const entries = performance.getEntriesByName(url, 'resource');
+      const entry = entries.length ? entries[entries.length - 1] : null;
+      if (!entry || !Number.isFinite(entry.duration)) return;
+
+      const duration = Math.max(0, Math.min(120000, entry.duration));
+      image.dataset.lastLoadMs = String(Math.round(duration));
+      addSample(imageLoadMs, duration);
+    } catch (_) {
+      // Timing information may be unavailable; ordinary media loading continues.
+    }
+  }, true);
+
+  let scrollFramePending = false;
+  let previousScrollFrame = 0;
+
+  window.addEventListener('scroll', function() {
+    if (scrollFramePending) return;
+    scrollFramePending = true;
+
+    requestAnimationFrame(function(now) {
+      if (previousScrollFrame > 0) {
+        addSample(scrollFrameMs, Math.max(0, now - previousScrollFrame));
+      }
+      previousScrollFrame = now;
+      scrollFramePending = false;
+    });
+  }, { passive: true });
+
+  try {
+    if ('PerformanceObserver' in window) {
+      const observer = new PerformanceObserver(function(list) {
+        list.getEntries().forEach(function(entry) {
+          addSample(longTaskMs, entry.duration);
+        });
+      });
+      observer.observe({ type: 'longtask', buffered: true });
+    }
+  } catch (_) {
+    // Long-task observation is not supported in every browser.
+  }
+
+  window.MilanPerformanceTelemetry = {
+    get recentImageLoadP95Ms() {
+      return percentile(imageLoadMs, 0.95);
+    },
+    snapshot: function() {
+      return {
+        sampledImageLoads: imageLoadMs.length,
+        imageLoadP50Ms: percentile(imageLoadMs, 0.50),
+        imageLoadP95Ms: percentile(imageLoadMs, 0.95),
+        scrollFrameSamples: scrollFrameMs.length,
+        scrollFrameP95Ms: percentile(scrollFrameMs, 0.95),
+        longTaskCount: longTaskMs.length,
+        longTaskP95Ms: percentile(longTaskMs, 0.95)
+      };
+    }
+  };
+
+  let reportTimer = 0;
+  let lastReportAt = 0;
+  let reportInFlight = false;
+
+  function scheduleReport() {
+    if (reportTimer || reportInFlight) return;
+
+    reportTimer = setTimeout(function() {
+      reportTimer = 0;
+      if (Date.now() - lastReportAt < 30000) return;
+
+      const metrics = window.MilanPerformanceTelemetry.snapshot();
+      if (!metrics.sampledImageLoads &&
+          !metrics.scrollFrameSamples &&
+          !metrics.longTaskCount) return;
+
+      lastReportAt = Date.now();
+      reportInFlight = true;
+
+      Promise.resolve()
+        .then(function() {
+          return api("/ai/performance/metrics", {
+            method: "POST",
+            body: JSON.stringify(metrics),
+            timeoutMs: 4000
+          });
+        })
+        .catch(function() {
+          // Telemetry failure must never interrupt feed scrolling or media.
+        })
+        .finally(function() {
+          reportInFlight = false;
+        });
+    }, 1500);
+  }
+
+  window.addEventListener("scroll", scheduleReport, { passive: true });
+
+})();
+
+function schedulePerformanceAiPrefetch() {
+  const feed = document.getElementById("feed");
+  if (!feed || typeof api !== "function" ||
+      !("IntersectionObserver" in window)) return;
+
+  const connection = navigator.connection ||
+    navigator.mozConnection || navigator.webkitConnection || {};
+  const effectiveType = String(
+    connection.effectiveType ||
+    (connection.type === "wifi" ? "wifi" : "unknown")
+  ).toLowerCase();
+
+  // Never add speculative image traffic on Data Saver or very slow networks.
+  if (connection.saveData ||
+      ["slow-2g", "2g"].includes(effectiveType)) return;
+
+  const viewportHeight = Math.max(
+    1, window.innerHeight || document.documentElement.clientHeight || 1
+  );
+  const candidates = [];
+  const imageById = new Map();
+  const images = feed.querySelectorAll(
+    '.media[data-record-id] img[loading="lazy"]'
+  );
+
+  for (const image of images) {
+    if (candidates.length >= 100) break;
+    if (!image.isConnected || image.complete ||
+        image.dataset.performanceAiAttempted === "1") continue;
+
+    const wrapper = image.closest(".media");
+    if (!wrapper) continue;
+
+    const sizeBytes = Number(wrapper.dataset.sizeBytes || 0);
+    // Unknown, oversized or invalid sizes must not be prefetched.
+    if (!Number.isSafeInteger(sizeBytes) ||
+        sizeBytes <= 0 || sizeBytes > 4 * 1024 * 1024) continue;
+
+    const rect = image.getBoundingClientRect();
+    if (rect.bottom <= 0 ||
+        rect.top <= viewportHeight * 0.25 ||
+        rect.top > viewportHeight * 2) continue;
+
+    const recordId = String(wrapper.dataset.recordId || "").trim();
+    if (!recordId || imageById.has(recordId)) continue;
+
+    image.dataset.performanceAiAttempted = "1";
+    candidates.push({
+      recordId: recordId,
+      mediaKind: "image",
+      distanceViewports: Math.max(
+        0, Math.min(10, rect.top / viewportHeight)
+      ),
+      sizeBytes: sizeBytes,
+      effectiveType: effectiveType,
+      saveData: false,
+      lastLoadMs: Number(window.MilanPerformanceTelemetry?.recentImageLoadP95Ms || image.dataset.lastLoadMs || 0)
+    });
+    imageById.set(recordId, image);
+  }
+
+  if (!candidates.length) return;
+
+  // This uses the existing authenticated API helper. Failure is non-blocking.
+  Promise.resolve()
+    .then(function() {
+      return api("/ai/performance/prefetch-score", {
+        method: "POST",
+        body: JSON.stringify({ candidates: candidates })
+      });
+    })
+    .then(function(data) {
+      if (!data || !data.success || !Array.isArray(data.results)) return;
+
+      for (const result of data.results) {
+        if (!result || result.prefetch !== true) continue;
+
+        const image = imageById.get(String(result.recordId || ""));
+        if (!image || !image.isConnected || image.complete ||
+            connection.saveData) continue;
+
+        // Ignore stale decisions if the user has scrolled away.
+        const rect = image.getBoundingClientRect();
+        if (rect.bottom <= 0 || rect.top > viewportHeight * 1.75) continue;
+
+        image.setAttribute("fetchpriority", "low");
+        image.loading = "eager";
+        image.dataset.performanceAiPrefetched = "1";
+      }
+    })
+    .catch(function() {
+      // AI is optional: normal browser lazy loading continues on failure.
+    });
 }
 
 function postHtml(r,savedSet){

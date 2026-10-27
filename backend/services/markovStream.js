@@ -17,9 +17,10 @@ const DECAY  = 0.92;       // older transitions lose weight over time
 class MarkovPredictor {
   constructor() {
     // transitions[fromCid][toCid] = weight
-    this.transitions = {};
+    // Keep transition history isolated per authenticated user.
+    this.transitions = Object.create(null);
     // per-user recent sequence: userId -> [cid, cid, ...]
-    this.userSequence = {};
+    this.userSequence = Object.create(null);
   }
 
   /**
@@ -27,13 +28,13 @@ class MarkovPredictor {
    */
   record(userId, contentCid) {
     if (!userId || !contentCid) return;
-    if (!this.userSequence[userId]) this.userSequence[userId] = [];
-    const seq = this.userSequence[userId];
+    const seq = this.userSequence[userId] || (this.userSequence[userId] = []);
+    const userTransitions = this.transitions[userId] || (this.transitions[userId] = Object.create(null));
 
     if (seq.length > 0) {
       const prev = seq[seq.length - 1];
-      if (!this.transitions[prev]) this.transitions[prev] = {};
-      this.transitions[prev][contentCid] = (this.transitions[prev][contentCid] || 0) + 1;
+      const nexts = userTransitions[prev] || (userTransitions[prev] = Object.create(null));
+      nexts[contentCid] = (nexts[contentCid] || 0) + 1;
     }
 
     seq.push(contentCid);
@@ -47,7 +48,7 @@ class MarkovPredictor {
     const seq = this.userSequence[userId];
     if (!seq || seq.length === 0) return [];
     const last = seq[seq.length - 1];
-    const nexts = this.transitions[last];
+    const nexts = this.transitions[userId]?.[last];
     if (!nexts) return [];
     return Object.entries(nexts)
       .sort((a, b) => b[1] - a[1])
@@ -59,15 +60,21 @@ class MarkovPredictor {
    * Apply time-based decay to transition weights (call periodically)
    */
   decay() {
-    for (const from of Object.keys(this.transitions)) {
-      for (const to of Object.keys(this.transitions[from])) {
-        this.transitions[from][to] *= DECAY;
-        if (this.transitions[from][to] < 0.01) {
-          delete this.transitions[from][to];
+    for (const userId of Object.keys(this.transitions)) {
+      const userTransitions = this.transitions[userId];
+      for (const from of Object.keys(userTransitions)) {
+        for (const to of Object.keys(userTransitions[from])) {
+          userTransitions[from][to] *= DECAY;
+          if (userTransitions[from][to] < 0.01) {
+            delete userTransitions[from][to];
+          }
+        }
+        if (Object.keys(userTransitions[from]).length === 0) {
+          delete userTransitions[from];
         }
       }
-      if (Object.keys(this.transitions[from]).length === 0) {
-        delete this.transitions[from];
+      if (Object.keys(userTransitions).length === 0) {
+        delete this.transitions[userId];
       }
     }
   }
@@ -77,7 +84,8 @@ class MarkovPredictor {
 const predictor = new MarkovPredictor();
 
 // Decay every 10 minutes
-setInterval(() => predictor.decay(), 10 * 60 * 1000);
+const decayTimer = setInterval(() => predictor.decay(), 10 * 60 * 1000);
+if (typeof decayTimer.unref === 'function') decayTimer.unref();
 
 /**
  * Express route handler — record a view event
@@ -85,9 +93,12 @@ setInterval(() => predictor.decay(), 10 * 60 * 1000);
  */
 async function recordView(req, res) {
   try {
-    const { userId, contentCid, gatewayUrl } = req.body || {};
-    if (!userId || !contentCid) return res.status(400).json({ error: 'userId and contentCid required' });
-    predictor.record(userId, contentCid);
+    const userId = String(req.userId || '');
+    const { contentCid } = req.body || {};
+    if (!userId || typeof contentCid !== 'string' || !contentCid.trim() || contentCid.length > 512) {
+      return res.status(400).json({ error: 'Valid contentCid required' });
+    }
+    predictor.record(userId, contentCid.trim());
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -100,8 +111,8 @@ async function recordView(req, res) {
  */
 async function getPrefetch(req, res) {
   try {
-    const { userId } = req.query || {};
-    if (!userId) return res.status(400).json({ error: 'userId required' });
+    const userId = String(req.userId || '');
+    if (!userId) return res.status(401).json({ error: 'Authentication required' });
     const cids = predictor.predict(userId);
 
     // Build gateway URLs using env config
@@ -119,4 +130,4 @@ async function getPrefetch(req, res) {
   }
 }
 
-module.exports = { predictor, recordView, getPrefetch };
+module.exports = { MarkovPredictor, predictor, recordView, getPrefetch };

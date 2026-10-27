@@ -374,8 +374,9 @@ app.use('/api/ai', require('./routes/ai'));
 // ── ADVANCED FEATURES V2 ────────────────────────────────────
 // Feature 1: Markov Predictive Streaming
 const { recordView, getPrefetch } = require('./services/markovStream');
-app.post('/api/stream/view',    recordView);
-app.get('/api/stream/prefetch', getPrefetch);
+const streamAuth = require('./middleware/auth');
+app.post('/api/stream/view', streamAuth, recordView);
+app.get('/api/stream/prefetch', streamAuth, getPrefetch);
 
 // Feature 2: DWN AI Agent
 const { recordInteraction, curateFeed } = require('./services/dwnAgent');
