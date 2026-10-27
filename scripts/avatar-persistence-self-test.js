@@ -47,8 +47,8 @@ const checks = [
     assert.match(uiActions.slice(request, request + 2200), /identityVersion !==/);
   }],
   ['app page cache-busts the updated avatar scripts', () => {
-    assert.match(appHtml, /milan-ui-actions\\.js\\?v=avatar-persist-20261027-1/);
-    assert.match(appHtml, /app-page-actions\\.js\\?v=avatar-persist-20261027-1/);
+    assert.match(appHtml, /milan-ui-actions\.js\?v=avatar-persist-20261027-1/);
+    assert.match(appHtml, /app-page-actions\.js\?v=avatar-persist-20261027-1/);
   }],
   ['modal avatar save updates persistent in-memory identity and timestamp', () => {
     assert.match(uiActions, /window\.__milanPersistentAvatar = String\(saved\.avatar\)/);
