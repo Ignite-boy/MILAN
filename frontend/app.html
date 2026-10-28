@@ -952,14 +952,13 @@ select{
   overflow-anchor:auto;
 }
 
-.post,
-.card,
-.feed-card,
-[class*="post-card"],
-[class*="feed-card"]{
-  contain:content;
-  content-visibility:auto;
-  contain-intrinsic-size:280px;
+#feed > article.post,
+#feed > .feed-card,
+#feed > [class*="post-card"],
+#feed > [class*="feed-card"] {
+  contain: content;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 560px;
 }
 
 /* ---------- Top navigation ---------- */
@@ -3098,6 +3097,7 @@ body.map #privacyBar{
 <script src="/assets/js/milan-dashboard.js?v=dashboard-20261025-1" defer></script>
 <script src="/milan-mobile.js" defer></script>
 <script src="/milan-polish.js" defer></script>
+<script src="/assets/js/milan-upload-policy.js?v=network-aware-chunks-20261028-1" defer></script>
 <script src="/assets/js/milan-ui-actions.js?v=avatar-persist-20261027-1&upload=instant-upload-8m-20261026-1" defer></script>
 
 

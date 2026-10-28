@@ -17,7 +17,7 @@ assert.doesNotThrow(
 );
 
 const contracts = [
-  ['video resources remain viewport-lazy-loaded', /rootMargin:"700px 0px"/],
+  ['video preload proximity adapts to network quality', /function videoLoadRootMargin\(\)[\s\S]*?connection\.saveData[\s\S]*?slow-2g\|2g[\s\S]*?150px 0px[\s\S]*?type==="3g"[\s\S]*?350px 0px[\s\S]*?downlink>=5[\s\S]*?900px 0px[\s\S]*?return"700px 0px"[\s\S]*?rootMargin:videoLoadRootMargin\(\)/],
   ['off-screen playback gets paused', /entry\.intersectionRatio>=\.15[\s\S]*?video\.pause\(\)/],
   ['previously playing videos resume on re-entry', /delete video\.dataset\.milanPausedOffscreen;[\s\S]*?video\.play\(\)/],
   ['detached videos are unobserved', /visibilityObserver&&visibilityObserver\.unobserve\(video\)/],

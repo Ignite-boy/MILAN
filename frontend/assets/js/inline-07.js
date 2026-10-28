@@ -66,6 +66,16 @@ if(source&&proxy){
 }
 }finally{delete video.dataset.milanDirectLoading}
 }
+function videoLoadRootMargin(){
+ const connection=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+ const type=String(connection&&connection.effectiveType||"").toLowerCase();
+ const downlink=Number(connection&&connection.downlink||0);
+ const rtt=Number(connection&&connection.rtt||0);
+ if(connection&&(connection.saveData||/^(slow-2g|2g)$/i.test(type)))return"150px 0px";
+ if(connection&&(type==="3g"||(downlink>0&&downlink<=1.5)||rtt>=500))return"350px 0px";
+ if(connection&&downlink>=5&&(!rtt||rtt<=150))return"900px 0px";
+ return"700px 0px";
+}
 const directObserver=typeof IntersectionObserver==="function"?new IntersectionObserver(entries=>{
 entries.forEach(entry=>{
 if(!entry.isIntersecting)return;
@@ -73,7 +83,7 @@ directObserver.unobserve(entry.target);
 const id=entry.target.closest(".milanUniversalPlayer")?.getAttribute("data-record-id")||"";
 if(id)loadDirectMedia(entry.target,id);
 });
-},{rootMargin:"700px 0px"}):null;
+},{rootMargin:videoLoadRootMargin()}):null;
 const visibilityObserver=typeof IntersectionObserver==="function"?new IntersectionObserver(entries=>{
 entries.forEach(entry=>{
 const video=entry.target;
