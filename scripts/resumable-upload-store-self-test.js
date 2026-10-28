@@ -6,6 +6,7 @@ const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
 const rows = new Map();
+let sessionLookupQueries = 0;
 process.env.MILAN_UPLOAD_SESSION_TTL_MS = String(24 * 60 * 60 * 1000);
 
 function rowKey(row) {
@@ -19,6 +20,8 @@ const fakeDb = {
     const q = String(sql).replace(/\s+/g, " ").trim().toLowerCase();
 
     if (q.startsWith("select did, space_id, payload from public.dwn_storage")) {
+      sessionLookupQueries++;
+
       const row = [...rows.values()].find(r =>
         r.component_type === "event" && r.item_key === params[0]
       );
@@ -132,19 +135,27 @@ const store = require(storePath);
     assert.deepEqual(await store.readSession(session.id), session);
     console.log("PASS: PostgreSQL adapter session metadata write/read (mocked DB).");
 
-    await store.writeChunk(session.id, 0, Buffer.from("abcd"));
-    await store.writeChunk(session.id, 1, Buffer.from("efgh"));
-    await store.writeChunk(session.id, 2, Buffer.from("i"));
+    const lookupsBeforeContextWrites = sessionLookupQueries;
+    await store.writeChunk(session.id, 0, Buffer.from("abcd"), session);
+    await store.writeChunk(session.id, 1, Buffer.from("efgh"), session);
+    await store.writeChunk(session.id, 2, Buffer.from("i"), session);
+    assert.equal(sessionLookupQueries, lookupsBeforeContextWrites,
+      "Chunk writes with verified session context must skip redundant session lookups.");
+    console.log("PASS: chunk writes reuse verified session context without extra lookup.");
 
     assert.deepEqual(await store.listChunkIndexes(session.id), [0, 1, 2]);
     console.log("PASS: chunk listing and ordering.");
 
+    const lookupsBeforeContextReads = sessionLookupQueries;
     const assembled = Buffer.concat([
-      await store.readChunk(session.id, 0),
-      await store.readChunk(session.id, 1),
-      await store.readChunk(session.id, 2)
+      await store.readChunk(session.id, 0, session),
+      await store.readChunk(session.id, 1, session),
+      await store.readChunk(session.id, 2, session)
     ]);
+    assert.equal(sessionLookupQueries, lookupsBeforeContextReads,
+      "Chunk reads with verified session context must skip redundant session lookups.");
     assert.equal(assembled.toString(), "abcdefghi");
+    console.log("PASS: chunk reads reuse verified session context without extra lookup.");
     console.log("PASS: chunk bytes remain unchanged.");
 
     await store.deleteSession(session.id);
