@@ -952,14 +952,13 @@ select{
   overflow-anchor:auto;
 }
 
-.post,
-.card,
-.feed-card,
-[class*="post-card"],
-[class*="feed-card"]{
-  contain:content;
-  content-visibility:auto;
-  contain-intrinsic-size:280px;
+#feed > article.post,
+#feed > .feed-card,
+#feed > [class*="post-card"],
+#feed > [class*="feed-card"] {
+  contain: content;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 560px;
 }
 
 /* ---------- Top navigation ---------- */
