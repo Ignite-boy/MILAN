@@ -188,7 +188,7 @@ setTemporaryDownloadMessage(video,"Video is downloaded. Tap play to watch.");
 const onStall=()=>{
 if(video.paused)return;
 showLoading(video,true);
-clearTimer();
+if(video.__milanStallTimer)return;
 video.__milanStallTimer=setTimeout(()=>{
 video.__milanStallTimer=null;
 if(video.paused||!video.isConnected)return;

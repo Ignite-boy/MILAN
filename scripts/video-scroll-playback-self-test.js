@@ -626,6 +626,10 @@ async function testAdditionalNinetyThousandBufferingScenarios() {
         const stallTimer = harness.timers[timerId - 1];
         assert.ok(stallTimer, 'stall timer should be registered');
         assert.equal(stallTimer.delay, 12000);
+        // waiting + stalled for the same episode must not postpone recovery.
+        video.dispatch(id % 2 === 0 ? 'stalled' : 'waiting');
+        assert.equal(video.__milanStallTimer, timerId,
+          'duplicate stall events must not reset the active recovery timer');
 
         stallTimer.callback();
 
