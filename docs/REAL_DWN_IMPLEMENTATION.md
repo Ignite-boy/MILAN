@@ -2,18 +2,18 @@
 
 ## Verified state
 
-The main MILAN API's current persistence implementation is Supabase-authoritative. The canonical C++ component under `DWN/` is a separate LevelDB-backed C++20 target. The current main API metadata explicitly sets `realDwnProtocol: false`; the source tree does not contain the previously documented `backend/services/realDwnEngine.js`.
+The main MILAN API's current persistence implementation is Voroa PostgreSQL-backed. The canonical C++ component under `DWN/` is a separate LevelDB-backed C++20 target. The current main API metadata explicitly sets `realDwnProtocol: false`; the source tree does not contain the previously documented `backend/services/realDwnEngine.js`.
 
 Therefore, this repository does **not** currently establish that production web requests execute signed DWN `RecordsWrite` / `RecordsQuery` messages against an isolated protocol node for every user.
 
 ## What the production code currently does
 
 - Uses DID and per-user space identifiers to associate application records with a user.
-- Stores record metadata/data and database snapshots through Supabase-backed tables; media paths use Supabase Storage configuration.
-- Reports Supabase persistence status separately from a real protocol-engine readiness signal.
+- Stores record metadata/data and database snapshots in Voroa PostgreSQL; media uses the configured storage path.
+- Reports PostgreSQL persistence status separately from a real protocol-engine readiness signal.
 - Contains a standalone C++ DWN experiment in `DWN/`, whose canonical CMake build links LevelDB and excludes `src/postgres_storage.cpp`.
 
-A Supabase tenant row is evidence of a configured tenant record; it is **not** evidence that a DWN protocol engine is running or that cryptographic protocol messages were verified.
+A PostgreSQL tenant row is evidence of a configured tenant record; it is **not** evidence that a DWN protocol engine is running or that cryptographic protocol messages were verified.
 
 ## Production claims that are not yet supported
 

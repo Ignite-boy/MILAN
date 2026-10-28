@@ -45,7 +45,7 @@ Canonical domain used everywhere: **https://milanlife.in**
 ## What YOU must do manually (cannot be done in code)
 
 1. **Point milanlife.in at the app.** Make sure the domain actually serves the
-   app (DNS + host config on Render or wherever). Set env `PUBLIC_BASE_URL=https://milanlife.in`.
+   app (DNS + host config on your chosen host). Set env `PUBLIC_BASE_URL=https://milanlife.in`.
 
 2. **Google Search Console** (most important):
    - Add & verify the property for `https://milanlife.in`.

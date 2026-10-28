@@ -99,8 +99,6 @@ assert(chat.includes('withChatWriteLock'), 'Concurrent message/receipt write gua
     'Conversation reads must be limited to the caller-owned Voroa mailbox and tenant space.');
   assert(callerMailboxSql(chat.slice(listConversationsStart, peopleRouteStart)),
     'Conversation list must be limited to the caller-owned Voroa mailbox and tenant space.');
-  assert(!chat.includes('@supabase/supabase-js') && !/supabase\s*\n\s*\.from\(/.test(chat),
-    'Chat route must not instantiate a direct Supabase client.');
 
 assert(chat.includes('livePush.push(req.userId'), 'Sender other-device push missing.');
 
@@ -130,9 +128,9 @@ assert(dwnService.includes('assertCloudSyncSucceeded(record)'), 'New records mus
 const syncedRecord = { cloudDwn: { sync: { pushed: true } } };
 assert(assertCloudSyncSucceeded(syncedRecord) === syncedRecord, 'Confirmed cloud sync should succeed.');
 let failedWrite = null;
-try { assertCloudSyncSucceeded({ cloudDwn: { sync: { pushed: false, error: 'Supabase write failed' } } }); }
+try { assertCloudSyncSucceeded({ cloudDwn: { sync: { pushed: false, error: 'Remote write failed' } } }); }
 catch (err) { failedWrite = err; }
-assert(failedWrite && failedWrite.status === 502 && failedWrite.message === 'Supabase write failed', 'Failed cloud writes must return an error.');
+assert(failedWrite && failedWrite.status === 502 && failedWrite.message === 'Remote write failed', 'Failed cloud writes must return an error.');
 let unknownWrite = null;
 try { assertCloudSyncSucceeded({}); } catch (err) { unknownWrite = err; }
 assert(unknownWrite && unknownWrite.status === 502, 'Unconfirmed cloud writes must not be treated as success.');

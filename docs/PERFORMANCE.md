@@ -54,7 +54,7 @@ on purpose. To scale across cores/servers, first move shared state to Redis/Post
 then enable cluster mode.
 
 ## Next real wins (when you want them)
-1. **HTTP/2 + Brotli** — handled by your host (Render/Cloudflare); enable Brotli at the edge.
+1. **HTTP/2 + Brotli** — handled by your host or edge CDN; enable Brotli at the edge.
 2. **CDN in front** (Cloudflare) for static assets and TLS termination — big perceived speed.
 3. **Move hot data to Redis/Postgres** — unlocks real horizontal scaling + cluster mode.
 4. **Image/video transcoding offload** — already uses ffmpeg; move heavy jobs to a queue if traffic grows.

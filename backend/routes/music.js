@@ -405,7 +405,7 @@ router.get('/suggest', async (req, res) => {
       suggestions
     });
   } catch (_) {
-    // Autocomplete must never crash the Vercel function.
+    // Autocomplete must never crash the API handler.
     return res.status(200).json({
       ok: true,
       suggestions: []

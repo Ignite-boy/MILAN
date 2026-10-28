@@ -10,7 +10,7 @@ Create a Voroa Node.js web service from `Ignite-boy/MILAN` using the migration b
 - Start command: `npm start`
 - Port: the server reads `process.env.PORT` and binds to `0.0.0.0`
 
-The Express service serves both `frontend/` and the `/api/*` endpoints; no Vercel function adapters or rewrite file are required.
+The Express service serves both `frontend/` and the `/api/*` endpoints; no serverless adapters or provider-specific rewrite files are required.
 
 ## Required environment
 

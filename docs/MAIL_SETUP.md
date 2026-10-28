@@ -40,11 +40,11 @@ POST /api/admin/mail/test          { to }   (admin token)
 
 ## Turn it on — pick ONE provider
 
-Set the variables in your environment (Render → Environment, or a local `.env`). See
+Set the variables in your environment (the hosting dashboard, or a local `.env`). See
 `backend/.env.example` for the full annotated list.
 
 ### ⭐ Recommendation
-- **Hosting on Render / any cloud host →** use **Resend**. Outbound SMTP ports are often
+- **Hosting on a cloud host →** use **Resend**. Outbound SMTP ports are often
   blocked on cloud hosts; Resend sends over HTTPS, so it "just works." You verify the
   `milanlife.in` domain once and paste one API key.
 - **You mainly want mail to literally come from your registered `support@milanlife.in`

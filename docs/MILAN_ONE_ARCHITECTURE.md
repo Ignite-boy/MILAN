@@ -35,7 +35,7 @@ Apply the schema/migrations required by the application's routes before consider
 
 ## Domain cutover and validation gates
 
-The observed public domain response in this migration effort was HTTP 404 with `x-vercel-error: DEPLOYMENT_NOT_FOUND`. That identifies a missing Vercel deployment target, not a successful Voroa deployment.
+The observed public domain response in this migration effort was HTTP 404 with a deployment-not-found signal. That identifies a missing deployment target, not a successful Voroa deployment.
 
 Do not declare the migration complete until:
 1. `npm ci`, `npm run build`, and the chat, security, payment, and upload tests pass.

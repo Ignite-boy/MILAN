@@ -64,7 +64,7 @@ Only improve the production frontend.
 Rules:
 - Make ONE small, meaningful UI/UX improvement per cycle.
 - Only modify files under frontend/ ending in .html, .css, or .js.
-- Never modify backend, auth, DWN, database, secrets, package files, Vercel config, or infrastructure.
+- Never modify backend, auth, DWN, database, secrets, package files, deployment config, or infrastructure.
 - Preserve all existing APIs and functionality.
 - No giant refactors, rewrites, or formatting-only changes.
 - Prefer targeted UX, accessibility, responsiveness, visual polish, performance, or interaction improvements.

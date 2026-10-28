@@ -44,7 +44,7 @@ const proxy=String(video.getAttribute("data-base-src")||"");
 source.setAttribute("src",direct);
 video.dataset.milanDirectReady="1";
 video.dataset.milanDirectStorageReady="1";
-video.dataset.milanVercelFallback=proxy;
+video.dataset.milanProxyFallback=proxy;
 showLoading(video,false);
 video.load();
 }catch(err){
@@ -101,6 +101,7 @@ if(!video.paused&&!video.ended){
 }
 });
 },{rootMargin:"0px",threshold:[0,.15]}):null;
+
 window.milanEnsureDirectVideo=loadDirectMedia;
 window.milanV98PlayVideo=function(id,video){try{if(!video)return;const source=video.querySelector("source[data-milan-direct-source],source");if(!source||source.getAttribute("src"))return;const base=video.getAttribute("data-base-src")||"";if(!base)return;video.dataset.milanDirectFallback="1";source.setAttribute("src",base);video.load();const pending=video.play();if(pending&&typeof pending.catch==="function")pending.catch(()=>{})}catch(_){} };
 function attachVideoStallRecovery(video,id){
@@ -114,6 +115,7 @@ video.addEventListener("play",()=>{
 if(window.MILAN_ENABLE_TEMP_PLAYBACK_DOWNLOAD!==true||video.dataset.milanTempDownloadAttempted==="1"||video.dataset.milanDirectReady!=="1"||video.dataset.milanDirectFallback==="1")return;
 const connection=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
 if(connection&&(connection.saveData||/^(slow-2g|2g|3g)$/i.test(String(connection.effectiveType||""))))return;
+
 const source=video.querySelector("source[data-milan-direct-source],source");
 const direct=String(source&&source.getAttribute("src")||"");
 if(!/^https?:\/\//i.test(direct)||typeof fetch!=="function"||typeof URL.createObjectURL!=="function")return;

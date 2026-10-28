@@ -7,7 +7,7 @@ function assertCloudSyncSucceeded(record) {
   const message = String(
     syncResult?.error ||
     syncResult?.skipped ||
-    'Supabase DWN record sync was not confirmed'
+    'Remote DWN record sync was not confirmed'
   );
   const error = new Error(message);
   const status = Number(syncResult?.status);

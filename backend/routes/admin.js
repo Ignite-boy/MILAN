@@ -1,4 +1,5 @@
 const express = require('express');
+const milanDb = require('../services/milanDb');
 const crypto = require('node:crypto');
 const fs = require('fs');
 const path = require('path');
@@ -7,6 +8,10 @@ const dwnStore = require('../services/dwnService');
 const { mailStatus, sendTestEmail } = require('../services/mailService');
 
 const router = express.Router();
+
+function adminAsyncRoute(handler) {
+  return (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
+}
 
 function adminRequired(req, res, next) {
   const expected = String(process.env.ADMIN_TOKEN || '').trim();
@@ -41,18 +46,22 @@ function walkSize(dir) {
   } catch (_) {}
   return total;
 }
-function userRows() {
-  repairUsersFile(global.usersFile);
-  const users = cleanUsersDb(readJson(global.usersFile, {}));
-  return Object.entries(users).filter(([, u]) => u && (u.email || u.did || u.id)).map(([email, u]) => ({
-    id: u.id || '', email: u.email || email, did: u.did || '', displayName: u.profile?.display_name || u.name || '',
-    dwnEndpoint: u.dwnEndpoint || u.dwn?.endpoint || '', dwnSpaceId: u.dwn?.spaceId || u.settings?.dwnSpaceId || '',
-    createdAt: u.created_at || u.createdAt || '', lastLoginAt: u.last_login_at || u.lastLoginAt || '', loginCount: u.login_count || u.loginCount || 0
-  }));
+async function userRows() {
+  const result = await milanDb.query(`
+    SELECT user_id::text AS id, email, did,
+           name AS "displayName",
+           space_id AS "dwnSpaceId",
+           created_at AS "createdAt",
+           updated_at AS "updatedAt",
+           email_verified AS "emailVerified"
+    FROM public.users
+    ORDER BY created_at DESC
+  `);
+  return result.rows;
 }
 
-router.get('/overview', adminRequired, (_req, res) => {
-  const users = userRows();
+router.get('/overview', adminRequired, adminAsyncRoute(async (_req, res) => {
+  const users = await userRows();
   const status = dwnStore.getStatus();
   const recordsIndex = readJson(status.indexFile, {});
   const records = Object.values(recordsIndex).flatMap(v => Array.isArray(v) ? v : []);
@@ -78,9 +87,12 @@ router.get('/overview', adminRequired, (_req, res) => {
       explicitDidSharingRequired: true
     }
   });
-});
+}));
 
-router.get('/users', adminRequired, (_req, res) => res.json({ ok: true, totalUsers: userRows().length, users: userRows() }));
+router.get('/users', adminRequired, adminAsyncRoute(async (_req, res) => {
+  const users = await userRows();
+  res.json({ ok: true, totalUsers: users.length, users });
+}));
 router.get('/activity', adminRequired, (_req, res) => res.json(readJson(global.activityFile, {})));
 router.get('/feedback', adminRequired, (_req, res) => res.json(readJson(global.feedbackFile, [])));
 router.get('/security-reports', adminRequired, (_req, res) => res.json(readJson(global.securityReportsFile, [])));
@@ -90,12 +102,16 @@ router.post('/maintenance/compact', adminRequired, (_req, res) => {
 
 /* ── Transactional email: status + test send ─────────────────────── */
 // Which provider is configured (no secrets exposed) + verification stats.
-router.get('/mail/status', adminRequired, (_req, res) => {
-  const users = cleanUsersDb(readJson(global.usersFile, {}));
-  const list = Object.values(users).filter(u => u && (u.email || u.id));
-  const verified = list.filter(u => u.emailVerified === true).length;
-  res.json({ ok: true, mail: mailStatus(), accounts: { total: list.length, verified, unverified: list.length - verified }, at: new Date().toISOString() });
-});
+router.get('/mail/status', adminRequired, adminAsyncRoute(async (_req, res) => {
+  const users = await userRows();
+  const verified = users.filter(u => u.emailVerified === true).length;
+  res.json({
+    ok: true,
+    mail: mailStatus(),
+    accounts: { total: users.length, verified, unverified: users.length - verified },
+    at: new Date().toISOString()
+  });
+}));
 
 // Send a real test email to confirm delivery from support@milanlife.in.
 router.post('/mail/test', adminRequired, async (req, res) => {

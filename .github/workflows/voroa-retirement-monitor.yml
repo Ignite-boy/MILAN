@@ -85,11 +85,22 @@ jobs:
         shell: bash
         run: |
           set -e
-          if grep -RniE --exclude='*.md' --exclude='*.txt' --exclude='*.html' --exclude-dir=.git --exclude-dir=node_modules 'SUPABASE_URL|SUPABASE_SERVICE_KEY|@supabase/supabase-js|@vercel/functions|@vercel/kv|render\.com' backend package.json package-lock.json 2>/dev/null; then
-            echo "Legacy provider references remain in active runtime/configuration paths."
+          if grep -RniE \
+            --exclude='*.before*' \
+            --exclude='*.md' \
+            --exclude='*.txt' \
+            --exclude-dir=.git \
+            --exclude-dir=node_modules \
+            --exclude-dir=.venv \
+            --exclude-dir=venv \
+            '(vercel(\.app|\.com|\.link)?|supabase|onrender\.com|render\.com|@vercel/|@supabase/|SUPABASE_[A-Z0-9_]+|RENDER_[A-Z0-9_]+)' \
+            backend frontend Live-UI-Update Travel-Agent DWN DWN-Wallet web4-ai scripts package.json package-lock.json 2>/dev/null; then
+            echo "Legacy provider identifier found in runtime or configuration paths."
             exit 1
           fi
-          echo "No active Supabase, Vercel, or Render runtime configuration found."
+          echo "No legacy provider identifiers found in runtime/configuration paths."
+          node -e "const fs=require('node:fs'); for (const f of ['package.json','package-lock.json']) JSON.parse(fs.readFileSync(f,'utf8'))"
+
       - name: Run integrity and upload regression tests
         run: |
           npm run build

@@ -39,7 +39,7 @@ router.get('/my-server', auth, async (req, res) => {
   res.json({ ok: true, ownerDid: found.user.did, email: found.email, dwn, manifest, realNode, storage: dwnStore.getStatus() });
 });
 
-// Reports protocol status separately from logical Supabase tenant/storage status.
+// Reports protocol status separately from logical tenant/storage status.
 router.get('/real-node', auth, async (req, res) => {
   const found = current(req);
   if (!found) return res.status(404).json({ error: 'User not found' });
