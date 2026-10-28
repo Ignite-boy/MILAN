@@ -118,8 +118,8 @@ function attachVideoStallRecovery(video,id){
 if(!video||video.dataset.milanStallRecoveryAttached==="1")return;
 video.dataset.milanStallRecoveryAttached="1";
 const clearTimer=()=>{if(video.__milanStallTimer){clearTimeout(video.__milanStallTimer);video.__milanStallTimer=null}};
-const recovered=()=>{clearTimer();if(!video.paused){showLoading(video,false);markFailed(video,false)}};
-video.addEventListener("playing",()=>{setTemporaryDownloadMessage(video,"");recovered()});
+const recovered=(resetAttempts=false)=>{clearTimer();if(!video.paused){if(resetAttempts){delete video.dataset.milanStallRecoveryAttempts;delete video.dataset.milanStallFallbackTried;}showLoading(video,false);markFailed(video,false)}};
+video.addEventListener("playing",()=>{setTemporaryDownloadMessage(video,"");recovered(true)});
 video.addEventListener("canplay",()=>{if(video.readyState>=3)recovered()});
 video.addEventListener("play",()=>{
 if(window.MILAN_ENABLE_TEMP_PLAYBACK_DOWNLOAD!==true||video.dataset.milanTempDownloadAttempted==="1"||video.dataset.milanDirectReady!=="1"||video.dataset.milanDirectFallback==="1")return;
@@ -191,10 +191,16 @@ showLoading(video,true);
 clearTimer();
 video.__milanStallTimer=setTimeout(()=>{
 video.__milanStallTimer=null;
-if(video.paused)return;
-if(video.dataset.milanStallFallbackTried==="1")return;
+if(video.paused||!video.isConnected)return;
 const base=video.getAttribute("data-base-src")||"";
-if(!base)return;
+const attempts=Number(video.dataset.milanStallRecoveryAttempts||0);
+if(!base||attempts>=2){
+showLoading(video,false);
+markFailed(video,true);
+if(typeof setMediaError==="function")setMediaError(video,"Video is taking too long to buffer. Tap play to retry.");
+return;
+}
+video.dataset.milanStallRecoveryAttempts=String(attempts+1);
 video.dataset.milanStallFallbackTried="1";
 video.dataset.milanDirectFallback="1";
 const position=Number.isFinite(video.currentTime)?video.currentTime:0;
@@ -204,7 +210,9 @@ const fallbackTimer=setTimeout(()=>{
 if(fallbackSettled)return;
 fallbackSettled=true;
 video.removeEventListener("loadedmetadata",restorePlayback);
+showLoading(video,false);
 markFailed(video,true);
+if(typeof setMediaError==="function")setMediaError(video,"Video could not resume after retry. Tap play to try again.");
 },8000);
 function restorePlayback(){
 if(fallbackSettled)return;
