@@ -942,7 +942,10 @@ async function streamMedia(req, res) {
             ...parsed,
             expectedSizeBytes: total,
             expectedCid
-          }
+          },
+          verifiedMetadata: media,
+          verifiedRecordId: req.params.id,
+          verifiedReaderDid: u.user.did
         });
       } else {
         // Keep the verified full-buffer path for media without a stored SHA-256 CID.
