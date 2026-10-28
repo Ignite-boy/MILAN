@@ -798,28 +798,118 @@ router.post('/media', auth, async (req, res) => {
 });
 
 async function streamMedia(req, res) {
+  const isPlaybackTrace = /play\.mp4$/i.test(req.path || '') ||
+    String(req.query.universal || '') === '1' ||
+    String(req.query.play || '') === 'v83' ||
+    !!req.headers.range;
+  const traceId = isPlaybackTrace ? crypto.randomUUID() : '';
+  const traceStartedAt = Date.now();
+  let traceStage = 'request_started';
+  let traceFinished = false;
+  const cleanTraceValue = value => String(value ?? 'none')
+    .replace(/\s+/g, '_')
+    .replace(/[^a-zA-Z0-9._:/%=-]/g, '_')
+    .slice(0, 180);
+  const trace = (phase, fields = {}) => {
+    if (!isPlaybackTrace) return;
+    const parts = [
+      '[MILAN playback]',
+      `trace_id=${traceId}`,
+      `phase=${phase}`,
+      `record_id=${cleanTraceValue(req.params.id || 'unknown')}`,
+      `method=${cleanTraceValue(req.method)}`,
+      `range=${cleanTraceValue(req.headers.range || 'none')}`,
+      `elapsed_ms=${Date.now() - traceStartedAt}`,
+      `stage=${cleanTraceValue(traceStage)}`
+    ];
+    for (const [key, value] of Object.entries(fields)) {
+      if (value === undefined || value === null) continue;
+      parts.push(`${cleanTraceValue(key)}=${cleanTraceValue(value)}`);
+    }
+    console.info(parts.join(' '));
+  };
+
+  if (isPlaybackTrace) {
+    trace('request_started', { path: req.path || '/' });
+    req.once('aborted', () => {
+      traceStage = 'request_aborted';
+      trace('request_aborted');
+    });
+    res.once('finish', () => {
+      traceFinished = true;
+      trace('response_finished', {
+        status: res.statusCode,
+        content_length: res.getHeader('Content-Length') || 'unknown',
+        content_range: res.getHeader('Content-Range') || 'none',
+        media_source: res.getHeader('X-Milan-Media-Source') || 'unset'
+      });
+    });
+    res.once('close', () => {
+      if (!traceFinished) {
+        trace('response_closed_early', {
+          status: res.statusCode,
+          headers_sent: res.headersSent,
+          writable_finished: res.writableFinished
+        });
+      }
+    });
+  }
+
   try {
+    traceStage = 'user_context';
+    const currentStartedAt = Date.now();
     const u = await current(req);
+    trace('user_context_complete', {
+      duration_ms: Date.now() - currentStartedAt,
+      found: !!u
+    });
     if (!u) return res.status(404).json({ error: 'User not found' });
     // Keep the play.mp4/universal streaming path non-blocking: compatibility
     // remux/transcode work is queued in the background, while available media bytes
     // begin streaming immediately through the MILAN API endpoint.
     if (req.method !== 'HEAD' && (/play\.mp4$/i.test(req.path || '') || String(req.query.universal || '') === '1' || String(req.query.play || '') === 'v83')) {
+      const repairWaitMs = Number(process.env.MILAN_V83_STREAM_REPAIR_WAIT_MS || 45000);
+      const repairMaxBytes = Number(process.env.MILAN_V83_STREAM_REPAIR_MAX_BYTES || 768 * 1024 * 1024);
+      const prepStartedAt = Date.now();
+      traceStage = 'playability_prepare';
+      trace('playability_prepare_started', { wait_ms: repairWaitMs, max_bytes: repairMaxBytes });
       try {
         await dwnStore.ensureMediaPlayableForStream(req.userId, u.user.did, req.params.id, {
-          waitMs: Number(process.env.MILAN_V83_STREAM_REPAIR_WAIT_MS || 45000),
-          maxBytes: Number(process.env.MILAN_V83_STREAM_REPAIR_MAX_BYTES || 768 * 1024 * 1024)
+          waitMs: repairWaitMs,
+          maxBytes: repairMaxBytes
         });
+        trace('playability_prepare_complete', { duration_ms: Date.now() - prepStartedAt });
       } catch (err) {
+        trace('playability_prepare_failed', {
+          duration_ms: Date.now() - prepStartedAt,
+          error: err.message
+        });
         try { console.warn('V83 stream repair skipped:', err.message); } catch (_) {}
       }
     }
 
     let selectedRange;
+    traceStage = 'media_metadata_read';
+    const metadataReadStartedAt = Date.now();
+    trace('media_metadata_read_started', {
+      metadata_only: req.method === 'HEAD' || !!req.headers.range
+    });
     let media = await dwnStore.getMediaStream(req.params.id, u.user.did, {
+      traceId,
       metadataOnly: req.method === 'HEAD' || !!req.headers.range
     });
-    if (!media) return res.status(404).json({ error: 'Media not found' });
+    trace('media_metadata_read_complete', {
+      duration_ms: Date.now() - metadataReadStartedAt,
+      found: !!media,
+      authoritative: !!media?.authoritativeCloud,
+      remote_only: !!media?.remoteOnly,
+      size_bytes: media?.sizeBytes || 0,
+      backend: media?.backend || 'unspecified'
+    });
+    if (!media) {
+      trace('media_not_found');
+      return res.status(404).json({ error: 'Media not found' });
+    }
 
     if (media.authoritativeCloud && req.method !== 'HEAD' && req.headers.range) {
       const total = Number(media.sizeBytes || 0);
@@ -831,8 +921,23 @@ async function streamMedia(req, res) {
       }
 
       const expectedCid = String(media.dataCid || '');
+      trace('range_parsed', {
+        valid: !!parsed && !parsed.invalid,
+        start: parsed?.start,
+        end: parsed?.end,
+        total_bytes: total,
+        cid_verified: expectedCid.startsWith('sha256:')
+      });
+      const rangeReadStartedAt = Date.now();
+      traceStage = expectedCid.startsWith('sha256:') ? 'postgres_range_read' : 'full_media_read';
+      trace('range_read_started', {
+        start: parsed.start,
+        end: parsed.end,
+        expected_bytes: parsed.end - parsed.start + 1
+      });
       if (expectedCid.startsWith('sha256:')) {
         media = await dwnStore.getMediaStream(req.params.id, u.user.did, {
+          traceId,
           byteRange: {
             ...parsed,
             expectedSizeBytes: total,
@@ -841,20 +946,40 @@ async function streamMedia(req, res) {
         });
       } else {
         // Keep the verified full-buffer path for media without a stored SHA-256 CID.
-        media = await dwnStore.getMediaStream(req.params.id, u.user.did);
+        media = await dwnStore.getMediaStream(req.params.id, u.user.did, { traceId });
       }
+      trace('range_read_complete', {
+        duration_ms: Date.now() - rangeReadStartedAt,
+        found: !!media,
+        bytes_returned: Buffer.isBuffer(media?.buffer) ? media.buffer.length : 0,
+        backend: media?.backend || 'unspecified'
+      });
       if (!media) return res.status(404).json({ error: 'Media not found' });
     }
 
     if (media.authoritativeCloud && req.method === 'HEAD') {
+      traceStage = 'response_selected';
+      trace('source_selected', { source: media.backend || 'voroa-postgresql', kind: 'head' });
       return streamRangeOrBuffer(req, res, media, media.backend || 'voroa-postgresql');
     }
 
     if (Buffer.isBuffer(media.buffer)) {
+      traceStage = 'response_selected';
+      trace('source_selected', {
+        source: media.backend || 'buffer',
+        bytes: media.buffer.length,
+        range_response: !!selectedRange
+      });
       return streamRangeOrBuffer(req, res, media, media.backend || 'voroa-postgresql', selectedRange);
     }
 
-    const streamLocalFile = (fullPath, sourceLabel = 'app-cache') => streamRangeOrWholeFile(req, res, fullPath, media, sourceLabel);
+    const streamLocalFile = (fullPath, sourceLabel = 'app-cache') => {
+      let sizeBytes = 0;
+      try { sizeBytes = fs.statSync(fullPath).size; } catch (_) {}
+      traceStage = 'local_file_stream';
+      trace('source_selected', { source: sourceLabel, size_bytes: sizeBytes });
+      return streamRangeOrWholeFile(req, res, fullPath, media, sourceLabel);
+    };
 
     if (media.remoteOnly) {
       const headers = {};
@@ -868,8 +993,16 @@ async function streamMedia(req, res) {
         const controller = new AbortController();
         const openTimeoutMs = Number(process.env.MEDIA_REMOTE_OPEN_TIMEOUT_MS || process.env.MEDIA_REMOTE_TIMEOUT_MS || 30000);
         const openTimer = setTimeout(() => controller.abort(), openTimeoutMs);
+        traceStage = 'remote_upstream_open';
+        trace('remote_upstream_open_started', { timeout_ms: openTimeoutMs });
         const upstream = await fetch(media.remoteUrl, { method: req.method === 'HEAD' ? 'HEAD' : 'GET', headers, signal: controller.signal });
         clearTimeout(openTimer);
+        trace('remote_upstream_headers', {
+          status: upstream.status,
+          ok: upstream.ok,
+          content_length: upstream.headers.get('content-length') || 'unknown',
+          content_range: upstream.headers.get('content-range') || 'none'
+        });
         if (upstream.ok) {
           const upstreamType = String(upstream.headers.get('content-type') || '').split(';')[0].toLowerCase();
           const safeType = browserServeMime(media, media.fallbackFullPath || '');
@@ -888,13 +1021,19 @@ async function streamMedia(req, res) {
           res.setHeader('X-Milan-Media-Source', 'remote-storage');
           if (req.method === 'HEAD') return res.end();
           const bodyStream = Readable.fromWeb(upstream.body);
-          bodyStream.on('error', err => { try { if (!res.headersSent) res.status(502); res.destroy(err); } catch (_) {} });
+          bodyStream.on('error', err => {
+            trace('remote_body_error', { error: err.message });
+            try { if (!res.headersSent) res.status(502); res.destroy(err); } catch (_) {}
+          });
+          bodyStream.on('end', () => trace('remote_body_end'));
           res.on('close', () => { if (!res.writableEnded) { try { bodyStream.destroy(); } catch (_) {} } });
+          traceStage = 'remote_body_stream';
           return bodyStream.pipe(res);
         }
         if (!media.fallbackFullPath) return res.status(upstream.status).json({ error: `Remote DWN media read failed: ${upstream.status}` });
         res.setHeader('X-Milan-Remote-Media-Fallback', `remote-${upstream.status}`);
       } catch (err) {
+        trace('remote_upstream_open_failed', { error: err.message });
         if (!media.fallbackFullPath) return res.status(502).json({ error: `Remote DWN media read failed: ${err.message}` });
         res.setHeader('X-Milan-Remote-Media-Fallback', 'remote-error');
       }
@@ -902,7 +1041,10 @@ async function streamMedia(req, res) {
     }
 
     return streamLocalFile(media.fullPath, 'app-local-media');
-  } catch (err) { handleError(res, err); }
+  } catch (err) {
+    trace('route_failed', { error: err.message, status: err.status || 500 });
+    handleError(res, err);
+  }
 }
 
 router.post('/:id/media/repair', auth, async (req, res) => {
