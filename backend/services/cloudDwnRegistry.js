@@ -579,8 +579,12 @@ async function pushMediaToCloudDwn(record, user, absoluteFilePath) {
     if (!stat.isFile() || stat.size < 1) throw new Error('Media file is empty or invalid');
     if (stat.size > maxBytes) throw new Error('Media exceeds configured PostgreSQL media limit');
 
+    const fileReadStartedAt = Date.now();
     const bytes = fs.readFileSync(absoluteFilePath);
+    console.info(`[MILAN media-commit] phase=file_read_complete bytes=${bytes.length} duration_ms=${Date.now() - fileReadStartedAt}`);
+    const hashStartedAt = Date.now();
     const digest = crypto.createHash('sha256').update(bytes).digest('hex');
+    console.info(`[MILAN media-commit] phase=hash_complete duration_ms=${Date.now() - hashStartedAt}`);
     const media = record?.data?.media || {};
     const fileName = path.basename(String(media.fileName || record?.title || absoluteFilePath))
       .replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 180) || 'milan-media';
@@ -627,6 +631,8 @@ async function pushMediaToCloudDwn(record, user, absoluteFilePath) {
     };
 
     // Media bytes and their record metadata commit or roll back together.
+    const postgresTransactionStartedAt = Date.now();
+    console.info(`[MILAN media-commit] phase=postgres_transaction_started bytes=${bytes.length}`);
     await withStorageQuotaTransaction(
       milanDb,
       {
@@ -687,6 +693,7 @@ async function pushMediaToCloudDwn(record, user, absoluteFilePath) {
         );
       }
     );
+    console.info(`[MILAN media-commit] phase=postgres_transaction_complete duration_ms=${Date.now() - postgresTransactionStartedAt}`);
 
     return {
       pushed: true, backend: 'voroa', mode: 'voroa-postgresql',

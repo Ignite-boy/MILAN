@@ -378,7 +378,7 @@ router.post('/media/chunk/:uploadId', auth, async (req, res) => {
       }
 
       if (shared) {
-        await resumableUploadStore.writeChunk(uploadId, index, fs.readFileSync(tmp));
+        await resumableUploadStore.writeChunk(uploadId, index, fs.readFileSync(tmp), latest);
         try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {}
         const received = await resumableUploadStore.listChunkIndexes(uploadId);
         settled = true;
@@ -461,6 +461,7 @@ router.get('/media/chunk/:uploadId', auth, async (req, res) => {
 });
 
 router.post('/media/chunk/:uploadId/complete', auth, async (req, res) => {
+  const finalizeStartedAt = Date.now();
   const shared = usesSharedUploadStorage();
   const uploadId = safeUploadId(req.params.uploadId);
 
@@ -475,6 +476,7 @@ router.post('/media/chunk/:uploadId/complete', auth, async (req, res) => {
 
   if (!session) return res.status(404).json({ error: 'Upload session not found or expired.' });
   if (session.userId !== req.userId) return res.status(403).json({ error: 'This upload session belongs to another user.' });
+  console.info(`[MILAN upload-finalize] phase=session_validated shared_storage=${shared} size_bytes=${session.sizeBytes} chunks=${session.totalChunks} duration_ms=${Date.now() - finalizeStartedAt}`);
 
   let dir;
   try {
@@ -492,6 +494,8 @@ router.post('/media/chunk/:uploadId/complete', auth, async (req, res) => {
     const u = await current(req);
     if (!u) return res.status(404).json({ error: 'User not found' });
 
+    const assemblyStartedAt = Date.now();
+    console.info('[MILAN upload-finalize] phase=assembly_started');
     const received = shared
       ? await resumableUploadStore.listChunkIndexes(uploadId)
       : Object.keys(session.received || {}).map(Number).filter(Number.isInteger);
@@ -515,7 +519,7 @@ router.post('/media/chunk/:uploadId/complete', auth, async (req, res) => {
 
     if (shared) {
       for (let index = 0; index < session.totalChunks; index++) {
-        const chunk = await resumableUploadStore.readChunk(uploadId, index);
+        const chunk = await resumableUploadStore.readChunk(uploadId, index, session);
         if (!chunk) {
           const err = new Error(`Missing chunk ${index + 1}/${session.totalChunks}.`);
           err.status = 409;
@@ -574,18 +578,22 @@ router.post('/media/chunk/:uploadId/complete', auth, async (req, res) => {
     }
 
     const finalSize = fs.statSync(assembled).size;
+    console.info(`[MILAN upload-finalize] phase=assembly_complete bytes=${finalSize} duration_ms=${Date.now() - assemblyStartedAt}`);
     if (finalSize !== session.sizeBytes) {
       return res.status(400).json({
         error: `Upload size mismatch. Expected ${session.sizeBytes} bytes but received ${finalSize} bytes.`
       });
     }
 
+    const mediaCommitStartedAt = Date.now();
+    console.info(`[MILAN upload-finalize] phase=media_commit_started bytes=${finalSize}`);
     const record = await dwnStore.createMediaRecordFromFile(
       req.userId,
       u.user.did,
       { ...session.meta, recordId: session.recordId, fastAccept: true, uploadMode: 'resumable-chunked' },
       assembled
     );
+    console.info(`[MILAN upload-finalize] phase=media_commit_complete duration_ms=${Date.now() - mediaCommitStartedAt}`);
 
     // Record persistence is the commit point. Cleanup failure must not turn a
     // confirmed record into an apparent publish failure that invites duplicates.
@@ -611,6 +619,7 @@ router.post('/media/chunk/:uploadId/complete', auth, async (req, res) => {
 
     return res.status(201).json(record);
   } catch (err) {
+    console.warn(`[MILAN upload-finalize] phase=failed duration_ms=${Date.now() - finalizeStartedAt} status=${Number(err?.status || 500)}`);
     try { if (fs.existsSync(assembled)) fs.unlinkSync(assembled); } catch (_) {}
     if (shared) {
       try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {}

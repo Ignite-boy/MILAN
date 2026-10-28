@@ -62,11 +62,26 @@ async function writeSession(session) {
     [did, spaceId, key, session.id, JSON.stringify(session)]
   );
 }
-async function writeChunk(id, index, bytes) {
+function ownerFromSessionContext(id, context) {
+  const safe = safeId(id);
+  if (!safe || !context || safeId(context.id) !== safe) return null;
+  const did = String(context.ownerDid || "").trim();
+  const spaceId = String(context.spaceId || "").trim();
+  if (!did.startsWith("did:") || !spaceId) return null;
+  return { did, spaceId };
+}
+
+async function writeChunk(id, index, bytes, sessionContext) {
   const key = chunkKey(id, index);
   if (!key || !Buffer.isBuffer(bytes)) throw new Error("Invalid upload chunk.");
-  const owner = await findSession(id);
-  if (!owner) throw new Error("Upload session not found.");
+  const owner = sessionContext === undefined
+    ? await findSession(id)
+    : ownerFromSessionContext(id, sessionContext);
+  if (!owner) {
+    throw new Error(sessionContext === undefined
+      ? "Upload session not found."
+      : "Invalid upload session context.");
+  }
   await db.query(
     `INSERT INTO public.dwn_storage
        (component_type, did, space_id, item_key, parent_key, data_format,
@@ -94,16 +109,19 @@ async function listChunkIndexes(id) {
     return match ? Number(match[1]) : -1;
   }).filter(Number.isInteger).filter(index => index >= 0).sort((a, b) => a - b);
 }
-async function readChunk(id, index) {
+async function readChunk(id, index, sessionContext) {
   const key = chunkKey(id, index);
   if (!key) return null;
-  const owner = await findSession(id);
+  const owner = sessionContext === undefined
+    ? await findSession(id)
+    : ownerFromSessionContext(id, sessionContext);
   if (!owner) return null;
   const result = await db.query(
     `SELECT data_bytes FROM public.dwn_storage
-      WHERE component_type = 'event' AND did = $1 AND space_id = $2 AND item_key = $3
+      WHERE component_type = 'event' AND did = $1 AND space_id = $2
+        AND item_key = $3 AND parent_key = $4
       LIMIT 1`,
-    [owner.did, owner.spaceId, key]
+    [owner.did, owner.spaceId, key, String(id)]
   );
   if (!result.rowCount || result.rows[0].data_bytes == null) return null;
   return Buffer.from(result.rows[0].data_bytes);
