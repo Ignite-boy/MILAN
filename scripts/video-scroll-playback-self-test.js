@@ -643,6 +643,25 @@ async function testAdditionalNinetyThousandBufferingScenarios() {
         }
         assert.ok(video.playCount >= 1,
           'recovery should request playback after metadata is restored');
+
+        // A second consecutive stall gets the final bounded source retry.
+        video.dispatch('waiting');
+        const secondTimerId = video.__milanStallTimer;
+        assert.ok(secondTimerId, 'second consecutive stall should schedule recovery');
+        const secondTimer = harness.timers[secondTimerId - 1];
+        assert.equal(secondTimer.delay, 12000);
+        secondTimer.callback();
+        assert.equal(video.dataset.milanStallRecoveryAttempts, '2',
+          'recovery should be capped at two attempts per continuous stall');
+
+        // A third consecutive stall must fail clearly instead of spinning forever.
+        video.dispatch('waiting');
+        const thirdTimerId = video.__milanStallTimer;
+        assert.ok(thirdTimerId, 'third stall should evaluate the retry limit');
+        harness.timers[thirdTimerId - 1].callback();
+        const player = video.closest('.milanUniversalPlayer');
+        assert.ok(player && player.classList.contains('failed'),
+          'exhausted recovery should show failed state instead of infinite loading');
       } catch (error) {
         failures.set('stall-extra-' + id, String(error.message || error));
       }
