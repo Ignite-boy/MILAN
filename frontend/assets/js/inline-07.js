@@ -32,7 +32,7 @@ const proxy=String(video.getAttribute("data-base-src")||"");
 source.setAttribute("src",direct);
 video.dataset.milanDirectReady="1";
 video.dataset.milanDirectStorageReady="1";
-video.dataset.milanVercelFallback=proxy;
+video.dataset.milanProxyFallback=proxy;
 showLoading(video,false);
 video.load();
 }catch(err){
@@ -61,7 +61,7 @@ directObserver.unobserve(entry.target);
 const id=entry.target.closest(".milanUniversalPlayer")?.getAttribute("data-record-id")||"";
 if(id)loadDirectMedia(entry.target,id);
 });
-},{rootMargin:"700px 0px"}):null;
+},{rootMargin:"450px 0px"}):null;
 window.milanEnsureDirectVideo=loadDirectMedia;
 window.milanV98PlayVideo=function(id,video){try{if(!video)return;const source=video.querySelector("source[data-milan-direct-source],source");if(!source||source.getAttribute("src"))return;const base=video.getAttribute("data-base-src")||"";if(!base)return;video.dataset.milanDirectFallback="1";source.setAttribute("src",base);video.load();const pending=video.play();if(pending&&typeof pending.catch==="function")pending.catch(()=>{})}catch(_){} };
 function attachVideoStallRecovery(video,id){

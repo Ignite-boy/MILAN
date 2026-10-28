@@ -27,7 +27,7 @@ var PERSONAS = {
   debug: 'You are a debugging expert. You systematically analyze code and error messages, identify root causes, suggest fixes, and explain why issues occur. You are thorough and methodical.'
 };
 
-/* ── Render Markdown ─────────────────────────────────────────────── */
+/* ── Format Markdown ─────────────────────────────────────────────── */
 function maiMarkdown(text){
   if(!text) return '';
   text = text.replace(/```(\w*)\n?([\s\S]*?)```/g, function(m, lang, code){

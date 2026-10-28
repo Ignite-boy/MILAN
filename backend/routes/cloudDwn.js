@@ -91,7 +91,6 @@ router.get('/status', async (_req, res) => {
         protocolReady: false,
         authoritative: false,
         authorityScope: 'Core snapshots, records, and media only',
-        legacySupabaseIntegrationsRemain: true,
         localFilesystemRole: 'compatibility/cache'
       }
     });
@@ -118,7 +117,6 @@ router.get('/status', async (_req, res) => {
         protocolReady: false,
         authoritative: false,
         authorityScope: 'Core snapshots, records, and media only',
-        legacySupabaseIntegrationsRemain: true,
         localFilesystemRole: 'compatibility/cache'
       },
       error: 'Voroa PostgreSQL connectivity check failed'

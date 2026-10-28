@@ -311,7 +311,7 @@ router.get('/', auth, async (req, res) => {
   }
 
   // AUTHORITATIVE READBACK:
-  // Always read the authenticated user's persistent Supabase-backed DWN record
+  // Always read the authenticated user's persistent DWN record
   // first. The local profile is only a fallback/cache and must never win over
   // the current DWN record.
   const recordId = profileRecordId(found.user.did);

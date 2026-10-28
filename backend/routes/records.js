@@ -133,9 +133,9 @@ function streamRangeOrWholeFile(req, res, fullPath, media, sourceLabel = '') {
 }
 
 
-function streamRangeOrBuffer(req, res, media, sourceLabel = 'voroa-postgresql') {
-  const buffer = media.buffer;
-  const total = buffer.length;
+function streamRangeOrBuffer(req, res, media, sourceLabel = 'voroa-postgresql', parsedRangeOverride = undefined) {
+  const buffer = Buffer.isBuffer(media.buffer) ? media.buffer : null;
+  const total = Number(media.sizeBytes ?? (buffer ? buffer.length : 0));
   let contentType = browserServeMime(media, media.fileName || '');
   const videoPlayRequest = isVideoMime(contentType) &&
     (/play\\.mp4$/i.test(req.path || '') ||
@@ -159,17 +159,31 @@ function streamRangeOrBuffer(req, res, media, sourceLabel = 'voroa-postgresql') 
   }
 
   if (req.headers.range) {
-    const parsed = parseByteRange(req.headers.range, total);
+    const parsed = parsedRangeOverride === undefined
+      ? parseByteRange(req.headers.range, total)
+      : parsedRangeOverride;
     if (!parsed || parsed.invalid) {
       res.setHeader('Content-Range', `bytes */${total}`);
       return res.status(416).end();
     }
     res.status(206);
     res.setHeader('Content-Range', `bytes ${parsed.start}-${parsed.end}/${total}`);
-    res.setHeader('Content-Length', parsed.end - parsed.start + 1);
+    const expectedLength = parsed.end - parsed.start + 1;
+    res.setHeader('Content-Length', expectedLength);
+    if (media.byteRange) {
+      if (!buffer ||
+          media.byteRange.start !== parsed.start ||
+          media.byteRange.end !== parsed.end ||
+          buffer.length !== expectedLength) {
+        return res.status(502).end();
+      }
+      return res.end(buffer);
+    }
+    if (!buffer) return res.status(502).end();
     return res.end(buffer.subarray(parsed.start, parsed.end + 1));
   }
 
+  if (!buffer) return res.status(502).end();
   res.status(200);
   res.setHeader('Content-Length', total);
   return res.end(buffer);
@@ -641,7 +655,7 @@ router.get('/', auth, async (req, res) => {
 
 router.get('/stats', auth, async (req, res) => {
   try {
-    const u = current(req);
+    const u = await current(req);
     if (!u) return res.status(404).json({ error: 'User not found' });
     res.json(await dwnStore.statsFor(u.user.did));
   } catch (err) { handleError(res, err); }
@@ -792,11 +806,43 @@ async function streamMedia(req, res) {
       }
     }
 
-    const media = await dwnStore.getMediaStream(req.params.id, u.user.did);
+    let selectedRange;
+    let media = await dwnStore.getMediaStream(req.params.id, u.user.did, {
+      metadataOnly: req.method === 'HEAD' || !!req.headers.range
+    });
     if (!media) return res.status(404).json({ error: 'Media not found' });
 
-    if (Buffer.isBuffer(media.buffer)) {
+    if (media.authoritativeCloud && req.method !== 'HEAD' && req.headers.range) {
+      const total = Number(media.sizeBytes || 0);
+      const rangeHeader = req.headers.range;
+      const parsed = parseByteRange(rangeHeader, total);
+      selectedRange = parsed;
+      if (!parsed || parsed.invalid) {
+        return streamRangeOrBuffer(req, res, media, media.backend || 'voroa-postgresql', parsed);
+      }
+
+      const expectedCid = String(media.dataCid || '');
+      if (expectedCid.startsWith('sha256:')) {
+        media = await dwnStore.getMediaStream(req.params.id, u.user.did, {
+          byteRange: {
+            ...parsed,
+            expectedSizeBytes: total,
+            expectedCid
+          }
+        });
+      } else {
+        // Keep the verified full-buffer path for media without a stored SHA-256 CID.
+        media = await dwnStore.getMediaStream(req.params.id, u.user.did);
+      }
+      if (!media) return res.status(404).json({ error: 'Media not found' });
+    }
+
+    if (media.authoritativeCloud && req.method === 'HEAD') {
       return streamRangeOrBuffer(req, res, media, media.backend || 'voroa-postgresql');
+    }
+
+    if (Buffer.isBuffer(media.buffer)) {
+      return streamRangeOrBuffer(req, res, media, media.backend || 'voroa-postgresql', selectedRange);
     }
 
     const streamLocalFile = (fullPath, sourceLabel = 'app-cache') => streamRangeOrWholeFile(req, res, fullPath, media, sourceLabel);
@@ -871,7 +917,7 @@ router.get('/:id/media/debug', auth, async (req, res) => {
     const u = current(req);
     if (!u) return res.status(404).json({ error: 'User not found' });
     const record = await dwnStore.getRecord(req.params.id, u.user.did);
-    const media = await dwnStore.getMediaStream(req.params.id, u.user.did).catch(err => ({ error: err.message }));
+    const media = await dwnStore.getMediaStream(req.params.id, u.user.did, { metadataOnly: true }).catch(err => ({ error: err.message }));
     res.json({ ok: true, recordId: req.params.id, dataFormat: record.dataFormat, mediaUrl: record.mediaUrl, mediaCompatibility: record.mediaCompatibility || null, media: media ? { mimeType: media.mimeType, fileName: media.fileName, sizeBytes: media.sizeBytes, remoteOnly: !!media.remoteOnly, localFileReady: !!media.fullPath, fallbackReady: !!media.fallbackFullPath, error: media.error || '' } : null });
   } catch (err) { handleError(res, err); }
 });

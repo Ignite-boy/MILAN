@@ -104,9 +104,9 @@
 
   /* 3 — WebSocket fallback */
   function viaWebSocket() {
-    // Vercel production uses SSE/polling; no Node WebSocket upgrade listener is attached.
+    // Production uses SSE/polling; no Node WebSocket upgrade listener is attached.
     var host = String(location.hostname || "").toLowerCase();
-    if (host === "milanlife.in" || host === "www.milanlife.in" || host.endsWith(".vercel.app")) return false;
+    if (host === "milanlife.in" || host === "www.milanlife.in") return false;
     if (!("WebSocket" in window)) return false;
     var delay = 2000;
     function conn() {
@@ -129,11 +129,9 @@
     var host = String(location.hostname || "").toLowerCase();
 
     if (
-      host === "milanlife.in" ||
-      host === "www.milanlife.in" ||
-      host.endsWith(".vercel.app")
+      host === "milanlife.in" || host === "www.milanlife.in"
     ) {
-      // Vercel serverless fallback: refresh persisted notification/summary APIs.
+      // HTTP polling fallback: refresh persisted notification/summary APIs.
       var refreshing = false;
 
       function refresh() {

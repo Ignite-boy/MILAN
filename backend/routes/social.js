@@ -30,7 +30,7 @@ async function refreshConnectionsFromCloud(){
       if(Object.keys(remote).length === 0 && Object.keys(local).length > 0){
         return local;
       }
-      // Cloud pulls update the local cache only. writeJson() would sync the pulled snapshot back to Supabase and could overwrite a newer cross-device request during a race.
+      // Cloud pulls update the local cache only. writeJson() would sync the pulled snapshot back to the authoritative store and could overwrite a newer cross-device request during a race.
       atomicWriteJson(global.connectionsFile, remote);
       return remote;
     }

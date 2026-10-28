@@ -5,6 +5,7 @@ const milanDb = require('./milanDb');
 const uuidv4 = () => crypto.randomUUID();
 const { readJson, writeJson, findUserByDid } = require('../utils/store');
 const { BROWSER_SAFE_MEDIA, detectMimeFromFile, extForMime, categoryForMime, normalizeUploadedMedia } = require('../utils/mediaCompat');
+const { parseByteRange } = require('../utils/byteRange');
 const { getDwnInfo, pushRecordToCloudDwn, deleteRecordFromCloudDwn, pushMediaToCloudDwn, storageRootFor, dwnRoot, databaseRoot, isolatedRoot, persistenceInfo, cloudRemoteBase, isEmbeddedSelfEndpoint } = require('./cloudDwnRegistry');
 const { assertCloudSyncSucceeded } = require('./dwnSyncGuard');
 const { commitResumableMedia } = require('./resumableMediaCommit');
@@ -1827,7 +1828,22 @@ async function statsFor(did) {
 }
 
 
-async function getAuthoritativeCloudMedia(id, did) {
+async function getAuthoritativeCloudMedia(id, did, options = {}) {
+  const includeBytes = options.includeBytes !== false;
+  const byteRange = options.byteRange || null;
+  if (byteRange && (
+    !Number.isSafeInteger(byteRange.start) ||
+    !Number.isSafeInteger(byteRange.end) ||
+    byteRange.start < 0 ||
+    byteRange.end < byteRange.start ||
+    !Number.isSafeInteger(byteRange.expectedSizeBytes) ||
+    byteRange.expectedSizeBytes <= byteRange.end ||
+    !String(byteRange.expectedCid || '').startsWith('sha256:')
+  )) {
+    const err = new Error('Invalid or unverifiable media byte range');
+    err.status = 400;
+    throw err;
+  }
   const recordId = String(id || '').trim();
   const readerDid = String(did || '').trim();
   if (!recordId || !readerDid) return null;
@@ -1837,18 +1853,36 @@ async function getAuthoritativeCloudMedia(id, did) {
       `SELECT r.did, r.space_id, r.item_key, r.recipient, r.published,
               r.metadata AS record_metadata, r.data_format,
               m.metadata AS media_metadata, m.data_format AS media_format,
-              m.data_bytes, m.data_size, m.data_cid
+              ${byteRange
+                ? 'substring(m.data_bytes from $2 for $3) AS data_bytes, '
+                : includeBytes ? 'm.data_bytes, ' : ''}m.data_size, m.data_cid
        FROM public.dwn_storage r
        JOIN public.dwn_storage m
          ON m.component_type='record_data'
         AND m.did=r.did AND m.space_id=r.space_id
         AND m.parent_key=r.item_key AND m.item_key='media:' || r.item_key
         AND m.deleted=FALSE
+        ${byteRange ? 'AND m.data_size=$4 AND m.data_cid=$5' : ''}
        WHERE r.component_type='record' AND r.item_key=$1 AND r.deleted=FALSE
        LIMIT 1`,
-      [recordId]
+      byteRange
+        ? [
+            recordId,
+            byteRange.start + 1,
+            byteRange.end - byteRange.start + 1,
+            byteRange.expectedSizeBytes,
+            byteRange.expectedCid
+          ]
+        : [recordId]
     );
-    if (result.rowCount !== 1) return null;
+    if (result.rowCount !== 1) {
+      if (byteRange) {
+        const err = new Error('Media metadata changed during range read');
+        err.status = 409;
+        throw err;
+      }
+      return null;
+    }
 
     const row = result.rows[0];
     const meta = row.record_metadata && typeof row.record_metadata === 'object'
@@ -1875,19 +1909,32 @@ async function getAuthoritativeCloudMedia(id, did) {
       throw error;
     }
 
-    const buffer = Buffer.from(row.data_bytes || []);
-    const sizeBytes = Number(row.data_size || buffer.length);
-    if (!buffer.length || sizeBytes !== buffer.length) {
+    const buffer = includeBytes ? Buffer.from(row.data_bytes || []) : null;
+    const sizeBytes = Number(row.data_size ?? (buffer ? buffer.length : 0));
+    const expectedRangeLength = byteRange
+      ? byteRange.end - byteRange.start + 1
+      : 0;
+    if (!Number.isSafeInteger(sizeBytes) || sizeBytes <= 0 ||
+        (includeBytes && !byteRange &&
+          (!buffer || !buffer.length || sizeBytes !== buffer.length)) ||
+        (byteRange &&
+          (!buffer ||
+           sizeBytes !== byteRange.expectedSizeBytes ||
+           buffer.length !== expectedRangeLength))) {
       throw new Error('Voroa media byte-size verification failed');
     }
     const expectedCid = String(row.data_cid || '');
-    if (expectedCid.startsWith('sha256:')) {
+    if (byteRange && expectedCid !== byteRange.expectedCid) {
+      throw new Error('Voroa media identity changed during range read');
+    }
+    if (includeBytes && !byteRange && expectedCid.startsWith('sha256:')) {
       const actualCid = 'sha256:' + crypto.createHash('sha256').update(buffer).digest('hex');
       if (actualCid !== expectedCid) throw new Error('Voroa media SHA-256 verification failed');
     }
 
     return {
-      buffer,
+      ...(includeBytes ? { buffer } : {}),
+      ...(byteRange ? { byteRange: { start: byteRange.start, end: byteRange.end } } : {}),
       mimeType: String(media.mimeType || row.media_format || row.data_format || 'application/octet-stream'),
       fileName: String(media.fileName || meta.title || 'milan-media'),
       sizeBytes,
@@ -1906,7 +1953,7 @@ async function getAuthoritativeCloudMedia(id, did) {
       dataCid: expectedCid
     };
   } catch (error) {
-    if (error.status === 403) throw error;
+    if (error.status === 400 || error.status === 403 || error.status === 409) throw error;
     console.error('[Voroa media read failed]', recordId, error.message);
     return null;
   }
@@ -1921,7 +1968,7 @@ async function getDirectMediaPlaybackUrl(id, did) {
     throw err;
   }
 
-  const media = await getAuthoritativeCloudMedia(recordId, readerDid);
+  const media = await getAuthoritativeCloudMedia(recordId, readerDid, { includeBytes: false });
 
   // Voroa stores authoritative media bytes in PostgreSQL. When the verified
   // MP4 is ready but has no remote signed URL, let the frontend use the
@@ -2027,11 +2074,16 @@ async function getDirectMediaPlaybackUrl(id, did) {
   return { url: signedUrl.toString(), ready: true, processing: false, processingStatus: 'ready', expiresIn: 3600 };
 }
 
-async function getMediaStream(id, did) {
+async function getMediaStream(id, did, options = {}) {
+  const cloudOptions = options.byteRange
+    ? { byteRange: options.byteRange }
+    : options.metadataOnly
+      ? { includeBytes: false }
+      : {};
   let found = findRecordRaw(id);
 
   if (!found) {
-    return await getAuthoritativeCloudMedia(id, did);
+    return await getAuthoritativeCloudMedia(id, did, cloudOptions);
   }
 
   if (!canRead(found.record, did)) {
@@ -2041,7 +2093,7 @@ async function getMediaStream(id, did) {
   }
 
   // Prefer verified authoritative bytes in Voroa; retain local/remote fallback for legacy media.
-  const authoritativeMedia = await getAuthoritativeCloudMedia(id, did);
+  const authoritativeMedia = await getAuthoritativeCloudMedia(id, did, cloudOptions);
   if (authoritativeMedia) return authoritativeMedia;
 
   const data = found.record.data || {};

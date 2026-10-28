@@ -5,8 +5,8 @@
   "url": "https://milanlife.in",
   "architecture": {
     "frontend": "Static HTML, CSS, JavaScript and assets in frontend/.",
-    "api": "Express application in backend/server.js; api/index.js exports it for the Vercel API entry point.",
-    "persistence": "Supabase-backed users, record metadata/data and media paths are authoritative in the current main application.",
+    "api": "Express application in backend/server.js serves the API directly.",
+    "persistence": "Voroa PostgreSQL provides authoritative users and record metadata; media uses the configured storage path.",
     "identity": "DID and per-user space identifiers provide logical application namespacing; they do not by themselves prove protocol-level DWN isolation.",
     "realDwnProtocol": {
       "integratedInMainProductionPath": false,

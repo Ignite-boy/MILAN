@@ -348,7 +348,7 @@ function initMilanMediaObserver(){
     }
   },{
     root:null,
-    rootMargin:"0px 0px",
+    rootMargin:"300px 0px",
     threshold:0.01
   });
   }
@@ -703,7 +703,7 @@ function updateRecordLocal(id,patch,options){const i=currentFeed.findIndex(r=>r.
 
     // Keep Publish non-blocking after the first paint. The pending record keeps
     // the new post visible even if the background feed request finishes before
-    // remote Supabase/DWN sync has propagated.
+    // remote DWN sync has propagated.
     setTimeout(() => {
       Promise.resolve(loadFeed()).catch(err => {
         console.warn("[MILAN] Background feed refresh skipped:", err?.message || err);
@@ -799,7 +799,7 @@ async function loadPeople(){try{const q=($("peopleSearch")?.value||$("globalSear
       if(!token || document.hidden || mediaPlaying())return;
       loadPeople().catch(()=>{});
     };
-    window.__milanPeopleTick=setInterval(refreshPeople,15000);
+    window.__milanPeopleTick=setInterval(refreshPeople,60000);
   }
 
   document.addEventListener("visibilitychange",()=>{

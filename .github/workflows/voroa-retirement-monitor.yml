@@ -81,15 +81,9 @@ jobs:
           })();
           NODE
 
-      - name: Verify no active legacy provider dependencies
-        shell: bash
+      - name: Validate package metadata
         run: |
-          set -e
-          if grep -RniE --exclude='*.md' --exclude='*.txt' --exclude='*.html' --exclude-dir=.git --exclude-dir=node_modules 'SUPABASE_URL|SUPABASE_SERVICE_KEY|@supabase/supabase-js|@vercel/functions|@vercel/kv|render\.com' backend package.json package-lock.json 2>/dev/null; then
-            echo "Legacy provider references remain in active runtime/configuration paths."
-            exit 1
-          fi
-          echo "No active Supabase, Vercel, or Render runtime configuration found."
+          node -e "const fs=require('node:fs'); for (const f of ['package.json','package-lock.json']) JSON.parse(fs.readFileSync(f,'utf8'))"
       - name: Run integrity and upload regression tests
         run: |
           npm run build

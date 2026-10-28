@@ -73,4 +73,4 @@ Applied across all four properties in this repo. Legend: ✅ done now · ✔️ 
 2. `@twitter:site` / `@creator` handle in Root.
 3. `NEXT_PUBLIC_SITE_URL` (and optionally `NEXT_PUBLIC_CONTACT_EMAIL`, `NEXT_PUBLIC_SOCIAL_PROFILES`) env vars for both Next apps in production.
 4. Real favicon/OG image assets for Root (`/apple-touch-icon.png`, `/icon-192.png`, `/icon-512.png`, `nitesh-pandey.jpg` at 1200×630).
-5. Verify `.htaccess` clean-URL rules on staging before production (Apache-only; ignore if hosted on Nginx/Vercel).
+5. Verify `.htaccess` clean-URL rules on staging before production (Apache-only; ignore if hosted on Nginx).

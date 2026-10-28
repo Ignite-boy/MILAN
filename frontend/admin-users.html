@@ -331,19 +331,18 @@ function renderUsers(){
   var q=($("q").value||"").toLowerCase();
   var rows=users.filter(function(u){ return JSON.stringify(u).toLowerCase().indexOf(q)>=0; });
   if(!rows.length){ $("panel").innerHTML='<div class="mini">No users found.</div>'; return; }
-  $("panel").innerHTML='<table><thead><tr><th>#</th><th>Name / Email</th><th>DID</th><th>DWN space</th><th>Created</th><th>Last login</th><th>Logins</th></tr></thead><tbody>'+
+  $("panel").innerHTML='<table><thead><tr><th>#</th><th>Name / Email</th><th>DID</th><th>DWN space</th><th>Registered</th><th>Email verification</th><th>Updated</th></tr></thead><tbody>'+
     rows.map(function(u,i){
       return '<tr><td>'+(i+1)+'</td>'+
         '<td><b>'+esc(u.displayName||"-")+'</b><br><span class="mini">'+esc(u.email||"")+'</span></td>'+
         '<td><div class="did">'+esc(u.did||"")+'</div><button class="copy" onclick="__copy(\''+esc(u.did||"")+'\')">Copy DID</button></td>'+
-        '<td class="mini">'+esc(u.dwnSpaceId||u.dwnEndpoint||"-")+'</td>'+
+        '<td class="mini">'+esc(u.dwnSpaceId||"-")+'</td>'+
         '<td class="mini">'+when(u.createdAt)+'</td>'+
-        '<td class="mini">'+when(u.lastLoginAt)+'</td>'+
-        '<td>'+(u.loginCount||0)+'</td></tr>';
+        '<td class="mini">'+(u.emailVerified===true?'<span class="ok">Verified</span>':'<span class="bad">Not verified</span>')+'</td>'+
+        '<td class="mini">'+when(u.updatedAt)+'</td></tr>';
     }).join("")+'</tbody></table>';
   $("msg").innerHTML='<span class="ok">'+rows.length+' users</span>';
 }
-
 function renderJsonList(title, data){
   var arr=Array.isArray(data)?data:(data&&typeof data==="object"?Object.values(data):[]);
   var flat=arr.reduce(function(acc,v){ return acc.concat(Array.isArray(v)?v:[v]); },[]);
@@ -354,7 +353,7 @@ function renderJsonList(title, data){
 
 function csv(){
   if(!users.length){ $("msg").textContent="Load users first"; return; }
-  var header=["displayName","email","did","dwnSpaceId","createdAt","lastLoginAt","loginCount"];
+  var header=["displayName","email","did","dwnSpaceId","createdAt","emailVerified","updatedAt"];
   var lines=[header.join(",")].concat(users.map(function(u){
     return header.map(function(k){ return '"'+String(u[k]==null?"":u[k]).replace(/"/g,'""')+'"'; }).join(",");
   }));

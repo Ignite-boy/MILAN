@@ -1,6 +1,6 @@
 """
 Central configuration. Everything is read from environment variables so the
-same code runs unchanged on a laptop, in Docker, or on Render — only the
+same code runs unchanged on a laptop, in Docker, or on a hosted service — only the
 .env / dashboard env vars change.
 """
 import os

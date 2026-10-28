@@ -6,7 +6,6 @@
 .tmp.driveupload/
 node_modules/
 .vscode/
-.vercel
 .env*
 node_modules
 .env
@@ -64,6 +63,3 @@ backend/dwn/database/*.json
 # Root-level runtime resolver database/cache artifacts
 /RESOLVERCACHE/
 **/RESOLVERCACHE/
-
-# Local Supabase CLI metadata
-supabase/.temp/

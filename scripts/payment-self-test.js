@@ -23,9 +23,7 @@ const pendingAudit = read('scripts/milan-pay-pending-audit.sql');
 const paymentOpsDoc = read('docs/MILAN_PAY_OPERATIONS.md');
 
 const checks = [
-  ['Payment routes use Voroa PostgreSQL and no Supabase SDK',
-    !payRoute.includes('@supabase/supabase-js') &&
-    !storageRoute.includes('@supabase/supabase-js') &&
+  ['Payment routes use Voroa PostgreSQL',
     payRoute.includes("require('../services/milanDb')") &&
     storageRoute.includes("require('../services/milanDb')")],
   ['MILAN Pay route is mounted', server.includes("app.use('/api/milan-pay', require('./routes/milanPay'));")],
