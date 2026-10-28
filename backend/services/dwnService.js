@@ -25,6 +25,10 @@ const ACCESS = ['private', 'public', 'shared_did'];
 const MAX_TEXT_BYTES = Number(process.env.MAX_RECORD_TEXT_BYTES || 10 * 1024 * 1024);
 const { MAX_MEDIA_BYTES } = require('./mediaLimits');
 const MAX_MEDIA_MB = Math.round(MAX_MEDIA_BYTES / 1024 / 1024);
+
+// Bounded per-process cache for SHA-256 checks of immutable local media files.
+const LOCAL_MEDIA_CID_CACHE = new Map();
+const LOCAL_MEDIA_CID_CACHE_LIMIT = 128;
 // V49 accepts every file type. BROWSER_SAFE_MEDIA is used only to decide inline preview, not to block uploads.
 const INLINE_PREVIEW_MIME = BROWSER_SAFE_MEDIA;
 const DWN_DIR = dwnRoot();
@@ -2086,6 +2090,68 @@ async function getDirectMediaPlaybackUrl(id, did) {
   return { url: signedUrl.toString(), ready: true, processing: false, processingStatus: 'ready', expiresIn: 3600 };
 }
 
+
+async function getVerifiedLocalMediaCid(filePath, expectedSizeBytes) {
+  const expectedSize = Number(expectedSizeBytes);
+  if (!Number.isSafeInteger(expectedSize) || expectedSize <= 0) return '';
+
+  const fullPath = path.resolve(filePath);
+  let before;
+  try {
+    before = fs.statSync(fullPath);
+  } catch (_) {
+    return '';
+  }
+  if (!before.isFile() || before.size !== expectedSize) return '';
+
+  const cached = LOCAL_MEDIA_CID_CACHE.get(fullPath);
+  if (cached &&
+      cached.size === before.size &&
+      cached.mtimeMs === before.mtimeMs &&
+      cached.ctimeMs === before.ctimeMs &&
+      cached.ino === before.ino) {
+    LOCAL_MEDIA_CID_CACHE.delete(fullPath);
+    LOCAL_MEDIA_CID_CACHE.set(fullPath, cached);
+    return cached.cid;
+  }
+
+  try {
+    const hash = crypto.createHash('sha256');
+    await new Promise((resolve, reject) => {
+      const input = fs.createReadStream(fullPath);
+      input.on('data', chunk => hash.update(chunk));
+      input.once('error', reject);
+      input.once('end', resolve);
+    });
+
+    const after = fs.statSync(fullPath);
+    if (!after.isFile() ||
+        after.size !== before.size ||
+        after.mtimeMs !== before.mtimeMs ||
+        after.ctimeMs !== before.ctimeMs ||
+        after.ino !== before.ino) {
+      return '';
+    }
+
+    const cid = 'sha256:' + hash.digest('hex');
+    LOCAL_MEDIA_CID_CACHE.set(fullPath, {
+      size: after.size,
+      mtimeMs: after.mtimeMs,
+      ctimeMs: after.ctimeMs,
+      ino: after.ino,
+      cid
+    });
+
+    while (LOCAL_MEDIA_CID_CACHE.size > LOCAL_MEDIA_CID_CACHE_LIMIT) {
+      const oldest = LOCAL_MEDIA_CID_CACHE.keys().next().value;
+      LOCAL_MEDIA_CID_CACHE.delete(oldest);
+    }
+    return cid;
+  } catch (_) {
+    return '';
+  }
+}
+
 async function getMediaStream(id, did, options = {}) {
   const traceId = String(options.traceId || '').replace(/[^a-zA-Z0-9-]/g, '').slice(0, 64);
   const cloudOptions = options.byteRange
@@ -2103,6 +2169,73 @@ async function getMediaStream(id, did, options = {}) {
     const err = new Error('No access');
     err.status = 403;
     throw err;
+  }
+
+  // Only use local bytes after this same request has obtained authoritative
+  // metadata and passed the cloud ownership/access checks.
+  const byteRange = options.byteRange;
+  const verifiedMetadata = options.verifiedMetadata;
+  const verifiedMetadataMatches =
+    !!byteRange &&
+    verifiedMetadata?.authoritativeCloud === true &&
+    String(options.verifiedRecordId || '') === String(id) &&
+    String(options.verifiedReaderDid || '') === String(did) &&
+    Number(verifiedMetadata.sizeBytes) === Number(byteRange.expectedSizeBytes) &&
+    String(verifiedMetadata.dataCid || '') === String(byteRange.expectedCid || '') &&
+    String(byteRange.expectedCid || '').startsWith('sha256:');
+
+  if (verifiedMetadataMatches) {
+    const start = Number(byteRange.start);
+    const end = Number(byteRange.end);
+    const total = Number(byteRange.expectedSizeBytes);
+    const validRange =
+      Number.isSafeInteger(start) &&
+      Number.isSafeInteger(end) &&
+      Number.isSafeInteger(total) &&
+      start >= 0 && end >= start && end < total;
+    if (validRange) {
+      const candidatePaths = [...new Set([
+        found.record.mediaStoragePath,
+        found.record.mediaCachePath
+      ].filter(Boolean))];
+
+      for (const relativePath of candidatePaths) {
+        let fullPath;
+        try {
+          fullPath = absoluteBackendPath(relativePath);
+        } catch (_) {
+          continue;
+        }
+        if (!fullPath || !fs.existsSync(fullPath)) continue;
+
+        const localCid = await getVerifiedLocalMediaCid(fullPath, total);
+        if (localCid !== String(byteRange.expectedCid)) continue;
+
+        const length = end - start + 1;
+        const buffer = Buffer.allocUnsafe(length);
+        let fd = null;
+        let bytesRead = 0;
+        try {
+          fd = fs.openSync(fullPath, 'r');
+          bytesRead = fs.readSync(fd, buffer, 0, length, start);
+        } catch (_) {
+          bytesRead = 0;
+        } finally {
+          if (fd !== null) {
+            try { fs.closeSync(fd); } catch (_) {}
+          }
+        }
+
+        if (bytesRead !== length) continue;
+        return {
+          ...verifiedMetadata,
+          buffer,
+          byteRange: { start, end },
+          backend: 'voroa-local-verified-cache',
+          localCacheHit: true
+        };
+      }
+    }
   }
 
   // Prefer verified authoritative bytes in Voroa; retain local/remote fallback for legacy media.

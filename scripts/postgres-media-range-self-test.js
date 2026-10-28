@@ -36,6 +36,27 @@ assert.ok(
   service.includes("includeBytes && !byteRange && expectedCid.startsWith('sha256:')"),
   'Full-file reads must retain their SHA-256 verification'
 );
+
+assert.match(
+  service,
+  /async function getVerifiedLocalMediaCid/,
+  'Local cache must have a file SHA-256 verifier'
+);
+assert.match(
+  service,
+  /backend: 'voroa-local-verified-cache'/,
+  'A verified local byte-range read should identify its source'
+);
+assert.match(
+  service,
+  /verifiedMetadata\?\.authoritativeCloud === true/,
+  'Local reads must require metadata verified by authoritative storage'
+);
+assert.ok(
+  routes.includes('verifiedMetadata: media') &&
+  routes.includes('verifiedReaderDid: u.user.did'),
+  'Range reads must pass metadata already authorized for this request'
+);
 assert.ok(
   service.includes("getAuthoritativeCloudMedia(recordId, readerDid, { includeBytes: false })"),
   'Playback URL lookup must not request the video payload'
