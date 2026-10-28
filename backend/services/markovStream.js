@@ -1,121 +1,189 @@
 // ============================================================
-// FEATURE 1: Predictive Media Streaming via Markov Chains
-// File: milan-app/backend/services/markovStream.js
+// Predictive streaming: bounded Markov fallback + optional GRU service.
 // ============================================================
 'use strict';
 
-/**
- * Markov Chain based prefetch predictor.
- * Tracks user scroll/view patterns and predicts next content CIDs
- * to pre-cache from IPFS/Arweave before user reaches them.
- */
-
-const WINDOW = 5;          // how many items to track in sequence
-const TOP_N  = 3;          // how many next items to prefetch
-const DECAY  = 0.92;       // older transitions lose weight over time
+const WINDOW = 5;
+const TOP_N = 3;
+const DECAY = 0.92;
+const MAX_ACTIVE_USERS = 250;
+const MAX_SOURCE_CIDS_PER_USER = 100;
+const MAX_TARGETS_PER_SOURCE = 10;
 
 class MarkovPredictor {
   constructor() {
-    // transitions[fromCid][toCid] = weight
-    this.transitions = {};
-    // per-user recent sequence: userId -> [cid, cid, ...]
-    this.userSequence = {};
+    this.transitions = Object.create(null);
+    this.userSequence = Object.create(null);
   }
 
-  /**
-   * Record that userId viewed contentCid (call on every feed item view)
-   */
   record(userId, contentCid) {
-    if (!userId || !contentCid) return;
-    if (!this.userSequence[userId]) this.userSequence[userId] = [];
-    const seq = this.userSequence[userId];
+    if (userId === undefined || userId === null ||
+        contentCid === undefined || contentCid === null) return;
 
-    if (seq.length > 0) {
-      const prev = seq[seq.length - 1];
-      if (!this.transitions[prev]) this.transitions[prev] = {};
-      this.transitions[prev][contentCid] = (this.transitions[prev][contentCid] || 0) + 1;
+    userId = String(userId).trim();
+    contentCid = String(contentCid).trim();
+    const invalid = value => !value || value.length > 256 ||
+      /[\u0000-\u001f]/.test(value);
+    if (invalid(userId) || invalid(contentCid)) return;
+
+    if (!Object.prototype.hasOwnProperty.call(this.userSequence, userId)) {
+      const activeUsers = Object.keys(this.userSequence);
+      if (activeUsers.length >= MAX_ACTIVE_USERS) {
+        const evictedUser = activeUsers[0];
+        delete this.userSequence[evictedUser];
+        delete this.transitions[evictedUser];
+      }
+      this.userSequence[userId] = [];
+      this.transitions[userId] = Object.create(null);
+    } else {
+      const existingSequence = this.userSequence[userId];
+      delete this.userSequence[userId];
+      this.userSequence[userId] = existingSequence;
     }
 
-    seq.push(contentCid);
-    if (seq.length > WINDOW) seq.shift();
+    const sequence = this.userSequence[userId];
+    const transitions = this.transitions[userId];
+    if (sequence.length > 0) {
+      const previous = sequence[sequence.length - 1];
+      if (!Object.prototype.hasOwnProperty.call(transitions, previous)) {
+        const sources = Object.keys(transitions);
+        if (sources.length >= MAX_SOURCE_CIDS_PER_USER) delete transitions[sources[0]];
+        transitions[previous] = Object.create(null);
+      }
+      const destinations = transitions[previous];
+      if (!Object.prototype.hasOwnProperty.call(destinations, contentCid)) {
+        const targets = Object.keys(destinations);
+        if (targets.length >= MAX_TARGETS_PER_SOURCE) delete destinations[targets[0]];
+        destinations[contentCid] = 0;
+      }
+      destinations[contentCid] += 1;
+    }
+
+    sequence.push(contentCid);
+    if (sequence.length > WINDOW) sequence.shift();
   }
 
-  /**
-   * Predict next TOP_N content CIDs for a user based on current position
-   */
   predict(userId) {
-    const seq = this.userSequence[userId];
-    if (!seq || seq.length === 0) return [];
-    const last = seq[seq.length - 1];
-    const nexts = this.transitions[last];
-    if (!nexts) return [];
-    return Object.entries(nexts)
+    const key = String(userId || '').trim();
+    const sequence = this.userSequence[key];
+    if (!sequence || sequence.length === 0) return [];
+    const last = sequence[sequence.length - 1];
+    const destinations = this.transitions[key] && this.transitions[key][last];
+    if (!destinations) return [];
+    return Object.entries(destinations)
       .sort((a, b) => b[1] - a[1])
       .slice(0, TOP_N)
       .map(([cid]) => cid);
   }
 
-  /**
-   * Apply time-based decay to transition weights (call periodically)
-   */
   decay() {
-    for (const from of Object.keys(this.transitions)) {
-      for (const to of Object.keys(this.transitions[from])) {
-        this.transitions[from][to] *= DECAY;
-        if (this.transitions[from][to] < 0.01) {
-          delete this.transitions[from][to];
+    for (const userId of Object.keys(this.transitions)) {
+      const sources = this.transitions[userId];
+      for (const from of Object.keys(sources)) {
+        const destinations = sources[from];
+        for (const to of Object.keys(destinations)) {
+          destinations[to] *= DECAY;
+          if (destinations[to] < 0.01) delete destinations[to];
         }
-      }
-      if (Object.keys(this.transitions[from]).length === 0) {
-        delete this.transitions[from];
+        if (Object.keys(destinations).length === 0) delete sources[from];
       }
     }
   }
 }
 
-// Singleton
 const predictor = new MarkovPredictor();
+const decayTimer = setInterval(() => predictor.decay(), 10 * 60 * 1000);
+if (typeof decayTimer.unref === 'function') decayTimer.unref();
 
-// Decay every 10 minutes
-setInterval(() => predictor.decay(), 10 * 60 * 1000);
+const AI_SERVICE_URL = (
+  process.env.MILAN_WEB4_AI_URL || 'http://127.0.0.1:8787'
+).replace(/\/+$/, '');
+const AI_SHARED_SECRET = process.env.MILAN_WEB4_AI_SECRET || '';
+const AI_REQUEST_TIMEOUT_MS = 350;
 
-/**
- * Express route handler — record a view event
- * POST /api/stream/view  { userId, contentCid, gatewayUrl }
- */
-async function recordView(req, res) {
+async function requestWeb4Ai(path, payload) {
+  if (!AI_SHARED_SECRET || typeof fetch !== 'function') return null;
   try {
-    const { userId, contentCid, gatewayUrl } = req.body || {};
-    if (!userId || !contentCid) return res.status(400).json({ error: 'userId and contentCid required' });
-    predictor.record(userId, contentCid);
-    res.json({ ok: true });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
+    const options = {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Milan-AI-Key': AI_SHARED_SECRET
+      },
+      body: JSON.stringify(payload)
+    };
+    if (typeof AbortSignal !== 'undefined' &&
+        typeof AbortSignal.timeout === 'function') {
+      options.signal = AbortSignal.timeout(AI_REQUEST_TIMEOUT_MS);
+    }
+    const response = await fetch(AI_SERVICE_URL + path, options);
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (_) {
+    // AI is optional; service downtime must not break the feed.
+    return null;
   }
 }
 
-/**
- * Express route handler — get prefetch CIDs for a user
- * GET /api/stream/prefetch?userId=xxx
- */
+function recordAiView(userId, recordId) {
+  void requestWeb4Ai('/internal/v1/view', { user_id: userId, record_id: recordId });
+}
+
+async function recordView(req, res) {
+  try {
+    const userId = String(req.userId || '').trim();
+    const rawCid = req.body && req.body.contentCid;
+    const contentCid = typeof rawCid === 'string' ? rawCid.trim() : '';
+    if (!userId) return res.status(401).json({ error: 'Authentication required' });
+    if (!contentCid || contentCid.length > 256 ||
+        /[\u0000-\u001f]/.test(contentCid)) {
+      return res.status(400).json({ error: 'Valid contentCid required' });
+    }
+    predictor.record(userId, contentCid);
+    recordAiView(userId, contentCid);
+    return res.json({ ok: true });
+  } catch (error) {
+    console.error('[MILAN STREAM] record view failed:', error.message);
+    return res.status(500).json({ error: 'Could not record stream view' });
+  }
+}
+
 async function getPrefetch(req, res) {
   try {
-    const { userId } = req.query || {};
-    if (!userId) return res.status(400).json({ error: 'userId required' });
-    const cids = predictor.predict(userId);
+    const userId = String(req.userId || '').trim();
+    if (!userId) return res.status(401).json({ error: 'Authentication required' });
 
-    // Build gateway URLs using env config
-    const gw = process.env.IPFS_GATEWAY_URL || 'https://ipfs.io/ipfs';
-    const prefetchUrls = cids.map(cid => ({
-      cid,
-      url: `${gw}/${cid}`,
-      // Also include Arweave fallback if configured
-      arweaveUrl: process.env.ARWEAVE_GATEWAY_URL ? `${process.env.ARWEAVE_GATEWAY_URL}/${cid}` : null,
-    }));
+    // Only predict among candidate record IDs supplied by the rendered feed.
+    const rawCandidates = req.query && req.query.candidateId;
+    res.setHeader('Cache-Control', 'private, no-store');
+    if (rawCandidates === undefined) return res.json({ prefetch: [] });
 
-    res.json({ prefetch: prefetchUrls });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
+    const values = Array.isArray(rawCandidates) ? rawCandidates : [rawCandidates];
+    const allowed = new Set(values.slice(0, 40)
+      .filter(value => typeof value === 'string')
+      .map(value => value.trim())
+      .filter(value => value.length > 0 && value.length <= 256 &&
+        !/[\u0000-\u001f]/.test(value)));
+
+    const markovIds = predictor.predict(userId);
+    const aiResult = await requestWeb4Ai('/internal/v1/predict', {
+      user_id: userId, top_k: TOP_N
+    });
+    const aiIds = aiResult && aiResult.model_ready &&
+      Array.isArray(aiResult.predictions)
+      ? aiResult.predictions
+          .map(item => item && item.record_id)
+          .filter(id => typeof id === 'string' && id.length > 0 &&
+            id.length <= 256 && !/[\u0000-\u001f]/.test(id))
+      : [];
+
+    const recordIds = [...new Set([...aiIds, ...markovIds])]
+      .filter(id => allowed.has(id))
+      .slice(0, TOP_N);
+    return res.json({ prefetch: recordIds.map(recordId => ({ recordId })) });
+  } catch (error) {
+    console.error('[MILAN STREAM] prefetch failed:', error.message);
+    return res.status(500).json({ error: 'Could not predict next content' });
   }
 }
 
