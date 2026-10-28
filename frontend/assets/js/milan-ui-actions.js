@@ -339,18 +339,30 @@
         });
 
         try {
-            // Bounded parallelism: faster transfer without flooding the backend.
-            const requestedConcurrency = Number(window.MILAN_UPLOAD_CONCURRENCY || 3);
-            const chunkConcurrency = Math.max(
+            // Adapt bounded parallelism to network and device capability.
+            const connection = navigator.connection ||
+                navigator.mozConnection || navigator.webkitConnection;
+            const fallbackRequested = Number(window.MILAN_UPLOAD_CONCURRENCY || 3);
+            const fallbackConcurrency = Math.max(
                 1,
                 Math.min(
                     3,
-                    Number.isFinite(requestedConcurrency)
-                        ? Math.floor(requestedConcurrency)
+                    Number.isFinite(fallbackRequested)
+                        ? Math.floor(fallbackRequested)
                         : 3,
                     totalChunks
                 )
             );
+            const uploadPolicy = window.MilanUploadPolicy;
+            const chunkConcurrency = uploadPolicy &&
+                typeof uploadPolicy.getVideoUploadConcurrency === "function"
+                ? uploadPolicy.getVideoUploadConcurrency(totalChunks, {
+                    connection,
+                    deviceMemory: navigator.deviceMemory,
+                    hardwareConcurrency: navigator.hardwareConcurrency,
+                    override: window.MILAN_UPLOAD_CONCURRENCY
+                })
+                : fallbackConcurrency;
 
             const receivedSet = new Set(
                 receivedIndexes
