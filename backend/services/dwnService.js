@@ -1849,6 +1849,12 @@ async function getAuthoritativeCloudMedia(id, did, options = {}) {
   if (!recordId || !readerDid) return null;
 
   try {
+    const safeRecordId = recordId.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80);
+    const traceId = String(options.traceId || '').replace(/[^a-zA-Z0-9-]/g, '').slice(0, 64);
+    const traceSuffix = traceId ? ` trace_id=${traceId}` : '';
+    const readKind = byteRange ? 'range' : includeBytes ? 'full' : 'metadata';
+    const postgresQueryStartedAt = Date.now();
+    console.info(`[MILAN media-read] phase=postgres_query_started${traceSuffix} record_id=${safeRecordId} read_kind=${readKind}${byteRange ? ` range_start=${byteRange.start} range_end=${byteRange.end}` : ''}`);
     const result = await milanDb.query(
       `SELECT r.did, r.space_id, r.item_key, r.recipient, r.published,
               r.metadata AS record_metadata, r.data_format,
@@ -1875,6 +1881,9 @@ async function getAuthoritativeCloudMedia(id, did, options = {}) {
           ]
         : [recordId]
     );
+    const selectedBytes = Buffer.isBuffer(result.rows?.[0]?.data_bytes)
+      ? result.rows[0].data_bytes.length : 0;
+    console.info(`[MILAN media-read] phase=postgres_query_complete${traceSuffix} record_id=${safeRecordId} read_kind=${readKind} duration_ms=${Date.now() - postgresQueryStartedAt} rows=${result.rowCount} selected_bytes=${selectedBytes} total_bytes=${Number(result.rows?.[0]?.data_size || 0)}`);
     if (result.rowCount !== 1) {
       if (byteRange) {
         const err = new Error('Media metadata changed during range read');
@@ -1894,9 +1903,12 @@ async function getAuthoritativeCloudMedia(id, did, options = {}) {
     const ownerDid = String(row.did || '').trim();
     const spaceId = String(row.space_id || '').trim();
 
+    const ownerCheckStartedAt = Date.now();
+    console.info(`[MILAN media-read] phase=owner_check_started${traceSuffix} record_id=${safeRecordId}`);
     const owner = await milanDb.query(
       'SELECT space_id FROM public.users WHERE did=$1 LIMIT 1', [ownerDid]
     );
+    console.info(`[MILAN media-read] phase=owner_check_complete${traceSuffix} record_id=${safeRecordId} duration_ms=${Date.now() - ownerCheckStartedAt} rows=${owner.rowCount}`);
     if (owner.rowCount !== 1 || String(owner.rows[0].space_id) !== spaceId) {
       throw new Error('DID/space ownership verification failed');
     }
@@ -2075,11 +2087,12 @@ async function getDirectMediaPlaybackUrl(id, did) {
 }
 
 async function getMediaStream(id, did, options = {}) {
+  const traceId = String(options.traceId || '').replace(/[^a-zA-Z0-9-]/g, '').slice(0, 64);
   const cloudOptions = options.byteRange
-    ? { byteRange: options.byteRange }
+    ? { byteRange: options.byteRange, traceId }
     : options.metadataOnly
-      ? { includeBytes: false }
-      : {};
+      ? { includeBytes: false, traceId }
+      : { traceId };
   let found = findRecordRaw(id);
 
   if (!found) {
