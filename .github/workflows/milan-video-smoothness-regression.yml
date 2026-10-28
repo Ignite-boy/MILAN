@@ -1,0 +1,101 @@
+name: MILAN Video Smoothness Regression
+
+run-name: "Video regression pulse #${{ github.run_number }}"
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "43 */6 * * *"
+  push:
+    branches: [main]
+    paths:
+      - "backend/routes/records.js"
+      - "backend/services/dwnService.js"
+      - "backend/services/cloudDwnRegistry.js"
+      - "frontend/assets/js/inline-07.js"
+      - "scripts/video-range-self-test.js"
+      - "scripts/video-scroll-playback-self-test.js"
+      - "scripts/media-limit-contract-self-test.js"
+      - ".github/workflows/milan-video-smoothness-regression.yml"
+  pull_request:
+    paths:
+      - "backend/routes/records.js"
+      - "backend/services/dwnService.js"
+      - "backend/services/cloudDwnRegistry.js"
+      - "frontend/assets/js/inline-07.js"
+      - "scripts/video-range-self-test.js"
+      - "scripts/video-scroll-playback-self-test.js"
+      - "scripts/media-limit-contract-self-test.js"
+      - ".github/workflows/milan-video-smoothness-regression.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: milan-video-regression-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  video-regression:
+    name: "Build and test video playback contracts"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build verification
+        run: npm run build
+
+      - name: Video byte-range and partial-content behavior
+        run: npm run test:video-range
+
+      - name: Scroll and playback lifecycle behavior
+        run: npm run test:video-scroll
+
+      - name: Media size and limit contract
+        run: npm run test:media-limits
+
+      - name: Security regression checks
+        run: npm run test:security
+
+      - name: Upload/chunk regression checks
+        # Self-tests use mocked storage. The placeholder only satisfies import-time URL validation.
+        env:
+          MILAN_DATABASE_URL: postgres://milan-test:milan-test@127.0.0.1:1/milan_test
+        run: npm run test:upload
+
+      - name: Publish scope and evidence
+        if: always()
+        env:
+          JOB_STATUS: ${{ job.status }}
+          COMMIT_SHA: ${{ github.sha }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          {
+            echo "# MILAN Video Smoothness Regression"
+            echo
+            echo "- Result: $JOB_STATUS"
+            echo "- Commit: $COMMIT_SHA"
+            echo "- Run: #$RUN_NUMBER"
+            echo
+            echo "## Coverage"
+            echo "- Build integrity"
+            echo "- HTTP byte-range and partial-content contracts"
+            echo "- Scroll/playback lifecycle regression checks"
+            echo "- Media-limit and security regression checks"
+            echo "- Upload/chunk self-tests (mocked storage)"
+            echo
+            echo "## Measurement boundary"
+            echo "These are automated regression checks, not a real-user or authenticated live-video benchmark. A green run does not itself prove zero buffering or a higher frame rate."
+            echo "This workflow has read-only repository permissions and never deploys or changes application code."
+          } >> "$GITHUB_STEP_SUMMARY"

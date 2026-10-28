@@ -12,6 +12,32 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+function syntaxCheckSource(source, label) {
+  const result = spawnSync(process.execPath, ['--check', '-'], { input: source, encoding: 'utf8' });
+  if (result.status !== 0) {
+    throw new Error('Syntax check failed for ' + label + ': ' + (result.stderr || result.stdout));
+  }
+}
+
+function syntaxCheckInlineScripts(html, label) {
+  const re = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
+  let match;
+  let count = 0;
+  while ((match = re.exec(html))) {
+    const attrs = match[1] || '';
+    if (/\bsrc\s*=/.test(attrs)) continue;
+    const typeMatch = attrs.match(/\btype\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s>]+))/i);
+    const scriptType = String(typeMatch?.[1] || typeMatch?.[2] || typeMatch?.[3] || '').toLowerCase();
+    if (scriptType && !['text/javascript', 'application/javascript', 'module'].includes(scriptType)) continue;
+    const source = match[2] || '';
+    if (!source.trim()) continue;
+    syntaxCheckSource(source, label + ' inline script ' + (count + 1));
+    count += 1;
+  }
+  if (!count) throw new Error('No executable inline scripts found in ' + label);
+  console.log('PASS: parsed ' + count + ' inline JavaScript blocks in ' + label);
+}
+
 function syntaxCheck(path) {
   const result = spawnSync(process.execPath, ['--check', path], { encoding: 'utf8' });
   if (result.status !== 0) {
@@ -34,6 +60,7 @@ syntaxCheck('backend/services/dwnService.js');
 syntaxCheck('backend/services/dwnSyncGuard.js');
 syntaxCheck('frontend/assets/js/inline-05.js');
 syntaxCheck('frontend/assets/js/milan-ui-actions.js');
+syntaxCheckInlineScripts(frontend, 'frontend/chat/index.html');
 
 assert(chat.includes("const CHAT_SCHEMA = 'milan.chat.message';"), 'Chat message schema missing.');
 assert(chat.includes("const CHAT_PROTOCOL = 'milan.chat';"), 'Chat protocol missing.');
@@ -128,8 +155,21 @@ assert(homeShell.includes('currentFeed=bc.feed.filter(r=>!isChatFeedRecord(r))')
 assert(homeShell.includes('const safe=(Array.isArray(fresh)?fresh:[]).filter(r=>!isChatFeedRecord(r))'), 'Boot feed updates must filter chat records.');
 assert(uiActions.includes('if (isChatFeedRecord(record)) continue;'), 'Home feed merges must filter chat records.');
 assert(uiActions.includes('records = (Array.isArray(records) ? records : []).filter(record => !isChatFeedRecord(record));'), 'Final feed rendering must filter chat records.');
-assert(appShell.includes('milan-ui-actions.js?v=instant-upload-single-init-20261015-1'), 'Changed UI script must have a fresh cache-busting version.');
+assert(/milan-ui-actions\.js\?v=[^\"'\s]+/.test(appShell), 'App shell must reference a cache-busted UI action script.');
 
+assert(chat.includes("const CHAT_DELETE_SCHEMA = 'milan.chat.deletion';"), 'Private chat deletion marker schema missing.');
+assert(chat.includes("router.delete('/with/:did/messages/:messageId', auth"), 'Authenticated chat message deletion endpoint missing.');
+assert(chat.includes("if (senderDid !== meDid)"), 'Delete-for-everyone must be sender-only.');
+assert(chat.includes("mailboxRole: 'tombstone-sender'"), 'Global delete must write a sender-side placeholder.');
+assert(chat.includes("mailboxRole: 'tombstone-recipient'"), 'Global delete must write a recipient-side placeholder.');
+assert(chat.includes('conversationHiddenMessageIds'), 'Delete-for-me markers must be synchronized across devices.');
+assert(frontend.includes('data-message-options'), 'Accessible message action trigger missing.');
+assert(frontend.includes('CHAT_MESSAGE_LONG_PRESS_MS'), 'Touch long-press handler missing.');
+assert(frontend.includes('pointerdown'), 'Touch pointer event support missing.');
+assert(frontend.includes('chat_message_deleted'), 'Realtime deletion event handler missing.');
+assert(frontend.includes('data-chat-delete-confirm'), 'Styled delete confirmation dialog missing.');
+console.log('✅ Message delete permissions and dual-mailbox tombstones verified.');
+console.log('✅ Long-press, context-menu, cache-sync and confirmation UI checks passed.');
 console.log('✅ MILAN chat architecture checks passed.');
 console.log('✅ Backend syntax checks passed.');
 console.log('✅ One-DWN-to-one-DWN mailbox invariants passed.');

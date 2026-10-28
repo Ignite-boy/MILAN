@@ -117,6 +117,9 @@
                 "Accept": "application/json"
             };
 
+            const identityVersion =
+                Number(window.__milanAvatarUploadVersion) || 0;
+
             const [profileResponse, meResponse] = await Promise.all([
                 fetch("/api/profile", {
                     method: "GET",
@@ -138,12 +141,10 @@
                 ? await meResponse.json().catch(() => ({}))
                 : {};
 
-            const identityVersion =
-                Number(window.__milanAvatarUploadVersion) || 0;
-
             if (
                 identityVersion !==
-                (Number(window.__milanAvatarUploadVersion) || 0)
+                (Number(window.__milanAvatarUploadVersion) || 0) ||
+                window.__milanAvatarUploadActive
             ) {
                 return;
             }
@@ -445,10 +446,12 @@
                                     data = JSON.parse(xhr.responseText || "{}");
                                 } catch (_) {}
 
-                                reject(new Error(
+                                const error = new Error(
                                     data.error ||
                                     "Video chunk upload failed: HTTP " + xhr.status
-                                ));
+                                );
+                                error.status = xhr.status;
+                                reject(error);
                             };
 
                             xhr.onerror = () => reject(
@@ -457,9 +460,11 @@
                             xhr.ontimeout = () => reject(
                                 new Error("Video chunk upload timed out.")
                             );
-                            xhr.onabort = () => reject(
-                                new Error("Video upload cancelled.")
-                            );
+                            xhr.onabort = () => {
+                                const error = new Error("Video upload cancelled.");
+                                error.retryable = false;
+                                reject(error);
+                            };
 
                             xhr.send(blob);
                         });
@@ -478,11 +483,19 @@
                         chunkLoaded[index] = 0;
                         reportProgress();
 
-                        if (attempt < 3) {
-                            await new Promise(resolve =>
-                                setTimeout(resolve, 700 + attempt * 900)
-                            );
-                        }
+                        if (error?.retryable === false) break;
+
+                        const status = Number(error?.status || 0);
+                        const retryable =
+                            status === 0 ||
+                            status >= 500 ||
+                            [408, 425, 429].includes(status);
+
+                        if (!retryable || attempt >= 3) break;
+
+                        await new Promise(resolve =>
+                            setTimeout(resolve, 700 + attempt * 900)
+                        );
                     }
                 }
 
@@ -1430,6 +1443,12 @@
                             avatar;
                     }
 
+                    // Invalidate profile reads that started before this avatar save.
+                    if (payload.avatar) {
+                        window.__milanAvatarUploadVersion =
+                            (Number(window.__milanAvatarUploadVersion) || 0) + 1;
+                    }
+
                     const response =
                         await fetch(
                             "/api/profile",
@@ -1507,6 +1526,8 @@
                     }
 
                     if (saved.avatar) {
+                        window.__milanPersistentAvatar = String(saved.avatar);
+                        window.__milanAvatarUploadCommittedAt = Date.now();
                         try {
                             localStorage.setItem("milanAvatar", String(saved.avatar));
                         } catch (_) {}

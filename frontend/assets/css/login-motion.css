@@ -1,0 +1,132 @@
+/* MILAN login motion layer — loaded last. Remove its <link> in index.html to revert. */
+@property --lm-angle{syntax:"<angle>";initial-value:0deg;inherits:false}
+
+:root{
+  --lm-ease:cubic-bezier(.22,1,.36,1);
+  --lm-a:#ff9c38;--lm-b:#df46c8;--lm-c:#5879ff;
+}
+
+/* Full-height on mobile browsers whose URL bar resizes the viewport */
+@supports (height:100dvh){
+  .milan-container,.hero-panel{min-height:100dvh}
+}
+.milan-container{
+  padding-top:env(safe-area-inset-top,0);
+  padding-bottom:env(safe-area-inset-bottom,0);
+}
+
+/* Drifting colour glow behind the login */
+.milan-container{position:relative;isolation:isolate}
+.milan-container::before{
+  content:"";position:fixed;inset:-25%;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(38% 34% at 18% 22%,rgba(88,121,255,.22),transparent 70%),
+    radial-gradient(34% 30% at 82% 28%,rgba(223,70,200,.18),transparent 70%),
+    radial-gradient(40% 34% at 55% 88%,rgba(255,156,56,.14),transparent 70%);
+  animation:lmDrift 20s ease-in-out infinite alternate;
+}
+@keyframes lmDrift{to{transform:translate3d(3%,-3%,0) scale(1.1)}}
+
+/* Login card: entrance + rotating gradient border */
+.login-card{
+  position:relative;
+  animation:lmCardIn .8s var(--lm-ease) both;
+  backdrop-filter:blur(16px) saturate(150%);
+  -webkit-backdrop-filter:blur(16px) saturate(150%);
+}
+@keyframes lmCardIn{
+  from{opacity:0;transform:translateY(28px) scale(.97)}
+  to{opacity:1;transform:none}
+}
+@supports (background:conic-gradient(from var(--lm-angle),red,blue)){
+  .login-card::before{
+    content:"";position:absolute;inset:-1.5px;border-radius:inherit;z-index:-1;padding:1.5px;
+    background:conic-gradient(from var(--lm-angle),var(--lm-a),var(--lm-b),var(--lm-c),var(--lm-a));
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;mask-composite:exclude;
+    animation:lmSpin 6s linear infinite;opacity:.8;
+  }
+  @keyframes lmSpin{to{--lm-angle:360deg}}
+}
+
+/* Logo gentle float */
+.logo-center{animation:lmFloat 5s ease-in-out infinite}
+@keyframes lmFloat{50%{transform:translateY(-6px)}}
+
+/* Hero title gradient shimmer */
+.hero-title{
+  background:linear-gradient(100deg,#fff 20%,#ffd3a0 40%,#f3a8ec 60%,#fff 80%);
+  background-size:220% 100%;
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  animation:lmShine 7s linear infinite;
+}
+@keyframes lmShine{to{background-position:-220% 0}}
+
+/* Feature list rises in one by one */
+.feature-item{animation:lmRise .7s var(--lm-ease) both}
+.feature-item:nth-child(1){animation-delay:.15s}
+.feature-item:nth-child(2){animation-delay:.28s}
+.feature-item:nth-child(3){animation-delay:.41s}
+.feature-item:nth-child(4){animation-delay:.54s}
+.feature-item:nth-child(5){animation-delay:.67s}
+@keyframes lmRise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.feature-icon{transition:transform .4s var(--lm-ease)}
+.feature-item:hover .feature-icon{transform:scale(1.15) rotate(-6deg)}
+
+/* Scroll-driven reveal where supported (modern Chrome/Safari) */
+@supports (animation-timeline:view()){
+  .feature-item{
+    animation:lmScrollIn linear both;
+    animation-timeline:view();animation-range:entry 0% entry 55%;
+  }
+  @keyframes lmScrollIn{from{opacity:0;transform:translateY(30px) scale(.97)}to{opacity:1;transform:none}}
+}
+
+/* Inputs: glowing focus */
+.input-wrapper{transition:transform .3s var(--lm-ease)}
+.input-wrapper:focus-within{transform:translateY(-1px)}
+.input-field{transition:border-color .25s,box-shadow .3s,background .3s}
+.input-field:focus{
+  outline:none;border-color:var(--lm-c);
+  box-shadow:0 0 0 4px rgba(88,121,255,.2),0 10px 30px rgba(88,121,255,.14);
+}
+.input-wrapper:focus-within .input-icon{color:var(--lm-a);transform:scale(1.1)}
+.input-icon{transition:color .25s,transform .3s var(--lm-ease)}
+
+/* Login button: gradient, shine sweep, press feedback */
+.login-button{
+  position:relative;overflow:hidden;
+  background-size:200% 100%;
+  transition:transform .2s var(--lm-ease),box-shadow .35s,background-position .6s;
+}
+.login-button:hover:not(:disabled){
+  transform:translateY(-2px);background-position:100% 0;
+  box-shadow:0 14px 36px rgba(223,70,200,.32);
+}
+.login-button:active:not(:disabled){transform:scale(.97)}
+.login-button::after{
+  content:"";position:absolute;top:0;left:-120%;width:55%;height:100%;
+  background:linear-gradient(120deg,transparent,rgba(255,255,255,.3),transparent);
+  transform:skewX(-20deg);animation:lmSweep 4.5s ease-in-out infinite;pointer-events:none;
+}
+@keyframes lmSweep{0%,60%{left:-120%}100%{left:140%}}
+.did-button{transition:transform .25s var(--lm-ease),box-shadow .3s}
+.did-button:hover{transform:translateY(-2px)}
+
+/* Tabs: smooth switch feel */
+.tab{transition:color .25s,background .3s,transform .25s var(--lm-ease)}
+.tab:active{transform:scale(.96)}
+
+/* Error / status message pops in */
+.auth-msg:not(:empty){animation:lmPop .4s var(--lm-ease)}
+@keyframes lmPop{from{opacity:0;transform:translateY(-6px) scale(.98)}to{opacity:1;transform:none}}
+
+/* Touch devices: no hover lifts, larger tap targets */
+@media (hover:none){
+  .login-button:hover,.did-button:hover,.feature-item:hover .feature-icon{transform:none}
+  .tab,.eye-btn,.login-button,.did-button{min-height:44px}
+}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}

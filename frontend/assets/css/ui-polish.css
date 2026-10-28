@@ -1,0 +1,181 @@
+/* MILAN UI polish layer — loaded last. Remove its <link> in app.html to revert. */
+:root{
+  --p-ease:var(--milan-motion-ease,cubic-bezier(.22,1,.36,1));
+  --p-accent:var(--milan-ui-accent,#ff9c38);
+  --p-accent2:var(--milan-ui-accent-2,#df46c8);
+  --p-blue:var(--milan-ui-blue,#5879ff);
+  --p-line:var(--milan-ui-line,rgba(148,163,184,.14));
+  --p-radius:var(--milan-ui-radius,22px);
+}
+html{scroll-behavior:smooth}
+
+/* Ambient animated background glow behind everything */
+body.map::before{
+  content:"";position:fixed;inset:-20%;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(40% 35% at 15% 20%,rgba(88,121,255,.16),transparent 70%),
+    radial-gradient(35% 30% at 85% 25%,rgba(223,70,200,.13),transparent 70%),
+    radial-gradient(40% 35% at 60% 90%,rgba(255,156,56,.10),transparent 70%);
+  animation:pAmbient 22s ease-in-out infinite alternate;
+}
+@keyframes pAmbient{
+  0%{transform:translate3d(0,0,0) scale(1)}
+  100%{transform:translate3d(2%,-2%,0) scale(1.08)}
+}
+
+/* Glass cards with lift on hover */
+.card,#milanHomeFeed,#milanControlPanel,.composer{
+  backdrop-filter:blur(14px) saturate(140%);
+  -webkit-backdrop-filter:blur(14px) saturate(140%);
+  border:1px solid var(--p-line);
+  border-radius:var(--p-radius);
+  transition:transform .42s var(--p-ease),box-shadow .42s var(--p-ease),border-color .3s;
+}
+.card:hover,.composer:hover{
+  transform:translateY(-3px);
+  border-color:rgba(255,255,255,.16);
+  box-shadow:0 24px 60px rgba(0,0,0,.34),0 0 0 1px rgba(255,156,56,.08);
+}
+
+/* Entrance animation for cards and feed */
+.card,.milan-feed-header,.composer{animation:pRise .6s var(--p-ease) both}
+.card:nth-of-type(2){animation-delay:.06s}
+.card:nth-of-type(3){animation-delay:.12s}
+.card:nth-of-type(4){animation-delay:.18s}
+@keyframes pRise{
+  from{opacity:0;transform:translateY(18px) scale(.985)}
+  to{opacity:1;transform:none}
+}
+
+/* Buttons: gradient, shine sweep, press feedback */
+button,.btn{
+  position:relative;overflow:hidden;
+  transition:transform .18s var(--p-ease),box-shadow .3s,filter .3s;
+}
+button:hover:not(:disabled){transform:translateY(-1px);filter:brightness(1.08)}
+button:active:not(:disabled){transform:translateY(0) scale(.97)}
+button:not(:disabled)::after{
+  content:"";position:absolute;top:0;left:-120%;width:60%;height:100%;
+  background:linear-gradient(120deg,transparent,rgba(255,255,255,.22),transparent);
+  transform:skewX(-20deg);transition:left .7s var(--p-ease);pointer-events:none;
+}
+button:hover:not(:disabled)::after{left:140%}
+
+/* Inputs: glowing focus ring */
+input:not([type=file]),textarea,select{
+  transition:border-color .25s,box-shadow .3s,background .3s;
+}
+input:not([type=file]):focus,textarea:focus,select:focus{
+  outline:none;
+  border-color:var(--p-blue);
+  box-shadow:0 0 0 4px rgba(88,121,255,.2),0 8px 30px rgba(88,121,255,.12);
+}
+
+/* Avatars: gradient ring + gentle zoom */
+.avatar{
+  transition:transform .35s var(--p-ease),box-shadow .35s;
+  box-shadow:0 0 0 2px rgba(255,156,56,.55),0 6px 20px rgba(0,0,0,.35);
+}
+.avatar:hover{transform:scale(1.07);box-shadow:0 0 0 2px var(--p-accent2),0 10px 28px rgba(223,70,200,.3)}
+
+/* Sidebar / nav links: slide-in accent bar */
+.sidebar a,.nav a,nav a{position:relative;transition:color .25s,transform .3s var(--p-ease),background .3s}
+.sidebar a:hover,.nav a:hover,nav a:hover{transform:translateX(4px)}
+.sidebar a::before,.nav a::before,nav a::before{
+  content:"";position:absolute;left:0;top:20%;height:60%;width:3px;border-radius:3px;
+  background:linear-gradient(var(--p-accent),var(--p-accent2));
+  transform:scaleY(0);transition:transform .3s var(--p-ease);
+}
+.sidebar a:hover::before,.nav a:hover::before,nav a:hover::before{transform:scaleY(1)}
+
+/* Slim themed scrollbar */
+*{scrollbar-width:thin;scrollbar-color:rgba(148,163,184,.35) transparent}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:rgba(148,163,184,.3);border-radius:8px}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,156,56,.55)}
+
+/* Selection colour */
+::selection{background:rgba(223,70,200,.4);color:#fff}
+
+/* Respect users who prefer less motion */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+
+/* ===== Layer 2: feed posts, hero, composer ===== */
+.card.post{position:relative;overflow:hidden}
+.card.post::before{
+  content:"";position:absolute;left:0;top:0;width:100%;height:2px;
+  background:linear-gradient(90deg,var(--p-blue),var(--p-accent2),var(--p-accent));
+  transform:scaleX(0);transform-origin:left;transition:transform .6s var(--p-ease);
+}
+.card.post:hover::before{transform:scaleX(1)}
+
+.postHead{display:flex;align-items:center;gap:12px}
+.postUser{font-weight:700;letter-spacing:.2px;transition:color .25s}
+.card.post:hover .postUser{color:var(--p-accent)}
+.postTitle{
+  font-weight:800;line-height:1.25;
+  background:linear-gradient(90deg,#fff,#c9d4ff);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+}
+.postText{line-height:1.65;opacity:.92}
+.postBody img,.postBody video{
+  border-radius:16px;transition:transform .5s var(--p-ease),box-shadow .5s;
+}
+.postBody img:hover{transform:scale(1.015);box-shadow:0 16px 40px rgba(0,0,0,.4)}
+.postMetrics{display:flex;gap:10px;flex-wrap:wrap}
+.postMetrics button{
+  border-radius:999px;border:1px solid var(--p-line);
+  backdrop-filter:blur(8px);transition:transform .25s var(--p-ease),background .25s,border-color .25s;
+}
+.postMetrics button:hover{border-color:var(--p-accent2);background:rgba(223,70,200,.12)}
+.postMetrics button:active{animation:pPop .35s var(--p-ease)}
+@keyframes pPop{0%{transform:scale(1)}50%{transform:scale(1.22)}100%{transform:scale(1)}}
+.milan-delete-post{opacity:.55;transition:opacity .25s,transform .25s,color .25s}
+.milan-delete-post:hover{opacity:1;color:#ff6b6b;transform:rotate(-6deg) scale(1.08)}
+
+/* Feed header: gradient underline that breathes */
+.milan-feed-header{position:relative;padding-bottom:10px}
+.milan-feed-header::after{
+  content:"";position:absolute;left:0;bottom:0;height:2px;width:90px;border-radius:2px;
+  background:linear-gradient(90deg,var(--p-accent),var(--p-accent2));
+  animation:pBreath 3.4s ease-in-out infinite;
+}
+@keyframes pBreath{0%,100%{width:60px;opacity:.7}50%{width:140px;opacity:1}}
+
+/* Profile hero: rotating gradient ring around the DP */
+.milan-profile-avatar-orbit{position:relative;border-radius:50%}
+.milan-profile-avatar-orbit::before{
+  content:"";position:absolute;inset:-5px;border-radius:50%;z-index:0;
+  background:conic-gradient(from 0deg,var(--p-accent),var(--p-accent2),var(--p-blue),var(--p-accent));
+  animation:pSpin 7s linear infinite;
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2px));
+          mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2px));
+}
+@keyframes pSpin{to{transform:rotate(360deg)}}
+.milan-profile-upload{
+  transition:transform .3s var(--p-ease),box-shadow .3s;
+}
+.milan-profile-upload:hover{transform:scale(1.12) rotate(-8deg);box-shadow:0 8px 24px rgba(255,156,56,.4)}
+
+/* Composer: lifted glow when typing */
+.composer:focus-within{
+  border-color:rgba(88,121,255,.5);
+  box-shadow:0 20px 60px rgba(88,121,255,.14);
+}
+
+/* Skeleton shimmer for "Opening your MILAN space..." style empties */
+.empty{position:relative;overflow:hidden}
+.empty::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.07) 50%,transparent 70%);
+  transform:translateX(-100%);animation:pShimmer 1.8s ease-in-out infinite;
+}
+@keyframes pShimmer{to{transform:translateX(100%)}}
+
+/* Phones: calmer motion, no hover lift (touch) */
+@media (hover:none){
+  .card:hover,.composer:hover{transform:none;box-shadow:none}
+  .sidebar a:hover,.nav a:hover,nav a:hover{transform:none}
+}

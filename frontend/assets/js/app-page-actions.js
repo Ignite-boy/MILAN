@@ -200,6 +200,7 @@
       if (savedAvatar) {
         localStorage.setItem("milanAvatar", savedAvatar);
         window.__milanPersistentAvatar = savedAvatar;
+        window.__milanAvatarUploadCommittedAt = Date.now();
         ["myAvatar", "composerAvatar"].forEach(id => {
           setAvatar(id, savedAvatar);
         });
@@ -224,6 +225,7 @@
       // can briefly return the previous record while the new write propagates.
     } catch (error) {
       console.error("[MILAN] DP upload failed:", error);
+      try { alert("DP upload failed: " + (error && error.message ? error.message : error)); } catch (_) {}
     } finally {
       window.__milanAvatarUploadActive = false;
       URL.revokeObjectURL(previewUrl);
@@ -272,6 +274,12 @@
     } catch (error) {
       console.warn("[MILAN] profile identity sync failed:", error);
     }
+
+    // Ignore reads that began before an avatar upload, or while an upload is in flight.
+    if (
+      syncVersion !== (Number(window.__milanAvatarUploadVersion) || 0) ||
+      window.__milanAvatarUploadActive
+    ) return;
 
     const user =
       me?.user ||

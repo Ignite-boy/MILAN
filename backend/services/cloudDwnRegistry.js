@@ -425,7 +425,7 @@ async function deleteRecordFromCloudDwn(recordId, ownerDid = '') {
   const deletedMediaCount = Number(result.rows?.[0]?.deleted_media_count || 0);
   const deleted = deletedRecordCount > 0 || deletedMediaCount > 0;
 
-  if (deletedRecordCount > 0) deletedRecordIds.add(id);
+  if (deletedRecordCount > 0 && !id.startsWith('profile-picture:')) deletedRecordIds.add(id);
   return {
     deleted,
     recordDeleted: deletedRecordCount > 0,
