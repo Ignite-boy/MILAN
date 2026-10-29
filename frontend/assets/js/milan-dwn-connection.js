@@ -35,7 +35,7 @@
     el.textContent = labels[state] || "Cloud storage status unknown";
     el.dataset.dwnConnection = state;
     el.title = state === "connected"
-      ? "Voroa PostgreSQL core storage is reachable. Signed DWN protocol execution is not integrated."
+      ? "PostgreSQL core storage is reachable. Signed DWN protocol execution is not integrated."
       : "Cloud storage configuration or authenticated profile check needs attention.";
   };
 
@@ -68,12 +68,12 @@
       if (
         !response.ok ||
         health?.ok !== true ||
-        health?.mode !== "voroa-postgresql" ||
-        health?.storage?.mode !== "voroa-postgresql" ||
-        health?.storage?.voroaDatabaseReachable !== true
+        health?.mode !== "postgresql" ||
+        health?.storage?.mode !== "postgresql" ||
+        health?.storage?.databaseReachable !== true
       ) {
         throw new Error(
-          "Voroa PostgreSQL core storage is not reachable (HTTP " +
+          "PostgreSQL core storage is not reachable (HTTP " +
           response.status + ")."
         );
       }

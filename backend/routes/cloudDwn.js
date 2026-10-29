@@ -50,8 +50,8 @@ router.get('/health', auth, async (req, res) => {
       spaceId: info.spaceId,
       dwn: {
         nodeReady: node.nodeReady === true,
-        backend: 'voroa',
-        mode: 'voroa-postgresql',
+        backend: 'postgresql',
+        mode: 'postgresql',
         remoteConfigured: node.storageReady === true,
         remoteReachable: null,
         endpoint: null,
@@ -75,16 +75,16 @@ router.get('/status', async (_req, res) => {
   try {
     const probe = await require('../services/milanDb').query('SELECT 1 AS ok');
     const reachable = probe.rowCount === 1;
-    const currentStorage = { ...storage, voroaDatabaseReachable: reachable };
+    const currentStorage = { ...storage, databaseReachable: reachable };
 
     return res.json({
       ok: reachable,
-      backend: 'voroa',
-      mode: 'voroa-postgresql',
+      backend: 'postgresql',
+      mode: 'postgresql',
       storage: currentStorage,
       cloudDwn: {
-        mode: 'voroa-postgresql',
-        backend: 'voroa',
+        mode: 'postgresql',
+        backend: 'postgresql',
         root: storage.root,
         endpoint: '',
         realDwnProtocol: false,
@@ -105,12 +105,12 @@ router.get('/status', async (_req, res) => {
     });
     return res.status(503).json({
       ok: false,
-      backend: 'voroa',
-      mode: 'voroa-postgresql',
-      storage: { ...storage, voroaDatabaseReachable: false },
+      backend: 'postgresql',
+      mode: 'postgresql',
+      storage: { ...storage, databaseReachable: false },
       cloudDwn: {
-        mode: 'voroa-postgresql',
-        backend: 'voroa',
+        mode: 'postgresql',
+        backend: 'postgresql',
         root: storage.root,
         endpoint: '',
         realDwnProtocol: false,
@@ -119,7 +119,7 @@ router.get('/status', async (_req, res) => {
         authorityScope: 'Core snapshots, records, and media only',
         localFilesystemRole: 'compatibility/cache'
       },
-      error: 'Voroa PostgreSQL connectivity check failed'
+      error: 'PostgreSQL database connectivity check failed'
     });
   }
 });

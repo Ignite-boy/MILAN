@@ -213,12 +213,12 @@ function persistenceInfo() {
   const selected = selectedLocalDwnRoot();
 
   return {
-    mode: 'voroa-postgresql',
-    backend: 'voroa',
-    primaryPersistence: 'voroa-postgresql',
-    // milanDb.js requires a configured Voroa/PostgreSQL connection at module load.
-    // This is configuration status only; /api/health separately reports liveness.
-    voroaDatabaseConfigured: true,
+    mode: 'postgresql',
+    backend: 'postgresql',
+    primaryPersistence: 'postgresql',
+    // milanDb.js requires MILAN_DATABASE_URL or DATABASE_URL at module load.
+    // This reports configuration only; /api/health separately reports liveness.
+    databaseConfigured: Boolean(process.env.MILAN_DATABASE_URL || process.env.DATABASE_URL),
     remoteOnly: false,
     root: selected.root,
     databaseRoot: databaseRoot(),
@@ -230,11 +230,11 @@ function persistenceInfo() {
     realDwnProtocol: false,
     sdkReady: false,
     realDwnEnginePresent: false,
-    selectedBy: 'voroa-postgresql-primary-core-storage',
+    selectedBy: 'postgresql-primary-core-storage',
     candidateAttempts: selected.attempts,
     permanentExpected: true,
     requiresCloudDwn: false,
-    warning: 'Voroa PostgreSQL is primary for core snapshots, records, and media. Signed DWN protocol execution is not integrated.'
+    warning: 'PostgreSQL is primary for core snapshots, records, and media. Signed DWN protocol execution is not integrated.'
   };
 }
 
@@ -283,7 +283,7 @@ function provisionIsolatedDwn({ userId = '', did = '', email = '', spaceId: prea
     endpoint: endpointForSpace(spaceId),
     mode: p.mode,
     realDwnConfigured: false,
-    realCloudConfigured: p.voroaDatabaseConfigured === true,
+    realCloudConfigured: p.databaseConfigured === true,
     assignedAt: existing.assignedAt || existing.createdAt || new Date().toISOString(),
     didServiceId: '#dwn',
     isolation: 'single-user',
