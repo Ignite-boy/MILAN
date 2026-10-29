@@ -68,15 +68,53 @@ function connectionRow(myDid, otherDid){
   if (myDid === otherDid) return null;
   return Object.values(connections()).find(c => (c.fromDid === myDid && c.toDid === otherDid) || (c.fromDid === otherDid && c.toDid === myDid)) || null;
 }
-function connectionStatus(myDid, otherDid){
+function connectionStatus(myDid, otherDid, context = null){
   if (myDid === otherDid) return 'self';
+  if (context?.connectionStatusByDid instanceof Map) {
+    return context.connectionStatusByDid.get(otherDid) || 'none';
+  }
   const row = connectionRow(myDid, otherDid);
   if (!row) return 'none';
   if (row.status === 'approved') return 'friends';
   if (row.status === 'pending') return row.fromDid === myDid ? 'sent' : 'received';
   return row.status || 'none';
 }
-function isFriend(myDid, otherDid){ return connectionStatus(myDid, otherDid) === 'friends'; }
+function isFriend(myDid, otherDid, context = null){
+  return connectionStatus(myDid, otherDid, context) === 'friends';
+}
+
+// Capture social data once per request and reuse indexed lookups for every post.
+function createConnectionStatusByDid(myDid){
+  const connectionStatusByDid = new Map();
+  for (const row of Object.values(connections() || {})) {
+    let otherDid = null;
+    if (row?.fromDid === myDid) otherDid = row.toDid;
+    else if (row?.toDid === myDid) otherDid = row.fromDid;
+    if (!otherDid || connectionStatusByDid.has(otherDid)) continue;
+
+    const status = row.status === 'approved'
+      ? 'friends'
+      : row.status === 'pending'
+        ? (row.fromDid === myDid ? 'sent' : 'received')
+        : (row.status || 'none');
+    connectionStatusByDid.set(otherDid, status);
+  }
+  return connectionStatusByDid;
+}
+
+function createDecorationContext(myDid, sharedConnectionStatusByDid = null){
+  const usersByDid = new Map();
+  for (const user of Object.values(users() || {})) {
+    if (user?.did && !usersByDid.has(user.did)) usersByDid.set(user.did, user);
+  }
+
+  return {
+    usersByDid,
+    connectionStatusByDid: sharedConnectionStatusByDid || createConnectionStatusByDid(myDid),
+    reactions: readReactions(),
+    comments: readComments()
+  };
+}
 function notifyByDid(targetDid, type, actorDid, details={}){
   const target = findUserByDid(users(), targetDid);
   if (!target?.user?.id) return;
@@ -88,8 +126,8 @@ function notifyByDid(targetDid, type, actorDid, details={}){
   // Instant push to any live SSE/WebSocket connection of the recipient.
   try { require('../services/livePush').push(target.user.id, 'notify', { notifType: type }); } catch (_) {}
 }
-function reactionSummary(recordId, myDid){
-  const all = readReactions();
+function reactionSummary(recordId, myDid, snapshot = null){
+  const all = snapshot || readReactions();
   const rows = all[recordId] || {};
   const counts = {};
   let mine = null;
@@ -104,20 +142,30 @@ function commentsFor(recordId){
   const all = readComments();
   return (all[recordId] || []).filter(c => !c.deleted).sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
 }
-function decorateRecord(record, myDid){
-  const owner = findUserByDid(users(), record.owner)?.user;
+function commentsCount(recordId, snapshot = null){
+  if (!snapshot) return commentsFor(recordId).length;
+  const rows = snapshot[recordId] || [];
+  let count = 0;
+  for (const comment of rows) if (!comment.deleted) count++;
+  return count;
+}
+function decorateRecord(record, myDid, context = null){
+  const owner = context
+    ? context.usersByDid.get(record.owner)
+    : findUserByDid(users(), record.owner)?.user;
   const ownerProfile = owner ? profileFor(owner) : { did: record.owner, name: record.owner?.slice(0,18) || 'Unknown', avatar: '' };
   const data = record.data || {};
   let text = typeof data === 'string' ? data : (data.caption || data.text || data.note || (data.kind === 'media' ? data.caption : ''));
   if (!text && typeof data === 'object' && data.kind !== 'media') text = JSON.stringify(data, null, 2);
+  const friendStatus = connectionStatus(myDid, record.owner, context);
   return {
     ...record,
     ownerProfile,
     social: {
-      friendStatus: connectionStatus(myDid, record.owner),
-      reactions: reactionSummary(record.id, myDid),
-      commentsCount: commentsFor(record.id).length,
-      canMessage: record.owner !== myDid && isFriend(myDid, record.owner),
+      friendStatus,
+      reactions: reactionSummary(record.id, myDid, context?.reactions),
+      commentsCount: commentsCount(record.id, context?.comments),
+      canMessage: record.owner !== myDid && friendStatus === 'friends',
       textPreview: String(text || '').slice(0, 1000)
     }
   };
@@ -144,13 +192,18 @@ function isChatRecord(record){
   );
 }
 
-function allowedForFeed(record, myDid, scope){
+function allowedForFeed(record, myDid, scope, connectionStatusByDid = null){
   // Private Messenger traffic belongs exclusively to /api/chat. Never expose
   // chat records through any social-feed scope, even when they are shared with
   // the current DID at the DWN layer.
   if (isChatRecord(record)) return false;
   if (scope === 'mine') return record.owner === myDid;
-  if (scope === 'friends') return record.owner === myDid || isFriend(myDid, record.owner) || record.sharedWithDids?.includes(myDid);
+  if (scope === 'friends') {
+    const isFriendOfViewer = connectionStatusByDid instanceof Map
+      ? connectionStatusByDid.get(record.owner) === 'friends'
+      : isFriend(myDid, record.owner);
+    return record.owner === myDid || isFriendOfViewer || record.sharedWithDids?.includes(myDid);
+  }
   if (scope === 'public') return record.accessMode === 'public';
   return true;
 }
@@ -303,8 +356,11 @@ router.get('/feed', auth, async (req, res) => {
       nextOffset = scanOffset;
     }
 
+    const decorationContext = pageRows.length
+      ? createDecorationContext(me.user.did)
+      : null;
     return res.json({
-      items: pageRows.map(row => decorateRecord(row, me.user.did)),
+      items: pageRows.map(row => decorateRecord(row, me.user.did, decorationContext)),
       hasMore,
       nextOffset
     });
@@ -315,11 +371,17 @@ router.get('/feed', auth, async (req, res) => {
     ...req.query,
     limit: '0'
   });
-  const visibleRows = rows.filter(row => allowedForFeed(row, me.user.did, scope));
-  const feed = visibleRows
-    .slice(requestedOffset, requestedOffset + requestedLimit)
-    .map(row => decorateRecord(row, me.user.did));
-  res.json(feed);
+  const connectionStatusByDid = scope === 'friends'
+    ? createConnectionStatusByDid(me.user.did)
+    : null;
+  const visibleRows = rows.filter(row =>
+    allowedForFeed(row, me.user.did, scope, connectionStatusByDid)
+  );
+  const feedRows = visibleRows.slice(requestedOffset, requestedOffset + requestedLimit);
+  const decorationContext = feedRows.length
+    ? createDecorationContext(me.user.did, connectionStatusByDid)
+    : null;
+  res.json(feedRows.map(row => decorateRecord(row, me.user.did, decorationContext)));
 });
 router.get('/records/:id/comments', auth, async (req, res) => {
   const me = current(req); if (!me) return res.status(404).json({ error:'User not found' });
@@ -381,7 +443,11 @@ router.get('/saved', auth, async (req, res) => {
   const saves = readSaves();
   const ids = saves[req.userId] || [];
   const rows = await dwnStore.listVisibleRecords(me.user.did, req.query);
-  res.json(rows.filter(r => !isChatRecord(r) && ids.includes(r.id)).map(r => decorateRecord(r, me.user.did)));
+  const savedRows = rows.filter(r => !isChatRecord(r) && ids.includes(r.id));
+  const decorationContext = savedRows.length
+    ? createDecorationContext(me.user.did)
+    : null;
+  res.json(savedRows.map(r => decorateRecord(r, me.user.did, decorationContext)));
 });
 
 router.post('/records/:id/save', auth, async (req, res) => {
