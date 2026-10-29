@@ -190,7 +190,22 @@ async function tryFfmpegCopyFaststart(ffmpeg, filePath, outPath, timeoutMs) {
   return fs.existsSync(outPath) && fileSize(outPath) > 0;
 }
 
-async function tryFfmpegTranscode(ffmpeg, filePath, outPath, timeoutMs) {
+async function tryFfmpegTranscode(ffmpeg, filePath, outPath, timeoutMs, probe = null) {
+  // Downsample only high-frame-rate inputs to reduce AV1 decode/H.264 encode cost.
+  const videoStream = Array.isArray(probe?.streams)
+    ? probe.streams.find(stream => stream.codec_type === 'video')
+    : null;
+  const parseRate = value => {
+    const match = String(value || '').match(/^(\d+(?:\.\d+)?)(?:\/(\d+(?:\.\d+)?))?$/);
+    if (!match) return 0;
+    const denominator = match[2] === undefined ? 1 : Number(match[2]);
+    return denominator > 0 ? Number(match[1]) / denominator : 0;
+  };
+  const sourceFps = parseRate(videoStream?.avg_frame_rate) || parseRate(videoStream?.r_frame_rate);
+  const maxFps = Number(process.env.MILAN_TRANSCODE_MAX_FPS || 30);
+  const fpsFilter = Number.isFinite(maxFps) && maxFps > 0 && sourceFps > maxFps
+    ? `fps=${maxFps},`
+    : '';
   const maxWidth = Number(process.env.MILAN_TRANSCODE_MAX_WIDTH || 1280);
   const scale = Number.isFinite(maxWidth) && maxWidth > 0
     ? `scale='min(${maxWidth},trunc(iw/2)*2)':-2,setsar=1`
@@ -202,7 +217,7 @@ async function tryFfmpegTranscode(ffmpeg, filePath, outPath, timeoutMs) {
     '-i', filePath,
     '-map', '0:v:0', '-map', '0:a:0?',
     '-sn', '-dn',
-    '-vf', scale,
+    '-vf', `${fpsFilter}${scale}`,
     '-c:v', 'libx264',
     '-preset', process.env.MILAN_TRANSCODE_PRESET || 'veryfast',
     '-crf', process.env.MILAN_TRANSCODE_CRF || '25',
@@ -272,7 +287,29 @@ async function normalizeUploadedMedia({ filePath, mimeType = '', originalName = 
     };
   }
 
-  if (safe.safe && isMp4Container && !forceTranscode) {
+  // Optimize oversized or high-frame-rate uploads instead of only remuxing them.
+  const optimizationVideoStream = Array.isArray(probe?.streams)
+    ? probe.streams.find(stream => stream.codec_type === 'video')
+    : null;
+  const parseOptimizationRate = value => {
+    const match = String(value || '').match(/^(\d+(?:\.\d+)?)(?:\/(\d+(?:\.\d+)?))?$/);
+    if (!match) return 0;
+    const denominator = match[2] === undefined ? 1 : Number(match[2]);
+    return denominator > 0 ? Number(match[1]) / denominator : 0;
+  };
+  const optimizationFps = parseOptimizationRate(optimizationVideoStream?.avg_frame_rate)
+    || parseOptimizationRate(optimizationVideoStream?.r_frame_rate);
+  const optimizationMaxFps = Number(process.env.MILAN_TRANSCODE_MAX_FPS || 30);
+  const optimizationMaxWidth = Number(process.env.MILAN_TRANSCODE_MAX_WIDTH || 1280);
+  const optimizationMaxBitrate = Number(process.env.MILAN_TRANSCODE_MAX_BITRATE || 3500000);
+  const optimizationWidth = Number(optimizationVideoStream?.width || 0);
+  const optimizationBitrate = Number(probe?.format?.bit_rate || 0);
+  const needsOptimization =
+    (Number.isFinite(optimizationMaxFps) && optimizationMaxFps > 0 && optimizationFps > optimizationMaxFps) ||
+    (Number.isFinite(optimizationMaxWidth) && optimizationMaxWidth > 0 && optimizationWidth > optimizationMaxWidth) ||
+    (Number.isFinite(optimizationMaxBitrate) && optimizationMaxBitrate > 0 && optimizationBitrate > optimizationMaxBitrate);
+
+  if (safe.safe && isMp4Container && !forceTranscode && !needsOptimization) {
     try {
       if (await tryFfmpegCopyFaststart(ffmpeg, filePath, copyPath, Math.min(timeoutMs, 90000))) {
         return { filePath: copyPath, mimeType: 'video/mp4', originalName: safeUploadName(originalName || 'milan-video').replace(/\.[^.]*$/, '') + '.mp4', detected, previewCategory: 'video', changed: true, remuxed: true, transcoded: false, ffmpegUsed: true, browserPlayable: true, warning: '', probe, compatibility: safe };
@@ -285,7 +322,7 @@ async function normalizeUploadedMedia({ filePath, mimeType = '', originalName = 
   }
 
   try {
-    if (await tryFfmpegTranscode(ffmpeg, filePath, transcodePath, timeoutMs)) {
+    if (await tryFfmpegTranscode(ffmpeg, filePath, transcodePath, timeoutMs, probe)) {
       return { filePath: transcodePath, mimeType: 'video/mp4', originalName: safeUploadName(originalName || 'milan-video').replace(/\.[^.]*$/, '') + '.mp4', detected, previewCategory: 'video', changed: true, remuxed: false, transcoded: true, ffmpegUsed: true, browserPlayable: true, warning: '', probe, compatibility: safe };
     }
   } catch (err) {

@@ -2104,6 +2104,29 @@
                 .filter(([id]) => id)
         );
 
+        // Don't replace the feed DOM while a video is playing or paused mid-stream.
+        const activeVideo = Array.from(list.querySelectorAll("video")).find(video =>
+            !video.ended && (video.currentTime > 0 || !video.paused)
+        );
+
+        if (activeVideo) {
+            state.pendingFeedRenderRecords = records;
+
+            if (activeVideo.dataset.milanFeedRenderDeferred !== "1") {
+                activeVideo.dataset.milanFeedRenderDeferred = "1";
+                activeVideo.addEventListener("ended", () => {
+                    activeVideo.dataset.milanFeedRenderDeferred = "0";
+                    const pending = state.pendingFeedRenderRecords;
+                    state.pendingFeedRenderRecords = null;
+                    if (Array.isArray(pending)) renderFeed(pending);
+                }, { once: true });
+            }
+
+            return;
+        }
+
+        state.pendingFeedRenderRecords = null;
+
         if (!records.length) {
             list.innerHTML = `
                 <div class="milan-feed-empty">
