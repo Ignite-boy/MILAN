@@ -1,0 +1,68 @@
+name: MILAN GCP Cloud Run
+
+on:
+  push:
+    branches:
+      - deploy/milan-gcp-cloud-run-20261029
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify MILAN before deployment
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify build and repository integrity
+        run: npm run build
+
+      - name: Run security tests
+        run: npm run test:security
+
+      - name: Run readiness tests
+        run: npm run test:readiness
+
+  deploy:
+    name: Deploy MILAN to Google Cloud Run
+    needs: verify
+    if: ${{ vars.GCP_DEPLOY_ENABLED == 'true' && vars.GCP_DATABASE_READY == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SERVICE_ACCOUNT }}
+
+      - name: Deploy MILAN Web to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          region: ${{ vars.GCP_REGION }}
+          service: ${{ vars.GCP_CLOUD_RUN_SERVICE }}
+          source: ./
+          secrets: |
+            MILAN_DATABASE_URL=MILAN_DATABASE_URL:latest
+          flags: >-
+            --allow-unauthenticated
+            --add-cloudsql-instances=${{ vars.GCP_CLOUD_SQL_CONNECTION_NAME }}
