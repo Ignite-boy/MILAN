@@ -35,7 +35,7 @@ async function readiness() {
     apiOnline: true,
     databaseReady: database.ready,
     dwnStorageOperational: dwn.storageOperational === true,
-    voroaPostgresqlPrimaryMode: dwn.mode === 'voroa-postgresql',
+    postgresqlPrimaryMode: dwn.mode === 'postgresql',
     realDwnProtocolIntegrated: protocol.ready,
     userRegistrationAvailable: true,
     loginAvailable: true,

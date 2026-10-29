@@ -15,16 +15,16 @@ const uiActions = read('frontend/assets/js/milan-ui-actions.js');
 const appHtml = read('frontend/app.html');
 
 const checks = [
-  ['guard wraps the exported Voroa hydration function', () => {
-    assert.match(store, /async function hydrateFilesFromVoroa/);
-    assert.match(guard, /const originalHydrate = store\.hydrateFilesFromVoroa/);
+  ['guard wraps the exported PostgreSQL hydration function', () => {
+    assert.match(store, /async function hydratePostgresSnapshots/);
+    assert.match(guard, /const originalHydrate = store\.hydratePostgresSnapshots/);
     assert.doesNotMatch(guard, /hydrateFilesFromRealDwn/);
   }],
   ['guard preserves local avatar only when hydrated avatar is missing', () => {
     assert.match(guard, /if \(!current\)\s*\{/);
     assert.doesNotMatch(guard, /if \(!current \|\| current !== avatar\)/);
   }],
-  ['profile GET reads avatar from Voroa DWN storage using authoritative DID space mapping', () => {
+  ['profile GET reads avatar from PostgreSQL DWN storage using authoritative DID space mapping', () => {
     assert.match(profile, /async function readProfilePicture\(user\)/);
     assert.match(profile, /SELECT space_id FROM public\.users WHERE did = \$1 LIMIT 1/);
     assert.match(profile, /const spaceId = String\(owner\.rows\?\.\[0\]\?\.space_id/);

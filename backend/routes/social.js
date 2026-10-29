@@ -245,7 +245,7 @@ router.get('/people', auth, async (req, res) => {
     );
     accounts = result.rows;
   } catch (error) {
-    console.error('[social/people] Voroa users lookup failed:', error.message);
+    console.error('[social/people] PostgreSQL users lookup failed:', error.message);
     return res.status(500).json({ error: 'People directory unavailable' });
   }
 

@@ -130,8 +130,8 @@ async function loadUsersFromDwnDetailed() {
 async function persistUsersAuthoritatively(users) {
   const result = await writeJsonAndSync(global.usersFile, users);
   if (!result || result.ok === false) {
-    let msg = result?.error || 'Voroa PostgreSQL users snapshot sync failed';
-    if (/404|No compatible route|No compatible route accepted/i.test(msg)) msg = 'Voroa PostgreSQL snapshot sync failed. Original: ' + msg;
+    let msg = result?.error || 'PostgreSQL users snapshot sync failed';
+    if (/404|No compatible route|No compatible route accepted/i.test(msg)) msg = 'PostgreSQL snapshot sync failed. Original: ' + msg;
     const err = new Error(msg); err.status = 503; throw err;
   }
   return result;
@@ -169,7 +169,7 @@ router.post('/register', authThrottle(10, 60_000), asyncRoute(async (req, res) =
     );
   } catch (err) {
     if (err.code === '23505') return res.status(400).json({ error: 'Email or identity already exists' });
-    console.error('[auth] Voroa registration failed:', {
+    console.error('[auth] PostgreSQL registration failed:', {
       code: err.code || null,
       message: err.message || 'Unknown database error',
       syscall: err.syscall || null,
@@ -180,7 +180,7 @@ router.post('/register', authThrottle(10, 60_000), asyncRoute(async (req, res) =
     return res.status(500).json({ error: 'Account database registration failed' });
   }
 
-  console.log('[auth] account created in Voroa PostgreSQL:', email, id);
+  console.log('[auth] account created in PostgreSQL:', email, id);
   const verifyUrl = `${APP_URL()}/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`;
   let emailSent = false;
   try {
@@ -210,7 +210,7 @@ router.post('/login', authThrottle(15, 60_000), asyncRoute(async (req, res) => {
     const result = await milanDb.query('SELECT * FROM public.users WHERE email = $1 LIMIT 1', [email]);
     user = result.rows[0];
   } catch (err) {
-    console.error('[auth] Voroa login lookup failed:', err.message);
+    console.error('[auth] PostgreSQL login lookup failed:', err.message);
     return res.status(503).json({ error: 'Account database unavailable' });
   }
 
@@ -267,7 +267,7 @@ router.get('/me', auth, asyncRoute(async (req, res) => {
     const result = await milanDb.query('SELECT * FROM public.users WHERE user_id = $1 LIMIT 1', [req.userId]);
     dbUser = result.rows[0];
   } catch (err) {
-    console.error('[auth] Voroa /me lookup failed:', err.message);
+    console.error('[auth] PostgreSQL /me lookup failed:', err.message);
     return res.status(503).json({ error: 'Account database unavailable' });
   }
 
@@ -307,7 +307,7 @@ router.post('/verify-email', asyncRoute(async (req, res) => {
     );
     user = result.rows[0];
   } catch (err) {
-    console.error('[auth] Voroa email verification lookup failed:', err.message);
+    console.error('[auth] PostgreSQL email verification lookup failed:', err.message);
     return res.status(503).json({ error: 'Account database unavailable' });
   }
 
@@ -343,7 +343,7 @@ router.post('/verify-email', asyncRoute(async (req, res) => {
     );
     updated = result.rows[0];
   } catch (err) {
-    console.error('[auth] Voroa email verification update failed:', err.message);
+    console.error('[auth] PostgreSQL email verification update failed:', err.message);
     return res.status(503).json({ error: 'Could not complete email verification. Please try again.' });
   }
 
@@ -378,7 +378,7 @@ router.post('/resend-verification', authThrottle(6, 60_000), asyncRoute(async (r
     );
     user = result.rows[0];
   } catch (err) {
-    console.error('[auth] Voroa verification resend lookup failed:', err.message);
+    console.error('[auth] PostgreSQL verification resend lookup failed:', err.message);
     return res.status(503).json({ error: 'Could not process verification request. Please try again.' });
   }
 
@@ -402,7 +402,7 @@ router.post('/resend-verification', authThrottle(6, 60_000), asyncRoute(async (r
     );
     updated = result.rows[0];
   } catch (err) {
-    console.error('[auth] Voroa verification resend update failed:', err.message);
+    console.error('[auth] PostgreSQL verification resend update failed:', err.message);
     return res.status(503).json({ error: 'Could not process verification request. Please try again.' });
   }
 
@@ -435,7 +435,7 @@ router.post('/forgot-password', authThrottle(8, 60_000), asyncRoute(async (req, 
     );
     user = result.rows[0];
   } catch (err) {
-    console.error('[auth] Voroa password-reset lookup failed:', err.message);
+    console.error('[auth] PostgreSQL password-reset lookup failed:', err.message);
     return res.status(503).json({ error: 'Password reset is temporarily unavailable. Please try again.' });
   }
 
@@ -457,7 +457,7 @@ router.post('/forgot-password', authThrottle(8, 60_000), asyncRoute(async (req, 
       );
       if (!result.rows[0]) throw new Error('No user row updated');
     } catch (err) {
-      console.error('[auth] Voroa password-reset persistence failed:', err.message);
+      console.error('[auth] PostgreSQL password-reset persistence failed:', err.message);
       return res.status(503).json({ error: 'Password reset is temporarily unavailable. Please try again.' });
     }
 
@@ -502,7 +502,7 @@ router.post('/reset-password', authThrottle(15, 60_000), asyncRoute(async (req, 
     );
     user = result.rows[0];
   } catch (err) {
-    console.error('[auth] Voroa password-reset validation failed:', err.message);
+    console.error('[auth] PostgreSQL password-reset validation failed:', err.message);
     return res.status(503).json({ error: 'Password reset is temporarily unavailable. Please try again.' });
   }
 
@@ -543,7 +543,7 @@ router.post('/reset-password', authThrottle(15, 60_000), asyncRoute(async (req, 
     addActivity(user.user_id, 'auth.password_reset_completed', { email });
     return res.json({ ok: true, message: 'Password has been reset successfully. You can now log in.' });
   } catch (err) {
-    console.error('[auth] Voroa password-reset update failed:', err.message);
+    console.error('[auth] PostgreSQL password-reset update failed:', err.message);
     return res.status(503).json({ error: 'Password reset is temporarily unavailable. Please try again.' });
   }
 }));

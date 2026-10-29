@@ -125,7 +125,7 @@ const path = require('node:path');
     };
 
     const cached = await store.getMediaStream(recordId, ownerDid, requestOptions);
-    assert.equal(cached.backend, 'voroa-local-verified-cache');
+    assert.equal(cached.backend, 'postgresql-local-verified-cache');
     assert.deepEqual(cached.buffer, original.subarray(start, end + 1));
     assert.equal(cloudReadQueries, 0, 'valid local CID should avoid the PostgreSQL payload query');
     console.log('PASS: matching SHA-256 uses the local file and returns the exact range.');
@@ -139,7 +139,7 @@ const path = require('node:path');
 
     fs.writeFileSync(mediaPath, Buffer.alloc(original.length, 0x58));
     const fallback = await store.getMediaStream(recordId, ownerDid, requestOptions);
-    assert.equal(fallback.backend, 'voroa-postgresql');
+    assert.equal(fallback.backend, 'postgresql');
     assert.deepEqual(fallback.buffer, original.subarray(start, end + 1));
     assert.ok(cloudReadQueries >= 1, 'CID mismatch must fall back to the authoritative PostgreSQL range');
     assert.ok(ownerChecks >= 1, 'fallback must retain PostgreSQL owner verification');

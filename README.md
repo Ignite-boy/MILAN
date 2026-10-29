@@ -12,7 +12,7 @@ MILAN is a privacy-oriented social application built around DID-based identity c
 |---|---|
 | Web frontend | Static HTML, CSS, JavaScript and assets in `frontend/`, served by the Express application. |
 | HTTP/API | Long-lived Express application in `backend/server.js`; the same service handles the frontend and `/api/*` routes. |
-| Authoritative persistence | Voroa PostgreSQL for user snapshots, records, resumable uploads and media bytes. `MILAN_DATABASE_URL` connects the service to PostgreSQL. |
+| Authoritative persistence | Cloud SQL for PostgreSQL for user snapshots, records, resumable uploads and media bytes. `MILAN_DATABASE_URL` connects the service to PostgreSQL. |
 | Identity and user spaces | DID and per-user space identifiers are associated with authoritative user records. A logical per-user namespace is not by itself proof of a live standards-compliant DWN node. |
 | C++ DWN component | Standalone experimental implementation in `DWN/`; its canonical CMake target uses LevelDB. It is **not currently verified as the protocol engine used by the main production API**. |
 | Quality/testing | `Milan-Sentinel/` defines a 10,000,000-combination Cartesian test space. Only cases with implemented adapters can produce PASS; unimplemented combinations must be SKIP. |
@@ -20,7 +20,7 @@ MILAN is a privacy-oriented social application built around DID-based identity c
 
 ## Important architecture boundary
 
-The main API reports `realDwnProtocol: false` in its current persistence metadata. Voroa PostgreSQL persistence and DID-scoped application records are part of the current implementation, but signed DWN protocol execution by a dedicated per-user DWN engine is **not verified in the main production path**. The former documentation describing `backend/services/realDwnEngine.js` did not match the current source tree and has been corrected.
+The main API reports `realDwnProtocol: false` in its current persistence metadata. Cloud SQL for PostgreSQL persistence and DID-scoped application records are part of the current implementation, but signed DWN protocol execution by a dedicated per-user DWN engine is **not verified in the main production path**. The former documentation describing `backend/services/realDwnEngine.js` did not match the current source tree and has been corrected.
 
 Similarly, the C++ DWN subproject and the wallet/travel components are standalone or experimental until their own integration, persistence, authorization, deployment and end-to-end tests pass. The repository's directory layout is not proof that these services are deployed from this monorepo.
 
@@ -46,7 +46,7 @@ npm --prefix Milan-Sentinel run smoke
 
 Use `backend/.env.example` as a template only. Required production secrets must be created in the hosting provider's secret manager and must never be committed. See [the environment contract](docs/ENVIRONMENT_CONTRACT.md) and [MILAN-ONE architecture/status](docs/MILAN_ONE_ARCHITECTURE.md).
 
-Deploy the repository root as a Node.js web service on Voroa. Use `npm ci && npm run build` as the build command and `npm start` as the start command. Configure `MILAN_DATABASE_URL` (or `DATABASE_URL`) for Voroa PostgreSQL plus the required authentication secrets. Set the custom domain to the Voroa service only after the service and database checks pass; a repository commit alone does not prove the live domain has moved.
+Deploy the repository root as a Node.js web service on Google Cloud Run. Use `npm ci && npm run build` as the build command and `npm start` as the start command. Configure `MILAN_DATABASE_URL` (or `DATABASE_URL`) for Cloud SQL for PostgreSQL plus the required authentication secrets. Set the custom domain to the Cloud Run service only after the service and database checks pass; a repository commit alone does not prove the live domain has moved.
 
 ## Operating principles
 

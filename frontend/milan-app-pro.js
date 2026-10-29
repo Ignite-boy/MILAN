@@ -422,7 +422,7 @@
 
   /* ══════════════════════════════════════════════════════════════════════
      8. People directory (right rail "People to connect")
-        The backend already returns every other registered user from the Voroa-backed user directory
+        The backend already returns every other registered user from the PostgreSQL-backed user directory
         with their name, DID and connection status (routes/social.js:132-172),
         and inline-05.js's loadPeople() already knows how to render it. In
         practice the rail is often left showing its static "Loading people..."

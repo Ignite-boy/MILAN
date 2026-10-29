@@ -77,7 +77,7 @@ BEGIN
      )
   ) THEN
     RAISE EXCEPTION
-      'Voroa runtime/function-owner roles must not have role memberships.';
+      'PostgreSQL runtime/function-owner roles must not have role memberships.';
   END IF;
 END
 $roles$;

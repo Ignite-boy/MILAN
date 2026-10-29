@@ -1,6 +1,6 @@
 BEGIN;
 
--- Voroa/PostgreSQL shared rate limiter. Review before deployment.
+-- PostgreSQL shared rate limiter. Review before deployment.
 CREATE TABLE IF NOT EXISTS public.api_rate_limit_buckets (
   key_hash text PRIMARY KEY CHECK (key_hash ~ '^[0-9a-f]{64}$'),
   window_start timestamptz NOT NULL,

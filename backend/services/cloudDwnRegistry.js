@@ -9,8 +9,8 @@ const { withStorageQuotaTransaction } = require('./storageQuotaGuard');
 
 const deletedRecordIds = new Set();
 
-// MILAN VOROA STORAGE RULE:
-// Voroa PostgreSQL is authoritative for user snapshots, records, and media bytes.
+// MILAN POSTGRESQL STORAGE RULE:
+// PostgreSQL is authoritative for user snapshots, records, and media bytes.
 // Local files are temporary processing/cache storage only.
 
 function sanitizeEndpoint(url = '') {
@@ -43,7 +43,7 @@ function publicBase() {
 }
 
 function cloudRemoteBase() {
-  // Voroa PostgreSQL is the authoritative persistence layer.
+  // PostgreSQL is the authoritative persistence layer.
   // No external DWN protocol endpoint is configured.
   return '';
 }
@@ -205,7 +205,7 @@ function endpointForSpace(spaceId) {
 }
 
 function configuredEndpoints() {
-  // Voroa PostgreSQL is primary for core storage; no signed DWN protocol endpoint is configured.
+  // PostgreSQL is primary for core storage; no signed DWN protocol endpoint is configured.
   return [];
 }
 
@@ -253,7 +253,7 @@ function provisionIsolatedDwn({ userId = '', did = '', email = '', spaceId: prea
     sdkReady: false,
     protocolEngineReady: false,
     appStoresUserData: false,
-    model: 'voroa-postgresql-primary-one-user-one-did-one-isolated-space',
+    model: 'postgresql-primary-one-user-one-did-one-isolated-space',
     isolation: 'single-user',
     spaceId,
     userId,
@@ -371,7 +371,7 @@ function makeDidDwnService(user) {
   };
 }
 
-async function ensureVoroaTenant(did) {
+async function ensurePostgresTenant(did) {
   const tenantDid = String(did || '').trim();
   if (!tenantDid) throw new Error('Missing tenant DID');
 
@@ -381,10 +381,10 @@ async function ensureVoroaTenant(did) {
   );
 
   if (result.rowCount !== 1 || !result.rows[0].space_id) {
-    throw new Error('Voroa user DID/space mapping not found; refusing to provision an unowned tenant.');
+    throw new Error('PostgreSQL user DID/space mapping not found; refusing to provision an unowned tenant.');
   }
 
-  return { did: result.rows[0].did, spaceId: result.rows[0].space_id, backend: 'voroa' };
+  return { did: result.rows[0].did, spaceId: result.rows[0].space_id, backend: 'postgresql' };
 }
 
 async function deleteRecordFromCloudDwn(recordId, ownerDid = '') {
@@ -398,7 +398,7 @@ async function deleteRecordFromCloudDwn(recordId, ownerDid = '') {
     [did]
   );
   if (userResult.rowCount !== 1 || !userResult.rows[0].space_id) {
-    throw new Error('Cannot resolve the authoritative Voroa DID/space mapping.');
+    throw new Error('Cannot resolve the authoritative PostgreSQL DID/space mapping.');
   }
 
   const result = await milanDb.query(
@@ -431,7 +431,7 @@ async function deleteRecordFromCloudDwn(recordId, ownerDid = '') {
     recordDeleted: deletedRecordCount > 0,
     mediaDeleted: deletedMediaCount > 0,
     permanent: true,
-    backend: 'voroa',
+    backend: 'postgresql',
     recordId: id,
     deletedAt: new Date().toISOString()
   };
@@ -442,10 +442,10 @@ async function pushRecordToCloudDwn(record, user) {
   const ownerDid = String(user?.did || record?.owner || '').trim();
   const recordId = String(record?.id || '').trim();
 
-  if (!recordId) return { pushed: false, backend: 'voroa', error: 'Record id is required', pushedAt: now };
-  if (!ownerDid) return { pushed: false, backend: 'voroa', error: 'Owner DID is required', pushedAt: now };
+  if (!recordId) return { pushed: false, backend: 'postgresql', error: 'Record id is required', pushedAt: now };
+  if (!ownerDid) return { pushed: false, backend: 'postgresql', error: 'Owner DID is required', pushedAt: now };
   if (deletedRecordIds.has(recordId)) {
-    return { pushed: false, backend: 'voroa', recordId, skipped: 'permanently-deleted' };
+    return { pushed: false, backend: 'postgresql', recordId, skipped: 'permanently-deleted' };
   }
 
   try {
@@ -454,7 +454,7 @@ async function pushRecordToCloudDwn(record, user) {
       [ownerDid]
     );
     if (userResult.rowCount !== 1 || !userResult.rows[0].space_id) {
-      throw new Error('Cannot resolve the authoritative Voroa DID/space mapping.');
+      throw new Error('Cannot resolve the authoritative PostgreSQL DID/space mapping.');
     }
 
     const spaceId = String(userResult.rows[0].space_id).trim();
@@ -533,8 +533,8 @@ async function pushRecordToCloudDwn(record, user) {
 
     return {
       pushed: true,
-      backend: 'voroa',
-      mode: 'voroa-postgresql',
+      backend: 'postgresql',
+      mode: 'postgresql',
       isolation: 'did-space',
       spaceId,
       recordId,
@@ -543,15 +543,15 @@ async function pushRecordToCloudDwn(record, user) {
       pushedAt: now
     };
   } catch (err) {
-    console.error('[Voroa DWN record sync failed]', recordId, err.message);
+    console.error('[PostgreSQL DWN record sync failed]', recordId, err.message);
     return {
       pushed: false,
-      backend: 'voroa',
-      mode: 'voroa-postgresql',
+      backend: 'postgresql',
+      mode: 'postgresql',
       recordId,
       error: err.message,
       status: Number(err.status) || 502,
-      code: err.code || 'VOROA_RECORD_WRITE_FAILED',
+      code: err.code || 'POSTGRESQL_RECORD_WRITE_FAILED',
       pushedAt: now
     };
   }
@@ -561,9 +561,9 @@ async function pushMediaToCloudDwn(record, user, absoluteFilePath) {
   const pushedAt = new Date().toISOString();
   const did = String(user?.did || record?.owner || '').trim();
   const recordId = String(record?.id || '').trim();
-  if (!did || !recordId) return { pushed: false, backend: 'voroa', error: 'Missing owner DID or record ID', pushedAt };
+  if (!did || !recordId) return { pushed: false, backend: 'postgresql', error: 'Missing owner DID or record ID', pushedAt };
   if (!absoluteFilePath || !fs.existsSync(absoluteFilePath)) {
-    return { pushed: false, backend: 'voroa', error: 'Media file not found', pushedAt };
+    return { pushed: false, backend: 'postgresql', error: 'Media file not found', pushedAt };
   }
 
   try {
@@ -571,7 +571,7 @@ async function pushMediaToCloudDwn(record, user, absoluteFilePath) {
       'SELECT space_id FROM public.users WHERE did = $1 LIMIT 1', [did]
     );
     if (owner.rowCount !== 1 || !owner.rows[0].space_id) {
-      throw new Error('Voroa owner DID/space mapping not found');
+      throw new Error('PostgreSQL owner DID/space mapping not found');
     }
     const spaceId = String(owner.rows[0].space_id);
     const stat = fs.statSync(absoluteFilePath);
@@ -593,7 +593,7 @@ async function pushMediaToCloudDwn(record, user, absoluteFilePath) {
     const metadata = {
       kind: 'media-bytes', recordId, fileName, mimeType,
       sizeBytes: bytes.length, dataCid: 'sha256:' + digest,
-      storageBackend: 'voroa-postgresql', spaceId
+      storageBackend: 'postgresql', spaceId
     };
 
     const recordPayload = record.binaryData
@@ -696,32 +696,32 @@ async function pushMediaToCloudDwn(record, user, absoluteFilePath) {
     console.info(`[MILAN media-commit] phase=postgres_transaction_complete duration_ms=${Date.now() - postgresTransactionStartedAt}`);
 
     return {
-      pushed: true, backend: 'voroa', mode: 'voroa-postgresql',
+      pushed: true, backend: 'postgresql', mode: 'postgresql',
       spaceId, recordId, itemKey, dataCid: 'sha256:' + digest,
       dataSize: bytes.length, fileName, mimeType, pushedAt
     };
   } catch (error) {
-    console.error('[Voroa media upload failed]', recordId, error.message);
-    return { pushed: false, backend: 'voroa', recordId, error: error.message, status: Number(error.status) || 502, code: error.code || 'VOROA_MEDIA_WRITE_FAILED', pushedAt };
+    console.error('[PostgreSQL media upload failed]', recordId, error.message);
+    return { pushed: false, backend: 'postgresql', recordId, error: error.message, status: Number(error.status) || 502, code: error.code || 'POSTGRESQL_MEDIA_WRITE_FAILED', pushedAt };
   }
 }
 
 async function provisionRemoteUserDwn(user = {}) {
   const did = String(user?.did || '').trim();
-  if (!did) return { ok: false, backend: 'voroa', error: 'User DID is required' };
+  if (!did) return { ok: false, backend: 'postgresql', error: 'User DID is required' };
 
   try {
-    await ensureVoroaTenant(did);
+    await ensurePostgresTenant(did);
     return {
       ok: true,
-      backend: 'voroa',
+      backend: 'postgresql',
       did,
       provisionedAt: new Date().toISOString()
     };
   } catch (err) {
     return {
       ok: false,
-      backend: 'voroa',
+      backend: 'postgresql',
       did,
       error: err.message,
       provisionedAt: new Date().toISOString()
@@ -734,7 +734,7 @@ async function syncDatabaseSnapshot(name, data) {
   const syncedAt = new Date().toISOString();
 
   if (!snapshotName) {
-    return { ok: false, backend: 'voroa', error: 'Snapshot name is required', syncedAt };
+    return { ok: false, backend: 'postgresql', error: 'Snapshot name is required', syncedAt };
   }
 
   try {
@@ -749,13 +749,13 @@ async function syncDatabaseSnapshot(name, data) {
 
     return {
       ok: true,
-      backend: 'voroa',
+      backend: 'postgresql',
       response: { name: snapshotName },
       syncedAt
     };
   } catch (err) {
-    console.error('[Voroa DB snapshot sync failed]', snapshotName, err.message);
-    return { ok: false, backend: 'voroa', error: err.message, syncedAt };
+    console.error('[PostgreSQL DB snapshot sync failed]', snapshotName, err.message);
+    return { ok: false, backend: 'postgresql', error: err.message, syncedAt };
   }
 }
 
@@ -763,7 +763,7 @@ async function pullDatabaseSnapshot(name) {
   const snapshotName = String(name || '').trim();
 
   if (!snapshotName) {
-    return { ok: false, backend: 'voroa', error: 'Snapshot name is required', data: {} };
+    return { ok: false, backend: 'postgresql', error: 'Snapshot name is required', data: {} };
   }
 
   try {
@@ -775,14 +775,14 @@ async function pullDatabaseSnapshot(name) {
 
     return {
       ok: true,
-      backend: 'voroa',
+      backend: 'postgresql',
       data: row?.data || {},
       missing: !row,
       pulledAt: row?.pushed_at || new Date().toISOString()
     };
   } catch (err) {
-    console.error('[Voroa DB snapshot pull failed]', snapshotName, err.message);
-    return { ok: false, backend: 'voroa', error: err.message, data: {} };
+    console.error('[PostgreSQL DB snapshot pull failed]', snapshotName, err.message);
+    return { ok: false, backend: 'postgresql', error: err.message, data: {} };
   }
 }
 
@@ -794,8 +794,8 @@ async function realUserDwnNodeStatus(user) {
   if (!did || !info.spaceId) {
     return {
       ok: false,
-      backend: 'voroa',
-      mode: 'voroa-postgresql',
+      backend: 'postgresql',
+      mode: 'postgresql',
       storageReady: false,
       tenantConfigured: false,
       nodeReady: false,
@@ -817,8 +817,8 @@ async function realUserDwnNodeStatus(user) {
     if (result.rowCount !== 1 || !tenant?.space_id) {
       return {
         ok: false,
-        backend: 'voroa',
-        mode: 'voroa-postgresql',
+        backend: 'postgresql',
+        mode: 'postgresql',
         storageReady: false,
         tenantConfigured: false,
         nodeReady: false,
@@ -833,8 +833,8 @@ async function realUserDwnNodeStatus(user) {
     if (String(tenant.space_id) !== String(info.spaceId)) {
       return {
         ok: false,
-        backend: 'voroa',
-        mode: 'voroa-postgresql',
+        backend: 'postgresql',
+        mode: 'postgresql',
         storageReady: false,
         tenantConfigured: true,
         nodeReady: false,
@@ -848,8 +848,8 @@ async function realUserDwnNodeStatus(user) {
 
     return {
       ok: false,
-      backend: 'voroa',
-      mode: 'voroa-postgresql',
+      backend: 'postgresql',
+      mode: 'postgresql',
       storageReady: true,
       tenantConfigured: true,
       nodeReady: false,
@@ -858,21 +858,21 @@ async function realUserDwnNodeStatus(user) {
       spaceId: tenant.space_id,
       endpoint: info.endpoint || '',
       reason: 'real-dwn-protocol-not-integrated',
-      message: 'Voroa PostgreSQL DID/space mapping verified. Signed DWN protocol execution is not integrated.',
+      message: 'PostgreSQL DID/space mapping verified. Signed DWN protocol execution is not integrated.',
       checkedAt
     };
   } catch (err) {
     return {
       ok: false,
-      backend: 'voroa',
-      mode: 'voroa-postgresql',
+      backend: 'postgresql',
+      mode: 'postgresql',
       storageReady: false,
       tenantConfigured: false,
       nodeReady: false,
       protocolReady: false,
       did,
       spaceId: info.spaceId,
-      reason: 'voroa-status-check-failed',
+      reason: 'postgresql-status-check-failed',
       error: err.message,
       checkedAt
     };

@@ -20,16 +20,20 @@ concurrency:
 
 jobs:
   health-and-latency:
-    name: "Measure Voroa health and response latency"
+    name: "Measure GCP Cloud Run health and response latency"
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Probe production health endpoints and publish targets
         shell: bash
         env:
-          BASE_URL: https://milan-web.getvoroa.com
+          BASE_URL: ${{ vars.GCP_CLOUD_RUN_URL }}
         run: |
           set -uo pipefail
+          if [[ -z "${BASE_URL:-}" ]]; then
+            echo "::error::Set repository variable GCP_CLOUD_RUN_URL to the deployed Cloud Run service URL."
+            exit 1
+          fi
           mkdir -p "$RUNNER_TEMP/milan-smoothness"
 
           probe() {

@@ -133,7 +133,7 @@ function streamRangeOrWholeFile(req, res, fullPath, media, sourceLabel = '') {
 }
 
 
-function streamRangeOrBuffer(req, res, media, sourceLabel = 'voroa-postgresql', parsedRangeOverride = undefined) {
+function streamRangeOrBuffer(req, res, media, sourceLabel = 'postgresql', parsedRangeOverride = undefined) {
   const buffer = Buffer.isBuffer(media.buffer) ? media.buffer : null;
   const total = Number(media.sizeBytes ?? (buffer ? buffer.length : 0));
   let contentType = browserServeMime(media, media.fileName || '');
@@ -241,7 +241,7 @@ function cleanupOldUploadSessions() {
 function usesSharedUploadStorage() {
   const backend = String(process.env.MILAN_UPLOAD_STORAGE_BACKEND || '').trim().toLowerCase();
   if (backend === 'local') return false;
-  if (['voroa', 'voroa-postgresql', 'postgres', 'postgresql'].includes(backend)) return true;
+  if (['postgresql', 'postgresql', 'postgres', 'postgresql'].includes(backend)) return true;
   return process.env.NODE_ENV === 'production';
 }
 
@@ -917,7 +917,7 @@ async function streamMedia(req, res) {
       const parsed = parseByteRange(rangeHeader, total);
       selectedRange = parsed;
       if (!parsed || parsed.invalid) {
-        return streamRangeOrBuffer(req, res, media, media.backend || 'voroa-postgresql', parsed);
+        return streamRangeOrBuffer(req, res, media, media.backend || 'postgresql', parsed);
       }
 
       const expectedCid = String(media.dataCid || '');
@@ -962,8 +962,8 @@ async function streamMedia(req, res) {
 
     if (media.authoritativeCloud && req.method === 'HEAD') {
       traceStage = 'response_selected';
-      trace('source_selected', { source: media.backend || 'voroa-postgresql', kind: 'head' });
-      return streamRangeOrBuffer(req, res, media, media.backend || 'voroa-postgresql');
+      trace('source_selected', { source: media.backend || 'postgresql', kind: 'head' });
+      return streamRangeOrBuffer(req, res, media, media.backend || 'postgresql');
     }
 
     if (Buffer.isBuffer(media.buffer)) {
@@ -973,7 +973,7 @@ async function streamMedia(req, res) {
         bytes: media.buffer.length,
         range_response: !!selectedRange
       });
-      return streamRangeOrBuffer(req, res, media, media.backend || 'voroa-postgresql', selectedRange);
+      return streamRangeOrBuffer(req, res, media, media.backend || 'postgresql', selectedRange);
     }
 
     const streamLocalFile = (fullPath, sourceLabel = 'app-cache') => {

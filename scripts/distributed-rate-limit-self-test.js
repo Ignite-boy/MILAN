@@ -55,7 +55,7 @@ async function main() {
 
     const migrationPath = path.join(
       __dirname, '..', 'backend', 'migrations',
-      '20261019_voroa_distributed_rate_limit.sql'
+      '20261019_postgresql_distributed_rate_limit.sql'
     );
     const migration = fs.readFileSync(migrationPath, 'utf8');
 

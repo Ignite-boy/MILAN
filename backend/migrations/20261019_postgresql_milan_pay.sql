@@ -1,6 +1,6 @@
 BEGIN;
 
--- Voroa PostgreSQL migration for MILAN Pay.
+-- PostgreSQL migration for MILAN Pay.
 -- Create locally and review before any database deployment.
 -- Legacy payment records must never be assigned to a user without verified identity mapping.
 
@@ -491,7 +491,7 @@ ALTER FUNCTION public.admin_reject_legacy_milan_storage_request(text, text)
   OWNER TO milan_pay_fn_owner;
 REVOKE CREATE ON SCHEMA public FROM milan_pay_fn_owner;
 
--- Runtime permissions required by current Voroa-backed application paths.
+-- Runtime permissions required by current PostgreSQL-backed application paths.
 GRANT USAGE ON SCHEMA public TO milan_app;
 
 -- Users: only registration and authentication columns are writable by runtime.

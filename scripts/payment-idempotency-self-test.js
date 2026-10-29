@@ -9,9 +9,9 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 
 const pay = read('backend/routes/milanPay.js');
 const storage = read('backend/routes/storage.js');
-const migration = read('backend/migrations/20261019_voroa_milan_pay.sql');
+const migration = read('backend/migrations/20261019_postgresql_milan_pay.sql');
 const pendingMigration = read('backend/migrations/20261015_milan_pay_single_pending_order.sql');
-const roles = read('backend/migrations/20261019_voroa_00_roles.sql');
+const roles = read('backend/migrations/20261019_postgresql_00_roles.sql');
 const pkg = JSON.parse(read('package.json'));
 const workflow = read('.github/workflows/milan-ci.yml');
 
@@ -178,8 +178,8 @@ check('Manual UPI mode does not claim automatic settlement confirmation',
   !/status:\s*['"]paid['"]/.test(pay));
 
 check('Test scope includes the current payment and role migrations',
-  fs.existsSync(path.join(root, 'backend/migrations/20261019_voroa_milan_pay.sql')) &&
-  fs.existsSync(path.join(root, 'backend/migrations/20261019_voroa_00_roles.sql')));
+  fs.existsSync(path.join(root, 'backend/migrations/20261019_postgresql_milan_pay.sql')) &&
+  fs.existsSync(path.join(root, 'backend/migrations/20261019_postgresql_00_roles.sql')));
 
 console.log(`A08 PAYMENT IDEMPOTENCY SELF-TEST: ${passed} passed, ${failures} failed.`);
 if (failures) process.exitCode = 1;

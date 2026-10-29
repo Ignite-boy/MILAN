@@ -156,7 +156,7 @@
     drawer.appendChild(more);
 
     var extras = document.createElement("div");
-    extras.innerHTML = '<a href="#" id="milan-voroa-dashboard-link">📊 Dashboard</a><a href="/music">🎵 Music</a><a href="/settings">⚙️ Settings</a><a href="/about">ℹ️ About</a>';
+    extras.innerHTML = '<a href="#" id="milan-dashboard-link">📊 Dashboard</a><a href="/music">🎵 Music</a><a href="/settings">⚙️ Settings</a><a href="/about">ℹ️ About</a>';
     extras.style.cssText = "display:flex;flex-direction:column;gap:5px";
     extras.querySelectorAll("a").forEach(function (a) {
       a.style.cssText = "display:flex;align-items:center;min-height:46px;padding:11px 14px;box-sizing:border-box;border:1px solid transparent;border-radius:12px;background:#111c31;color:#dce5f5;text-decoration:none;font:600 14px/1.25 system-ui,sans-serif";
@@ -165,40 +165,40 @@
 
     drawer.appendChild(extras);
 
-    // Personal Dashboard — served as part of the existing Voroa web service.
+    // Personal Dashboard — served as part of the existing PostgreSQL web service.
     // All data comes from the signed-in user's existing authenticated APIs.
     var dashboardStyle = document.createElement("style");
-    dashboardStyle.id = "milan-voroa-dashboard-style";
+    dashboardStyle.id = "milan-dashboard-style";
     dashboardStyle.textContent =
-      "#milan-voroa-dashboard{display:none;position:fixed;inset:0;z-index:5000;overflow:auto;padding:clamp(12px,3vw,28px);background:rgba(3,7,18,.92);backdrop-filter:blur(12px);color:#e8eef9;box-sizing:border-box}" +
-      "#milan-voroa-dashboard *{box-sizing:border-box}" +
-      "#milan-voroa-dashboard .mvd-shell{max-width:1120px;margin:0 auto;padding-bottom:30px}" +
-      "#milan-voroa-dashboard .mvd-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:8px 0 20px}" +
-      "#milan-voroa-dashboard .mvd-title{font-size:clamp(26px,4vw,38px);font-weight:850;letter-spacing:-.035em;margin:5px 0}" +
-      "#milan-voroa-dashboard .mvd-sub{font-size:12px;color:#96a7c3;line-height:1.6}" +
-      "#milan-voroa-dashboard .mvd-btn{border:1px solid #344864;border-radius:11px;background:#14233b;color:#edf3ff;padding:10px 13px;font-weight:750;cursor:pointer}" +
-      "#milan-voroa-dashboard .mvd-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:18px 0}" +
-      "#milan-voroa-dashboard .mvd-card{min-width:0;border:1px solid #273a58;border-radius:16px;padding:16px;background:linear-gradient(145deg,#14233c,#0b172c)}" +
-      "#milan-voroa-dashboard .mvd-label{font-size:12px;color:#9cacc6;font-weight:700}" +
-      "#milan-voroa-dashboard .mvd-value{font-size:clamp(25px,3vw,33px);font-weight:850;margin:8px 0 4px;color:#fff}" +
-      "#milan-voroa-dashboard .mvd-note{font-size:11px;line-height:1.5;color:#8294b1}" +
-      "#milan-voroa-dashboard .mvd-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:14px}" +
-      "#milan-voroa-dashboard .mvd-section{font-size:16px;font-weight:800;margin:0 0 6px}" +
-      "#milan-voroa-dashboard .mvd-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 0;border-top:1px solid rgba(145,164,197,.14)}" +
-      "#milan-voroa-dashboard .mvd-row:first-child{border-top:0}" +
-      "#milan-voroa-dashboard .mvd-main{min-width:0;overflow-wrap:anywhere}" +
-      "#milan-voroa-dashboard .mvd-row-title{font-size:13px;font-weight:750;color:#edf3ff;overflow-wrap:anywhere}" +
-      "#milan-voroa-dashboard .mvd-meta{font-size:11px;color:#8da0bd;line-height:1.6;margin-top:4px;overflow-wrap:anywhere}" +
-      "#milan-voroa-dashboard .mvd-tag{display:inline-block;font-size:10px;border:1px solid #344966;border-radius:99px;padding:3px 8px;margin-top:5px;color:#bfcde4}" +
-      "#milan-voroa-dashboard .mvd-copy{flex-shrink:0;border:1px solid #344966;border-radius:8px;background:#13243d;color:#dce8fc;padding:7px 9px;font-size:11px;cursor:pointer}" +
-      "#milan-voroa-dashboard .mvd-empty{font-size:13px;line-height:1.7;color:#96a7c3;padding:18px 0}" +
-      "#milan-voroa-dashboard .mvd-status{font-size:12px;color:#98b0ff;min-height:19px}" +
-      "@media(max-width:720px){#milan-voroa-dashboard .mvd-metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}#milan-voroa-dashboard .mvd-grid{grid-template-columns:1fr}#milan-voroa-dashboard .mvd-card{padding:13px}#milan-voroa-dashboard .mvd-top{align-items:flex-start}}" +
-      "@media(max-width:390px){#milan-voroa-dashboard .mvd-btn{padding:9px 10px}}";
+      "#milan-dashboard{display:none;position:fixed;inset:0;z-index:5000;overflow:auto;padding:clamp(12px,3vw,28px);background:rgba(3,7,18,.92);backdrop-filter:blur(12px);color:#e8eef9;box-sizing:border-box}" +
+      "#milan-dashboard *{box-sizing:border-box}" +
+      "#milan-dashboard .mvd-shell{max-width:1120px;margin:0 auto;padding-bottom:30px}" +
+      "#milan-dashboard .mvd-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:8px 0 20px}" +
+      "#milan-dashboard .mvd-title{font-size:clamp(26px,4vw,38px);font-weight:850;letter-spacing:-.035em;margin:5px 0}" +
+      "#milan-dashboard .mvd-sub{font-size:12px;color:#96a7c3;line-height:1.6}" +
+      "#milan-dashboard .mvd-btn{border:1px solid #344864;border-radius:11px;background:#14233b;color:#edf3ff;padding:10px 13px;font-weight:750;cursor:pointer}" +
+      "#milan-dashboard .mvd-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:18px 0}" +
+      "#milan-dashboard .mvd-card{min-width:0;border:1px solid #273a58;border-radius:16px;padding:16px;background:linear-gradient(145deg,#14233c,#0b172c)}" +
+      "#milan-dashboard .mvd-label{font-size:12px;color:#9cacc6;font-weight:700}" +
+      "#milan-dashboard .mvd-value{font-size:clamp(25px,3vw,33px);font-weight:850;margin:8px 0 4px;color:#fff}" +
+      "#milan-dashboard .mvd-note{font-size:11px;line-height:1.5;color:#8294b1}" +
+      "#milan-dashboard .mvd-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:14px}" +
+      "#milan-dashboard .mvd-section{font-size:16px;font-weight:800;margin:0 0 6px}" +
+      "#milan-dashboard .mvd-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 0;border-top:1px solid rgba(145,164,197,.14)}" +
+      "#milan-dashboard .mvd-row:first-child{border-top:0}" +
+      "#milan-dashboard .mvd-main{min-width:0;overflow-wrap:anywhere}" +
+      "#milan-dashboard .mvd-row-title{font-size:13px;font-weight:750;color:#edf3ff;overflow-wrap:anywhere}" +
+      "#milan-dashboard .mvd-meta{font-size:11px;color:#8da0bd;line-height:1.6;margin-top:4px;overflow-wrap:anywhere}" +
+      "#milan-dashboard .mvd-tag{display:inline-block;font-size:10px;border:1px solid #344966;border-radius:99px;padding:3px 8px;margin-top:5px;color:#bfcde4}" +
+      "#milan-dashboard .mvd-copy{flex-shrink:0;border:1px solid #344966;border-radius:8px;background:#13243d;color:#dce8fc;padding:7px 9px;font-size:11px;cursor:pointer}" +
+      "#milan-dashboard .mvd-empty{font-size:13px;line-height:1.7;color:#96a7c3;padding:18px 0}" +
+      "#milan-dashboard .mvd-status{font-size:12px;color:#98b0ff;min-height:19px}" +
+      "@media(max-width:720px){#milan-dashboard .mvd-metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}#milan-dashboard .mvd-grid{grid-template-columns:1fr}#milan-dashboard .mvd-card{padding:13px}#milan-dashboard .mvd-top{align-items:flex-start}}" +
+      "@media(max-width:390px){#milan-dashboard .mvd-btn{padding:9px 10px}}";
     document.head.appendChild(dashboardStyle);
 
     var dashboard = document.createElement("div");
-    dashboard.id = "milan-voroa-dashboard";
+    dashboard.id = "milan-dashboard";
     dashboard.setAttribute("aria-hidden", "true");
     dashboard.innerHTML =
       '<div class="mvd-shell" role="dialog" aria-modal="true" aria-labelledby="mvdTitle">' +
@@ -335,7 +335,7 @@
       dashboard.style.display = "none";
       dashboard.setAttribute("aria-hidden", "true");
     }
-    var dashboardLink = document.getElementById("milan-voroa-dashboard-link");
+    var dashboardLink = document.getElementById("milan-dashboard-link");
     if (dashboardLink) dashboardLink.addEventListener("click", function (event) {
       event.preventDefault();
       closeMenu();

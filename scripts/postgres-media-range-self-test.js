@@ -44,7 +44,7 @@ assert.match(
 );
 assert.match(
   service,
-  /backend: 'voroa-local-verified-cache'/,
+  /backend: 'postgresql-local-verified-cache'/,
   'A verified local byte-range read should identify its source'
 );
 assert.match(

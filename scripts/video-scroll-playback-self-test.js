@@ -21,7 +21,7 @@ const contracts = [
   ['off-screen playback gets paused', /entry\.intersectionRatio>=\.15[\s\S]*?video\.pause\(\)/],
   ['previously playing videos resume on re-entry', /delete video\.dataset\.milanPausedOffscreen;[\s\S]*?video\.play\(\)/],
   ['detached videos are unobserved', /visibilityObserver&&visibilityObserver\.unobserve\(video\)/],
-  ['ready Voroa media uses the authenticated stream fallback', /readyStatus==="ready"&&source&&proxy[\s\S]*?source\.setAttribute\("src",proxy\)/],
+  ['ready PostgreSQL media uses the authenticated stream fallback', /readyStatus==="ready"&&source&&proxy[\s\S]*?source\.setAttribute\("src",proxy\)/],
   ['Data Saver bypasses eager full-file download', /connection\.saveData/],
   ['slow mobile connections bypass eager full-file download', /slow-2g\|2g\|3g/],
   ['full-file Blob playback is explicitly opt-in', /window\.MILAN_ENABLE_TEMP_PLAYBACK_DOWNLOAD!==true/],

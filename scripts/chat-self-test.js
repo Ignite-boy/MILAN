@@ -88,7 +88,7 @@ assert(chat.includes('withChatWriteLock'), 'Concurrent message/receipt write gua
   assert(conversationMessagesStart >= 0 &&
          listConversationsStart > conversationMessagesStart &&
          peopleRouteStart > listConversationsStart,
-    'Voroa conversation reader functions are missing.');
+    'PostgreSQL conversation reader functions are missing.');
 
   const callerMailboxSql = source =>
     source.includes("component_type = 'record'") &&
@@ -96,9 +96,9 @@ assert(chat.includes('withChatWriteLock'), 'Concurrent message/receipt write gua
     source.includes('AND space_id = (SELECT space_id FROM public.users WHERE did = $1 LIMIT 1)');
 
   assert(callerMailboxSql(chat.slice(conversationMessagesStart, listConversationsStart)),
-    'Conversation reads must be limited to the caller-owned Voroa mailbox and tenant space.');
+    'Conversation reads must be limited to the caller-owned PostgreSQL mailbox and tenant space.');
   assert(callerMailboxSql(chat.slice(listConversationsStart, peopleRouteStart)),
-    'Conversation list must be limited to the caller-owned Voroa mailbox and tenant space.');
+    'Conversation list must be limited to the caller-owned PostgreSQL mailbox and tenant space.');
 
 assert(chat.includes('livePush.push(req.userId'), 'Sender other-device push missing.');
 

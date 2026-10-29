@@ -837,9 +837,9 @@ router.get('/health', (_req, res) => {
     ok: true,
     chat: 'ready',
     transport: 'DWN-to-DWN private mailbox records',
-    persistence: 'Voroa PostgreSQL-authoritative isolated DWN spaces',
+    persistence: 'PostgreSQL-authoritative isolated DWN spaces',
     audience: 'Approved MILAN friends only',
-    realtime: 'SSE accelerator; Voroa PostgreSQL sync fallback'
+    realtime: 'SSE accelerator; PostgreSQL sync fallback'
   });
 });
 

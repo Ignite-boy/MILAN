@@ -38,7 +38,7 @@ router.get('/health', auth, async (req, res) => {
         state: 'disconnected',
         did: found.user.did,
         spaceId: info.spaceId,
-        reason: node.error || node.reason || 'Voroa DID/space mapping unavailable',
+        reason: node.error || node.reason || 'PostgreSQL DID/space mapping unavailable',
         checkedAt: new Date().toISOString()
       });
     }

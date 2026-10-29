@@ -11,7 +11,7 @@ const { assertCloudSyncSucceeded } = require('./dwnSyncGuard');
 const { commitResumableMedia } = require('./resumableMediaCommit');
 
 
-// Voroa runs MILAN as a long-lived Node.js service, so background tasks are
+// PostgreSQL runs MILAN as a long-lived Node.js service, so background tasks are
 // managed by the Node process rather than a serverless-provider hook.
 function runBackground(task) {
   return Promise.resolve()
@@ -288,7 +288,7 @@ function applyAccess(record, mode, dids) {
     mode,
     readers: record.sharedWithDids,
     updatedAt: new Date().toISOString(),
-    storage: 'voroa-postgresql-isolated-per-user'
+    storage: 'postgresql-isolated-per-user'
   };
 }
 
@@ -307,7 +307,7 @@ function canRead(record, did) {
 function toClient(record, did, options = {}) {
   const baseRecord = options.summary ? compactMediaForList(record) : compactMediaForList(record);
   const mode = modeOf(baseRecord);
-  const engine = baseRecord.storageEngine || 'voroa-postgresql';
+  const engine = baseRecord.storageEngine || 'postgresql';
   return {
     ...baseRecord,
     accessMode: mode,
@@ -458,9 +458,9 @@ async function initDwn() {
   compactExistingIndex();
   repairIndexFromRecordFiles();
 
-  // Users are assigned an isolated Voroa-backed space for core storage.
+  // Users are assigned an isolated PostgreSQL-backed space for core storage.
   dwnInstance = {
-    type: 'voroa-postgresql-backed-isolated-space-cache',
+    type: 'postgresql-backed-isolated-space-cache',
     directory: DWN_DIR,
     startedAt: new Date().toISOString()
   };
@@ -494,7 +494,7 @@ function getStatus() {
       maxTextBytes: MAX_TEXT_BYTES
     },
     cloud: persistenceInfo(),
-    note: 'Voroa PostgreSQL is authoritative for core user snapshots, records, and media; local files are temporary cache. Signed DWN protocol execution is not integrated.'
+    note: 'PostgreSQL is authoritative for core user snapshots, records, and media; local files are temporary cache. Signed DWN protocol execution is not integrated.'
   };
 }
 
@@ -557,7 +557,7 @@ async function createRecord(userId, ownerDid, body = {}) {
     favorite: !!body.favorite,
     dateCreated: now,
     dateModified: now,
-    storageEngine: 'Voroa PostgreSQL-authoritative storage',
+    storageEngine: 'PostgreSQL-authoritative storage',
     dwnSdkReady: dwnInitStatus.sdkReady,
     storagePath: path.relative(path.join(__dirname, '..'), recordFile(userId, id)).replace(/\\/g, '/')
   };
@@ -636,7 +636,7 @@ async function createRecord(userId, ownerDid, body = {}) {
       throw lastError;
     }
   } else {
-    // Return the persisted record immediately; Voroa PostgreSQL sync continues in background.
+    // Return the persisted record immediately; PostgreSQL sync continues in background.
     runBackground(() => markCloudSync(record, ownerDid)
       .then(() => {
       record.cloudDwn = record.cloudDwn || {};
@@ -985,14 +985,14 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
       processingUpdatedAt: fastAcceptVideo ? now : undefined,
       uploadMode: meta.uploadMode || ''
     },
-    storageEngine: 'Voroa PostgreSQL-authoritative storage',
+    storageEngine: 'PostgreSQL-authoritative storage',
     dwnSdkReady: dwnInitStatus.sdkReady,
     storagePath: path.relative(path.join(__dirname, '..'), recordFile(userId, id)).replace(/\\/g, '/')
   };
   applyAccess(record, access.mode, access.dids);
 
   // Persist a local staging copy first, but do not report upload success until
-  // Voroa's authoritative quota-checked media+record transaction has completed.
+  // PostgreSQL's authoritative quota-checked media+record transaction has completed.
   record.cloudDwn = record.cloudDwn || {};
   record.cloudDwn.sync = {
     ok: false,
@@ -1013,20 +1013,20 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
   writeIndex(all);
 
   const ownerUser = userByDid(ownerDid);
-  // Every permanent Voroa media write must finish before the request can succeed.
-  const synchronousVoroaCommit = true;
+  // Every permanent PostgreSQL media write must finish before the request can succeed.
+  const synchronousPostgresCommit = true;
 
   let mediaSync = {
     pushed: false,
-    backend: 'voroa',
-    mode: String(meta.uploadMode || '') === 'resumable-chunked' ? 'synchronous-resumable' : 'synchronous-voroa',
+    backend: 'postgresql',
+    mode: String(meta.uploadMode || '') === 'resumable-chunked' ? 'synchronous-resumable' : 'synchronous-postgresql',
     pending: true,
     queuedAt: new Date().toISOString()
   };
   record.cloudDwn.mediaSync = mediaSync;
   persistRecord(userId, record);
 
-  if (synchronousVoroaCommit) {
+  if (synchronousPostgresCommit) {
     const persistCommitState = () => {
       persistRecord(userId, record);
       all[userId] = list;
@@ -1045,7 +1045,7 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
         persistCommitState,
         commitMode: String(meta.uploadMode || '') === 'resumable-chunked'
           ? 'synchronous-resumable'
-          : 'synchronous-voroa'
+          : 'synchronous-postgresql'
       });
     } catch (commitErr) {
       // A definitive quota rejection means neither permanent DB row committed.
@@ -1088,7 +1088,7 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
           if (fs.existsSync(mediaFile)) fs.unlinkSync(mediaFile);
         } catch (cleanupErr) {
           console.error(
-            '[Voroa quota-rejection retry restoration failed]',
+            '[PostgreSQL quota-rejection retry restoration failed]',
             record.id,
             cleanupErr.message
           );
@@ -1150,7 +1150,7 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
             console.error('[Background failed-media metadata sync failed]', record?.id, syncErr?.message || syncErr);
           }
         }
-        console.error('[Background Voroa media sync failed]', record?.id, err?.message || err);
+        console.error('[Background PostgreSQL media sync failed]', record?.id, err?.message || err);
       }
 
       try {
@@ -1167,7 +1167,7 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
     err.status = 502;
     throw err;
   }
-  const embeddedMediaMode = !!(mediaSync && mediaSync.backend === 'voroa' && mediaSync.mode === 'voroa-postgresql');
+  const embeddedMediaMode = !!(mediaSync && mediaSync.backend === 'postgresql' && mediaSync.mode === 'postgresql');
   if (isRemoteOnlyMode() && mediaSync.pushed && !embeddedMediaMode) {
     record.mediaRemoteOnly = true;
     record.mediaRemoteUrl = mediaSync.mediaUrl || '';
@@ -1175,7 +1175,7 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
     record.data.media.mediaUrl = `/api/records/${encodeURIComponent(record.id)}/media`;
     record.data.media.downloadUrl = `/api/records/${encodeURIComponent(record.id)}/media?download=1`;
     record.mediaCachePath = record.mediaStoragePath || relMedia;
-    record.mediaAuthoritative = 'voroa-postgresql-primary-storage';
+    record.mediaAuthoritative = 'postgresql-primary-storage';
     record.mediaCachedOnApp = true;
     record.mediaReadyAt = new Date().toISOString();
     runBackground(() => markCloudSync(record, ownerDid));
@@ -1201,7 +1201,7 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
       }
     } catch (cleanupErr) {
       console.error(
-        '[Voroa replaced-media local cleanup failed]',
+        '[PostgreSQL replaced-media local cleanup failed]',
         record.id,
         cleanupErr.message
       );
@@ -1612,14 +1612,14 @@ async function listVisibleRecords(did, query = {}) {
       accessMode,
       sharedWithDids,
       dwnEndpoint: '',
-      dwnMode: 'voroa',
+      dwnMode: 'postgresql',
       dwnIsolation: 'did-space',
       dwnSpaceId: row.space_id,
       realCloudConfigured: true,
-      storageEngine: 'Voroa PostgreSQL',
+      storageEngine: 'PostgreSQL',
       cloudDwn: { sync: { ok: true, status: 'synced' } },
       storageProof: {
-        backend: 'voroa',
+        backend: 'postgresql',
         dataCid: row.data_cid || '',
         dataSize: Number(row.data_size || 0)
       }
@@ -1649,7 +1649,7 @@ async function getRecord(id, did) {
   if (found) return found;
 
   // Preserve explicit access-denied behavior for records that exist
-  // in Voroa but are not visible to this DID.
+  // in PostgreSQL but are not visible to this DID.
   const result = await milanDb.query(
     `SELECT did, recipient, metadata
      FROM public.dwn_storage
@@ -1783,7 +1783,7 @@ async function deleteRecord(userId, ownerDid, id) {
     userId,
     recordId: record.id,
     ownerDid: did,
-    backend: 'voroa'
+    backend: 'postgresql'
   });
   return true;
 }
@@ -1937,15 +1937,15 @@ async function getAuthoritativeCloudMedia(id, did, options = {}) {
           (!buffer ||
            sizeBytes !== byteRange.expectedSizeBytes ||
            buffer.length !== expectedRangeLength))) {
-      throw new Error('Voroa media byte-size verification failed');
+      throw new Error('PostgreSQL media byte-size verification failed');
     }
     const expectedCid = String(row.data_cid || '');
     if (byteRange && expectedCid !== byteRange.expectedCid) {
-      throw new Error('Voroa media identity changed during range read');
+      throw new Error('PostgreSQL media identity changed during range read');
     }
     if (includeBytes && !byteRange && expectedCid.startsWith('sha256:')) {
       const actualCid = 'sha256:' + crypto.createHash('sha256').update(buffer).digest('hex');
-      if (actualCid !== expectedCid) throw new Error('Voroa media SHA-256 verification failed');
+      if (actualCid !== expectedCid) throw new Error('PostgreSQL media SHA-256 verification failed');
     }
 
     return {
@@ -1964,13 +1964,13 @@ async function getAuthoritativeCloudMedia(id, did, options = {}) {
       ),
       remoteOnly: false,
       authoritativeCloud: true,
-      backend: 'voroa-postgresql',
+      backend: 'postgresql',
       spaceId,
       dataCid: expectedCid
     };
   } catch (error) {
     if (error.status === 400 || error.status === 403 || error.status === 409) throw error;
-    console.error('[Voroa media read failed]', recordId, error.message);
+    console.error('[PostgreSQL media read failed]', recordId, error.message);
     return null;
   }
 }
@@ -1986,28 +1986,28 @@ async function getDirectMediaPlaybackUrl(id, did) {
 
   const media = await getAuthoritativeCloudMedia(recordId, readerDid, { includeBytes: false });
 
-  // Voroa stores authoritative media bytes in PostgreSQL. When the verified
+  // PostgreSQL stores authoritative media bytes in PostgreSQL. When the verified
   // MP4 is ready but has no remote signed URL, let the frontend use the
   // existing authenticated /media/play.mp4 stream instead of retrying forever.
   if (media?.authoritativeCloud === true && !media.remoteUrl) {
     const mimeType = String(media.mimeType || '').split(';')[0].toLowerCase();
     const fileName = String(media.fileName || '');
     const status = String(media.processingStatus || '').toLowerCase();
-    const readyVoroaMp4 =
+    const readyPostgresMp4 =
       media.browserPlayable === true &&
       media.processing !== true &&
       status === 'ready' &&
       mimeType === 'video/mp4' &&
       /\.mp4$/i.test(fileName);
 
-    if (readyVoroaMp4) {
+    if (readyPostgresMp4) {
       return {
         url: '',
         ready: false,
         processing: false,
         processingStatus: 'ready',
         retryAfterMs: 0,
-        warning: 'Voroa video is available through the authenticated media stream.'
+        warning: 'PostgreSQL video is available through the authenticated media stream.'
       };
     }
   }
@@ -2231,14 +2231,14 @@ async function getMediaStream(id, did, options = {}) {
           ...verifiedMetadata,
           buffer,
           byteRange: { start, end },
-          backend: 'voroa-local-verified-cache',
+          backend: 'postgresql-local-verified-cache',
           localCacheHit: true
         };
       }
     }
   }
 
-  // Prefer verified authoritative bytes in Voroa; retain local/remote fallback for legacy media.
+  // Prefer verified authoritative bytes in PostgreSQL; retain local/remote fallback for legacy media.
   const authoritativeMedia = await getAuthoritativeCloudMedia(id, did, cloudOptions);
   if (authoritativeMedia) return authoritativeMedia;
 

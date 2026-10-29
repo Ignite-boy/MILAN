@@ -143,14 +143,14 @@ function pushDatabaseSnapshotAsync(file, data) {
 
         if (result && result.ok === false && !result.skipped) {
           console.warn(
-            'Voroa PostgreSQL snapshot sync failed:',
+            'PostgreSQL snapshot sync failed:',
             name,
             result.error || result
           );
         }
       } catch (err) {
         console.warn(
-          'Voroa PostgreSQL snapshot sync unavailable:',
+          'PostgreSQL snapshot sync unavailable:',
           name,
           err.message
         );
@@ -241,11 +241,11 @@ function mergeRecordIndexSnapshots(localData, remoteData) {
 
   return merged;
 }
-async function hydrateFilesFromVoroa(files = []) {
+async function hydratePostgresSnapshots(files = []) {
   const unique = [...new Set(files.filter(Boolean))];
   const results = [];
   try {
-    // Legacy function name retained for compatibility; snapshots are stored in Voroa PostgreSQL.
+    // Legacy function name retained for compatibility; snapshots are stored in PostgreSQL.
     const { pullDatabaseSnapshot } = require('../services/cloudDwnRegistry');
     global.__milanHydratingFromDwn = true;
     for (const file of unique) {
@@ -292,8 +292,8 @@ async function hydrateFilesFromVoroa(files = []) {
           wasEmpty: currentEmpty,
           source:
             name === 'APP_RECORD_INDEX.json'
-              ? 'voroa-postgresql-merged'
-              : 'voroa-postgresql'
+              ? 'postgresql-merged'
+              : 'postgresql'
         });
       } else {
         results.push({ name, hydrated: false, reason: normalized.error || 'not-found' });
@@ -306,4 +306,4 @@ async function hydrateFilesFromVoroa(files = []) {
 function findUserById(users, userId) { for (const [email, user] of Object.entries(users || {})) if (user.id === userId) return { email, user }; return null; }
 function findUserByDid(users, did) { for (const [email, user] of Object.entries(users || {})) if (user.did === did) return { email, user }; return null; }
 function addActivity(userId, action, details = {}) { const file = global.activityFile; const all = readJson(file, {}); if (!Array.isArray(all[userId])) all[userId] = []; all[userId].unshift({ id: `${Date.now()}-${Math.random().toString(16).slice(2)}`, action, details, at: new Date().toISOString() }); all[userId] = all[userId].slice(0, 150); writeJson(file, all); }
-module.exports = { ensureFile, readJson, writeJson, writeJsonAndSync, atomicWriteJson, normalizePulledSnapshot, unwrapDwnSnapshotValue, cleanUsersDb, repairUsersFile, findUserById, findUserByDid, addActivity, hydrateFilesFromVoroa };
+module.exports = { ensureFile, readJson, writeJson, writeJsonAndSync, atomicWriteJson, normalizePulledSnapshot, unwrapDwnSnapshotValue, cleanUsersDb, repairUsersFile, findUserById, findUserByDid, addActivity, hydratePostgresSnapshots };

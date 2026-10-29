@@ -1,18 +1,18 @@
 'use strict';
 
 // Preserve a locally persisted profile photo when startup hydration receives
-// an older/stale users.json snapshot from Voroa PostgreSQL.
+// an older/stale users.json snapshot from PostgreSQL.
 const store = require('../utils/store');
 
-const originalHydrate = store.hydrateFilesFromVoroa;
+const originalHydrate = store.hydratePostgresSnapshots;
 const originalReadJson = store.readJson;
 const originalAtomicWriteJson = store.atomicWriteJson;
 
 if (typeof originalHydrate !== 'function') {
-  throw new Error('[avatar-hydration-guard] store.hydrateFilesFromVoroa is unavailable');
+  throw new Error('[avatar-hydration-guard] store.hydratePostgresSnapshots is unavailable');
 }
 
-store.hydrateFilesFromVoroa = async function hydrateWithAvatarPreservation(files = []) {
+store.hydratePostgresSnapshots = async function hydrateWithAvatarPreservation(files = []) {
   const usersFile = global.usersFile;
   const localAvatars = {};
 
@@ -40,7 +40,7 @@ store.hydrateFilesFromVoroa = async function hydrateWithAvatarPreservation(files
       const user = hydrated?.[email];
       if (!user) continue;
 
-      // Only fill a missing avatar. A non-empty Voroa value remains authoritative.
+      // Only fill a missing avatar. A non-empty PostgreSQL value remains authoritative.
       const current = String(user?.profile?.avatar || '').trim();
       if (!current) {
         hydrated[email] = {
@@ -57,7 +57,7 @@ store.hydrateFilesFromVoroa = async function hydrateWithAvatarPreservation(files
 
     if (changed) {
       originalAtomicWriteJson(usersFile, hydrated);
-      console.log('[avatar-hydration-guard] restored missing profile photos after Voroa hydration');
+      console.log('[avatar-hydration-guard] restored missing profile photos after PostgreSQL hydration');
     }
   } catch (error) {
     console.warn('[avatar-hydration-guard] post-hydration merge failed:', error.message);

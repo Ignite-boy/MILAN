@@ -15,7 +15,7 @@ success responses.
 
 ## Deployment order
 
-1. Review `backend/migrations/20261023_voroa_auth_sessions.sql`.
+1. Review `backend/migrations/20261023_postgresql_auth_sessions.sql`.
 2. Have the authorized database owner apply it in the intended environment.
 3. Verify `milan_app` can update the version column while its other user-column
    permissions remain restricted.

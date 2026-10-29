@@ -85,7 +85,7 @@ mockModule("backend/services/dwnService.js", {
 const sharedMode = process.argv.includes("--shared");
 
 if (sharedMode) {
-  process.env.MILAN_UPLOAD_STORAGE_BACKEND = "voroa-postgresql";
+  process.env.MILAN_UPLOAD_STORAGE_BACKEND = "postgresql";
 
   const sessions = new Map();
   const chunks = new Map();
@@ -125,7 +125,7 @@ if (sharedMode) {
     }
   });
 
-  console.log("TEST MODE: Voroa PostgreSQL shared-storage route branch; storage is mocked.");
+  console.log("TEST MODE: PostgreSQL shared-storage route branch; storage is mocked.");
 }
 
 let route;

@@ -1,7 +1,7 @@
 {
   "name": "milan-decentralized-social-space",
   "version": "70.0.0",
-  "description": "MILAN application and MILAN-ONE ecosystem workspace; static HTML/CSS/JS frontend, Express API, Voroa PostgreSQL persistence, and experimental companion components.",
+  "description": "MILAN application and MILAN-ONE ecosystem workspace; static HTML/CSS/JS frontend, Express API, PostgreSQL persistence, and experimental companion components.",
   "main": "backend/server.js",
   "scripts": {
     "start": "node -r ./backend/services/avatar-hydration-guard.js backend/server.js",
@@ -18,7 +18,7 @@
     "test:upload-policy": "node scripts/upload-performance-policy-self-test.js",
     "test:distributed-rate-limit": "node scripts/distributed-rate-limit-self-test.js",
     "test:feed-pagination": "node scripts/feed-pagination-self-test.js",
-  "test:feed-smoothness": "node scripts/feed-scroll-performance-self-test.js",
+    "test:feed-smoothness": "node scripts/feed-scroll-performance-self-test.js",
     "test:video-range": "node scripts/video-range-self-test.js",
     "test:video-scroll": "node scripts/video-scroll-playback-self-test.js",
     "test:persistence-visibility": "node scripts/persistence-visibility-self-test.js",

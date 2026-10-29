@@ -15,15 +15,15 @@ const storagePage = read('frontend/storage-upgrade.html');
 const payPage = read('frontend/milan-pay.html');
 const env = read('backend/.env.example');
 const pkg = JSON.parse(read('package.json'));
-const migration = read('backend/migrations/20261019_voroa_milan_pay.sql');
-const voroaMigration = migration;
-const rolesMigration = read('backend/migrations/20261019_voroa_00_roles.sql');
+const migration = read('backend/migrations/20261019_postgresql_milan_pay.sql');
+const postgresqlMigration = migration;
+const rolesMigration = read('backend/migrations/20261019_postgresql_00_roles.sql');
 const pendingOrdersMigration = read('backend/migrations/20261015_milan_pay_single_pending_order.sql');
 const pendingAudit = read('scripts/milan-pay-pending-audit.sql');
 const paymentOpsDoc = read('docs/MILAN_PAY_OPERATIONS.md');
 
 const checks = [
-  ['Payment routes use Voroa PostgreSQL',
+  ['Payment routes use PostgreSQL',
     payRoute.includes("require('../services/milanDb')") &&
     storageRoute.includes("require('../services/milanDb')")],
   ['MILAN Pay route is mounted', server.includes("app.use('/api/milan-pay', require('./routes/milanPay'));")],
@@ -104,39 +104,39 @@ const checks = [
   ['Legacy hosted-payment route is not mounted', !server.includes("app.use('/api/payment'")],
   ['Direct UPI merchant setting is documented', env.includes('MILAN_PAY_UPI_ID=')],
   ['No dedicated hosted-payment SDK dependency is declared', !Object.keys({ ...pkg.dependencies, ...pkg.devDependencies }).some(name => /(?:payment|gateway|checkout).*(?:sdk|client)|(?:sdk|client).*(?:payment|gateway|checkout)/i.test(name))],
-  ['Voroa migration creates the order link column', migration.includes('order_id text')],
+  ['PostgreSQL migration creates the order link column', migration.includes('order_id text')],
   ['Migration creates a unique order link index', migration.includes('CREATE UNIQUE INDEX IF NOT EXISTS storage_upgrade_requests_order_id_uidx')],
   ['Migration enforces case-insensitive UTR uniqueness', migration.includes('storage_upgrade_requests_utr_normalized_uidx')],
   ['Migration checks order, user, plan and amount', migration.includes("v_order.gateway IS DISTINCT FROM 'milanpay'") && migration.includes('v_order.amount_inr IS DISTINCT FROM v_expected_amount')],
   ['Migration checks reused UTRs', migration.includes('This transaction reference has already been used.')],
   ['Migration updates payment and quota transactionally', migration.includes("status = 'paid'") && migration.includes('dwn_quota_bytes = GREATEST')],
-  ['Voroa role migration declares a least-privilege app role and non-login function owners',
+  ['PostgreSQL role migration declares a least-privilege app role and non-login function owners',
     rolesMigration.includes('CREATE ROLE milan_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS') &&
     rolesMigration.includes('CREATE ROLE milan_pay_fn_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS') &&
     rolesMigration.includes('CREATE ROLE milan_rate_limit_fn_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS')],
-  ['Voroa payment RPCs use a non-login owner and explicitly grant execution to milan_app',
-    voroaMigration.includes('ALTER FUNCTION public.admin_approve_milan_pay_storage_request(text, text)\n  OWNER TO milan_pay_fn_owner;') &&
-    voroaMigration.includes('ALTER FUNCTION public.admin_reject_milan_pay_storage_request(text, text)\n  OWNER TO milan_pay_fn_owner;') &&
-    voroaMigration.includes('GRANT EXECUTE ON FUNCTION public.admin_approve_milan_pay_storage_request(text, text)\n  TO milan_app;') &&
-    voroaMigration.includes('GRANT EXECUTE ON FUNCTION public.admin_reject_milan_pay_storage_request(text, text)\n  TO milan_app;') &&
-    !voroaMigration.includes('TO CURRENT_USER;')],
-  ['Voroa runtime cannot write storage quota or plan columns directly',
-    voroaMigration.includes('REVOKE INSERT, UPDATE ON TABLE public.users FROM milan_app;') &&
-    voroaMigration.includes('GRANT INSERT (') &&
-    voroaMigration.includes('GRANT UPDATE (') &&
-    !/GRANT\\s+(?:SELECT,\\s*)?INSERT,\\s*UPDATE\\s+ON TABLE public\\.users\\s+TO milan_app/.test(voroaMigration)],
-  ['Voroa runtime cannot set payment or request status on insert',
-    voroaMigration.includes('GRANT INSERT (user_id, order_id, plan, amount_inr, gateway, gateway_reference)') &&
-    !voroaMigration.includes('GRANT UPDATE (status, reviewed_at, reviewer_note)') &&
+  ['PostgreSQL payment RPCs use a non-login owner and explicitly grant execution to milan_app',
+    postgresqlMigration.includes('ALTER FUNCTION public.admin_approve_milan_pay_storage_request(text, text)\n  OWNER TO milan_pay_fn_owner;') &&
+    postgresqlMigration.includes('ALTER FUNCTION public.admin_reject_milan_pay_storage_request(text, text)\n  OWNER TO milan_pay_fn_owner;') &&
+    postgresqlMigration.includes('GRANT EXECUTE ON FUNCTION public.admin_approve_milan_pay_storage_request(text, text)\n  TO milan_app;') &&
+    postgresqlMigration.includes('GRANT EXECUTE ON FUNCTION public.admin_reject_milan_pay_storage_request(text, text)\n  TO milan_app;') &&
+    !postgresqlMigration.includes('TO CURRENT_USER;')],
+  ['PostgreSQL runtime cannot write storage quota or plan columns directly',
+    postgresqlMigration.includes('REVOKE INSERT, UPDATE ON TABLE public.users FROM milan_app;') &&
+    postgresqlMigration.includes('GRANT INSERT (') &&
+    postgresqlMigration.includes('GRANT UPDATE (') &&
+    !/GRANT\\s+(?:SELECT,\\s*)?INSERT,\\s*UPDATE\\s+ON TABLE public\\.users\\s+TO milan_app/.test(postgresqlMigration)],
+  ['PostgreSQL runtime cannot set payment or request status on insert',
+    postgresqlMigration.includes('GRANT INSERT (user_id, order_id, plan, amount_inr, gateway, gateway_reference)') &&
+    !postgresqlMigration.includes('GRANT UPDATE (status, reviewed_at, reviewer_note)') &&
     payRoute.includes('(user_id, order_id, plan, amount_inr, gateway, gateway_reference)') &&
     storageRoute.includes('(user_id, order_id, plan, quota_bytes, amount_inr, payment_method, utr)')],
   ['Legacy rejection uses a guarded RPC and has no direct app status-update grant',
     storageRoute.includes('public.admin_reject_legacy_milan_storage_request') &&
     !/UPDATE\s+public\.storage_upgrade_requests/i.test(storageRoute) &&
-    voroaMigration.includes('CREATE OR REPLACE FUNCTION public.admin_reject_legacy_milan_storage_request') &&
-    /ALTER FUNCTION public\.admin_reject_legacy_milan_storage_request\(text, text\)\s+OWNER TO milan_pay_fn_owner;/.test(voroaMigration) &&
-    /GRANT EXECUTE ON FUNCTION public\.admin_reject_legacy_milan_storage_request\(text, text\)\s+TO milan_app;/.test(voroaMigration) &&
-    !/GRANT UPDATE\s*\(status, reviewed_at, reviewer_note\)\s+ON TABLE public\.storage_upgrade_requests TO milan_app;/.test(voroaMigration)],
+    postgresqlMigration.includes('CREATE OR REPLACE FUNCTION public.admin_reject_legacy_milan_storage_request') &&
+    /ALTER FUNCTION public\.admin_reject_legacy_milan_storage_request\(text, text\)\s+OWNER TO milan_pay_fn_owner;/.test(postgresqlMigration) &&
+    /GRANT EXECUTE ON FUNCTION public\.admin_reject_legacy_milan_storage_request\(text, text\)\s+TO milan_app;/.test(postgresqlMigration) &&
+    !/GRANT UPDATE\s*\(status, reviewed_at, reviewer_note\)\s+ON TABLE public\.storage_upgrade_requests TO milan_app;/.test(postgresqlMigration)],
   ['Admin API rejects missing or placeholder token configuration',
     adminRoute.includes("process.env.ADMIN_TOKEN || ''") &&
     adminRoute.includes("expected === 'change-this-admin-token'")],

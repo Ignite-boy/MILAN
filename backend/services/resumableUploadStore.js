@@ -138,6 +138,6 @@ async function deleteSession(id) {
   );
 }
 module.exports = {
-  bucketName: "voroa-postgres",
+  bucketName: "milan-postgres",
   readSession, writeSession, writeChunk, listChunkIndexes, readChunk, deleteSession
 };

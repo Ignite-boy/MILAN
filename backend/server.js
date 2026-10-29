@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const APP_VERSION = require('../package.json').version;
 const { saveUsersHybrid } = require('./services/userStoreHybrid');
-const { ensureFile, hydrateFilesFromVoroa, repairUsersFile } = require('./utils/store');
+const { ensureFile, hydratePostgresSnapshots, repairUsersFile } = require('./utils/store');
 const dwnStore = require('./services/dwnService');
 const { dwnRoot, databaseRoot, persistenceInfo } = require('./services/cloudDwnRegistry');
 const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || process.env.APP_PUBLIC_URL || process.env.SEO_CANONICAL_URL || 'https://milanlife.in';
@@ -99,7 +99,7 @@ app.use(compression({
 app.use(express.json({ limit: process.env.JSON_LIMIT || '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: process.env.URLENCODED_LIMIT || '10mb' }));
 
-// MILAN storage rule: Voroa PostgreSQL is authoritative for persistent user data, records, and media.
+// MILAN storage rule: PostgreSQL is authoritative for persistent user data, records, and media.
 // The local filesystem is used only as a temporary processing/cache layer.
 const DWN_ROOT = dwnRoot();
 const DATA_DIR = databaseRoot();
@@ -832,7 +832,7 @@ function listenWithFallback(port, attempts = 0) {
   });
 }
 
-// Voroa runs this app as a long-lived Node.js web service.
+// PostgreSQL runs this app as a long-lived Node.js web service.
 // Bind the HTTP port before snapshot hydration so liveness checks are available immediately.
 listenWithFallback(PORT);
 
@@ -845,16 +845,16 @@ listenWithFallback(PORT);
     global.feedbackFile, global.securityReportsFile
   ];
   console.log('[STARTUP] hydrate begin');
-  const hydrate = await hydrateFilesFromVoroa(filesToHydrate);
+  const hydrate = await hydratePostgresSnapshots(filesToHydrate);
   console.log('[STARTUP] hydrate done');
   const usersRepair = repairUsersFile(global.usersFile);
-  console.log('Voroa PostgreSQL snapshot hydrate:', hydrate);
+  console.log('PostgreSQL snapshot hydrate:', hydrate);
   console.log('Milan users database repair:', usersRepair);
   console.log('[STARTUP] initDwn begin');
   const status = await dwnStore.initDwn();
   console.log('[STARTUP] initDwn done');
   console.log('DWN storage status:', status);
-  console.log('[STARTUP] Voroa PostgreSQL-authoritative DWN storage ready');
+  console.log('[STARTUP] PostgreSQL-authoritative DWN storage ready');
 })(); module.exports = app; 
 
 

@@ -69,7 +69,7 @@ async function main() {
   const middleware = read('backend/middleware/auth.js');
   const settings = read('backend/routes/settings.js');
   const livePush = read('backend/services/livePush.js');
-  const migration = read('backend/migrations/20261023_voroa_auth_sessions.sql');
+  const migration = read('backend/migrations/20261023_postgresql_auth_sessions.sql');
 
   assert.match(auth, /userId, email: user\.email, tv/);
   assert.match(auth, /auth_token_version = COALESCE/);

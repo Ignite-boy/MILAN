@@ -79,7 +79,7 @@ async function resolveAccount(req, users) {
       account = byEmail.rows[0] || null;
     }
   } catch (error) {
-    console.error('[profile] Voroa account lookup failed:', error.message);
+    console.error('[profile] PostgreSQL account lookup failed:', error.message);
     throw error;
   }
 
@@ -171,7 +171,7 @@ async function writeProfilePicture(did, file, user) {
   if (!result?.pushed) {
     throw new Error(
       result?.error ||
-      'Voroa PostgreSQL DWN profile picture write failed.'
+      'PostgreSQL DWN profile picture write failed.'
     );
   }
 
@@ -182,7 +182,7 @@ async function writeProfilePicture(did, file, user) {
     mime: file.mimetype || 'image/jpeg',
     fileName: file.originalname || `${recordId}.jpg`,
     persistedInDwn: true,
-    source: 'voroa-dwn',
+    source: 'postgresql-dwn',
     status: 200,
     dataSize: result.dataSize || file.buffer.length
   };
@@ -216,7 +216,7 @@ async function readProfilePicture(user) {
   const did = String(user?.did || '').trim();
   if (!did) throw new Error('User DID is missing.');
 
-  // Resolve the space from Voroa's authoritative DID mapping on every read.
+  // Resolve the space from PostgreSQL's authoritative DID mapping on every read.
   // The hydrated users.json / token account may carry an older spaceId; using
   // that stale value makes a successfully written avatar look missing after
   // refresh even though the record exists in the current PostgreSQL space.
@@ -227,7 +227,7 @@ async function readProfilePicture(user) {
   );
   const spaceId = String(owner.rows?.[0]?.space_id || '').trim();
   if (owner.rowCount !== 1 || !spaceId) {
-    throw new Error('Authoritative Voroa DID/space mapping is missing.');
+    throw new Error('Authoritative PostgreSQL DID/space mapping is missing.');
   }
 
   const recordId = profileRecordId(did);
@@ -256,7 +256,7 @@ async function readProfilePicture(user) {
     recordId,
     avatar: `data:${mime};base64,${bytes.toString('base64')}`,
     mime,
-    source: 'voroa-dwn',
+    source: 'postgresql-dwn',
     spaceId,
     dataSize: Number(record.data_size || bytes.length)
   };
