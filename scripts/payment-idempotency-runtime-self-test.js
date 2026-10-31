@@ -119,6 +119,14 @@ function databaseQuery(sql, params = []) {
     return result(row ? [{ id: row.id, status: row.status }] : []);
   }
 
+  if (q.startsWith('select id, user_id, order_id, plan, quota_bytes, amount_inr, utr, status, created_at from public.storage_upgrade_requests') &&
+      q.includes('where order_id = $1') && q.includes('and user_id = $2')) {
+    const row = requests.find(r =>
+      r.order_id === params[0] && r.user_id === params[1]
+    );
+    return result(row ? [{ ...row }] : []);
+  }
+
   if (q.startsWith('select id, status from public.storage_upgrade_requests') &&
       q.includes('where order_id = $1')) {
     const row = requests.find(r => r.order_id === params[0]);
@@ -136,6 +144,21 @@ function databaseQuery(sql, params = []) {
   if (q.startsWith('insert into public.storage_upgrade_requests')) {
     if (failNextInsertWithUniqueViolation) {
       failNextInsertWithUniqueViolation = false;
+
+      // Simulate another request committing the same order/UTR first.
+      const [userId, orderId, plan, quotaBytes, amountInr, utr] = params;
+      requests.push({
+        id: `request-${++nextRequestId}`,
+        user_id: userId,
+        order_id: orderId,
+        plan,
+        quota_bytes: quotaBytes,
+        amount_inr: amountInr,
+        utr,
+        status: 'pending',
+        created_at: new Date().toISOString()
+      });
+
       const error = new Error('Simulated unique constraint violation');
       error.code = '23505';
       throw error;
@@ -265,12 +288,27 @@ async function main() {
       assert.match(response.body.message, /independently verifies the bank transaction/i);
     });
 
-    await test('repeat submission for the same order is rejected', async () => {
+    await test('same order and same normalised UTR retry reuses the existing request', async () => {
+      const response = await post('/api/storage/upgrade-request', {
+        plan: '500mb', orderId: order1, utr: ' bankref12345 '
+      }, { userId: 'user-1' });
+
+      assert.equal(response.status, 200);
+      assert.equal(response.body.ok, true);
+      assert.equal(response.body.reused, true);
+      assert.equal(response.body.request.id, requestId);
+      assert.equal(response.body.request.status, 'pending');
+      assert.equal(requests.length, 1);
+      assert.equal(users.get('user-1').quota, quotaBefore);
+    });
+
+    await test('same order with a different UTR remains rejected', async () => {
       const response = await post('/api/storage/upgrade-request', {
         plan: '500mb', orderId: order1, utr: 'AnotherREF123'
       }, { userId: 'user-1' });
 
       assert.equal(response.status, 409);
+      assert.match(response.body.error, /different UTR/i);
       assert.equal(requests.length, 1);
       assert.equal(users.get('user-1').quota, quotaBefore);
     });
@@ -285,14 +323,18 @@ async function main() {
       assert.equal(users.get('user-2').quota, 104857600);
     });
 
-    await test('database unique-conflict race fails closed without a second request', async () => {
+    await test('same-order unique-conflict race returns the concurrently created request', async () => {
       failNextInsertWithUniqueViolation = true;
       const response = await post('/api/storage/upgrade-request', {
         plan: '500mb', orderId: order2, utr: 'RaceREF12345'
       }, { userId: 'user-2' });
 
-      assert.equal(response.status, 409);
-      assert.equal(requests.length, 1);
+      assert.equal(response.status, 200);
+      assert.equal(response.body.ok, true);
+      assert.equal(response.body.reused, true);
+      assert.equal(response.body.request.order_id, order2);
+      assert.equal(response.body.request.utr, 'RaceREF12345');
+      assert.equal(requests.length, 2);
       assert.equal(users.get('user-2').quota, 104857600);
     });
 

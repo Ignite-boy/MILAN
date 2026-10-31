@@ -46,12 +46,12 @@ router.use((_req, res, next) => {
 });
 
 router.post('/upgrade-request', submitUpgradeRequestLimiter, auth, async (req, res) => {
-  try {
-    const planKey = String(req.body?.plan || '').trim();
-    const orderId = String(req.body?.orderId || '').trim();
-    const utr = String(req.body?.utr || '').trim();
-    const plan = PLANS[planKey];
+  const planKey = String(req.body?.plan || '').trim();
+  const orderId = String(req.body?.orderId || '').trim();
+  const utr = String(req.body?.utr || '').trim();
+  const plan = PLANS[planKey];
 
+  try {
     if (!plan) return res.status(400).json({ error: 'Invalid storage plan.' });
 
     const currentQuotaBytes = Number(
@@ -94,13 +94,32 @@ router.post('/upgrade-request', submitUpgradeRequestLimiter, auth, async (req, r
     }
 
     const linked = await db.query(
-      `SELECT id, status FROM public.storage_upgrade_requests WHERE order_id = $1 LIMIT 1`,
-      [orderId]
+      `SELECT id, user_id, order_id, plan, quota_bytes, amount_inr, utr, status, created_at
+         FROM public.storage_upgrade_requests
+        WHERE order_id = $1 AND user_id = $2
+        LIMIT 1`,
+      [orderId, req.account.id]
     );
-    if (linked.rows.length) {
+    const existing = linked.rows[0];
+    if (existing) {
+      const sameUtr =
+        String(existing.utr || '').trim().toLowerCase() === utr.toLowerCase();
+      const samePlan =
+        existing.plan === planKey &&
+        Number(existing.amount_inr) === plan.amountInr;
+
+      if (sameUtr && samePlan) {
+        return res.status(200).json({
+          ok: true,
+          reused: true,
+          message: 'This UTR was already submitted. The existing request remains subject to independent bank verification.',
+          request: existing
+        });
+      }
+
       return res.status(409).json({
-        error: 'A verification request already exists for this order.',
-        status: linked.rows[0].status
+        error: 'A verification request already exists for this order with a different UTR.',
+        status: existing.status
       });
     }
 
@@ -144,6 +163,33 @@ router.post('/upgrade-request', submitUpgradeRequestLimiter, auth, async (req, r
     });
   } catch (error) {
     if (error.code === '23505') {
+      try {
+        const conflictLookup = await db.query(
+          `SELECT id, user_id, order_id, plan, quota_bytes, amount_inr, utr, status, created_at
+             FROM public.storage_upgrade_requests
+            WHERE order_id = $1 AND user_id = $2
+            LIMIT 1`,
+          [orderId, req.account.id]
+        );
+        const existing = conflictLookup.rows[0];
+        const sameUtr = existing &&
+          String(existing.utr || '').trim().toLowerCase() === utr.toLowerCase();
+        const samePlan = existing &&
+          existing.plan === planKey &&
+          Number(existing.amount_inr) === plan.amountInr;
+
+        if (sameUtr && samePlan) {
+          return res.status(200).json({
+            ok: true,
+            reused: true,
+            message: 'This UTR was already submitted. The existing request remains subject to independent bank verification.',
+            request: existing
+          });
+        }
+      } catch (lookupError) {
+        console.error('[storage] upgrade conflict lookup failed:', lookupError.message);
+      }
+
       return res.status(409).json({
         error: 'This UTR, order or pending request is already linked to a verification request.'
       });
