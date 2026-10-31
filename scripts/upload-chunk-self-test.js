@@ -126,6 +126,21 @@ if (sharedMode) {
   });
 
   console.log("TEST MODE: PostgreSQL shared-storage route branch; storage is mocked.");
+} else {
+  // Local-storage upload tests must not initialize a real PostgreSQL pool.
+  // The adapter is imported by records.js, but this branch must never use it.
+  const unusedDbAdapter = async () => {
+    throw new Error("Unexpected PostgreSQL adapter call in local upload self-test.");
+  };
+  mockModule("backend/services/resumableUploadStore.js", {
+    bucketName: "unused-local-upload-test-adapter",
+    readSession: unusedDbAdapter,
+    writeSession: unusedDbAdapter,
+    writeChunk: unusedDbAdapter,
+    listChunkIndexes: unusedDbAdapter,
+    readChunk: unusedDbAdapter,
+    deleteSession: unusedDbAdapter
+  });
 }
 
 let route;

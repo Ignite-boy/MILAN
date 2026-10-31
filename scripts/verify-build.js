@@ -132,7 +132,7 @@ const performanceFeedSource = read('frontend/assets/js/inline-05.js');
 const performanceVideoSource = read('frontend/assets/js/inline-07.js');
 const performanceUploadSource = read('frontend/assets/js/milan-ui-actions.js');
 const performanceLiveSource = read('frontend/milan-live.js');
-check(performanceAppShell.includes('/assets/js/inline-05.js?v=milan-feed-media-20261026-1'),
+check(performanceAppShell.includes('/assets/js/inline-05.js?v=milan-post-menu-parallel-upload-20261031-2'),
   'Feed optimizations must be referenced through the refreshed script URL.');
 check(performanceAppShell.includes('/assets/js/inline-07.js?v=milan-streaming-first-20261026-1'),
   'Streaming-first video changes must have a fresh cache-busting URL.');

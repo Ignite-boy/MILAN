@@ -1,4 +1,133 @@
-const $=id=>document.getElementById(id),API="/api",MILAN_NATIVE=/MilanNativeAudio/i.test(navigator.userAgent);MILAN_NATIVE&&(document.documentElement.classList.add("native-apk","milan-v91"),document.body&&document.body.classList.add("native-apk","milan-v91","milan-v91-native"),window.addEventListener("DOMContentLoaded",()=>document.body.classList.add("native-apk","milan-v91","milan-v91-native")));let token="";try{token=localStorage.getItem("milan_token")||""}catch(_){token=""}MILAN_NATIVE&&token&&(document.documentElement.classList.add("milan-token-present","milan-v91-fast-open"),document.body&&document.body.classList.add("milan-token-present","app-ready","milan-app-visible","milan-v91-app-opening"));let me=null,currentFeed=[],people=[],lastNotifications=[],currentScope="all";function esc(s=""){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}function isChatFeedRecord(record){const data=record?.data&&typeof record.data==="object"?record.data:{};return String(record?.protocol||"").trim().toLowerCase()==="milan.chat"||String(record?.protocolPath||"").trim().toLowerCase()==="messages"||String(record?.schema||"").trim().toLowerCase()==="milan.chat.message"||String(record?.title||"").trim().toLowerCase()==="milan chat message"||String(data.kind||"").trim().toLowerCase()==="chat_message"||Boolean(data.messageId&&data.conversationId&&data.senderDid&&data.recipientDid)}function initials(s="MILAN"){return String(s||"M").trim().split(/\s+/).slice(0,2).map(x=>x[0]||"").join("").toUpperCase()||"M"}function toast(t){var container=document.getElementById("milanToastContainer");container||((container=document.createElement("div")).id="milanToastContainer",container.style.cssText="position:fixed;top:18px;right:18px;z-index:99999;display:flex;flex-direction:column;gap:8px;pointer-events:none;",document.body.appendChild(container));var el=document.createElement("div");el.textContent=t,el.style.cssText="background:rgba(15,23,42,.92);color:#fff;padding:10px 18px;border-radius:12px;font-size:13px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.22);opacity:0;transform:translateY(-8px);transition:opacity .22s,transform .22s;pointer-events:none;max-width:320px;word-break:break-word;",container.appendChild(el),requestAnimationFrame(function(){el.style.opacity="1",el.style.transform="translateY(0)"}),setTimeout(function(){el.style.opacity="0",el.style.transform="translateY(-8px)",setTimeout(function(){el.parentNode&&el.parentNode.removeChild(el)},250)},2600)}function avatarHtml(p={},cls="avatar"){const av=p.avatar||"";return/^data:image\//.test(av)||/^https?:\/\//.test(av)?`<div class="${cls}"><img src="${esc(av)}" alt="profile"></div>`:`<div class="${cls}">${esc(av||initials(p.name||p.display_name||p.email||"M"))}</div>`}function mediaSrc(url){if(!url)return"";if(/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?\//i.test(url))return"";if(/^data:|^blob:/.test(url))return url;const sep=url.includes("?")?"&":"?";return/^https?:\/\//.test(url)?url:token?url+sep+"token="+encodeURIComponent(token)+"&mv=59":url+sep+"mv=49"}function mediaDownloadSrc(url){const base=mediaSrc(url);return base?base+(base.includes("?")?"&":"?")+"download=1":""}function videoMediaSrc(raw){let u=String(raw||"");return/^\/api\/records\/[^/]+\/media$/.test(u)&&(u+="/play.mp4"),mediaSrc(u)}function mediaNode(el){return el&&"SOURCE"===el.tagName?el.parentElement:el}function setMediaError(el,msg,repairing=!1){try{const node=mediaNode(el),box=node?.closest(".media"),err=box?.querySelector(".mediaLoadError");box&&box.classList.toggle("repairing",!!repairing),err&&(err.textContent=msg,err.classList.remove("hidden"))}catch(_){}}function clearMediaError(el){try{const node=mediaNode(el),box=node?.closest(".media");box?.querySelector(".mediaLoadError")?.classList.add("hidden"),box?.classList.remove("repairing"),box?.classList.remove("previewFailed")}catch(_){}}function milanSetVideoSource(video,next){try{if(!video)return;const source=video.querySelector?.("source");source?source.setAttribute("src",next):video.setAttribute("src",next),video.load&&video.load()}catch(_){}}function milanRetryMedia(el){try{const node=mediaNode(el);if(!node||"1"===node.dataset.retrying)return;node.dataset.retrying="1";const source=node.querySelector?.("source"),src=source&&source.getAttribute("src")||node.getAttribute("src")||el.getAttribute?.("src")||"";if(!src)return;setTimeout(()=>{const next=src+(src.includes("?")?"&":"?")+"retry="+Date.now();"VIDEO"===node.tagName?milanSetVideoSource(node,next):node.setAttribute("src",next),node.dataset.retrying="0"},80)}catch(_){}}async function milanRepairVideo(id,el){const video=mediaNode(el);if(video&&"1"!==video.dataset.repairing){video.dataset.repairing="1";try{setMediaError(video,"Loading video...",!0);const result=await api("/records/"+encodeURIComponent(id)+"/media/repair?async=1",{method:"POST",body:JSON.stringify({async:!0})}),rec=result&&result.record?result.record:null;let next=videoMediaSrc(rec&&(rec.mediaUrl||rec.data?.media?.mediaUrl)||"/api/records/"+encodeURIComponent(id)+"/media");next+=(next.includes("?")?"&":"?")+"fixed="+Date.now(),milanSetVideoSource(video,next);try{video.load(),video.play?.().catch(()=>{})}catch(_){}setTimeout(()=>clearMediaError(video),400),toast(result&&result.repaired?"Video ready":"Video checked")}catch(e){const box=video.closest(".media"),card=box?.querySelector(".fileCard");card&&card.classList.remove("hidden"),setMediaError(video,"Video is uploaded safely. Preview is still preparing; refresh once or tap Open/Download.",!0)}finally{setTimeout(()=>{try{video.dataset.repairing="0"}catch(_){}},1200)}}}async function milanMediaError(id,el){try{if(!el)return;const node=mediaNode(el),box=node?.closest(".media");if("VIDEO"===node?.tagName){if("1"!==node.dataset.repairStarted)return node.dataset.repairStarted="1",void await milanRepairVideo(id,node);if("1"!==node.dataset.retryDone)return node.dataset.retryDone="1",setMediaError(node,"Retrying video stream...",!0),void milanRetryMedia(node);if(box){const card=box.querySelector(".fileCard");card&&card.classList.remove("hidden")}return void setMediaError(node,"Tap Open or Download to watch this video.",!1)}if(node&&"1"!==node.dataset.retryDone)return node.dataset.retryDone="1",void milanRetryMedia(node);if(box){box.classList.add("previewFailed");const card=box.querySelector(".fileCard");card&&card.classList.remove("hidden")}setMediaError(node,"Preview could not start. File is uploaded safely and download is available.")}catch(_){}}function setBootStatus(msg){try{let el=document.getElementById("nativeBootStatus");!el&&document.body.classList.contains("native-apk")&&(el=document.createElement("div"),el.id="nativeBootStatus",el.className="boot-status",document.body.appendChild(el)),el&&(el.textContent=msg||"",el.classList.toggle("hidden",!msg))}catch(_){}}async function fetchWithTimeout(url,opt={},ms){const controller=new AbortController,timeout=setTimeout(()=>controller.abort(),ms||2e4);try{return await fetch(url,{...opt,signal:controller.signal})}finally{clearTimeout(timeout)}}async function api(path,opt={}){const h={"Content-Type":"application/json",...opt.headers||{}};try{token=localStorage.getItem("milan_token")||localStorage.getItem("milan_token")||token||""}catch(_){}let r;token&&(h.Authorization="Bearer "+token);try{r=await fetchWithTimeout(API+path,{...opt,headers:h},Number(opt.timeoutMs||22e3))}catch(e){if(e&&"AbortError"===e.name){const er=new Error("Network timeout. Please refresh once.");throw er.status=0,er}throw e}const d=await r.json().catch(()=>({}));if(!r.ok){const er=new Error(d.error||"Request failed "+r.status);throw er.status=r.status,er}return d}function b64Header(value){try{return btoa(unescape(encodeURIComponent(String(value||""))))}catch(e){return btoa(String(value||""))}}async function apiUploadRaw(path,file,meta,onProgress){return new Promise((resolve,reject)=>{const xhr=new XMLHttpRequest;let done=!1;const fail=msg=>{done||(done=!0,reject(new Error(msg||"Upload failed")))};xhr.open("POST",API+path,!0),xhr.timeout=Number(window.MILAN_UPLOAD_TIMEOUT_MS||18e5),token&&xhr.setRequestHeader("Authorization","Bearer "+token),xhr.setRequestHeader("Content-Type",file.type||"application/octet-stream"),xhr.setRequestHeader("X-File-Name",b64Header(file.name)),xhr.setRequestHeader("X-Record-Title",b64Header(meta.title||file.name)),xhr.setRequestHeader("X-Record-Caption",b64Header(meta.caption||"")),xhr.setRequestHeader("X-Access-Mode",meta.accessMode||"private"),xhr.setRequestHeader("X-Record-Tags",b64Header(JSON.stringify(meta.tags||[]))),xhr.setRequestHeader("X-Shared-With-Dids",b64Header(JSON.stringify(meta.sharedWithDids||[]))),xhr.upload.onprogress=e=>{e.lengthComputable&&onProgress&&onProgress(Math.max(1,Math.min(98,e.loaded/e.total*100)))},xhr.onload=()=>{let d={};try{d=JSON.parse(xhr.responseText||"{}")}catch(e){}xhr.status>=200&&xhr.status<300?(done=!0,onProgress&&onProgress(100),resolve(d)):fail(d.error||"Upload failed "+xhr.status)},xhr.onerror=()=>fail("Network error during upload. Keep the browser open and try again."),xhr.ontimeout=()=>fail("Upload is taking too long. Try a smaller video or better network."),xhr.onabort=()=>fail("Upload cancelled."),xhr.send(file)})}function xhrUploadBlob(url,blob,headers,onProgress){return new Promise((resolve,reject)=>{const xhr=new XMLHttpRequest;let done=!1;const fail=msg=>{done||(done=!0,reject(new Error(msg||"Upload chunk failed")))};xhr.open("POST",url,!0),xhr.timeout=Number(window.MILAN_CHUNK_UPLOAD_TIMEOUT_MS||24e4),token&&xhr.setRequestHeader("Authorization","Bearer "+token),xhr.setRequestHeader("Content-Type","application/octet-stream"),Object.entries(headers||{}).forEach(([k,v])=>xhr.setRequestHeader(k,String(v))),xhr.upload.onprogress=e=>{e.lengthComputable&&onProgress&&onProgress(e.loaded,e.total)},xhr.onload=()=>{let d={};try{d=JSON.parse(xhr.responseText||"{}")}catch(e){}xhr.status>=200&&xhr.status<300?(done=!0,resolve(d)):fail(d.error||"Chunk upload failed "+xhr.status)},xhr.onerror=()=>fail("Network issue while uploading chunk. Retrying..."),xhr.ontimeout=()=>fail("Chunk upload timed out. Retrying..."),xhr.onabort=()=>fail("Chunk upload cancelled."),xhr.send(blob)})}async function withRetry(fn,retries=3){let last;for(let i=0;i<retries;i++)try{return await fn(i)}catch(e){last=e,await new Promise(r=>setTimeout(r,700+900*i))}throw last}async function apiUploadChunked(path,file,meta,onProgress){const requestedChunk=Number(window.MILAN_UPLOAD_CHUNK_BYTES||8388608),init=await api("/records/media/chunk/init",{method:"POST",body:JSON.stringify({fileName:file.name,mimeType:file.type||"application/octet-stream",sizeBytes:file.size,chunkBytes:requestedChunk,title:meta.title||file.name,caption:meta.caption||"",accessMode:meta.accessMode||"private",sharedWithDids:meta.sharedWithDids||[],tags:meta.tags||[]})}),uploadId=init.uploadId,chunkBytes=Number(init.chunkBytes||requestedChunk),totalChunks=Number(init.totalChunks||Math.ceil(file.size/chunkBytes));let uploadedBase=0;try{for(let i=0;i<totalChunks;i++){const start=i*chunkBytes,end=Math.min(file.size,start+chunkBytes),blob=file.slice(start,end);await withRetry(async()=>xhrUploadBlob("/api/records/media/chunk/"+encodeURIComponent(uploadId),blob,{"X-Chunk-Index":i,"X-Total-Chunks":totalChunks,"X-Chunk-Bytes":blob.size},loaded=>{if(onProgress){const pct=(uploadedBase+loaded)/file.size*96;onProgress(Math.max(1,Math.min(96,pct)))}}),4),uploadedBase=end,onProgress&&onProgress(Math.max(1,Math.min(96,uploadedBase/file.size*96)))}onProgress&&onProgress(98);const record=await api("/records/media/chunk/"+encodeURIComponent(uploadId)+"/complete",{method:"POST",body:JSON.stringify({}),timeoutMs:Number(window.MILAN_UPLOAD_COMPLETE_TIMEOUT_MS||9e5)});return onProgress&&onProgress(100),record}catch(e){try{await api("/records/media/chunk/"+encodeURIComponent(uploadId),{method:"DELETE"})}catch(_){}throw e}}async function apiUpload(path,file,meta,onProgress){return file&&((file.type||"").startsWith("video/")||file.size>Number(window.MILAN_CHUNK_UPLOAD_THRESHOLD_BYTES||8388608))?apiUploadChunked(path,file,meta,onProgress):apiUploadRaw(path,file,meta,onProgress)}function applyTheme(theme){const t="light"===theme?"light":"dark";document.body.classList.toggle("dark","dark"===t);const btn=$("themeBtn");btn&&(btn.textContent="dark"===t?"☀️ Light":"🌙 Dark")}function toggleTheme(){const next=document.body.classList.contains("dark")?"light":"dark";localStorage.setItem("milanTheme",next),applyTheme(next),toast("dark"===next?"Dark mode enabled":"Light mode enabled")}async function health(){try{const h=await fetchWithTimeout("/api/cloud-dwn/status",{},8e3).then(r=>r.json()),mode=(h.cloudDwn?.mode||"cloud").replace(/-/g," ");$("health").textContent=h.ok?"Cloud DWN online":"API issue",$("health").title=mode+" • "+(h.cloudDwn?.root||"")}catch{$("health").textContent="API offline"}}function isNativeMilan(){return MILAN_NATIVE||document.body.classList.contains("native-apk")}function safeLocalGet(k,fallback=""){try{return localStorage.getItem(k)||fallback}catch(_){return fallback}}function safeLocalRemove(k){try{localStorage.removeItem(k)}catch(_){}}function showAuth(){document.documentElement.classList.remove("milan-has-token","milan-shell-ready");applyTheme(safeLocalGet("milanTheme","dark")),document.documentElement.classList.remove("milan-token-present","milan-v91-fast-open","milan-instant-app"),document.body&&document.body.classList.remove("milan-token-present");const auth=$("authView"),app=$("appView");auth&&(auth.classList.remove("hidden","milan-v88-hidden","milan-v89-hidden","milan-v91-hidden"),auth.style.removeProperty("display"),auth.style.removeProperty("visibility"),auth.style.removeProperty("opacity"),auth.style.removeProperty("pointer-events")),app&&(app.classList.add("hidden"),app.classList.remove("milan-v88-visible","milan-v89-visible","milan-v91-visible"),app.style.removeProperty("display"),app.style.removeProperty("visibility"),app.style.removeProperty("opacity"),app.style.removeProperty("min-height")),document.body.classList.remove("app-ready","milan-app-visible","milan-v88-app-opening","milan-v89-app-opening","milan-v91-app-opening")}function showAppShellSafe(msg="Opening MILAN..."){document.documentElement.classList.add("milan-shell-ready");const auth=$("authView"),app=$("appView"),feed=$("feed");auth&&(auth.classList.add("hidden","milan-v91-hidden"),auth.style.setProperty("display","none","important"),auth.style.setProperty("visibility","hidden","important"),auth.style.setProperty("opacity","0","important"),auth.style.setProperty("pointer-events","none","important")),app&&(app.classList.remove("hidden"),app.classList.add("milan-v91-visible"),app.removeAttribute("aria-hidden"),app.style.setProperty("display","block","important"),app.style.setProperty("visibility","visible","important"),app.style.setProperty("opacity","1","important")),feed&&!String(feed.innerHTML||"").trim()&&(feed.innerHTML='<div class="empty">Opening your MILAN space...</div>'),document.body.classList.add("app-ready","milan-app-visible","milan-token-present","milan-v91-app-opening"),document.documentElement.classList.add("milan-token-present","milan-v91-fast-open"),setBootStatus(msg)}function milanHW(){if(window.__milanHWDead)return null;try{if(!window.__milanHW){const w=new Worker("/milan-heavy-worker.js?v=20260710");w.__cbs={},w.onmessage=e=>{const cb=w.__cbs[e.data.id];cb&&(delete w.__cbs[e.data.id],cb(e.data))},w.onerror=()=>{window.__milanHWDead=1;try{w.terminate()}catch(_){}window.__milanHW=null},window.__milanHW=w}return window.__milanHW}catch(_){return window.__milanHWDead=1,null}}
+const $=id=>document.getElementById(id),API="/api",MILAN_NATIVE=/MilanNativeAudio/i.test(navigator.userAgent);MILAN_NATIVE&&(document.documentElement.classList.add("native-apk","milan-v91"),document.body&&document.body.classList.add("native-apk","milan-v91","milan-v91-native"),window.addEventListener("DOMContentLoaded",()=>document.body.classList.add("native-apk","milan-v91","milan-v91-native")));let token="";try{token=localStorage.getItem("milan_token")||""}catch(_){token=""}MILAN_NATIVE&&token&&(document.documentElement.classList.add("milan-token-present","milan-v91-fast-open"),document.body&&document.body.classList.add("milan-token-present","app-ready","milan-app-visible","milan-v91-app-opening"));let me=null,currentFeed=[],people=[],lastNotifications=[],currentScope="all";function esc(s=""){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}function isChatFeedRecord(record){const data=record?.data&&typeof record.data==="object"?record.data:{};return String(record?.protocol||"").trim().toLowerCase()==="milan.chat"||String(record?.protocolPath||"").trim().toLowerCase()==="messages"||String(record?.schema||"").trim().toLowerCase()==="milan.chat.message"||String(record?.title||"").trim().toLowerCase()==="milan chat message"||String(data.kind||"").trim().toLowerCase()==="chat_message"||Boolean(data.messageId&&data.conversationId&&data.senderDid&&data.recipientDid)}function initials(s="MILAN"){return String(s||"M").trim().split(/\s+/).slice(0,2).map(x=>x[0]||"").join("").toUpperCase()||"M"}function toast(t){var container=document.getElementById("milanToastContainer");container||((container=document.createElement("div")).id="milanToastContainer",container.style.cssText="position:fixed;top:18px;right:18px;z-index:99999;display:flex;flex-direction:column;gap:8px;pointer-events:none;",document.body.appendChild(container));var el=document.createElement("div");el.textContent=t,el.style.cssText="background:rgba(15,23,42,.92);color:#fff;padding:10px 18px;border-radius:12px;font-size:13px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.22);opacity:0;transform:translateY(-8px);transition:opacity .22s,transform .22s;pointer-events:none;max-width:320px;word-break:break-word;",container.appendChild(el),requestAnimationFrame(function(){el.style.opacity="1",el.style.transform="translateY(0)"}),setTimeout(function(){el.style.opacity="0",el.style.transform="translateY(-8px)",setTimeout(function(){el.parentNode&&el.parentNode.removeChild(el)},250)},2600)}function avatarHtml(p={},cls="avatar"){const av=p.avatar||"";return/^data:image\//.test(av)||/^https?:\/\//.test(av)?`<div class="${cls}"><img src="${esc(av)}" alt="profile"></div>`:`<div class="${cls}">${esc(av||initials(p.name||p.display_name||p.email||"M"))}</div>`}function mediaSrc(url){if(!url)return"";if(/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?\//i.test(url))return"";if(/^data:|^blob:/.test(url))return url;const sep=url.includes("?")?"&":"?";return/^https?:\/\//.test(url)?url:token?url+sep+"token="+encodeURIComponent(token)+"&mv=59":url+sep+"mv=49"}function mediaDownloadSrc(url){const base=mediaSrc(url);return base?base+(base.includes("?")?"&":"?")+"download=1":""}function videoMediaSrc(raw){let u=String(raw||"");return/^\/api\/records\/[^/]+\/media$/.test(u)&&(u+="/play.mp4"),mediaSrc(u)}function mediaNode(el){return el&&"SOURCE"===el.tagName?el.parentElement:el}function setMediaError(el,msg,repairing=!1){try{const node=mediaNode(el),box=node?.closest(".media"),err=box?.querySelector(".mediaLoadError");box&&box.classList.toggle("repairing",!!repairing),err&&(err.textContent=msg,err.classList.remove("hidden"))}catch(_){}}function clearMediaError(el){try{const node=mediaNode(el),box=node?.closest(".media");box?.querySelector(".mediaLoadError")?.classList.add("hidden"),box?.classList.remove("repairing"),box?.classList.remove("previewFailed")}catch(_){}}function milanSetVideoSource(video,next){try{if(!video)return;const source=video.querySelector?.("source");source?source.setAttribute("src",next):video.setAttribute("src",next),video.load&&video.load()}catch(_){}}function milanRetryMedia(el){try{const node=mediaNode(el);if(!node||"1"===node.dataset.retrying)return;node.dataset.retrying="1";const source=node.querySelector?.("source"),src=source&&source.getAttribute("src")||node.getAttribute("src")||el.getAttribute?.("src")||"";if(!src)return;setTimeout(()=>{const next=src+(src.includes("?")?"&":"?")+"retry="+Date.now();"VIDEO"===node.tagName?milanSetVideoSource(node,next):node.setAttribute("src",next),node.dataset.retrying="0"},80)}catch(_){}}async function milanRepairVideo(id,el){const video=mediaNode(el);if(video&&"1"!==video.dataset.repairing){video.dataset.repairing="1";try{setMediaError(video,"Loading video...",!0);const result=await api("/records/"+encodeURIComponent(id)+"/media/repair?async=1",{method:"POST",body:JSON.stringify({async:!0})}),rec=result&&result.record?result.record:null;let next=videoMediaSrc(rec&&(rec.mediaUrl||rec.data?.media?.mediaUrl)||"/api/records/"+encodeURIComponent(id)+"/media");next+=(next.includes("?")?"&":"?")+"fixed="+Date.now(),milanSetVideoSource(video,next);try{video.load(),video.play?.().catch(()=>{})}catch(_){}setTimeout(()=>clearMediaError(video),400),toast(result&&result.repaired?"Video ready":"Video checked")}catch(e){const box=video.closest(".media"),card=box?.querySelector(".fileCard");card&&card.classList.remove("hidden"),setMediaError(video,"Video is uploaded safely. Preview is still preparing; refresh once or tap Open/Download.",!0)}finally{setTimeout(()=>{try{video.dataset.repairing="0"}catch(_){}},1200)}}}async function milanMediaError(id,el){try{if(!el)return;const node=mediaNode(el),box=node?.closest(".media");if("VIDEO"===node?.tagName){if("1"!==node.dataset.repairStarted)return node.dataset.repairStarted="1",void await milanRepairVideo(id,node);if("1"!==node.dataset.retryDone)return node.dataset.retryDone="1",setMediaError(node,"Retrying video stream...",!0),void milanRetryMedia(node);if(box){const card=box.querySelector(".fileCard");card&&card.classList.remove("hidden")}return void setMediaError(node,"Tap Open or Download to watch this video.",!1)}if(node&&"1"!==node.dataset.retryDone)return node.dataset.retryDone="1",void milanRetryMedia(node);if(box){box.classList.add("previewFailed");const card=box.querySelector(".fileCard");card&&card.classList.remove("hidden")}setMediaError(node,"Preview could not start. File is uploaded safely and download is available.")}catch(_){}}function setBootStatus(msg){try{let el=document.getElementById("nativeBootStatus");!el&&document.body.classList.contains("native-apk")&&(el=document.createElement("div"),el.id="nativeBootStatus",el.className="boot-status",document.body.appendChild(el)),el&&(el.textContent=msg||"",el.classList.toggle("hidden",!msg))}catch(_){}}async function fetchWithTimeout(url,opt={},ms){const controller=new AbortController,timeout=setTimeout(()=>controller.abort(),ms||2e4);try{return await fetch(url,{...opt,signal:controller.signal})}finally{clearTimeout(timeout)}}async function api(path,opt={}){const h={"Content-Type":"application/json",...opt.headers||{}};try{token=localStorage.getItem("milan_token")||localStorage.getItem("milan_token")||token||""}catch(_){}let r;token&&(h.Authorization="Bearer "+token);try{r=await fetchWithTimeout(API+path,{...opt,headers:h},Number(opt.timeoutMs||22e3))}catch(e){if(e&&"AbortError"===e.name){const er=new Error("Network timeout. Please refresh once.");throw er.status=0,er}throw e}const d=await r.json().catch(()=>({}));if(!r.ok){const er=new Error(d.error||"Request failed "+r.status);throw er.status=r.status,er}return d}function b64Header(value){try{return btoa(unescape(encodeURIComponent(String(value||""))))}catch(e){return btoa(String(value||""))}}async function apiUploadRaw(path,file,meta,onProgress){return new Promise((resolve,reject)=>{const xhr=new XMLHttpRequest;let done=!1;const fail=msg=>{done||(done=!0,reject(new Error(msg||"Upload failed")))};xhr.open("POST",API+path,!0),xhr.timeout=Number(window.MILAN_UPLOAD_TIMEOUT_MS||18e5),token&&xhr.setRequestHeader("Authorization","Bearer "+token),xhr.setRequestHeader("Content-Type",file.type||"application/octet-stream"),xhr.setRequestHeader("X-File-Name",b64Header(file.name)),xhr.setRequestHeader("X-Record-Title",b64Header(meta.title||file.name)),xhr.setRequestHeader("X-Record-Caption",b64Header(meta.caption||"")),xhr.setRequestHeader("X-Access-Mode",meta.accessMode||"private"),xhr.setRequestHeader("X-Record-Tags",b64Header(JSON.stringify(meta.tags||[]))),xhr.setRequestHeader("X-Shared-With-Dids",b64Header(JSON.stringify(meta.sharedWithDids||[]))),xhr.upload.onprogress=e=>{e.lengthComputable&&onProgress&&onProgress(Math.max(1,Math.min(98,e.loaded/e.total*100)))},xhr.onload=()=>{let d={};try{d=JSON.parse(xhr.responseText||"{}")}catch(e){}xhr.status>=200&&xhr.status<300?(done=!0,onProgress&&onProgress(100),resolve(d)):fail(d.error||"Upload failed "+xhr.status)},xhr.onerror=()=>fail("Network error during upload. Keep the browser open and try again."),xhr.ontimeout=()=>fail("Upload is taking too long. Try a smaller video or better network."),xhr.onabort=()=>fail("Upload cancelled."),xhr.send(file)})}function xhrUploadBlob(url,blob,headers,onProgress){return new Promise((resolve,reject)=>{const xhr=new XMLHttpRequest;let done=!1;const fail=msg=>{done||(done=!0,reject(new Error(msg||"Upload chunk failed")))};xhr.open("POST",url,!0),xhr.timeout=Number(window.MILAN_CHUNK_UPLOAD_TIMEOUT_MS||24e4),token&&xhr.setRequestHeader("Authorization","Bearer "+token),xhr.setRequestHeader("Content-Type","application/octet-stream"),Object.entries(headers||{}).forEach(([k,v])=>xhr.setRequestHeader(k,String(v))),xhr.upload.onprogress=e=>{e.lengthComputable&&onProgress&&onProgress(e.loaded,e.total)},xhr.onload=()=>{let d={};try{d=JSON.parse(xhr.responseText||"{}")}catch(e){}xhr.status>=200&&xhr.status<300?(done=!0,resolve(d)):fail(d.error||"Chunk upload failed "+xhr.status)},xhr.onerror=()=>fail("Network issue while uploading chunk. Retrying..."),xhr.ontimeout=()=>fail("Chunk upload timed out. Retrying..."),xhr.onabort=()=>fail("Chunk upload cancelled."),xhr.send(blob)})}async function withRetry(fn,retries=3){let last;for(let i=0;i<retries;i++)try{return await fn(i)}catch(e){last=e,await new Promise(r=>setTimeout(r,700+900*i))}throw last}async function apiUploadChunked(path,file,meta,onProgress){
+  const requestedChunk = Number(window.MILAN_UPLOAD_CHUNK_BYTES || 8388608);
+  const init = await api("/records/media/chunk/init", {
+    method: "POST",
+    body: JSON.stringify({
+      fileName: file.name,
+      mimeType: file.type || "application/octet-stream",
+      sizeBytes: file.size,
+      chunkBytes: requestedChunk,
+      title: meta.title || file.name,
+      caption: meta.caption || "",
+      accessMode: meta.accessMode || "private",
+      sharedWithDids: meta.sharedWithDids || [],
+      tags: meta.tags || []
+    })
+  });
+
+  const uploadId = init.uploadId;
+  const chunkBytes = Number(init.chunkBytes || requestedChunk);
+  const totalChunks = Number(init.totalChunks || Math.ceil(file.size / chunkBytes));
+
+  const connection = navigator.connection ||
+    navigator.mozConnection || navigator.webkitConnection;
+  const rawOverride = Number(window.MILAN_UPLOAD_CONCURRENCY || 3);
+  const fallbackConcurrency = Number.isFinite(rawOverride)
+    ? Math.max(1, Math.min(3, Math.floor(rawOverride)))
+    : 3;
+  const policy = window.MilanUploadPolicy;
+  const concurrency = policy &&
+    typeof policy.getVideoUploadConcurrency === "function"
+      ? policy.getVideoUploadConcurrency(totalChunks, {
+          connection,
+          deviceMemory: navigator.deviceMemory,
+          hardwareConcurrency: navigator.hardwareConcurrency,
+          override: window.MILAN_UPLOAD_CONCURRENCY
+        })
+      : Math.max(1, Math.min(totalChunks, fallbackConcurrency));
+
+  const chunkLoaded = new Array(totalChunks).fill(0);
+  let uploadedBytes = 0;
+
+  const reportProgress = () => {
+    if (!onProgress || file.size <= 0) return;
+    onProgress(Math.max(1, Math.min(96, uploadedBytes / file.size * 96)));
+  };
+
+  const uploadChunk = async index => {
+    const start = index * chunkBytes;
+    const end = Math.min(file.size, start + chunkBytes);
+    const blob = file.slice(start, end);
+    const url = "/api/records/media/chunk/" + encodeURIComponent(uploadId);
+    let lastError = null;
+
+    for (let attempt = 0; attempt < 4; attempt++) {
+      try {
+        await xhrUploadBlob(url, blob, {
+          "X-Chunk-Index": index,
+          "X-Total-Chunks": totalChunks,
+          "X-Chunk-Bytes": blob.size
+        }, loaded => {
+          const nextLoaded = Math.max(0, Math.min(blob.size, Number(loaded) || 0));
+          uploadedBytes = Math.max(0, uploadedBytes + nextLoaded - chunkLoaded[index]);
+          chunkLoaded[index] = nextLoaded;
+          reportProgress();
+        });
+
+        uploadedBytes += blob.size - chunkLoaded[index];
+        chunkLoaded[index] = blob.size;
+        reportProgress();
+        return;
+      } catch (error) {
+        lastError = error;
+        uploadedBytes = Math.max(0, uploadedBytes - chunkLoaded[index]);
+        chunkLoaded[index] = 0;
+        reportProgress();
+
+        if (attempt >= 3) break;
+        await new Promise(resolve => setTimeout(resolve, 700 + 900 * attempt));
+      }
+    }
+
+    throw lastError || new Error("Chunk upload failed.");
+  };
+
+  try {
+    let nextIndex = 0;
+    let firstError = null;
+
+    const worker = async () => {
+      while (!firstError) {
+        const index = nextIndex++;
+        if (index >= totalChunks) return;
+
+        try {
+          await uploadChunk(index);
+        } catch (error) {
+          if (!firstError) firstError = error;
+          return;
+        }
+      }
+    };
+
+    await Promise.all(
+      Array.from({ length: concurrency }, () => worker())
+    );
+
+    if (firstError) throw firstError;
+
+    onProgress?.(98);
+
+    const record = await api(
+      "/records/media/chunk/" + encodeURIComponent(uploadId) + "/complete",
+      {
+        method: "POST",
+        body: JSON.stringify({}),
+        timeoutMs: Number(window.MILAN_UPLOAD_COMPLETE_TIMEOUT_MS || 900000)
+      }
+    );
+
+    onProgress?.(100);
+    return record;
+  } catch (error) {
+    try {
+      await api("/records/media/chunk/" + encodeURIComponent(uploadId), {
+        method: "DELETE"
+      });
+    } catch (_) {}
+    throw error;
+  }
+}async function apiUpload(path,file,meta,onProgress){return file&&((file.type||"").startsWith("video/")||file.size>Number(window.MILAN_CHUNK_UPLOAD_THRESHOLD_BYTES||8388608))?apiUploadChunked(path,file,meta,onProgress):apiUploadRaw(path,file,meta,onProgress)}function applyTheme(theme){const t="light"===theme?"light":"dark";document.body.classList.toggle("dark","dark"===t);const btn=$("themeBtn");btn&&(btn.textContent="dark"===t?"☀️ Light":"🌙 Dark")}function toggleTheme(){const next=document.body.classList.contains("dark")?"light":"dark";localStorage.setItem("milanTheme",next),applyTheme(next),toast("dark"===next?"Dark mode enabled":"Light mode enabled")}async function health(){try{const h=await fetchWithTimeout("/api/cloud-dwn/status",{},8e3).then(r=>r.json()),mode=(h.cloudDwn?.mode||"cloud").replace(/-/g," ");$("health").textContent=h.ok?"Cloud DWN online":"API issue",$("health").title=mode+" • "+(h.cloudDwn?.root||"")}catch{$("health").textContent="API offline"}}function isNativeMilan(){return MILAN_NATIVE||document.body.classList.contains("native-apk")}function safeLocalGet(k,fallback=""){try{return localStorage.getItem(k)||fallback}catch(_){return fallback}}function safeLocalRemove(k){try{localStorage.removeItem(k)}catch(_){}}function showAuth(){document.documentElement.classList.remove("milan-has-token","milan-shell-ready");applyTheme(safeLocalGet("milanTheme","dark")),document.documentElement.classList.remove("milan-token-present","milan-v91-fast-open","milan-instant-app"),document.body&&document.body.classList.remove("milan-token-present");const auth=$("authView"),app=$("appView");auth&&(auth.classList.remove("hidden","milan-v88-hidden","milan-v89-hidden","milan-v91-hidden"),auth.style.removeProperty("display"),auth.style.removeProperty("visibility"),auth.style.removeProperty("opacity"),auth.style.removeProperty("pointer-events")),app&&(app.classList.add("hidden"),app.classList.remove("milan-v88-visible","milan-v89-visible","milan-v91-visible"),app.style.removeProperty("display"),app.style.removeProperty("visibility"),app.style.removeProperty("opacity"),app.style.removeProperty("min-height")),document.body.classList.remove("app-ready","milan-app-visible","milan-v88-app-opening","milan-v89-app-opening","milan-v91-app-opening")}function showAppShellSafe(msg="Opening MILAN..."){document.documentElement.classList.add("milan-shell-ready");const auth=$("authView"),app=$("appView"),feed=$("feed");auth&&(auth.classList.add("hidden","milan-v91-hidden"),auth.style.setProperty("display","none","important"),auth.style.setProperty("visibility","hidden","important"),auth.style.setProperty("opacity","0","important"),auth.style.setProperty("pointer-events","none","important")),app&&(app.classList.remove("hidden"),app.classList.add("milan-v91-visible"),app.removeAttribute("aria-hidden"),app.style.setProperty("display","block","important"),app.style.setProperty("visibility","visible","important"),app.style.setProperty("opacity","1","important")),feed&&!String(feed.innerHTML||"").trim()&&(feed.innerHTML='<div class="empty">Opening your MILAN space...</div>'),document.body.classList.add("app-ready","milan-app-visible","milan-token-present","milan-v91-app-opening"),document.documentElement.classList.add("milan-token-present","milan-v91-fast-open"),setBootStatus(msg)}function milanHW(){if(window.__milanHWDead)return null;try{if(!window.__milanHW){const w=new Worker("/milan-heavy-worker.js?v=20260710");w.__cbs={},w.onmessage=e=>{const cb=w.__cbs[e.data.id];cb&&(delete w.__cbs[e.data.id],cb(e.data))},w.onerror=()=>{window.__milanHWDead=1;try{w.terminate()}catch(_){}window.__milanHW=null},window.__milanHW=w}return window.__milanHW}catch(_){return window.__milanHWDead=1,null}}
 function milanOffload(task,syncFn,cb){const w=milanHW();if(!w)return void cb(syncFn());let done=!1;const id="t"+Date.now()+Math.random(),t=setTimeout(()=>{done||(done=!0,delete w.__cbs[id],cb(syncFn()))},600);w.__cbs[id]=m=>{done||(done=!0,clearTimeout(t),cb(m.error?syncFn():m))};try{w.postMessage({id:id,...task})}catch(_){done||(done=!0,clearTimeout(t),delete w.__cbs[id],cb(syncFn()))}}
 function applyFeed(fresh){const safe=(Array.isArray(fresh)?fresh:[]).filter(r=>!isChatFeedRecord(r));const prev=currentFeed;currentFeed=safe,milanOffload({type:"feedDiff",prev:prev,fresh:safe},()=>({changed:JSON.stringify(safe)!==JSON.stringify(prev)}),r=>{(r.changed||!$("feed").childElementCount)&&(me||(window.__milanFeedNoMe=!0),renderFeed(),requestAnimationFrame(()=>{initMilanMediaObserver()}))})}
 function readBootCache(){try{const bc=JSON.parse(localStorage.getItem("milanBootCache")||"null");return bc&&bc.me&&bc.tokenTail===String(token||"").slice(-12)?bc:null}catch(_){return null}}
@@ -447,32 +576,29 @@ function postHtml(r,savedSet){
 
   const saved=(savedSet||new Set(savedIds())).has(r.id);
 
-  const ownerControls=owner
-    ? `
-      <button type="button"
-        onclick="editPost('${r.id}')">
-        ✏️ Edit
-      </button>
 
-      <button type="button"
-        onclick="accessPanel('${r.id}')">
-        🔐 Access
-      </button>
+  const menuId = esc(r.id || "");
+  const rawMediaUrl = r.mediaUrl || r.data?.media?.mediaUrl || r.data?.mediaUrl || "";
+  const actionButton = (label, action, extraClass = "") =>
+    '<button type="button" role="menuitem" class="' + extraClass +
+    '" onclick="milanPostMenuAction(event,&#39;' + menuId +
+    '&#39;,&#39;' + action + '&#39;)">' + label + '</button>';
 
-      <button type="button"
-        class="milan-delete-post"
-        title="Delete this post"
-        aria-label="Delete this post"
-        onclick="deletePost('${r.id}')">
-        🗑 Delete
-      </button>
-    `
-    : `
-      <button type="button"
-        onclick="requestAccess('${esc(r.owner||"")}','${r.id}')">
-        🔑 Request
-      </button>
-    `;
+  const postMenu =
+    '<div class="milan-post-menu-wrap">' +
+      '<button type="button" class="milan-post-menu-trigger" ' +
+        'aria-label="Post options" aria-haspopup="true" aria-expanded="false" ' +
+        'onclick="milanTogglePostMenu(event,&#39;' + menuId + '&#39;)">⋮</button>' +
+      '<div class="milan-post-menu" role="menu" hidden>' +
+        (owner ? actionButton('✏️ Edit post', 'edit') + actionButton('🔐 Change privacy', 'access') : '') +
+        actionButton('🔗 Copy link', 'copy') +
+        actionButton('↗ Share post', 'share') +
+        (rawMediaUrl ? actionButton('⬇ Download media', 'download') : '') +
+        actionButton('ⓘ View details', 'details') +
+        actionButton(saved ? '🔖 Remove from saved' : '🔖 Save post', 'save') +
+        (owner ? actionButton('🗑 Delete post', 'delete', 'milan-menu-danger') : actionButton('🔑 Request access', 'request')) +
+      '</div>' +
+    '</div>';
 
   return `<article class="card post" id="post-${esc(r.id)}">
     <div class="postHead">
@@ -507,12 +633,13 @@ function postHtml(r,savedSet){
         </div>
       </div>
 
-      <div>
+      <div class="milan-post-head-actions">
         ${
           owner
             ? '<span class="badge">Owner</span>'
             : '<span class="badge">Visible by permission</span>'
         }
+        ${postMenu}
       </div>
     </div>
 
@@ -569,32 +696,169 @@ function postHtml(r,savedSet){
         ${saved?"🔖 Saved":"🔖 Save"}
       </button>
 
-      ${ownerControls}
+
     </div>
   </article>`;
 }
-function updateRecordLocal(id,patch,options){const i=currentFeed.findIndex(r=>r.id===id);if(i>=0){currentFeed[i]={...currentFeed[i],...patch};const el=$("post-"+id);if(el&&!(options&&options.preserveVideo&&el.querySelector(".milanUniversalPlayer video"))){el.outerHTML=postHtml(currentFeed[i])}}}async function react(id,type,btn){try{const summary=await api("/social/records/"+id+"/reactions",{method:"POST",body:JSON.stringify({type:type})}),r=currentFeed.find(x=>x.id===id);r&&(r.social=r.social||{},r.social.reactions=summary);const card=btn.closest(".post");card.querySelector(".reactionTotal").textContent=(summary.total||0)+" reactions",card.querySelectorAll(".reactionBar button").forEach(b=>b.classList.remove("active")),summary.mine===type&&btn.classList.add("active"),loadNotifications(),loadSummary()}catch(e){toast(e.message)}}async function openComments(id){try{const rows=await api("/social/records/"+id+"/comments");$("modalBody").innerHTML=`<h2>Comments</h2><div class="comments">${rows.map(c=>`<div class="comment">${avatarHtml(c.authorProfile||{})}<div class="bubble"><b>${esc(c.authorProfile?.name||"User")}</b><div>${esc(c.text)}</div><div class="mini">${new Date(c.createdAt).toLocaleString()}</div></div></div>`).join("")||'<div class="empty">No comments yet.</div>'}</div><textarea id="newComment" placeholder="Write a comment"></textarea><br><button onclick="addComment('${id}')">Post comment</button>`,$("modalBack").classList.remove("hidden")}catch(e){toast(e.message)}}async function addComment(id){try{const text=$("newComment").value.trim();if(!text)return toast("Write a comment first");await api("/social/records/"+id+"/comments",{method:"POST",body:JSON.stringify({text:text})}),closeModal();const r=currentFeed.find(x=>x.id===id);if(r){r.social=r.social||{},r.social.commentsCount=Number(r.social.commentsCount||0)+1;const card=$("post-"+id);card&&(card.querySelector(".commentTotal").textContent=r.social.commentsCount+" comments")}toast("Comment posted"),loadNotifications()}catch(e){toast(e.message)}}function accessPanel(id){$("modalBody").innerHTML=`<h2>Update access</h2><p class="mini">The DID box is blank every time. Paste only the DIDs you want to allow now.</p><label>Access mode</label><select id="accessMode"><option value="private">Private</option><option value="public">Public</option><option value="shared_did">Share with DID</option></select><label>Share DIDs</label><textarea id="accessDids" placeholder="Paste DIDs comma separated"></textarea><button onclick="updateAccess('${id}')">Update access</button>`,$("modalBack").classList.remove("hidden")}async function updateAccess(id){try{const mode=$("accessMode").value,dids=$("accessDids").value.split(",").map(x=>x.trim()).filter(x=>x.startsWith("did:"));await api("/records/"+id+"/permissions",{method:"PATCH",body:JSON.stringify({accessMode:mode,sharedWithDids:dids})}),closeModal(),toast("Access updated"),mediaPlaying()?loadSummary():await loadFeed()}catch(e){toast(e.message)}}function editPost(id){const r=currentFeed.find(x=>x.id===id);if(!r)return;const tags=(r.tags||[]).join(", ");$("modalBody").innerHTML=`<h2>Edit post</h2><label>Title</label><input id="editTitle" value="${esc(r.title||"")}"><label>Caption / Text</label><textarea id="editText">${esc(postText(r))}</textarea><label>Tags</label><input id="editTags" value="${esc(tags)}"><p class="mini">Media file is preserved while editing title, text or tags.</p><button onclick="saveEdit('${id}')">Save changes</button>`,$("modalBack").classList.remove("hidden")}async function saveEdit(id){try{const r=currentFeed.find(x=>x.id===id),text=$("editText").value,tags=$("editTags").value.split(",").map(x=>x.trim()).filter(Boolean);let data=r.data;data=data&&"media"===data.kind?{...data,caption:text}:{..."object"==typeof data?data:{},text:text,tags:tags};const updated=await api("/records/"+id,{method:"PUT",body:JSON.stringify({title:$("editTitle").value,data:data,tags:tags})});closeModal(),updateRecordLocal(id,updated),toast("Post updated")}catch(e){toast(e.message)}}async function deletePost(id){
-  if(!confirm("Delete this post permanently from DWN?")) return;
 
-  try{
-    await api("/records/"+encodeURIComponent(id),{
-      method:"DELETE"
+function milanClosePostMenus() {
+  document.querySelectorAll(".milan-post-menu:not([hidden])").forEach(menu => {
+    menu.hidden = true;
+    menu.parentElement?.querySelector(".milan-post-menu-trigger")?.setAttribute("aria-expanded", "false");
+  });
+}
+function milanTogglePostMenu(event, id) {
+  event?.preventDefault();
+  event?.stopPropagation();
+  const card = document.getElementById("post-" + id);
+  const menu = card?.querySelector(".milan-post-menu");
+  const trigger = card?.querySelector(".milan-post-menu-trigger");
+  if (!menu || !trigger) return;
+  const open = menu.hidden;
+  milanClosePostMenus();
+  menu.hidden = !open;
+  trigger.setAttribute("aria-expanded", String(open));
+}
+function milanPostLink(id) {
+  const url = new URL(window.location.href);
+  url.hash = "post-" + id;
+  return url.href;
+}
+function milanPostMenuAction(event, id, action) {
+  event?.preventDefault();
+  event?.stopPropagation();
+  const button = event?.currentTarget;
+  const record = currentFeed.find(item => item.id === id);
+  milanClosePostMenus();
+  if (!record) return toast("Post not found.");
+  if (action === "edit") return editPost(id);
+  if (action === "access") return accessPanel(id);
+  if (action === "delete") return deletePost(id);
+  if (action === "request") return requestAccess(record.owner || record.ownerDid || "", id);
+  if (action === "save") return toggleSave(id, button);
+  if (action === "copy") return copyText(milanPostLink(id));
+  if (action === "share") {
+    const data = { title: record.title || "MILAN post", text: postText(record) || "", url: milanPostLink(id) };
+    if (navigator.share) {
+      navigator.share(data).catch(error => {
+        if (error.name !== "AbortError") toast("Could not share this post.");
+      });
+    } else copyText(data.url);
+    return;
+  }
+  if (action === "download") {
+    const raw = record.mediaUrl || record.data?.media?.mediaUrl || record.data?.mediaUrl || "";
+    if (!raw) return toast("No downloadable media found.");
+    const anchor = document.createElement("a");
+    anchor.href = mediaDownloadSrc(raw);
+    anchor.download = record.data?.media?.fileName || record.title || "milan-media";
+    anchor.rel = "noopener";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    return;
+  }
+  if (action === "details") {
+    const media = record.data?.media || {};
+    const details = [
+      ["Title", record.title || "Untitled"],
+      ["Privacy", record.accessMode || "private"],
+      ["Created", record.dateCreated ? new Date(record.dateCreated).toLocaleString() : "Unknown"],
+      ["Media type", media.mimeType || record.dataFormat || "Text post"],
+      ["File size", media.sizeBytes ? formatBytes(media.sizeBytes) : "—"],
+      ["Processing", media.processingStatus || record.mediaCompatibility?.processingStatus || "—"],
+      ["Owner DID", record.owner || record.ownerDid || "—"]
+    ];
+    $("modalBody").innerHTML = '<h2>Post details</h2><div class="milan-post-details">' +
+      details.map(([label, value]) => '<div><span>' + esc(label) + '</span><b>' + esc(value) + '</b></div>').join("") +
+      '</div><button type="button" onclick="closeModal()">Close</button>';
+    $("modalBack").classList.remove("hidden");
+  }
+}
+function milanInstallPostMenuStyles() {
+  if (document.getElementById("milan-post-menu-styles")) return;
+  const style = document.createElement("style");
+  style.id = "milan-post-menu-styles";
+  style.textContent = [
+    ".milan-post-head-actions{display:flex;align-items:center;gap:9px;position:relative}",
+    ".milan-post-menu-wrap{position:relative;z-index:20}",
+    ".milan-post-menu-trigger{width:38px;height:38px;display:grid;place-items:center;border:1px solid var(--border,rgba(255,255,255,.12));border-radius:50%;background:rgba(255,255,255,.055);color:var(--text,#f8fafc);font-size:25px;line-height:1;cursor:pointer;padding:0}",
+    ".milan-post-menu{position:absolute;right:0;top:calc(100% + 8px);width:min(245px,calc(100vw - 42px));padding:7px;background:rgba(18,22,34,.98);border:1px solid rgba(255,255,255,.13);border-radius:15px;box-shadow:0 16px 45px rgba(0,0,0,.38);backdrop-filter:blur(18px);z-index:9999;display:grid;gap:3px}",
+    ".milan-post-menu[hidden]{display:none!important}",
+    ".milan-post-menu button{width:100%;min-height:42px;display:flex;align-items:center;gap:11px;padding:10px 12px;text-align:left;border:0;border-radius:9px;background:transparent;color:#edf1fa;font-size:13px;font-weight:600;cursor:pointer}",
+    ".milan-post-menu button:hover{background:rgba(255,255,255,.09)}",
+    ".milan-post-menu button.milan-menu-danger{color:#ff8585}",
+    ".milan-delete-confirm{text-align:center;padding:12px 4px}",
+    ".milan-delete-icon{font-size:34px;margin:3px auto 12px}",
+    ".milan-delete-confirm p{color:var(--muted,#aab3c5);line-height:1.6;font-size:14px}",
+    ".milan-delete-actions{display:flex;justify-content:center;gap:10px;margin-top:22px}",
+    ".milan-delete-actions button{min-height:42px;padding:10px 17px;border-radius:11px;border:1px solid var(--border,rgba(255,255,255,.12));background:rgba(255,255,255,.06);color:var(--text,#fff);font-weight:700;cursor:pointer}",
+    ".milan-delete-actions .milan-confirm-delete{background:#dc3545;border-color:#dc3545;color:#fff}",
+    ".milan-post-details{display:grid;gap:10px;margin:15px 0}",
+    ".milan-post-details div{display:flex;justify-content:space-between;gap:14px;padding:10px 0;border-bottom:1px solid var(--border,rgba(255,255,255,.1))}",
+    ".milan-post-details span{color:var(--muted,#aab3c5)}",
+    ".milan-post-details b{text-align:right;overflow-wrap:anywhere}",
+    "@media(max-width:480px){.milan-post-menu{right:-4px}.milan-post-menu-trigger{width:36px;height:36px}}"
+  ].join("");
+  document.head.appendChild(style);
+  if (!window.__milanPostMenuHandlers) {
+    window.__milanPostMenuHandlers = true;
+    document.addEventListener("click", event => {
+      if (!event.target.closest(".milan-post-menu-wrap")) milanClosePostMenus();
     });
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") milanClosePostMenus();
+    });
+  }
+}
+milanInstallPostMenuStyles();
 
-    currentFeed=currentFeed.filter(
-      r=>r.id!==id
-    );
+function updateRecordLocal(id,patch,options){const i=currentFeed.findIndex(r=>r.id===id);if(i>=0){currentFeed[i]={...currentFeed[i],...patch};const el=$("post-"+id);if(el&&!(options&&options.preserveVideo&&el.querySelector(".milanUniversalPlayer video"))){el.outerHTML=postHtml(currentFeed[i])}}}async function react(id,type,btn){try{const summary=await api("/social/records/"+id+"/reactions",{method:"POST",body:JSON.stringify({type:type})}),r=currentFeed.find(x=>x.id===id);r&&(r.social=r.social||{},r.social.reactions=summary);const card=btn.closest(".post");card.querySelector(".reactionTotal").textContent=(summary.total||0)+" reactions",card.querySelectorAll(".reactionBar button").forEach(b=>b.classList.remove("active")),summary.mine===type&&btn.classList.add("active"),loadNotifications(),loadSummary()}catch(e){toast(e.message)}}async function openComments(id){try{const rows=await api("/social/records/"+id+"/comments");$("modalBody").innerHTML=`<h2>Comments</h2><div class="comments">${rows.map(c=>`<div class="comment">${avatarHtml(c.authorProfile||{})}<div class="bubble"><b>${esc(c.authorProfile?.name||"User")}</b><div>${esc(c.text)}</div><div class="mini">${new Date(c.createdAt).toLocaleString()}</div></div></div>`).join("")||'<div class="empty">No comments yet.</div>'}</div><textarea id="newComment" placeholder="Write a comment"></textarea><br><button onclick="addComment('${id}')">Post comment</button>`,$("modalBack").classList.remove("hidden")}catch(e){toast(e.message)}}async function addComment(id){try{const text=$("newComment").value.trim();if(!text)return toast("Write a comment first");await api("/social/records/"+id+"/comments",{method:"POST",body:JSON.stringify({text:text})}),closeModal();const r=currentFeed.find(x=>x.id===id);if(r){r.social=r.social||{},r.social.commentsCount=Number(r.social.commentsCount||0)+1;const card=$("post-"+id);card&&(card.querySelector(".commentTotal").textContent=r.social.commentsCount+" comments")}toast("Comment posted"),loadNotifications()}catch(e){toast(e.message)}}function accessPanel(id){$("modalBody").innerHTML=`<h2>Update access</h2><p class="mini">The DID box is blank every time. Paste only the DIDs you want to allow now.</p><label>Access mode</label><select id="accessMode"><option value="private">Private</option><option value="public">Public</option><option value="shared_did">Share with DID</option></select><label>Share DIDs</label><textarea id="accessDids" placeholder="Paste DIDs comma separated"></textarea><button onclick="updateAccess('${id}')">Update access</button>`,$("modalBack").classList.remove("hidden")}async function updateAccess(id){try{const mode=$("accessMode").value,dids=$("accessDids").value.split(",").map(x=>x.trim()).filter(x=>x.startsWith("did:"));await api("/records/"+id+"/permissions",{method:"PATCH",body:JSON.stringify({accessMode:mode,sharedWithDids:dids})}),closeModal(),toast("Access updated"),mediaPlaying()?loadSummary():await loadFeed()}catch(e){toast(e.message)}}function editPost(id){const r=currentFeed.find(x=>x.id===id);if(!r)return;const tags=(r.tags||[]).join(", ");$("modalBody").innerHTML=`<h2>Edit post</h2><label>Title</label><input id="editTitle" value="${esc(r.title||"")}"><label>Caption / Text</label><textarea id="editText">${esc(postText(r))}</textarea><label>Tags</label><input id="editTags" value="${esc(tags)}"><p class="mini">Media file is preserved while editing title, text or tags.</p><button onclick="saveEdit('${id}')">Save changes</button>`,$("modalBack").classList.remove("hidden")}async function saveEdit(id){try{const r=currentFeed.find(x=>x.id===id),text=$("editText").value,tags=$("editTags").value.split(",").map(x=>x.trim()).filter(Boolean);let data=r.data;data=data&&"media"===data.kind?{...data,caption:text}:{..."object"==typeof data?data:{},text:text,tags:tags};const updated=await api("/records/"+id,{method:"PUT",body:JSON.stringify({title:$("editTitle").value,data:data,tags:tags})});closeModal(),updateRecordLocal(id,updated),toast("Post updated")}catch(e){toast(e.message)}}
+function deletePost(id) {
+  const record = currentFeed.find(item => item.id === id);
+  if (!record) return toast("Post not found.");
 
-    const card=$("post-"+id);
-    if(card) card.remove();
+  $("modalBody").innerHTML =
+    '<div class="milan-delete-confirm">' +
+      '<div class="milan-delete-icon">🗑️</div>' +
+      '<h2>Delete this post?</h2>' +
+      '<p>You are about to permanently delete <b>' +
+        esc(record.title || "this post") +
+      '</b> from MILAN DWN. This action cannot be undone.</p>' +
+      '<div class="milan-delete-actions">' +
+        '<button type="button" onclick="closeModal()">Cancel</button>' +
+        '<button type="button" class="milan-confirm-delete" ' +
+          'onclick="confirmDeletePost(&#39;' + esc(id) + '&#39;)">Delete permanently</button>' +
+      '</div>' +
+    '</div>';
 
+  $("modalBack").classList.remove("hidden");
+}
+
+async function confirmDeletePost(id) {
+  const button = document.querySelector(".milan-confirm-delete");
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Deleting...";
+  }
+
+  try {
+    await api("/records/" + encodeURIComponent(id), { method: "DELETE" });
+    currentFeed = currentFeed.filter(record => record.id !== id);
+    $("post-" + id)?.remove();
+    closeModal();
     renderFeed();
     toast("Post deleted from DWN");
     await loadSummary();
-  }catch(e){
-    toast(e.message||"Could not delete post");
+  } catch (error) {
+    toast(error.message || "Could not delete post");
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Delete permanently";
+    }
   }
-}function sharePanel(id){accessPanel(id)}async function requestAccess(did,id){try{await api("/requests",{method:"POST",body:JSON.stringify({toDid:did,recordId:id,message:"Please allow access to this MILAN record."})}),toast("Access request sent")}catch(e){toast(e.message)}}async function publish(){
+}
+function sharePanel(id){accessPanel(id)}async function requestAccess(did,id){try{await api("/requests",{method:"POST",body:JSON.stringify({toDid:did,recordId:id,message:"Please allow access to this MILAN record."})}),toast("Access request sent")}catch(e){toast(e.message)}}async function publish(){
   try{
     const file = $("mediaFile").files[0];
     const accessMode = $("privacy").value;

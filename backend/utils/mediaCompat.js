@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawn, spawnSync } = require('child_process');
+const { withFfmpegSlot, FFMPEG_ENCODER_THREADS } = require('./ffmpegProcessingPolicy');
 
 // MILAN V49: reliable universal mobile video playback layer.
 // Browser engines cannot decode every video container/codec. V49 probes the upload first:
@@ -132,6 +133,10 @@ function runProcess(command, args, timeoutMs, captureStdout = false) {
   });
 }
 
+function runFfmpegProcess(command, args, timeoutMs, captureStdout = false) {
+  return withFfmpegSlot(() => runProcess(command, args, timeoutMs, captureStdout));
+}
+
 async function probeMedia(filePath) {
   const ffprobe = findFfprobe();
   if (!ffprobe) return { ok: false, warning: 'ffprobe-not-available', streams: [] };
@@ -179,14 +184,14 @@ async function tryFfmpegCopyFaststart(ffmpeg, filePath, outPath, timeoutMs) {
     '-bsf:v', 'h264_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1',
     outPath];
   try {
-    await runProcess(ffmpeg, withMetadataArgs, timeoutMs, false);
+    await runFfmpegProcess(ffmpeg, withMetadataArgs, timeoutMs, false);
     if (fs.existsSync(outPath) && fileSize(outPath) > 0) return true;
   } catch (_) {
     try { if (fs.existsSync(outPath)) fs.unlinkSync(outPath); } catch (_) {}
   }
   const plainArgs = ['-y', '-hide_banner', '-loglevel', 'error', '-i', filePath,
     '-map', '0', '-c', 'copy', '-movflags', '+faststart', outPath];
-  await runProcess(ffmpeg, plainArgs, timeoutMs, false);
+  await runFfmpegProcess(ffmpeg, plainArgs, timeoutMs, false);
   return fs.existsSync(outPath) && fileSize(outPath) > 0;
 }
 
@@ -214,11 +219,14 @@ async function tryFfmpegTranscode(ffmpeg, filePath, outPath, timeoutMs, probe = 
     '-y', '-hide_banner', '-loglevel', 'error',
     '-fflags', '+genpts+discardcorrupt',
     '-err_detect', 'ignore_err',
+    '-filter_threads', String(FFMPEG_ENCODER_THREADS),
+    '-threads', String(FFMPEG_ENCODER_THREADS),
     '-i', filePath,
     '-map', '0:v:0', '-map', '0:a:0?',
     '-sn', '-dn',
     '-vf', `${fpsFilter}${scale}`,
     '-c:v', 'libx264',
+    '-threads:v', String(FFMPEG_ENCODER_THREADS),
     '-preset', process.env.MILAN_TRANSCODE_PRESET || 'veryfast',
     '-crf', process.env.MILAN_TRANSCODE_CRF || '25',
     '-profile:v', 'baseline',
@@ -237,7 +245,7 @@ async function tryFfmpegTranscode(ffmpeg, filePath, outPath, timeoutMs, probe = 
     '-max_muxing_queue_size', '9999',
     outPath
   ];
-  await runProcess(ffmpeg, args, timeoutMs, false);
+  await runFfmpegProcess(ffmpeg, args, timeoutMs, false);
   return fs.existsSync(outPath) && fileSize(outPath) > 0;
 }
 
