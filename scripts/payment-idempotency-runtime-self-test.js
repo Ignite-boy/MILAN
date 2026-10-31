@@ -8,8 +8,8 @@ const assert = require('node:assert/strict');
 const express = require('express');
 
 process.env.ADMIN_TOKEN = 'a08-runtime-test-token-only';
-process.env.MILAN_PAY_UPI_ID = 'milan.test@upi';
-process.env.MILAN_PAY_GOOGLE_PAY_IOS_ENABLED = 'false';
+process.env.CASHFREE_ENABLED = 'false';
+process.env.CASHFREE_ENV = 'sandbox';
 
 const users = new Map([
   ['user-1', { quota: 104857600 }],
@@ -257,12 +257,13 @@ async function main() {
   let requestId;
 
   try {
-    await test('UPI configuration truthfully reports manual verification', async () => {
+    await test('Cashfree configuration fails closed while payments are disabled', async () => {
       const response = await get('/api/milan-pay/config');
       assert.equal(response.status, 200);
-      assert.equal(response.body.verificationMode, 'manual-bank-verification');
-      assert.equal(response.body.automaticPaymentConfirmationAvailable, false);
-      assert.equal(response.body.cardPaymentsAvailable, false);
+      assert.equal(response.body.provider, 'cashfree');
+      assert.equal(response.body.mode, 'sandbox');
+      assert.equal(response.body.enabled, false);
+      assert.equal(response.body.checkoutSdk, null);
     });
 
     await test('another account cannot submit a UTR for an order it does not own', async () => {

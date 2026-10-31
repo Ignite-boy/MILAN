@@ -16,6 +16,8 @@ const payPage = read('frontend/milan-pay.html');
 const env = read('backend/.env.example');
 const pkg = JSON.parse(read('package.json'));
 const migration = read('backend/migrations/20261019_postgresql_milan_pay.sql');
+const cashfreeMigration = read('backend/migrations/20261031_postgresql_cashfree_payments.sql');
+const cashfreeService = read('backend/services/cashfreePayments.js');
 const postgresqlMigration = migration;
 const rolesMigration = read('backend/migrations/20261019_postgresql_00_roles.sql');
 const pendingOrdersMigration = read('backend/migrations/20261015_milan_pay_single_pending_order.sql');
@@ -62,44 +64,76 @@ const checks = [
   ['Admin token is not accepted via query string', !storageRoute.includes('req.query.adminToken')],
   ['500 MB price is consistent', payRoute.includes("amountInr: 250") && storageRoute.includes("amountInr: 250")],
   ['1 GB price is consistent', payRoute.includes("amountInr: 500") && storageRoute.includes("amountInr: 500")],
-  ['Checkout has a UTR form', payPage.includes('id="utrForm"') && payPage.includes('name="utr"')],
-  ['Checkout submits the server order ID and UTR', payPage.includes('orderId: currentOrderId') && payPage.includes('utr')],
-  ['Checkout disables repeat-payment actions when support reconciliation is required',
+  ['Cashfree checkout collects phone and submits selected plan to server',
+    payPage.includes('body: JSON.stringify({ plan: state.selectedPlan, phone })') &&
+    payPage.includes('api("/api/milan-pay/orders"') &&
+    payPage.includes('id="phone"')],
+  ['New checkout removes legacy UTR submission UI',
+    !payPage.includes('id="utrForm"') &&
+    !payPage.includes('name="utr"') &&
+    !payPage.includes('currentOrderId')],
+  ['Checkout locks repeat payment when support reconciliation is required',
     payPage.includes('function requiresPaymentSupport(code)') &&
-    payPage.includes("'MILAN_PAY_PENDING_ORDER_RECIPIENT_UNVERIFIED'") &&
-    payPage.includes("'MILAN_PAY_ORDER_VERIFICATION_ALREADY_SUBMITTED'") &&
-    payPage.includes('pay.disabled = supportRequired || !ready') &&
-    payPage.includes("'Contact support'") &&
-    payPage.includes('Payment status unavailable')],
-  ['Checkout keeps storage pending until manual verification', payPage.includes('PENDING BANK VERIFICATION') && payPage.includes('storage is not upgraded yet')],
-  ['Checkout shows server-generated order QR', payRoute.includes("QRCode.toDataURL") && payRoute.includes("qrDataUrl") && payPage.includes('id="upiQr"')],
-  ['Checkout shows merchant receiver details', payRoute.includes("merchantVpa: ready ? vpa : null") && payPage.includes('id="payeeVpa"')],
-  ['Existing pending order is reused to reduce duplicate orders', payRoute.includes("reusedOrder: true") && payRoute.includes("MILAN_PAY_PENDING_ORDER_EXISTS")],
-  ['Concurrent order creation conflict is handled', payRoute.includes("A pending order was created at the same time")],
-  ['Pending orders pin the selected merchant VPA', payRoute.includes("gateway_reference") && payRoute.includes("INSERT INTO public.payment_orders")],
-  ['Legacy pending orders without a pinned recipient are blocked on order reuse and status restore',
-    payRoute.includes("code: 'MILAN_PAY_PENDING_ORDER_RECIPIENT_UNVERIFIED'") &&
-    payRoute.includes('if (!pendingOrder.gateway_reference)') &&
-    payRoute.includes('if (!data.gateway_reference)') &&
-    !payRoute.includes('const orderVpa = validVpa(pendingOrder.gateway_reference) ? pendingOrder.gateway_reference : vpa') &&
-    !payRoute.includes('const vpa = validVpa(data.gateway_reference) ? data.gateway_reference : configuredVpa') &&
-    !payRoute.includes('.update({ gateway_reference: orderVpa })') &&
-    !payRoute.includes('.update({ gateway_reference: vpa })')],
+    payPage.includes('"LEGACY_PAYMENT_RECONCILIATION_REQUIRED"') &&
+    payPage.includes('"STORAGE_REQUEST_PENDING"') &&
+    payPage.includes('"CASHFREE_PENDING_ORDER_RECONCILIATION_REQUIRED"') &&
+    payPage.includes('"CASHFREE_PAYMENT_RECONCILIATION_REQUIRED"') &&
+    payPage.includes('pay.disabled = state.busy || !state.ready || !loggedIn || state.requiresSupport') &&
+    payPage.includes('pay.textContent = "Contact support"')],
+  ['Storage activates only after provider reports paid; duplicate success requires review',
+    payPage.includes('if (data.status === "paid")') &&
+    payPage.includes('data.paymentReviewRequired === true') &&
+    payPage.includes('Your MILAN storage upgrade is active.') &&
+    payPage.includes('Do not pay again.')],
+  ['Cashfree hosted checkout session replaces direct UPI QR',
+    payRoute.includes('paymentSessionId: linked.paymentSessionId') &&
+    payRoute.includes('providerOrder.payment_session_id') &&
+    !payRoute.includes('QRCode.toDataURL')],
+  ['Cashfree public config does not expose API credentials',
+    payRoute.includes("router.get('/config'") &&
+    payRoute.includes('cashfree.publicConfiguration()') &&
+    cashfreeService.includes('checkoutSdk')],
+  ['Pending Cashfree sessions are reused',
+    payRoute.includes('localOrder.cf_order_id && localOrder.provider_payment_session_id') &&
+    payRoute.includes('paymentSessionId: localOrder.provider_payment_session_id')],
+  ['Concurrent Cashfree order conflicts are handled',
+    payRoute.includes("error && error.code === '23505'") &&
+    payRoute.includes('CASHFREE_PENDING_ORDER_EXISTS')],
+  ['Cashfree order is linked through guarded database RPC',
+    payRoute.includes('public.attach_cashfree_order($1, $2, $3, $4)')],
+  ['Legacy direct-UPI orders are blocked pending reconciliation',
+    payRoute.includes("gateway = 'milanpay' AND status = 'pending'") &&
+    payRoute.includes('LEGACY_PAYMENT_RECONCILIATION_REQUIRED')],
   ['Migration checks for duplicate pending orders before indexing', pendingOrdersMigration.includes("HAVING COUNT(*) > 1") && pendingOrdersMigration.includes("Multiple pending MILAN Pay orders exist")],
   ['Migration enforces one pending MILAN Pay order per user', pendingOrdersMigration.includes("payment_orders_one_pending_milanpay_per_user_uidx") && pendingOrdersMigration.includes("gateway = 'milanpay' AND status = 'pending'")],
-  ['Order creation and restore fail closed when duplicate pending orders exist', payRoute.includes("MILAN_PAY_PENDING_ORDER_RECONCILIATION_REQUIRED") && payRoute.includes("LIMIT 2")],
-  ['Order status suppresses payment links when a verification request already exists', payRoute.includes("paymentActionRequired: false") && payRoute.includes("Do not pay again")],
-  ['Order reuse never issues a fresh QR after any verification request is already linked',
-    payRoute.includes("code: 'MILAN_PAY_ORDER_VERIFICATION_ALREADY_SUBMITTED'") &&
-    payRoute.includes("WHERE order_id = $1") && payRoute.includes("[pendingOrder.order_id]") &&
-    payRoute.includes('A verification request already exists for this order. Do not pay again')],
-  ['Config clearly distinguishes unverified merchant setup from automatic confirmation', payRoute.includes("merchantVerificationStatus: ready ? 'configured-unverified'") && payRoute.includes("automaticPaymentConfirmationAvailable: false")],
+  ['Cashfree creation fails closed when duplicate pending orders exist',
+    payRoute.includes('CASHFREE_PENDING_ORDER_RECONCILIATION_REQUIRED') &&
+    payRoute.includes('LIMIT 2')],
+  ['Paid Cashfree orders suppress repeat payment actions',
+    payRoute.includes("localOrder.status === 'paid'") &&
+    payRoute.includes('paymentActionRequired: false')],
+  ['Cashfree payment status is confirmed against provider history',
+    payRoute.includes('cashfree.getPaymentsForOrder(orderId)') &&
+    payRoute.includes("'PAYMENT_STATUS_POLL'")],
+  ['Cashfree config distinguishes disabled from ready checkout',
+    payRoute.includes('cashfree.publicConfiguration()') &&
+    cashfreeService.includes('CASHFREE_DISABLED')],
   ['Pending-order reconciliation SQL is read-only', pendingAudit.startsWith('-- READ-ONLY') && !/(?:^|\n)\s*(INSERT|UPDATE|DELETE|TRUNCATE|ALTER|DROP)\b/im.test(pendingAudit)],
   ['Operations runbook requires zero duplicate groups before migration', paymentOpsDoc.includes('duplicate-group result must return **zero rows**') && paymentOpsDoc.includes('Do not remove or bypass that preflight')],
   ['Operations runbook documents bank integration prerequisite for automatic confirmation', paymentOpsDoc.includes('current UPI intent/QR protocol does not provide a trusted server-to-server settlement callback') && paymentOpsDoc.includes('authorised UPI partner')],
-  ['Google Pay iOS intent requires configured bank MCC', payRoute.includes("gpay://upi/pay?") && payRoute.includes("merchantMcc()") && payRoute.includes("MILAN_PAY_MCC")],
-  ['Copy-payment fallback available for VPA amount and order reference', payPage.includes('id="copyVpa"') && payPage.includes('id="copyAmount"') && payPage.includes('id="copyOrderId"')],
-  ['Restored checkout URI is rebuilt by the server', payPage.includes("Never trust the payment URI from sessionStorage") && payPage.includes("data.upiUri")],
+  ['Cashfree route does not construct direct UPI or Google Pay intents',
+    !payRoute.includes('upi://pay?') && !payRoute.includes('gpay://upi/pay?')],
+  ['Cashfree hosted checkout uses its payment session and no VPA-copy fallback',
+    payPage.includes('cashfree.checkout({') &&
+    payPage.includes('paymentSessionId: state.order.paymentSessionId') &&
+    !payPage.includes('id="copyVpa"') &&
+    !payPage.includes('id="copyAmount"')],
+  ['Cashfree return URL is server-generated and restored using server payment status',
+    cashfreeService.includes("returnUrl.searchParams.set('order_id', orderId)") &&
+    payPage.includes('cashfree_return') &&
+    payPage.includes('fetchOrderStatus(state.order.orderId)') &&
+    payPage.includes('paymentSessionId: ""') &&
+    !payPage.includes('sessionStorage.setItem("milanPaymentSessionId"')],
   ['Storage page links to MILAN Pay', storagePage.includes('/milan-pay?plan=')],
   ['Legacy hosted-payment route is not mounted', !server.includes("app.use('/api/payment'")],
   ['Direct UPI merchant setting is documented', env.includes('MILAN_PAY_UPI_ID=')],
@@ -128,7 +162,9 @@ const checks = [
   ['PostgreSQL runtime cannot set payment or request status on insert',
     postgresqlMigration.includes('GRANT INSERT (user_id, order_id, plan, amount_inr, gateway, gateway_reference)') &&
     !postgresqlMigration.includes('GRANT UPDATE (status, reviewed_at, reviewer_note)') &&
-    payRoute.includes('(user_id, order_id, plan, amount_inr, gateway, gateway_reference)') &&
+    cashfreeMigration.includes('customer_phone, provider_idempotency_key, provider_request_payload') &&
+    !/GRANT INSERT\s*\([^)]*\bstatus\b[^)]*\)\s*ON TABLE public\.payment_orders TO milan_app/s.test(cashfreeMigration) &&
+    payRoute.includes('customer_phone, provider_idempotency_key, provider_request_payload)') &&
     storageRoute.includes('(user_id, order_id, plan, quota_bytes, amount_inr, payment_method, utr)')],
   ['Legacy rejection uses a guarded RPC and has no direct app status-update grant',
     storageRoute.includes('public.admin_reject_legacy_milan_storage_request') &&

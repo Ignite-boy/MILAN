@@ -10,6 +10,7 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const pay = read('backend/routes/milanPay.js');
 const storage = read('backend/routes/storage.js');
 const migration = read('backend/migrations/20261019_postgresql_milan_pay.sql');
+const cashfreeMigration = read('backend/migrations/20261031_postgresql_cashfree_payments.sql');
 const pendingMigration = read('backend/migrations/20261015_milan_pay_single_pending_order.sql');
 const roles = read('backend/migrations/20261019_postgresql_00_roles.sql');
 const pkg = JSON.parse(read('package.json'));
@@ -71,22 +72,24 @@ check('CI runs payment idempotency checks as an independent build step',
 check('Order creation is authenticated and rate-limited',
   pay.includes("router.post('/orders', createOrderRateLimiter, auth"));
 
-check('New payment order insert cannot set caller-controlled status',
-  /INSERT INTO public\.payment_orders\s*\(\s*user_id,\s*order_id,\s*plan,\s*amount_inr,\s*gateway,\s*gateway_reference\s*\)/s.test(createOrder) &&
+check('New Cashfree payment order insert cannot set caller-controlled status',
+  /INSERT INTO public\.payment_orders\s*\(\s*user_id,\s*order_id,\s*plan,\s*amount_inr,\s*gateway,\s*gateway_reference,\s*customer_phone,\s*provider_idempotency_key,\s*provider_request_payload\s*\)/s.test(createOrder) &&
   !/INSERT INTO public\.payment_orders\s*\([^)]*\bstatus\b/is.test(createOrder));
 
 check('New orders remain pending until independent verification',
   createOrder.includes("status: 'pending'") &&
   approveRpc.includes("SET status = 'paid'"));
 
-check('Concurrent pending-order creation is protected by a partial unique index',
+check('Concurrent pending-order creation is protected for legacy and Cashfree gateways',
   pendingMigration.includes('payment_orders_one_pending_milanpay_per_user_uidx') &&
   /ON public\.payment_orders\s*\(user_id\)\s*WHERE gateway = 'milanpay' AND status = 'pending'/s.test(pendingMigration) &&
+  cashfreeMigration.includes('payment_orders_one_pending_cashfree_per_user_uidx') &&
+  /ON public\.payment_orders\s*\(user_id\)\s*WHERE gateway = 'cashfree' AND status = 'pending'/s.test(cashfreeMigration) &&
   createOrder.includes("error.code === '23505'"));
 
-check('Order restore is scoped to authenticated owner and gateway',
-  /WHERE order_id = \$1 AND user_id = \$2 AND gateway = 'milanpay'/s.test(orderStatus) &&
-  orderStatus.includes('if (!data) return res.status(404)'));
+check('Cashfree order status is scoped to authenticated owner and gateway',
+  /WHERE order_id = \$1 AND user_id = \$2 AND gateway = 'cashfree'/s.test(orderStatus) &&
+  orderStatus.includes('if (!localOrder) return res.status(404)'));
 
 check('UTR submission is authenticated and rate-limited',
   storage.includes("router.post('/upgrade-request', submitUpgradeRequestLimiter, auth"));
@@ -172,13 +175,17 @@ check('Runtime role cannot directly change payment status or storage entitlement
   migration.includes('REVOKE INSERT, UPDATE ON TABLE public.storage_upgrade_requests FROM milan_app;') &&
   migration.includes('GRANT INSERT (user_id, order_id, plan, amount_inr, gateway, gateway_reference)'));
 
-check('Manual UPI mode does not claim automatic settlement confirmation',
-  pay.includes("verificationMode: 'manual-bank-verification'") &&
-  pay.includes('automaticPaymentConfirmationAvailable: false') &&
-  !/status:\s*['"]paid['"]/.test(pay));
+check('Cashfree grants entitlement only through verified server-side finalization',
+  pay.includes("router.post('/webhook'") &&
+  pay.includes('cashfree.verifyWebhookSignature') &&
+  pay.includes('PAYMENT_SUCCESS_WEBHOOK') &&
+  pay.includes('public.finalize_cashfree_payment(') &&
+  !/UPDATE\\s+public\\.payment_orders[\\s\\S]{0,250}SET\\s+status\\s*=\\s*'paid'/i.test(pay));
 
-check('Test scope includes the current payment and role migrations',
+check('Test scope includes legacy, Cashfree payment, and role migrations',
   fs.existsSync(path.join(root, 'backend/migrations/20261019_postgresql_milan_pay.sql')) &&
+  fs.existsSync(path.join(root, 'backend/migrations/20261031_postgresql_cashfree_payments.sql')) &&
+  cashfreeMigration.includes('CREATE OR REPLACE FUNCTION public.finalize_cashfree_payment') &&
   fs.existsSync(path.join(root, 'backend/migrations/20261019_postgresql_00_roles.sql')));
 
 console.log(`A08 PAYMENT IDEMPOTENCY SELF-TEST: ${passed} passed, ${failures} failed.`);

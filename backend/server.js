@@ -96,7 +96,15 @@ app.use(compression({
 }));
 // Media uploads are streamed directly on /api/records/media.
 // Keep JSON body small for speed and protection on mobile/production.
-app.use(express.json({ limit: process.env.JSON_LIMIT || '25mb' }));
+app.use(express.json({
+  limit: process.env.JSON_LIMIT || '25mb',
+  verify: (req, _res, buffer) => {
+    // Cashfree webhook HMAC must use the untouched original request bytes.
+    if (req.method === 'POST' && req.path === '/api/milan-pay/webhook') {
+      req.rawBody = Buffer.from(buffer);
+    }
+  }
+}));
 app.use(express.urlencoded({ extended: true, limit: process.env.URLENCODED_LIMIT || '10mb' }));
 
 // MILAN storage rule: PostgreSQL is authoritative for persistent user data, records, and media.
@@ -681,6 +689,8 @@ app.get(['/private-social-network', '/whatsapp-alternative', '/instagram-alterna
 app.get(['/best-social-media-apps', '/best-social-media', '/best-privacy-social-apps', '/best-social-media-app-2026'], (_req, res) => res.sendFile(path.join(__dirname, '../frontend/best-social-media-apps.html')));
 app.get(['/what-is-web5', '/web5', '/web5-explained', '/dwn-did-explained'], (_req, res) => res.sendFile(path.join(__dirname, '../frontend/what-is-web5.html')));
 app.get(['/social-media-privacy', '/privacy-guide', '/self-sovereign-identity', '/social-media-data-privacy', '/stop-social-media-tracking'], (_req, res) => res.sendFile(path.join(__dirname, '../frontend/social-media-privacy.html')));
+app.get('/decentralized-web-node', (_req, res) => res.sendFile(path.join(__dirname, '../frontend/decentralized-web-node.html')));
+app.get('/who-is-the-founder-of-milan', (_req, res) => res.sendFile(path.join(__dirname, '../frontend/who-is-the-founder-of-milan.html')));
 
 // ── City hubs: decentralized social by metro (unique local content, self-canonical, NOT doorway pages) ──
 ['mumbai', 'delhi', 'bengaluru', 'hyderabad', 'chennai', 'kolkata', 'pune', 'jaipur'].forEach((cty) => {
