@@ -66,6 +66,7 @@
     burger.type = "button";
     burger.setAttribute("aria-label", "Open navigation");
     burger.setAttribute("aria-expanded", "false");
+    burger.setAttribute("aria-controls", "milan-drawer-v81");
     burger.textContent = "☰";
     topbar.appendChild(burger);
 
@@ -77,6 +78,7 @@
     drawer.id = "milan-drawer-v81";
     drawer.setAttribute("aria-label", "MILAN navigation");
     drawer.setAttribute("aria-hidden", "true");
+    drawer.inert = true;
     document.body.appendChild(drawer);
 
     var head = document.createElement("div");
@@ -138,15 +140,20 @@
 
     function openMenu() {
       if (!mq.matches) return;
-      document.body.classList.add("milan-mobile-menu-open");
+      drawer.inert = false;
       drawer.setAttribute("aria-hidden", "false");
+      document.body.classList.add("milan-mobile-menu-open");
       burger.setAttribute("aria-expanded", "true");
+      close.focus();
     }
 
     function closeMenu() {
+      var wasOpen = document.body.classList.contains("milan-mobile-menu-open");
       document.body.classList.remove("milan-mobile-menu-open");
       drawer.setAttribute("aria-hidden", "true");
+      drawer.inert = true;
       burger.setAttribute("aria-expanded", "false");
+      if (wasOpen && mq.matches) burger.focus();
     }
 
     var more = document.createElement("div");
@@ -381,7 +388,42 @@
       if (lb) lb.click();
       else location.href = "/";
     });
-    document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeMenu(); });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") {
+        if (document.body.classList.contains("milan-mobile-menu-open")) closeMenu();
+        return;
+      }
+
+      if (e.key !== "Tab" ||
+          !document.body.classList.contains("milan-mobile-menu-open")) return;
+
+      var focusable = Array.from(drawer.querySelectorAll(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )).filter(function (el) {
+        var style = window.getComputedStyle(el);
+        var rect = el.getBoundingClientRect();
+        return !el.hidden && style.display !== "none" &&
+          style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+      });
+
+      if (!focusable.length) {
+        e.preventDefault();
+        close.focus();
+        return;
+      }
+
+      var first = focusable[0];
+      var last = focusable[focusable.length - 1];
+      var active = document.activeElement;
+
+      if (e.shiftKey && (active === first || !drawer.contains(active))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (active === last || !drawer.contains(active))) {
+        e.preventDefault();
+        first.focus();
+      }
+    });
 
     if (mq.addEventListener) mq.addEventListener("change", syncLayout);
     else if (mq.addListener) mq.addListener(syncLayout);

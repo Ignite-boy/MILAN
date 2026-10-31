@@ -7,7 +7,7 @@
   <link rel="icon" href="/favicon.ico?v=2" type="image/x-icon" sizes="any">
   <link rel="apple-touch-icon" href="/assets/milan-logo-circle.png?v=2" sizes="180x180">
   <link rel="manifest" href="/manifest.json">
-<style id="milan-pwa-install-v2">
+<style id="milan-pwa-install-v2-styles">
   #milan-pwa-install-v2{
     position:fixed;
     left:50%;
@@ -233,6 +233,7 @@
   <!-- Final accessible responsive login UX layer; unversioned for network-first PWA updates. -->
   <link rel="stylesheet" href="/milan-login-ux.css">
 <link rel="stylesheet" href="/assets/css/login-motion.css?v=1">
+<link rel="stylesheet" href="/assets/css/milan-login-responsive-fix.css?v=20261101-1">
 </head>
 <body class="mlp">
 <div id="milan-pwa-install-v2" role="region" aria-label="Install MILAN app" aria-live="polite">
@@ -308,7 +309,7 @@
         </div>
       </div>
       <div class="input-group">
-        <label class="input-label">Password</label>
+        <label class="input-label" for="loginPass">Password</label>
         <div class="input-wrapper">
           <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           <input type="password" class="input-field" id="loginPass" placeholder="Enter your password" autocomplete="current-password">
@@ -339,7 +340,7 @@
         </div>
       </div>
       <div class="input-group">
-        <label class="input-label">Password</label>
+        <label class="input-label" for="regPass">Password</label>
         <div class="input-wrapper">
           <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           <input type="password" class="input-field" id="regPass" placeholder="Create a strong password">
