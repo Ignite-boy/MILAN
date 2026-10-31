@@ -1,0 +1,56 @@
+/* MILAN login responsive layout correction — 2026-11-01 */
+@media (max-width: 780px) {
+  body.mlp #root {
+    display: flex !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    justify-content: center !important;
+    align-items: flex-start !important;
+    padding: 12px !important;
+    overflow-x: hidden !important;
+  }
+
+  body.mlp .milan-container {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 480px !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 0 !important;
+    overflow: visible !important;
+  }
+
+  body.mlp .hero-panel {
+    display: none !important;
+  }
+
+  body.mlp .login-card {
+    display: flex !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;
+    overflow-x: visible !important;
+  }
+
+  body.mlp .login-card > * {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  body.mlp .tabs,
+  body.mlp #loginBox,
+  body.mlp #registerBox {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+}

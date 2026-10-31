@@ -3000,6 +3000,7 @@ body.map #privacyBar{
 </style>
 
 <link rel="stylesheet" href="/assets/css/ui-polish.css?v=2">
+  <link rel="stylesheet" href="/assets/css/milan-app-tablet-layout-fix.css?v=20261101-1">
 </head>
 <body class="map">
 <div class="app">
@@ -3038,7 +3039,7 @@ body.map #privacyBar{
     <span id="privacyBar" class="milan-data-bridge" aria-hidden="true"></span>
     <div class="profile-stats"><div class="profile-stat"><b id="peopleCount">0</b><span>People</span></div><div class="profile-stat"><b id="postCount">0</b><span>Posts</span></div><div class="profile-stat"><b id="notifCount">0</b><span>Alerts</span></div></div>
   </div>
-  <nav class="nav">
+  <nav class="nav" aria-label="Main app navigation">
     <button class="active">🏠 Home Feed</button><button>👤 My Posts</button><button>🌍 Public Feed</button><button>🔖 Saved</button><button onclick="window.location.href='/storage-upgrade.html'">☁️ Upgrade Storage</button>
     <button id="messagesNavBtn" type="button">💬 Messages</button><button>🎵 Music</button><button>🔔 Notifications</button>
     <button id="editProfileBtn" type="button">⚙ Edit Profile</button><button>🛡 Privacy</button><button class="accent">🤖 MILAN AI</button>
@@ -3051,8 +3052,8 @@ body.map #privacyBar{
   <div class="composer-tools">
     <button type="button" class="tool" id="photoUploadBtn" title="Upload photo">🖼</button>
     <button type="button" class="tool" id="fileUploadBtn" title="Upload file">📎</button>
-    <button type="button" class="tool">😊</button>
-    <button type="button" class="tool">🔒</button>
+    <button type="button" class="tool" aria-label="Insert emoji">😊</button>
+    <button type="button" class="tool" data-privacy="private" aria-label="Post visibility" aria-pressed="false" title="Private post">🔒</button>
     <input id="mediaFile" type="file" hidden
       accept="image/*,video/*,audio/*,text/*,.txt,.md,.csv,.json,.xml,.html,.pdf,.doc,.docx,.xls,.xlsx,.zip">
     <span id="selectedFileName" style="display:none;margin-left:8px;color:#9aa7c2;font-size:11px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><span style="color:#22c55e;font-size:18px;font-weight:900;">✓</span></span>

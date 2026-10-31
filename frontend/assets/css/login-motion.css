@@ -130,3 +130,10 @@
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important;transition:none!important}
 }
+
+/* MOBILE VIEWPORT OVERFLOW FIX — 2026-10-30 */
+@media (max-width:780px) {
+  .milan-container::before {
+    inset:0;
+  }
+}

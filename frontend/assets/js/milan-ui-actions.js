@@ -1670,6 +1670,7 @@
 
                 tools[3].title =
                     privateNow ? "Public post" : "Private post";
+                tools[3].setAttribute("aria-pressed", String(privateNow));
             };
         }
     }
