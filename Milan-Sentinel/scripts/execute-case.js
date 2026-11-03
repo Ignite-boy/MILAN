@@ -115,8 +115,11 @@ async function browserCheck(name, device) {
         documentWidth: document.documentElement.scrollWidth,
         bodyWidth: document.body.scrollWidth
       }));
-      assert(layout.documentWidth <= layout.viewportWidth + 1,
-        `horizontal overflow at ${layout.viewportWidth}px: document width ${layout.documentWidth}px`);
+      assert(
+        layout.documentWidth <= layout.viewportWidth + 1 &&
+        layout.bodyWidth <= layout.viewportWidth + 1,
+        `horizontal overflow at ${layout.viewportWidth}px: document width ${layout.documentWidth}px, body width ${layout.bodyWidth}px`
+      );
       return { url: `${BASE}/app`, status: response.status(), ...layout };
     }
     return skip(`No browser assertion is implemented for "${name}".`);

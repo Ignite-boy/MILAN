@@ -274,7 +274,7 @@ jobs:
         run: |
           set -euo pipefail
           npm run build
-          for TEST in test:chat test:payment test:milan-pay test:security test:upload test:distributed-rate-limit test:feed-pagination; do
+          for TEST in test:chat test:payment test:milan-pay test:security test:upload test:distributed-rate-limit test:feed-pagination test:webauthn; do
             npm run "$TEST"
           done
           if node -e "process.exit(require('./package.json').scripts?.['test:video-range'] ? 0 : 1)"; then

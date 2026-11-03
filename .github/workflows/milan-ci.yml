@@ -103,6 +103,9 @@ jobs:
       - name: Verify readiness semantics
         run: npm run test:readiness
 
+      - name: Verify WebAuthn PostgreSQL persistence
+        run: npm run test:webauthn
+
       - name: Verify critical frontend files
         run: |
           test -s frontend/app.html

@@ -28,9 +28,30 @@ jobs:
       - name: Validate theoretical 10M combinations
         run: npm run validate
         working-directory: Milan-Sentinel
-      - name: Execute representative smoke checks
-        if: github.event_name != 'pull_request'
-        run: npm run smoke
+      - name: Execute representative smoke checks against checkout
+        env:
+          MILAN_URL: http://127.0.0.1:4173
+          MILAN_API_URL: https://milanlife.in
+        run: |
+          node scripts/serve-frontend.js > "$RUNNER_TEMP/milan-sentinel-smoke-server.log" 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true; wait "$SERVER_PID" 2>/dev/null || true' EXIT
+
+          READY=0
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4173/ >/dev/null; then
+              READY=1
+              break
+            fi
+            sleep 1
+          done
+
+          if [ "$READY" -ne 1 ]; then
+            cat "$RUNNER_TEMP/milan-sentinel-smoke-server.log" || true
+            exit 1
+          fi
+
+          npm run smoke
         working-directory: Milan-Sentinel
       - name: Upload evidence
         if: always()
@@ -46,7 +67,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
+        shard: [0,1,2,3,4,5,6,7]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -58,10 +79,31 @@ jobs:
       - name: Install Chromium for browser adapters
         run: npx playwright install --with-deps chromium
         working-directory: Milan-Sentinel
-      - name: Execute stratified sample
+      - name: Execute supported test shard against checkout
         env:
           SHARD: ${{ matrix.shard }}
-        run: node scripts/run-matrix.js --run --start=$((SHARD * 500 * 1000 + 1)) --count=500 --stride=1000
+          MILAN_URL: http://127.0.0.1:4173
+          MILAN_API_URL: https://milanlife.in
+        run: |
+          node scripts/serve-frontend.js > "$RUNNER_TEMP/milan-sentinel-shard-$SHARD-server.log" 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true; wait "$SERVER_PID" 2>/dev/null || true' EXIT
+
+          READY=0
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4173/ >/dev/null; then
+              READY=1
+              break
+            fi
+            sleep 1
+          done
+
+          if [ "$READY" -ne 1 ]; then
+            cat "$RUNNER_TEMP/milan-sentinel-shard-$SHARD-server.log" || true
+            exit 1
+          fi
+
+          node scripts/run-matrix.js --supported --shard="$SHARD" --shards=8
         working-directory: Milan-Sentinel
       - name: Upload shard evidence
         if: always()

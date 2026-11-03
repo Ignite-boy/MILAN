@@ -40,6 +40,31 @@ router.get('/my-server', auth, async (req, res) => {
 });
 
 // Reports protocol status separately from logical tenant/storage status.
+router.post('/messages', auth, async (req, res) => {
+  const did = String(req.account?.did || '').trim();
+  if (!did || !req.account?.spaceId) {
+    return res.status(403).json({ error: 'Authenticated DID space is required.' });
+  }
+
+  const message = req.body?.message;
+  if (!message || typeof message !== 'object' || Array.isArray(message) ||
+      !message.descriptor?.interface || !message.descriptor?.method) {
+    return res.status(400).json({ error: 'A signed DWN message is required in the message field.' });
+  }
+
+  try {
+    const reply = await dwnStore.processDwnMessage(did, message);
+    const code = Number(reply?.status?.code);
+    const httpStatus = Number.isInteger(code) && code >= 100 && code <= 599 ? code : 502;
+    return res.status(httpStatus).json(reply);
+  } catch (err) {
+    const code = Number.isInteger(err.status) ? err.status : 503;
+    return res.status(code).json({
+      error: code === 400 || code === 403 ? err.message : 'DWN message processing is unavailable.'
+    });
+  }
+});
+
 router.get('/real-node', auth, async (req, res) => {
   const found = current(req);
   if (!found) return res.status(404).json({ error: 'User not found' });

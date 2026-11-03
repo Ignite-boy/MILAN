@@ -52,15 +52,37 @@ function caseIdFor({ environment, scenario, action, device, state, locale }) {
   return n + 1;
 }
 
-function representativeSmokeIds() {
+function supportedCaseIds() {
   const { ADAPTERS } = require('./execute-case');
-  const locale = 'en-IN', device = 'desktop-1440', state = 'fresh';
-  return matrix.dimensions.scenario.map(scenario => {
+  const ids = [];
+
+  for (const scenario of matrix.dimensions.scenario) {
     const adapter = ADAPTERS[scenario.name];
-    const environment = adapter?.environment || 'milan-prod';
-    const action = adapter?.action || 'status';
-    return caseIdFor({ environment, scenario, action, device, state, locale });
-  });
+    if (!adapter) continue;
+
+    if (scenario.name === 'dwn-health' && !process.env.DWN_URL?.trim()) continue;
+    if (['travel-health', 'travel-request'].includes(scenario.name) && !process.env.TRAVEL_URL?.trim()) continue;
+
+    const devices = adapter.responsive
+      ? matrix.dimensions.device
+      : ['desktop-1440'];
+
+    for (const device of devices) {
+      ids.push(caseIdFor({
+        environment: adapter.environment,
+        scenario,
+        action: adapter.action,
+        device,
+        state: 'fresh',
+        locale: 'en-IN'
+      }));
+    }
+  }
+
+  if (new Set(ids).size !== ids.length) {
+    throw new Error('Supported Sentinel suite contains duplicate case IDs.');
+  }
+  return ids;
 }
 
 async function execute(c) {
@@ -103,6 +125,8 @@ async function runBatch({ start = 1, count = 100, stride = 1, explicitIds = null
 
 async function main() {
   const mode = process.argv.includes('--validate') ? 'validate'
+    : process.argv.includes('--list-supported') ? 'list-supported'
+    : process.argv.includes('--supported') ? 'supported'
     : process.argv.includes('--smoke') ? 'smoke'
     : process.argv.includes('--continuous') ? 'continuous'
     : process.argv.includes('--list') ? 'list'
@@ -111,7 +135,27 @@ async function main() {
   if (mode === 'validate') {
     const dimensionsValid = dims.every(([, values]) => Array.isArray(values) && values.length > 0);
     if (!dimensionsValid || product !== matrix.caseCount) throw new Error('Test matrix dimensions are empty or inconsistent.');
-    console.log(JSON.stringify({ theoreticalCaseCount: product, expected: matrix.caseCount, valid: true, fullyExecuted: false }, null, 2));
+    const supportedIds = supportedCaseIds();
+    if (supportedIds.length === 0) throw new Error('No executable Sentinel cases are configured.');
+    console.log(JSON.stringify({
+      theoreticalCaseCount: product,
+      expected: matrix.caseCount,
+      executableSupportedCaseCount: supportedIds.length,
+      supportedCases: supportedIds.map(id => {
+        const c = caseAt(id);
+        return {
+          caseId: c.caseId,
+          environment: c.environment,
+          scenario: c.scenario.name,
+          action: c.action,
+          device: c.device,
+          state: c.state,
+          locale: c.locale
+        };
+      }),
+      valid: true,
+      fullyExecuted: false
+    }, null, 2));
     return;
   }
   if (mode === 'list') {
@@ -122,9 +166,42 @@ async function main() {
     return;
   }
 
+  if (mode === 'list-supported') {
+    for (const id of supportedCaseIds()) console.log(JSON.stringify(caseAt(id)));
+    return;
+  }
+
+  if (mode === 'supported') {
+    const ids = supportedCaseIds();
+    const shardIndex = Number(arg('shard', '0'));
+    const shardCount = Number(arg('shards', '1'));
+
+    if (!Number.isInteger(shardIndex) || !Number.isInteger(shardCount) ||
+        shardCount < 1 || shardIndex < 0 || shardIndex >= shardCount) {
+      throw new Error('Invalid supported-suite shard parameters.');
+    }
+    if (ids.length < shardCount) {
+      throw new Error(`Supported suite has ${ids.length} cases for ${shardCount} shards; refusing empty shards.`);
+    }
+
+    const assignedIds = ids.filter((_, index) => index % shardCount === shardIndex);
+    if (assignedIds.length === 0) throw new Error('This shard has no executable test cases.');
+
+    const batch = await runBatch({
+      explicitIds: assignedIds,
+      mode: `supported-shard-${shardIndex + 1}-of-${shardCount}`
+    });
+
+    if (batch.failed > 0 || batch.skipped > 0 || batch.passed !== assignedIds.length) {
+      process.exitCode = 2;
+    }
+    return;
+  }
+
   if (mode === 'smoke') {
-    const batch = await runBatch({ explicitIds: representativeSmokeIds(), mode: 'representative-smoke' });
-    if (batch.failed > 0 || batch.passed === 0) process.exitCode = 2;
+    const ids = supportedCaseIds();
+    const batch = await runBatch({ explicitIds: ids, mode: 'representative-smoke' });
+    if (batch.failed > 0 || batch.skipped > 0 || batch.passed !== ids.length) process.exitCode = 2;
     return;
   }
 

@@ -70,13 +70,21 @@ class Parser(HTMLParser):
     def handle_data(self, data):
         if self.capture: self.buf.append(data)
 
-def fetch(url: str):
+def fetch(url: str) -> tuple[int | None, str, bytes, str | None]:
     req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"})
     try:
         with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
-            return r.status, r.headers.get("Content-Type", ""), r.read()
-    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError):
-        return None, "", b""
+            return r.status, r.headers.get("Content-Type", ""), r.read(), None
+    except urllib.error.HTTPError as exc:
+        try:
+            body = exc.read()
+        except OSError:
+            body = b""
+        return exc.code, exc.headers.get("Content-Type", "") if exc.headers else "", body, f"HTTP {exc.code}: {exc.reason}"
+    except urllib.error.URLError as exc:
+        return None, "", b"", f"Network error: {exc.reason}"
+    except (TimeoutError, OSError) as exc:
+        return None, "", b"", f"Network error: {exc}"
 
 def norm(url: str) -> str:
     p = urllib.parse.urlparse(url)
@@ -91,7 +99,7 @@ def same_origin(url: str) -> bool:
 
 def sitemap_urls() -> list[str]:
     for p in ("/sitemap.xml", "/sitemap-index.xml", "/sitemap_index.xml"):
-        status, _, body = fetch(TARGET + p)
+        status, _, body, _ = fetch(TARGET + p)
         if status == 200 and b"<loc>" in body:
             return [x.decode("utf-8", "ignore").strip() for x in re.findall(rb"<loc>(.*?)</loc>", body)][:MAX_PAGES]
     return []
@@ -102,24 +110,47 @@ def audit() -> dict:
     for u in sitemap:
         u = norm(u)
         if same_origin(u): queue.append(u)
-    seen, pages = set(), []
+
+    seen, pages, resources = set(), [], []
     while queue and len(seen) < MAX_PAGES:
         url = norm(queue.popleft())
         if url in seen or not same_origin(url) or path(url) in SKIP: continue
         seen.add(url)
-        status, ctype, body = fetch(url)
+
+        status, ctype, body, fetch_error = fetch(url)
         item = {"url": url, "status": status, "content_type": ctype, "issues": [], "warnings": []}
-        if status != 200 or "text/html" not in ctype:
-            item["issues"].append("not_html_200")
+
+        if status is None:
+            item["issues"].append("fetch_error")
+            item["fetch_error"] = fetch_error or "Request failed without an HTTP response"
             pages.append(item)
             continue
-        p = Parser(); p.feed(body.decode("utf-8", "ignore"))
+
+        if status != 200:
+            item["issues"].append(f"http_{status}")
+            item["fetch_error"] = fetch_error or f"HTTP {status}"
+            pages.append(item)
+            continue
+
+        media_type = ctype.split(";", 1)[0].strip().lower()
+        if media_type not in {"text/html", "application/xhtml+xml"}:
+            resources.append({
+                "url": url,
+                "status": status,
+                "content_type": ctype,
+                "resource_type": media_type or "unknown",
+            })
+            continue
+
+        p = Parser()
+        p.feed(body.decode("utf-8", "ignore"))
         item.update({
             "title": p.title, "description": p.description, "canonical": p.canonical,
             "robots": p.robots, "h1_count": len(p.h1), "images_without_alt": p.images_without_alt,
             "og_title": p.og.get("og:title", ""), "og_description": p.og.get("og:description", ""),
             "jsonld": bool(p.jsonld),
         })
+
         # Pages that explicitly declare noindex (for example, authenticated app
         # surfaces and payment checkout) are intentionally not search landing pages.
         # Keep them visible in the inventory, but do not fail SEO checks for metadata
@@ -137,20 +168,32 @@ def audit() -> dict:
             if not p.og.get("og:title"): item["warnings"].append("og_title")
             if not p.og.get("og:description"): item["warnings"].append("og_description")
             if not p.jsonld: item["warnings"].append("jsonld")
+
         pages.append(item)
         for href in p.links:
             u = norm(urllib.parse.urljoin(url, href))
             if same_origin(u) and u not in seen and path(u) not in SKIP: queue.append(u)
+
     issues, warnings = {}, {}
     for item in pages:
         for x in item["issues"]: issues[x] = issues.get(x, 0) + 1
         for x in item["warnings"]: warnings[x] = warnings.get(x, 0) + 1
-    return {"target": TARGET, "pages_checked": len(pages), "sitemap_urls": len(sitemap), "issues": issues, "warnings": warnings, "pages": pages}
+
+    return {
+        "target": TARGET,
+        "pages_checked": len(pages),
+        "resources_checked": len(resources),
+        "sitemap_urls": len(sitemap),
+        "issues": issues,
+        "warnings": warnings,
+        "resources": resources,
+        "pages": pages,
+    }
 
 def main() -> int:
     report = audit()
     with open(OUT, "w", encoding="utf-8") as f: json.dump(report, f, indent=2, ensure_ascii=False)
-    print(json.dumps({k: report[k] for k in ("target", "pages_checked", "sitemap_urls", "issues", "warnings")}, indent=2))
+    print(json.dumps({k: report[k] for k in ("target", "pages_checked", "resources_checked", "sitemap_urls", "issues", "warnings")}, indent=2))
     return 0 if not report["issues"] else 1
 
 if __name__ == "__main__":

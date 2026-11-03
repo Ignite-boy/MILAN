@@ -1,0 +1,7 @@
+.gcloudignore
+.git
+.gitignore
+#!include:.gitignore
+
+# Exclude local safety backups from GCP source uploads
+*.before-*

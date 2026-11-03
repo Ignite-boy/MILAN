@@ -8,7 +8,17 @@ const { BROWSER_SAFE_MEDIA, detectMimeFromFile, extForMime, categoryForMime, nor
 const { parseByteRange } = require('../utils/byteRange');
 const { getDwnInfo, pushRecordToCloudDwn, deleteRecordFromCloudDwn, pushMediaToCloudDwn, storageRootFor, dwnRoot, databaseRoot, isolatedRoot, persistenceInfo, cloudRemoteBase, isEmbeddedSelfEndpoint } = require('./cloudDwnRegistry');
 const { assertCloudSyncSucceeded } = require('./dwnSyncGuard');
+const { getAuthoritativeUserByDid } = require('./authoritativeUser');
 const { commitResumableMedia } = require('./resumableMediaCommit');
+const { checkDatabaseReadiness } = require('./readiness');
+const { Dwn } = require('@tbd54566975/dwn-sdk-js');
+const {
+  PostgresMessageStore,
+  PostgresDataStore,
+  PostgresEventLog,
+  PostgresTenantGate
+} = require('./postgresDwnStores');
+const { PostgresDwnTaskStore } = require('./postgresDwnTaskStore');
 
 
 // PostgreSQL runs MILAN as a long-lived Node.js service, so background tasks are
@@ -54,7 +64,7 @@ const MILAN_PROCESSING_MEDIUM_TIMEOUT_MS = Number(process.env.MILAN_PROCESSING_M
 
 let dwnInitStatus = {
   ok: false,
-  sdkReady: true,
+  sdkReady: false,
   storageOperational: false,
   mode: 'not-started',
   error: null,
@@ -110,8 +120,38 @@ function dwnInfoForDid(did) {
   return getDwnInfo(userByDid(did));
 }
 
+async function authoritativeUserForDwn(did) {
+  const ownerDid = String(did || '').trim();
+  if (!ownerDid) return null;
+
+  const authoritative = await getAuthoritativeUserByDid(ownerDid);
+  if (!authoritative) return null;
+
+  const cached = userByDid(ownerDid) || {};
+  return {
+    ...cached,
+    id: authoritative.id,
+    did: authoritative.did,
+    spaceId: authoritative.spaceId,
+    portableDid: authoritative.portableDid,
+    dwnQuotaBytes: authoritative.dwnQuotaBytes,
+    settings: {
+      ...(cached.settings || {}),
+      dwnSpaceId: authoritative.spaceId
+    },
+    dwn: {
+      ...(cached.dwn || {}),
+      spaceId: authoritative.spaceId
+    }
+  };
+}
+
 async function markCloudSync(record, ownerDid) {
-  const user = userByDid(ownerDid);
+  const user = await authoritativeUserForDwn(ownerDid);
+  if (!user) {
+    throw new Error('Authoritative PostgreSQL user not found for DWN owner DID.');
+  }
+
   const dwn = getDwnInfo(user);
   record.dwnEndpoint = dwn.endpoint;
   record.dwnMode = dwn.mode;
@@ -310,6 +350,7 @@ function toClient(record, did, options = {}) {
   const engine = baseRecord.storageEngine || 'postgresql';
   return {
     ...baseRecord,
+    dwnSdkReady: dwnInitStatus.sdkReady,
     accessMode: mode,
     isPublic: mode === 'public',
     sharedWithDids: mode === 'shared_did' ? (record.sharedWithDids || []) : [],
@@ -458,18 +499,39 @@ async function initDwn() {
   compactExistingIndex();
   repairIndexFromRecordFiles();
 
-  // Users are assigned an isolated PostgreSQL-backed space for core storage.
-  dwnInstance = {
-    type: 'postgresql-backed-isolated-space-cache',
-    directory: DWN_DIR,
-    startedAt: new Date().toISOString()
-  };
+  const persistence = persistenceInfo();
+  const database = await checkDatabaseReadiness(milanDb);
+  const storageOperational =
+    persistence.databaseConfigured === true && database.ready === true;
+
+  dwnInstance = null;
+  let engineInitializationFailed = false;
+
+  if (storageOperational) {
+    try {
+      dwnInstance = await Dwn.create({
+        messageStore: new PostgresMessageStore(),
+        dataStore: new PostgresDataStore(),
+        resumableTaskStore: new PostgresDwnTaskStore(),
+        eventLog: new PostgresEventLog(),
+        tenantGate: new PostgresTenantGate()
+      });
+    } catch (_error) {
+      engineInitializationFailed = true;
+      console.error('[MILAN] DWN SDK engine initialization failed.');
+    }
+  }
+
   dwnInitStatus = {
-    ok: true,
-    sdkReady: true,
-    storageOperational: !persistenceInfo().setupRequired,
-    mode: persistenceInfo().mode,
-    error: null,
+    ok: storageOperational && dwnInstance !== null,
+    sdkReady: dwnInstance !== null,
+    storageOperational,
+    mode: persistence.mode,
+    error: !storageOperational
+      ? 'postgresql-unavailable'
+      : engineInitializationFailed
+        ? 'dwn-sdk-initialization-failed'
+        : null,
     startedAt: new Date().toISOString()
   };
 
@@ -494,8 +556,25 @@ function getStatus() {
       maxTextBytes: MAX_TEXT_BYTES
     },
     cloud: persistenceInfo(),
-    note: 'PostgreSQL is authoritative for core user snapshots, records, and media; local files are temporary cache. Signed DWN protocol execution is not integrated.'
+    note: dwnInstance ? 'DWN SDK engine initialized with PostgreSQL-backed stores and PostgreSQL tenant validation.' : 'DWN SDK engine is not initialized; readiness is unavailable.'
   };
+}
+
+async function processDwnMessage(tenant, rawMessage) {
+  const did = String(tenant || '').trim();
+  if (!did.startsWith('did:')) {
+    throw Object.assign(new Error('Authenticated tenant DID required.'), { status: 400 });
+  }
+  if (!dwnInstance || typeof dwnInstance.processMessage !== 'function') {
+    throw Object.assign(new Error('DWN engine is unavailable.'), { status: 503 });
+  }
+
+  const owner = await getAuthoritativeUserByDid(did);
+  if (!owner || owner.did !== did) {
+    throw Object.assign(new Error('DWN tenant is not registered.'), { status: 403 });
+  }
+
+  return dwnInstance.processMessage(did, rawMessage);
 }
 
 async function createRecord(userId, ownerDid, body = {}) {
@@ -821,6 +900,33 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
     err.status = 400;
     throw err;
   }
+
+  // Resolve authoritative ownership before moving or staging uploaded media.
+  const discardTempUpload = () => {
+    try {
+      fs.unlinkSync(tempPath);
+    } catch (cleanupError) {
+      if (cleanupError.code !== 'ENOENT') {
+        console.error('[MILAN upload] temporary file cleanup failed:', cleanupError.message);
+      }
+    }
+  };
+
+  let ownerUser;
+  try {
+    ownerUser = await authoritativeUserForDwn(ownerDid);
+  } catch (lookupError) {
+    discardTempUpload();
+    throw lookupError;
+  }
+
+  if (!ownerUser) {
+    discardTempUpload();
+    const err = new Error('Authoritative PostgreSQL user not found for media owner DID.');
+    err.status = 409;
+    throw err;
+  }
+
   const inputSizeBytes = fs.statSync(tempPath).size;
   let originalName = String(meta.fileName || 'milan-file').replace(/[\\/\r\n]/g, '_').slice(0, 180) || 'milan-file';
   let mimeType = String(meta.mimeType || 'application/octet-stream').split(';')[0].toLowerCase() || 'application/octet-stream';
@@ -1012,7 +1118,7 @@ async function createMediaRecordFromFile(userId, ownerDid, meta = {}, tempPath) 
   all[userId] = list;
   writeIndex(all);
 
-  const ownerUser = userByDid(ownerDid);
+  // Owner identity was authoritatively resolved before media staging.
   // Every permanent PostgreSQL media write must finish before the request can succeed.
   const synchronousPostgresCommit = true;
 
@@ -1348,7 +1454,10 @@ async function repairMediaForBrowserUnlocked(userId, did, id) {
   persistFoundRecord(found);
   let mediaSync = null;
   try {
-    const ownerUser = userByDid(did);
+    const ownerUser = await authoritativeUserForDwn(did);
+    if (!ownerUser) {
+      throw new Error('Authoritative PostgreSQL user not found for video repair owner DID.');
+    }
     mediaSync = await pushMediaToCloudDwn(found.record, ownerUser, newPath);
     if (!mediaSync || mediaSync.pushed !== true) {
       throw new Error(mediaSync?.error || mediaSync?.skipped || 'Normalized video upload was not confirmed.');
@@ -2298,6 +2407,7 @@ async function getMediaStream(id, did, options = {}) {
 module.exports = {
   initDwn,
   getStatus,
+  processDwnMessage,
   normalizeAccess,
   cleanDids,
   listVisibleRecords,
