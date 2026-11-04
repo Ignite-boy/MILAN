@@ -14,6 +14,19 @@ function setToken(token) {
 }
 
 function clearToken() { localStorage.removeItem("milan_token"); }
+function getPostLoginDestination() {
+  try {
+    if (sessionStorage.getItem("milanPostLoginReturn") === "/milan-pay") {
+      sessionStorage.removeItem("milanPostLoginReturn");
+      return "/milan-pay";
+    }
+  } catch (_) {
+    // Fall back to the regular app landing page.
+  }
+
+  return "/app.html?login=" + Date.now();
+}
+
 
 function showMessage(message, isError = true) {
   const el = document.getElementById("authMsg");
@@ -102,7 +115,7 @@ async function loginWithID3() {
     });
     if (!result.token) throw new Error("No MILAN token received.");
     setToken(result.token);
-    window.location.replace("/app.html?login=" + Date.now());
+    window.location.replace(getPostLoginDestination());
   } catch (error) {
     if (error?.emailVerificationRequired) {
       const email = String(
@@ -283,7 +296,7 @@ function bind() {
           }
         }
 
-        window.location.replace("/app.html?login=" + Date.now());
+        window.location.replace(getPostLoginDestination());
       } catch (error) {
         clearToken();
 
@@ -451,7 +464,7 @@ async function registerID3({ continueToAppOnFailure = false } = {}) {
         // is optional: preserve the valid session and continue to the app.
         if (continueToAppOnFailure && getToken()) {
             setTimeout(() => {
-                window.location.replace("/app.html?login=" + Date.now());
+                window.location.replace(getPostLoginDestination());
             }, 1200);
         }
     }

@@ -28,6 +28,9 @@
     "test:readiness": "node scripts/readiness-contract-self-test.js",
     "test:webauthn": "node scripts/webauthn-voroa-self-test.js",
     "test:payment-idempotency-runtime": "node scripts/payment-idempotency-runtime-self-test.js",
+  "test:cashfree-gateway": "node scripts/cashfree-gateway-self-test.js",
+  "test:cashfree-route": "node scripts/cashfree-route-self-test.js",
+  "test:cashfree": "npm run test:cashfree-gateway && npm run test:cashfree-route",
     "test:avatar-persistence": "node scripts/avatar-persistence-self-test.js"
   },
   "dependencies": {
