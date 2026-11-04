@@ -37,6 +37,10 @@ jobs:
 
       - name: Run WebAuthn PostgreSQL tests
         run: npm run test:webauthn
+      - name: Verify Cashfree provider and webhook contracts
+        run: npm run test:cashfree
+      - name: Verify MILAN Pay frontend and Cashfree login recovery
+        run: npm run test:milan-pay
 
   deploy:
     name: Deploy MILAN to Google Cloud Run

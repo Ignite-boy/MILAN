@@ -18,7 +18,7 @@
     "test:upload-policy": "node scripts/upload-performance-policy-self-test.js",
     "test:distributed-rate-limit": "node scripts/distributed-rate-limit-self-test.js",
     "test:feed-pagination": "node scripts/feed-pagination-self-test.js",
-  "test:feed-smoothness": "node scripts/feed-scroll-performance-self-test.js",
+    "test:feed-smoothness": "node scripts/feed-scroll-performance-self-test.js",
     "test:video-range": "node scripts/video-range-self-test.js",
     "test:video-scroll": "node scripts/video-scroll-playback-self-test.js",
     "test:persistence-visibility": "node scripts/persistence-visibility-self-test.js",
@@ -27,7 +27,11 @@
     "test:media-limits": "node scripts/media-limit-contract-self-test.js",
     "test:readiness": "node scripts/readiness-contract-self-test.js",
     "test:payment-idempotency-runtime": "node scripts/payment-idempotency-runtime-self-test.js",
-    "test:avatar-persistence": "node scripts/avatar-persistence-self-test.js"
+    "test:avatar-persistence": "node scripts/avatar-persistence-self-test.js",
+    "test:cashfree-gateway": "node scripts/cashfree-gateway-self-test.js",
+    "test:cashfree-route": "node scripts/cashfree-route-self-test.js",
+    "test:cashfree": "npm run test:cashfree-gateway && npm run test:cashfree-route",
+    "test:webauthn": "node scripts/webauthn-voroa-self-test.js"
   },
   "dependencies": {
     "@simplewebauthn/server": "^13.3.2",

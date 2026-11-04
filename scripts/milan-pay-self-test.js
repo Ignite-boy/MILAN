@@ -50,6 +50,90 @@ assert(page.includes('/api/milan-pay/orders'), 'Checkout must create a direct MI
 assert(!page.includes('/api/payment/create-order'), 'Direct UPI checkout must not invoke a legacy hosted-checkout endpoint');
 assert(!page.includes('/api/payment/verify'), 'Direct UPI checkout must not depend on legacy processor verification APIs');
 
+
+const cashfreeRoute = fs.readFileSync('backend/routes/cashfree.js', 'utf8');
+const cashfreeService = fs.readFileSync('backend/services/cashfreeGateway.js', 'utf8');
+const envExample = fs.readFileSync('backend/.env.example', 'utf8');
+const login = fs.readFileSync('frontend/assets/login.js', 'utf8');
+
+assert(server.includes("app.use('/api/cashfree', cashfreeRoutes);"),
+  'Cashfree API router must be mounted');
+assert(
+  server.includes("express.raw({ type: 'application/json', limit: '1mb' })") &&
+  server.indexOf("app.post(\n  '/api/cashfree/webhook'") <
+    server.indexOf("app.use(express.json"),
+  'Cashfree webhook must capture raw request bytes before JSON parsing'
+);
+assert(server.includes('https://sdk.cashfree.com') &&
+       server.includes('https://payments-test.cashfree.com'),
+  'Cashfree SDK and hosted checkout origins must be present in CSP');
+
+assert(page.includes('id="cashfreePanel"') &&
+       page.includes('id="cashfreePhone"') &&
+       page.includes('id="cashfreePay"'),
+  'Cashfree hosted checkout panel must exist');
+assert(page.includes('pattern="[6-9][0-9]{9}"'),
+  'Cashfree checkout must validate a 10-digit Indian mobile number');
+assert(page.includes('/api/cashfree/config') &&
+       page.includes('/api/cashfree/orders') &&
+       page.includes('/verify'),
+  'Cashfree browser flow must load config, create orders and verify status');
+assert(page.includes('https://sdk.cashfree.com/js/v3/cashfree.js') &&
+       page.includes('redirectTarget: "_self"'),
+  'Cashfree hosted SDK must use the documented browser checkout flow');
+assert(page.includes('data.status === "paid"') &&
+       page.includes('Payment confirmed by Cashfree'),
+  'Browser must only show completion after server verification');
+assert(page.includes('data.reviewRequired === true') &&
+       page.includes('cashfreePay.disabled = true') &&
+       page.includes('cashfreeResumeAllowed = false'),
+  'Review-required orders must block checkout resume');
+assert(cashfreeRoute.includes('hasUnresolvedPaymentReview') &&
+       cashfreeRoute.includes('CASHFREE_PAYMENT_REVIEW_REQUIRED') &&
+       cashfreeRoute.includes('public.cashfree_payment_attempts') &&
+       cashfreeRoute.includes('public.cashfree_webhook_events'),
+  'Backend must enforce persistent Cashfree review locks');
+assert(cashfreeRoute.includes('/orders/:orderId/verify') &&
+       cashfreeRoute.includes('process_cashfree_payment_event'),
+  'Cashfree verification must reconcile through the authoritative database RPC');
+assert(cashfreeService.includes('verifyWebhookSignature') &&
+       cashfreeService.includes('createOrder'),
+  'Cashfree provider service must implement order creation and webhook verification');
+
+assert(page.includes('sessionStorage.setItem("milanPostLoginReturn", "/milan-pay")') &&
+       login.includes('sessionStorage.getItem("milanPostLoginReturn") === "/milan-pay"') &&
+       login.includes('getPostLoginDestination()'),
+  'Cashfree login recovery must use a fixed one-time return path');
+assert(page.includes('id="cashfreeLogin" href="/"'),
+  'Cashfree login link must point to the actual MILAN login page');
+assert(envExample.includes('CASHFREE_ENABLED=false') &&
+       envExample.includes('CASHFREE_ENV=sandbox') &&
+       envExample.includes('CASHFREE_APP_ID=') &&
+       envExample.includes('CASHFREE_SECRET_KEY='),
+  'Cashfree environment template must remain disabled with blank credentials');
+
+console.log('PASS: Cashfree frontend panel and Indian mobile validation');
+console.log('PASS: Cashfree SDK, authenticated order creation and server verification');
+console.log('PASS: Review-required order checkout lock');
+console.log('PASS: Raw webhook parsing precedes the global JSON parser');
+console.log('PASS: Backend persistent review guard and authoritative RPC');
+console.log('PASS: Cashfree CSP and provider security hooks');
+
+const restoreStart = page.indexOf('async function restoreCashfreeOrder()');
+const restoreEnd = page.indexOf('async function restorePendingOrder()', restoreStart);
+assert(restoreStart >= 0 && restoreEnd > restoreStart,
+  'Cashfree restore function must be available for regression checks');
+const restoreBlock = page.slice(restoreStart, restoreEnd);
+const orderAssignment = restoreBlock.indexOf('cashfreeOrderId = savedId;');
+const orderPersistence = restoreBlock.indexOf('sessionStorage.setItem("milanCashfreeOrderId", savedId);');
+const loginCheck = restoreBlock.indexOf('if (!token())');
+assert(orderAssignment >= 0 && orderPersistence > orderAssignment && loginCheck > orderPersistence,
+  'Cashfree return order ID must persist before the login check');
+
+console.log('PASS: Cashfree return order ID survives login recovery');
+
+console.log('PASS: Safe one-time login return and disabled-by-default environment');
+
 console.log('MILAN Pay checks passed:');
 console.log(' - Branded checkout created');
 console.log(' - Authenticated server-owned orders');
