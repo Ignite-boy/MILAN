@@ -33,7 +33,7 @@ app.use((req, res, next) => {
   res.setHeader('X-DNS-Prefetch-Control', 'on');
   res.setHeader('Origin-Agent-Cluster', '?1');
   // CSP tuned for MILAN's first-party UI and required media/font services.
-  res.setHeader('Content-Security-Policy', "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.youtube.com https://s.ytimg.com  ; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https:  ; frame-src https://www.youtube.com https://www.youtube-nocookie.com  ; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests");
+  res.setHeader('Content-Security-Policy', "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.youtube.com https://s.ytimg.com https://sdk.cashfree.com ; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https:  ; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://sdk.cashfree.com https://api.cashfree.com https://sandbox.cashfree.com https://payments.cashfree.com https://payments-test.cashfree.com ; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests");
   next();
 });
 const apiRateLimiter = require('./middleware/apiRateLimiter')({
@@ -94,6 +94,15 @@ app.use(compression({
     return compression.filter(req, res);
   }
 }));
+// Cashfree webhook signature verification requires the exact raw request bytes.
+// Register this endpoint before the global JSON parser below.
+const cashfreeRoutes = require('./routes/cashfree');
+app.post(
+  '/api/cashfree/webhook',
+  express.raw({ type: 'application/json', limit: '1mb' }),
+  cashfreeRoutes.webhookHandler
+);
+
 // Media uploads are streamed directly on /api/records/media.
 // Keep JSON body small for speed and protection on mobile/production.
 app.use(express.json({
@@ -361,6 +370,7 @@ app.use('/api/cloud-dwn', cloudDwnRouter);
 app.use('/api/isolated-dwn', require('./routes/isolatedDwn'));
 app.use('/api/storage', require('./routes/storage'));
 app.use('/api/milan-pay', require('./routes/milanPay'));
+app.use('/api/cashfree', cashfreeRoutes);
 app.use('/api/profile', require('./routes/profile'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/music', require('./routes/music'));

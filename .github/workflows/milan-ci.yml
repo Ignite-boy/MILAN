@@ -73,6 +73,10 @@ jobs:
         run: npm run test:payment-idempotency
       - name: Exercise payment ownership and idempotent transitions
         run: npm run test:payment-idempotency-runtime
+      - name: Verify Cashfree provider security and API contracts
+        run: npm run test:cashfree-gateway
+      - name: Exercise Cashfree checkout, reconciliation and webhooks
+        run: npm run test:cashfree-route
 
       - name: Verify chat architecture
         run: npm run test:chat
@@ -81,6 +85,9 @@ jobs:
 
       - name: Verify API rate-limit behavior
         run: npm run test:security
+
+      - name: Verify MILAN Pay frontend and Cashfree checkout contract
+        run: npm run test:milan-pay
 
       - name: Verify MILAN Pay architecture
         run: npm run test:payment

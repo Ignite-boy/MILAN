@@ -35,6 +35,13 @@ jobs:
       - name: Run readiness tests
         run: npm run test:readiness
 
+      - name: Run WebAuthn PostgreSQL tests
+        run: npm run test:webauthn
+      - name: Verify Cashfree provider and webhook contracts
+        run: npm run test:cashfree
+      - name: Verify MILAN Pay frontend and Cashfree login recovery
+        run: npm run test:milan-pay
+
   deploy:
     name: Deploy MILAN to Google Cloud Run
     needs: verify
@@ -61,8 +68,16 @@ jobs:
           region: ${{ vars.GCP_REGION }}
           service: ${{ vars.GCP_CLOUD_RUN_SERVICE }}
           source: ./
+          env_vars: |
+            CASHFREE_ENABLED=true
+            CASHFREE_ENV=production
+            CASHFREE_API_VERSION=2026-01-01
+          env_vars_update_strategy: merge
           secrets: |
             MILAN_DATABASE_URL=MILAN_DATABASE_URL:latest
+            CASHFREE_APP_ID=CASHFREE_APP_ID:2
+            CASHFREE_SECRET_KEY=CASHFREE_SECRET_KEY:1
+          secrets_update_strategy: merge
           flags: >-
             --allow-unauthenticated
             --add-cloudsql-instances=${{ vars.GCP_CLOUD_SQL_CONNECTION_NAME }}
