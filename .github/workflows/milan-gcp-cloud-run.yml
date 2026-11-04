@@ -35,7 +35,7 @@ jobs:
       - name: Run readiness tests
         run: npm run test:readiness
 
-      - name: Run WebAuthn PostgreSQL tests
+      - name: Run WebAuthn Voroa persistence contract tests
         run: npm run test:webauthn
 
   deploy:

@@ -298,6 +298,11 @@ async function writeDurableProfileAvatar(email, avatar, recordId, did) {
 }
 
 router.get('/', auth, async (req, res) => {
+  res.set({
+    'Cache-Control': 'private, no-store, no-cache, must-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0'
+  });
   const users = readJson(global.usersFile, {});
   const found = await resolveAccount(req, users);
 
@@ -374,6 +379,11 @@ router.get('/', auth, async (req, res) => {
   });
 });
 router.put('/', auth, uploadDp.single('avatar'), async (req, res) => {
+  res.set({
+    'Cache-Control': 'private, no-store, no-cache, must-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0'
+  });
   const users = readJson(global.usersFile, {});
   const found = await resolveAccount(req, users);
 

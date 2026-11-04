@@ -113,20 +113,155 @@
       throw new Error("Image is still too large after compression.");
     }
 
-    const optimizedDataUrl = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(new Error("Could not encode image"));
-      reader.readAsDataURL(blob);
-    });
-
     return {
-      dataUrl: optimizedDataUrl,
+      blob,
       width,
       height,
       bytes: blob.size
     };
   }
+
+
+  // One upload path for the sidebar camera and Edit Profile modal.
+  // Success is reported only after an uncached GET confirms the same DWN record.
+  async function uploadProfileAvatar(file, extraFields = {}) {
+    const token = getToken();
+    if (!token) throw new Error("Please sign in before changing your profile picture.");
+    if (!file || !/^image\//i.test(file.type || "")) {
+      throw new Error("Please choose a valid image file.");
+    }
+
+    const uploadVersion = (Number(window.__milanAvatarUploadVersion) || 0) + 1;
+    window.__milanAvatarUploadVersion = uploadVersion;
+    window.__milanAvatarUploadActive = true;
+
+    try {
+      const optimized = await compressProfileImage(file);
+      const form = new FormData();
+      form.append("avatar", optimized.blob, "profile-picture.jpg");
+
+      Object.entries(extraFields || {}).forEach(([key, value]) => {
+        if (value != null) form.append(key, String(value));
+      });
+
+      const putResponse = await fetch("/api/profile", {
+        method: "PUT",
+        headers: {
+          Authorization: "Bearer " + token,
+          Accept: "application/json"
+        },
+        body: form,
+        cache: "no-store"
+      });
+
+      const saved = await putResponse.json().catch(() => ({}));
+      if (!putResponse.ok) {
+        throw new Error(
+          saved.detail ||
+          saved.error ||
+          `Profile save failed: ${putResponse.status}`
+        );
+      }
+
+      const savedRecordId = String(saved.avatarRecordId || "").trim();
+      if (!savedRecordId) {
+        throw new Error("The server response did not confirm a persistent profile-picture record.");
+      }
+
+      let verified = null;
+      let lastReadbackMessage = "No readback response was received.";
+
+      for (let attempt = 1; attempt <= 4; attempt += 1) {
+        try {
+          const readResponse = await fetch("/api/profile", {
+            method: "GET",
+            headers: {
+              Authorization: "Bearer " + token,
+              Accept: "application/json",
+              "Cache-Control": "no-cache"
+            },
+            cache: "no-store"
+          });
+
+          const readData = await readResponse.json().catch(() => ({}));
+          const profileData = readData?.profile || readData || {};
+          const readbackRecordId = String(profileData.avatarRecordId || "").trim();
+          const readbackAvatar = String(profileData.avatar || "").trim();
+
+          if (
+            readResponse.ok &&
+            profileData.avatarSync === "synced" &&
+            readbackRecordId === savedRecordId &&
+            /^data:image\/[a-z0-9.+-]+;base64,/i.test(readbackAvatar)
+          ) {
+            verified = profileData;
+            break;
+          }
+
+          lastReadbackMessage = !readResponse.ok
+            ? `Readback returned HTTP ${readResponse.status}.`
+            : `Readback status=${profileData.avatarSync || "missing"}, recordId match=${readbackRecordId === savedRecordId}, image present=${Boolean(readbackAvatar)}`;
+        } catch (readError) {
+          lastReadbackMessage = readError?.message || String(readError);
+        }
+
+        if (attempt < 4) {
+          await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+        }
+      }
+
+      if (!verified) {
+        throw new Error(
+          "The upload endpoint accepted the image, but a fresh persistent DWN readback did not confirm the same record. " +
+          lastReadbackMessage
+        );
+      }
+
+      if (uploadVersion !== (Number(window.__milanAvatarUploadVersion) || 0)) {
+        throw new Error("A newer profile-picture upload superseded this one. Please check the latest upload.");
+      }
+
+      const verifiedAvatar = String(verified.avatar).trim();
+
+      // Cache and UI are updated only after the authoritative GET succeeds.
+      try {
+        localStorage.setItem("milanAvatar", verifiedAvatar);
+      } catch (_) {}
+
+      window.__milanPersistentAvatar = verifiedAvatar;
+      window.__milanAvatarUploadCommittedAt = Date.now();
+
+      ["myAvatar", "composerAvatar"].forEach(id => {
+        setAvatar(id, verifiedAvatar);
+      });
+
+      const preview = $("editProfilePhotoPreview");
+      if (preview) {
+        preview.src = verifiedAvatar;
+        preview.style.display = "block";
+      }
+
+      if (window.me) {
+        window.me.profile = {
+          ...(window.me.profile || {}),
+          ...verified
+        };
+      }
+
+      console.log(
+        "[MILAN] Profile picture verified by persistent DWN readback:",
+        verified.avatarRecordId
+      );
+
+      return verified;
+    } finally {
+      if (uploadVersion === (Number(window.__milanAvatarUploadVersion) || 0)) {
+        window.__milanAvatarUploadActive = false;
+      }
+    }
+  }
+
+  window.milanUploadProfileAvatar = uploadProfileAvatar;
 
   async function handleUpload(event) {
     event.preventDefault();
@@ -135,27 +270,15 @@
     const input = event.currentTarget;
     const file = input?.files?.[0];
 
-    if (!file || !file.type.startsWith("image/")) {
+    if (!file || !/^image\//i.test(file.type || "")) {
       if (input) input.value = "";
       return;
     }
 
-    const token = getToken();
-
-    if (!token) {
-      console.warn("[MILAN] Login required before changing DP.");
-      input.value = "";
-      return;
-    }
-
     const previewUrl = URL.createObjectURL(file);
-    const uploadVersion = (Number(window.__milanAvatarUploadVersion) || 0) + 1;
-    window.__milanAvatarUploadVersion = uploadVersion;
-    window.__milanAvatarUploadActive = true;
-    window.__milanAvatarUploadActive = true;
 
     try {
-      // Immediate local preview.
+      // Show an immediate temporary preview while the common uploader works.
       ["myAvatar", "composerAvatar"].forEach(id => {
         setAvatar(id, previewUrl);
       });
@@ -166,73 +289,24 @@
         preview.style.display = "block";
       }
 
-      // IMPORTANT:
-      // Send the compressed profile image so it stays below the backend
-      // multipart upload limit and can be persisted reliably.
-      const optimized = await compressProfileImage(file);
-      const optimizedBlob = await (await fetch(optimized.dataUrl)).blob();
-      const form = new FormData();
-      form.append("avatar", optimizedBlob, "profile-picture.jpg");
-
-      const response = await fetch("/api/profile", {
-        method: "PUT",
-        headers: {
-          Authorization: "Bearer " + token
-        },
-        body: form
-      });
-
-      const saved = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(
-          saved.detail ||
-          saved.error ||
-          `Profile save failed: ${response.status}`
-        );
-      }
-
-      if (!saved.avatarRecordId) {
-        throw new Error("Real DWN profile-picture record was not confirmed.");
-      }
-
-      const savedAvatar = String(saved.avatar || optimized.dataUrl || "").trim();
-      if (savedAvatar) {
-        localStorage.setItem("milanAvatar", savedAvatar);
-        window.__milanPersistentAvatar = savedAvatar;
-        window.__milanAvatarUploadCommittedAt = Date.now();
-        ["myAvatar", "composerAvatar"].forEach(id => {
-          setAvatar(id, savedAvatar);
-        });
-        if (window.me) {
-          window.me.profile = {
-            ...(window.me.profile || {}),
-            avatar: savedAvatar
-          };
-        }
-      }
-
-      console.log(
-        "[MILAN] DP saved to Real DWN:",
-        saved.avatarRecordId,
-        saved.avatarMime,
-        saved.avatarFileName
-      );
-
-      // CRITICAL:
-      // Keep the avatar returned by the successful PUT response on screen.
-      // Do not immediately re-read /api/profile here because its DWN read path
-      // can briefly return the previous record while the new write propagates.
+      await uploadProfileAvatar(file);
+      console.log("[MILAN] Sidebar camera upload passed persistent readback.");
     } catch (error) {
-      console.error("[MILAN] DP upload failed:", error);
-      try { alert("DP upload failed: " + (error && error.message ? error.message : error)); } catch (_) {}
+      console.error("[MILAN] DP upload/readback failed:", error);
+
+      // Restore the server-confirmed image (or initials) after a failed save.
+      try {
+        await syncLiveProfileIdentity();
+      } catch (_) {}
+
+      try {
+        alert("DP upload failed: " + (error?.message || error));
+      } catch (_) {}
     } finally {
-      window.__milanAvatarUploadActive = false;
       URL.revokeObjectURL(previewUrl);
-      input.value = "";
+      if (input) input.value = "";
     }
   }
-
 
   // MILAN ONE: avatar restoration is handled only by syncLiveProfileIdentity().
  
@@ -297,11 +371,27 @@
       profile ||
       {};
 
-    // MILAN ONE: /api/profile -> persistent DWN is the only avatar source.
-    const remoteAvatar =
-      String(window.__milanPersistentAvatar || "").trim() ||
-      String(profileData.avatar || "").trim() ||
-      String(localStorage.getItem("milanAvatar") || "").trim();
+    // A successful profile GET is authoritative, even when it says no avatar exists.
+    // Browser cache is used only when the profile endpoint itself could not be read.
+    const profileReadSucceeded = Boolean(profile);
+    const remoteAvatar = profileReadSucceeded
+      ? String(profileData.avatar || "").trim()
+      : String(window.__milanPersistentAvatar || "").trim() ||
+        String(localStorage.getItem("milanAvatar") || "").trim();
+
+    if (profileReadSucceeded) {
+      if (profileData.avatarSync === "synced" && remoteAvatar) {
+        window.__milanPersistentAvatar = remoteAvatar;
+        try {
+          localStorage.setItem("milanAvatar", remoteAvatar);
+        } catch (_) {}
+      } else {
+        window.__milanPersistentAvatar = "";
+        try {
+          localStorage.removeItem("milanAvatar");
+        } catch (_) {}
+      }
+    }
 
     if (remoteAvatar) {
       profileData.avatar = remoteAvatar;
@@ -342,6 +432,12 @@
     ).trim();
 
     if (!remoteAvatar) {
+      const preview = $("editProfilePhotoPreview");
+      if (preview) {
+        preview.removeAttribute("src");
+        preview.style.display = "none";
+      }
+
       const initial = String(name || "M").trim().charAt(0).toUpperCase() || "M";
       ["myAvatar", "composerAvatar"].forEach(id => {
         const el = $(id);

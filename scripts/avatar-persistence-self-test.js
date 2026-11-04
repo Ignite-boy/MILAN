@@ -11,6 +11,7 @@ const guard = read('backend/services/avatar-hydration-guard.js');
 const store = read('backend/utils/store.js');
 const profile = read('backend/routes/profile.js');
 const appActions = read('frontend/assets/js/app-page-actions.js');
+const inlineActions = read('frontend/assets/js/inline-05.js');
 const uiActions = read('frontend/assets/js/milan-ui-actions.js');
 const appHtml = read('frontend/app.html');
 
@@ -50,12 +51,39 @@ const checks = [
   }],
   ['app page cache-busts the updated avatar scripts', () => {
     assert.match(appHtml, /milan-ui-actions\.js\?v=avatar-persist-20261027-1/);
-    assert.match(appHtml, /app-page-actions\.js\?v=avatar-persist-20261027-1/);
+    assert.match(appHtml, /app-page-actions\.js\?v=avatar-dwn-readback-20261104-1/);
+    assert.match(appHtml, /inline-05\.js\?v=milan-feed-media-20261026-1&avatar=avatar-dwn-readback-20261104-1/);
   }],
   ['modal avatar save updates persistent in-memory identity and timestamp', () => {
     assert.match(uiActions, /window\.__milanPersistentAvatar = String\(saved\.avatar\)/);
     assert.match(uiActions, /window\.__milanAvatarUploadCommittedAt = Date\.now\(\)/);
+  }],
+
+  ['camera uploader sends compressed Blob directly without fetching a data URL', () => {
+    assert.match(appActions, /form\.append\("avatar", optimized\.blob, "profile-picture\.jpg"\)/);
+    assert.doesNotMatch(appActions, /fetch\(optimized\.dataUrl\)/);
+  }],
+  ['shared uploader requires a matching synced persistent GET readback', () => {
+    assert.match(appActions, /async function uploadProfileAvatar/);
+    assert.match(appActions, /profileData\.avatarSync === "synced"/);
+    assert.match(appActions, /readbackRecordId === savedRecordId/);
+    assert.match(appActions, /cache: "no-store"/);
+  }],
+  ['Edit Profile modal photo save uses the shared verified uploader', () => {
+    assert.match(inlineActions, /window\.milanUploadProfileAvatar\(f,fields\)/);
+    assert.doesNotMatch(inlineActions, /fileToDataUrl\(f\)/);
+  }],
+  ['successful profile GET overrides and clears stale browser avatar cache', () => {
+    assert.match(appActions, /profileReadSucceeded\s*\?\s*String\(profileData\.avatar/);
+    assert.match(appActions, /localStorage\.removeItem\("milanAvatar"\)/);
+  }],
+  ['profile GET and PUT responses both disable caching', () => {
+    assert.equal(
+      (profile.match(/Cache-Control': 'private, no-store, no-cache, must-revalidate'/g) || []).length,
+      2
+    );
   }]
+
 ];
 
 let failed = 0;
