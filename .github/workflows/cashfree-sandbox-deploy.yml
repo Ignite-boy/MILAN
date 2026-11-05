@@ -89,6 +89,7 @@ jobs:
             CASHFREE_ENABLED=true
             CASHFREE_ENV=sandbox
             CASHFREE_API_VERSION=2025-01-01
+            PUBLIC_BASE_URL=https://cashfree-sandbox.milanlife.in
           env_vars_update_strategy: merge
           secrets: |
             MILAN_DATABASE_URL=MILAN_DATABASE_URL:latest
