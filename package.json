@@ -34,6 +34,13 @@
     "test:avatar-persistence": "node scripts/avatar-persistence-self-test.js"
   },
   "dependencies": {
+    "@grpc/grpc-js": "1.14.7",
+    "@opentelemetry/api": "1.10.0",
+    "@opentelemetry/exporter-trace-otlp-grpc": "0.300.0",
+    "@opentelemetry/resource-detector-gcp": "0.59.0",
+    "@opentelemetry/resources": "3.0.0",
+    "@opentelemetry/sdk-node": "0.300.0",
+    "@opentelemetry/sdk-trace": "3.0.0",
     "@simplewebauthn/server": "^13.3.2",
     "@tbd54566975/dwn-sdk-js": "^0.5.2",
     "@web5/crypto": "^1.0.6",
@@ -45,10 +52,11 @@
     "express": "^4.21.2",
     "ffmpeg-static": "^5.2.0",
     "ffprobe-static": "^3.1.0",
+    "google-auth-library": "11.3.3",
     "ioredis": "^6.0.0",
     "ipfs-unixfs-exporter": "13.1.0",
     "jsonwebtoken": "^9.0.0",
-    "multer": "^2.3.0",
+    "multer": "2.5.0",
     "nodemailer": "^10.2.0",
     "pg": "^8.23.1",
     "qrcode": "^1.5.4",
@@ -59,7 +67,11 @@
     "uuid": "^11.1.0",
     "ipfs-unixfs-exporter": "13.1.0",
     "ajv": "^8.18.0",
-    "lodash": "^4.18.0"
+    "lodash": "^4.18.0",
+    "body-parser": "1.20.9",
+    "gcp-metadata@8.1.4": {
+      "gaxios": "7.3.1"
+    }
   },
   "engines": {
     "node": ">=22.0.0"
