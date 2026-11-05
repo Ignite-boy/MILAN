@@ -44,7 +44,7 @@ jobs:
   deploy-sandbox:
     name: Deploy tagged Cashfree Sandbox revision only
     needs: verify
-    if: ${{ vars.GCP_DEPLOY_ENABLED == 'true' && vars.GCP_DATABASE_READY == 'true' }}
+    if: ${{ vars.GCP_PROJECT_ID == 'project-90b3b29e-1057-434c-bac' && vars.GCP_REGION == 'asia-south2' && vars.GCP_CLOUD_RUN_SERVICE == 'milan-app' && vars.GCP_CLOUD_SQL_CONNECTION_NAME == 'project-90b3b29e-1057-434c-bac:asia-south2:milan-postgres' && vars.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && vars.GCP_DEPLOYER_SERVICE_ACCOUNT != '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -52,6 +52,24 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Assert exact sandbox deployment target
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          GCP_CLOUD_RUN_SERVICE: ${{ vars.GCP_CLOUD_RUN_SERVICE }}
+          GCP_CLOUD_SQL_CONNECTION_NAME: ${{ vars.GCP_CLOUD_SQL_CONNECTION_NAME }}
+          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          GCP_DEPLOYER_SERVICE_ACCOUNT: ${{ vars.GCP_DEPLOYER_SERVICE_ACCOUNT }}
+        run: |
+          set -euo pipefail
+          test "$GCP_PROJECT_ID" = "project-90b3b29e-1057-434c-bac"
+          test "$GCP_REGION" = "asia-south2"
+          test "$GCP_CLOUD_RUN_SERVICE" = "milan-app"
+          test "$GCP_CLOUD_SQL_CONNECTION_NAME" = "project-90b3b29e-1057-434c-bac:asia-south2:milan-postgres"
+          test -n "$GCP_WORKLOAD_IDENTITY_PROVIDER"
+          test -n "$GCP_DEPLOYER_SERVICE_ACCOUNT"
+          echo "PASS: exact MILAN sandbox target and WIF deployment identity configured."
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
