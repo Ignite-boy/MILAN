@@ -99,6 +99,7 @@ jobs:
             --no-traffic
             --tag=cashfree-sandbox
             --ingress=internal-and-cloud-load-balancing
+            --clear-base-image
             --add-cloudsql-instances=${{ vars.GCP_CLOUD_SQL_CONNECTION_NAME }}
 
       - name: Verify the tagged Sandbox hostname
