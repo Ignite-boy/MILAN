@@ -95,7 +95,7 @@ const sdkLoaderEnd = page.indexOf('function setCashfreeLoginState()', sdkLoaderS
 assert(sdkLoaderStart >= 0 && sdkLoaderEnd > sdkLoaderStart,
   'Cashfree SDK loader must remain independently testable');
 const sdkLoader = page.slice(sdkLoaderStart, sdkLoaderEnd);
-assert.doesNotMatch(sdkLoader, /crossOrigin\\s*=/i,
+assert.doesNotMatch(sdkLoader, /crossOrigin\s*=/i,
   'Cashfree SDK must use the documented classic-script loading mode without forcing CORS');
 assert(sdkLoader.includes('script.remove()') && sdkLoader.includes('cashfreeSdkPromise = null'),
   'Failed Cashfree SDK script elements must be removed so retries can load a fresh script');
