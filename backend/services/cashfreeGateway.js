@@ -68,6 +68,31 @@ function baseUrl(environment) {
     : 'https://sandbox.cashfree.com/pg';
 }
 
+function safeDiagnosticValue(value, maxLength = 200) {
+  if (typeof value !== 'string') return null;
+  return value.replace(/[\\r\\n\\t]+/g, ' ').replace(/\\s+/g, ' ').trim().slice(0, maxLength) || null;
+}
+
+function logProviderRejection(response, payload, requestId) {
+  // Log only Cashfree's error metadata; never log request headers, API keys,
+  // payment-session IDs, customer details, or the raw provider response.
+  const details = {
+    requestId,
+    providerStatus: response.status,
+    providerType: safeDiagnosticValue(payload?.type || payload?.error_type, 80),
+    providerCode: safeDiagnosticValue(
+      payload?.code || payload?.error_code || payload?.errorCode,
+      100
+    ),
+    providerMessage: safeDiagnosticValue(
+      payload?.message || payload?.error_description || payload?.errorDescription,
+      200
+    )
+  };
+
+  console.error('[Cashfree] Provider API rejected request:', JSON.stringify(details));
+}
+
 async function request(method, resource, options = {}) {
   const config = requireConfig();
 
@@ -122,7 +147,8 @@ async function request(method, resource, options = {}) {
   }
 
   if (!response.ok) {
-    const status = response.status === 409 ? 409 :
+    logProviderRejection(response, payload, headers['x-request-id']);
+    const status = response.status === 409 ?
       response.status === 429 ? 503 :
       response.status >= 500 ? 503 : 502;
 
