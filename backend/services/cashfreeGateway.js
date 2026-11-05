@@ -148,7 +148,7 @@ async function request(method, resource, options = {}) {
 
   if (!response.ok) {
     logProviderRejection(response, payload, headers['x-request-id']);
-    const status = response.status === 409 ?
+    const status = response.status === 409 ? 409 :
       response.status === 429 ? 503 :
       response.status >= 500 ? 503 : 502;
 
