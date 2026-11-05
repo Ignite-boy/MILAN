@@ -1,0 +1,104 @@
+name: MILAN Cashfree Sandbox Deploy
+
+on:
+  push:
+    branches:
+      - fix/cashfree-sdk-loader-20261105
+
+permissions:
+  contents: read
+
+concurrency:
+  group: milan-cashfree-sandbox
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify Cashfree SDK loader and payment contracts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify build
+        run: npm run build
+
+      - name: Verify Cashfree gateway and webhook contracts
+        run: npm run test:cashfree
+
+      - name: Verify Cashfree frontend and SDK retry behavior
+        run: npm run test:milan-pay
+
+      - name: Verify payment idempotency invariants
+        run: npm run test:payment-idempotency
+
+      - name: Verify the public Cashfree SDK asset is reachable
+        run: curl --fail --silent --show-error --location --max-time 45 --output /dev/null https://sdk.cashfree.com/js/v3/cashfree.js
+
+  deploy-sandbox:
+    name: Deploy tagged Cashfree Sandbox revision only
+    needs: verify
+    if: ${{ vars.GCP_DEPLOY_ENABLED == 'true' && vars.GCP_DATABASE_READY == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SERVICE_ACCOUNT }}
+
+      - name: Deploy Cashfree Sandbox revision without production traffic
+        uses: google-github-actions/deploy-cloudrun@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          region: ${{ vars.GCP_REGION }}
+          service: ${{ vars.GCP_CLOUD_RUN_SERVICE }}
+          source: ./
+          env_vars: |
+            CASHFREE_ENABLED=true
+            CASHFREE_ENV=sandbox
+            CASHFREE_API_VERSION=2025-01-01
+          env_vars_update_strategy: merge
+          secrets: |
+            MILAN_DATABASE_URL=MILAN_DATABASE_URL:latest
+            CASHFREE_APP_ID=CASHFREE_APP_ID:latest
+            CASHFREE_SECRET_KEY=CASHFREE_SECRET_KEY:latest
+          secrets_update_strategy: merge
+          flags: >-
+            --no-traffic
+            --tag=cashfree-sandbox
+            --ingress=internal-and-cloud-load-balancing
+            --add-cloudsql-instances=${{ vars.GCP_CLOUD_SQL_CONNECTION_NAME }}
+
+      - name: Verify the tagged Sandbox hostname
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://cashfree-sandbox.milanlife.in"
+          for attempt in $(seq 1 18); do
+            echo "Sandbox smoke check ${attempt}/18"
+            if curl --fail --silent --show-error --connect-timeout 10 --max-time 25 "${url}/api/cashfree/config" -o /tmp/cashfree-config.json; then
+              node -e 'const fs=require("fs");const p=JSON.parse(fs.readFileSync("/tmp/cashfree-config.json","utf8"));if(p.ok!==true||p.enabled!==true||p.environment!=="sandbox"){console.error("Unexpected Cashfree config:",p);process.exit(1)}console.log("PASS: Cashfree Sandbox config endpoint is live.")'
+              curl --fail --silent --show-error --max-time 25 "${url}/milan-pay.html" -o /dev/null
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Sandbox hostname did not pass its HTTPS/config smoke test."
+          exit 1

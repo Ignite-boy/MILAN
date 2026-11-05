@@ -261,27 +261,57 @@ main{max-width:760px;margin:0 auto;padding:28px 18px 60px}.top{display:flex;alig
     cashfreeSdkPromise = new Promise((resolve, reject) => {
       let script = document.querySelector('script[data-cashfree-sdk="true"]');
 
+      // A previous failed/finished element must not prevent a fresh retry.
+      if (
+        script &&
+        ["failed", "loaded"].includes(script.dataset.cashfreeSdkState)
+      ) {
+        script.remove();
+        script = null;
+      }
+
       if (!script) {
         script = document.createElement("script");
         script.src = "https://sdk.cashfree.com/js/v3/cashfree.js";
         script.async = true;
         script.dataset.cashfreeSdk = "true";
-        script.crossOrigin = "anonymous";
+        script.dataset.cashfreeSdkState = "loading";
+        // Keep this a classic cross-origin script request. Cashfree's documented
+        // embed does not opt into CORS mode with a crossorigin attribute.
         script.referrerPolicy = "strict-origin-when-cross-origin";
+      }
+
+      let settled = false;
+      const timeoutId = window.setTimeout(() => {
+        fail("Cashfree checkout SDK timed out while loading. Check access to sdk.cashfree.com and retry.");
+      }, 20000);
+
+      function fail(message) {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timeoutId);
+        script.dataset.cashfreeSdkState = "failed";
+        script.onload = null;
+        script.onerror = null;
+        script.remove();
+        cashfreeSdkPromise = null;
+        reject(new Error(message));
       }
 
       script.onload = () => {
         if (typeof window.Cashfree === "function") {
+          if (settled) return;
+          settled = true;
+          window.clearTimeout(timeoutId);
+          script.dataset.cashfreeSdkState = "loaded";
           resolve(window.Cashfree);
         } else {
-          cashfreeSdkPromise = null;
-          reject(new Error("Cashfree checkout SDK did not initialize."));
+          fail("Cashfree checkout SDK loaded but did not initialize. Please retry.");
         }
       };
 
       script.onerror = () => {
-        cashfreeSdkPromise = null;
-        reject(new Error("Cashfree checkout SDK could not be loaded."));
+        fail("Cashfree checkout SDK could not be loaded. Check network access to sdk.cashfree.com and retry.");
       };
 
       if (!script.isConnected) document.head.appendChild(script);
