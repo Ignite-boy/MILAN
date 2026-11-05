@@ -7,6 +7,7 @@ const { readJson, findUserById, findUserByDid, addActivity } = require('../utils
 const dwnStore = require('../services/dwnService');
 const { Readable } = require('stream');
 const crypto = require('crypto');
+const { trace: otelTrace, context: otelContext, SpanKind, SpanStatusCode } = require('@opentelemetry/api');
 const { detectMimeFromFile } = require('../utils/mediaCompat');
 const { parseByteRange } = require('../utils/byteRange');
 const resumableUploadStore = require('../services/resumableUploadStore');
@@ -806,6 +807,43 @@ async function streamMedia(req, res) {
   const traceStartedAt = Date.now();
   let traceStage = 'request_started';
   let traceFinished = false;
+
+  const configuredSampleRate = Number(process.env.MILAN_CLOUD_TRACE_SAMPLE_RATE ?? 0.1);
+  const sampleRate = Number.isFinite(configuredSampleRate)
+    ? Math.max(0, Math.min(1, configuredSampleRate))
+    : 0.1;
+  const createPlaybackSpan = isPlaybackTrace &&
+    crypto.randomInt(0, 1000000) < Math.floor(sampleRate * 1000000);
+
+  const playbackSpan = createPlaybackSpan
+    ? otelTrace.getTracer('milan-app/media').startSpan('milan.media.playback', {
+        kind: SpanKind.SERVER,
+        attributes: {
+          'http.request.method': req.method,
+          'http.route': '/api/records/:id/media',
+          'milan.playback.correlation_id': traceId,
+          'milan.playback.range_requested': !!req.headers.range,
+          'milan.playback.trace_sample_rate': sampleRate
+        }
+      })
+    : null;
+
+  let playbackSpanEnded = false;
+  const runInPlaybackContext = callback => playbackSpan
+    ? otelContext.with(otelTrace.setSpan(otelContext.active(), playbackSpan), callback)
+    : callback();
+
+  const finishPlaybackSpan = reason => {
+    if (!playbackSpan || playbackSpanEnded) return;
+    playbackSpanEnded = true;
+    playbackSpan.setAttribute('http.response.status_code', Number(res.statusCode) || 0);
+    playbackSpan.setAttribute('milan.playback.final_stage', String(traceStage));
+    playbackSpan.setAttribute('milan.playback.end_reason', reason);
+    if (reason === 'response_closed_early' || Number(res.statusCode) >= 500) {
+      playbackSpan.setStatus({ code: SpanStatusCode.ERROR });
+    }
+    playbackSpan.end();
+  };
   const cleanTraceValue = value => String(value ?? 'none')
     .replace(/\s+/g, '_')
     .replace(/[^a-zA-Z0-9._:/%=-]/g, '_')
@@ -827,6 +865,27 @@ async function streamMedia(req, res) {
       parts.push(`${cleanTraceValue(key)}=${cleanTraceValue(value)}`);
     }
     console.info(parts.join(' '));
+
+    if (playbackSpan) {
+      const safeKeys = new Set([
+        'duration_ms', 'status', 'content_length', 'size_bytes',
+        'bytes_returned', 'backend', 'source', 'kind', 'found',
+        'authoritative', 'remote_only', 'metadata_only', 'range_response',
+        'cid_verified', 'timeout_ms', 'headers_sent', 'writable_finished'
+      ]);
+      const attributes = {
+        'milan.playback.stage': cleanTraceValue(traceStage)
+      };
+      for (const [key, value] of Object.entries(fields)) {
+        if (!safeKeys.has(key) || value === undefined || value === null) continue;
+        if (typeof value === 'boolean' || typeof value === 'number') {
+          attributes[`milan.playback.${key}`] = value;
+        } else if (typeof value === 'string') {
+          attributes[`milan.playback.${key}`] = cleanTraceValue(value);
+        }
+      }
+      playbackSpan.addEvent(`milan.playback.${phase}`, attributes);
+    }
   };
 
   if (isPlaybackTrace) {
@@ -843,6 +902,7 @@ async function streamMedia(req, res) {
         content_range: res.getHeader('Content-Range') || 'none',
         media_source: res.getHeader('X-Milan-Media-Source') || 'unset'
       });
+      finishPlaybackSpan('response_finished');
     });
     res.once('close', () => {
       if (!traceFinished) {
@@ -851,6 +911,7 @@ async function streamMedia(req, res) {
           headers_sent: res.headersSent,
           writable_finished: res.writableFinished
         });
+        finishPlaybackSpan('response_closed_early');
       }
     });
   }
@@ -874,10 +935,10 @@ async function streamMedia(req, res) {
       traceStage = 'playability_prepare';
       trace('playability_prepare_started', { wait_ms: repairWaitMs, max_bytes: repairMaxBytes });
       try {
-        await dwnStore.ensureMediaPlayableForStream(req.userId, u.user.did, req.params.id, {
+        await runInPlaybackContext(() => dwnStore.ensureMediaPlayableForStream(req.userId, u.user.did, req.params.id, {
           waitMs: repairWaitMs,
           maxBytes: repairMaxBytes
-        });
+        }));
         trace('playability_prepare_complete', { duration_ms: Date.now() - prepStartedAt });
       } catch (err) {
         trace('playability_prepare_failed', {
@@ -894,10 +955,10 @@ async function streamMedia(req, res) {
     trace('media_metadata_read_started', {
       metadata_only: req.method === 'HEAD' || !!req.headers.range
     });
-    let media = await dwnStore.getMediaStream(req.params.id, u.user.did, {
+    let media = await runInPlaybackContext(() => dwnStore.getMediaStream(req.params.id, u.user.did, {
       traceId,
       metadataOnly: req.method === 'HEAD' || !!req.headers.range
-    });
+    }));
     trace('media_metadata_read_complete', {
       duration_ms: Date.now() - metadataReadStartedAt,
       found: !!media,
@@ -936,7 +997,7 @@ async function streamMedia(req, res) {
         expected_bytes: parsed.end - parsed.start + 1
       });
       if (expectedCid.startsWith('sha256:')) {
-        media = await dwnStore.getMediaStream(req.params.id, u.user.did, {
+        media = await runInPlaybackContext(() => dwnStore.getMediaStream(req.params.id, u.user.did, {
           traceId,
           byteRange: {
             ...parsed,
@@ -946,10 +1007,10 @@ async function streamMedia(req, res) {
           verifiedMetadata: media,
           verifiedRecordId: req.params.id,
           verifiedReaderDid: u.user.did
-        });
+        }));
       } else {
         // Keep the verified full-buffer path for media without a stored SHA-256 CID.
-        media = await dwnStore.getMediaStream(req.params.id, u.user.did, { traceId });
+        media = await runInPlaybackContext(() => dwnStore.getMediaStream(req.params.id, u.user.did, { traceId }));
       }
       trace('range_read_complete', {
         duration_ms: Date.now() - rangeReadStartedAt,
@@ -1045,6 +1106,9 @@ async function streamMedia(req, res) {
 
     return streamLocalFile(media.fullPath, 'app-local-media');
   } catch (err) {
+    if (playbackSpan) {
+      playbackSpan.setAttribute('error.type', String(err.name || 'Error').slice(0, 80));
+    }
     trace('route_failed', { error: err.message, status: err.status || 500 });
     handleError(res, err);
   }

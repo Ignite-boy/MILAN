@@ -2152,7 +2152,7 @@ async function getVerifiedLocalMediaCid(filePath, expectedSizeBytes) {
   }
 }
 
-async function getMediaStream(id, did, options = {}) {
+async function getMediaStreamInternal(id, did, options = {}) {
   const traceId = String(options.traceId || '').replace(/[^a-zA-Z0-9-]/g, '').slice(0, 64);
   const cloudOptions = options.byteRange
     ? { byteRange: options.byteRange, traceId }
@@ -2293,6 +2293,57 @@ async function getMediaStream(id, did, options = {}) {
     fileName: media.fileName || path.basename(full),
     sizeBytes: fs.statSync(full).size
   };
+}
+
+async function getMediaStream(id, did, options = {}) {
+  const { context, trace, SpanKind, SpanStatusCode } = require('@opentelemetry/api');
+  const parentSpan = trace.getSpan(context.active());
+
+  // Keep ordinary record/API reads untouched; this child span is only for
+  // sampled playback requests that already have a recording parent span.
+  if (!parentSpan || !parentSpan.isRecording()) {
+    return getMediaStreamInternal(id, did, options);
+  }
+
+  const tracer = trace.getTracer('milan-app/dwn');
+  return tracer.startActiveSpan(
+    'milan.dwn.media_resolve',
+    {
+      kind: SpanKind.INTERNAL,
+      attributes: {
+        'milan.media.metadata_only': !!options.metadataOnly,
+        'milan.media.byte_range_requested': !!options.byteRange,
+        'milan.media.request_type': options.byteRange
+          ? 'byte_range'
+          : options.metadataOnly ? 'metadata' : 'full'
+      }
+    },
+    async span => {
+      try {
+        const media = await getMediaStreamInternal(id, did, options);
+        span.setAttribute('milan.media.found', !!media);
+        if (media) {
+          span.setAttribute('milan.media.remote_only', !!media.remoteOnly);
+          span.setAttribute('milan.media.authoritative_cloud', !!media.authoritativeCloud);
+          span.setAttribute('milan.media.local_cache_hit', !!media.localCacheHit);
+          if (typeof media.backend === 'string') {
+            span.setAttribute('milan.media.backend', media.backend.slice(0, 80));
+          }
+          const sizeBytes = Number(media.sizeBytes);
+          if (Number.isFinite(sizeBytes) && sizeBytes >= 0) {
+            span.setAttribute('milan.media.size_bytes', sizeBytes);
+          }
+        }
+        return media;
+      } catch (err) {
+        span.setAttribute('error.type', String(err.name || 'Error').slice(0, 80));
+        span.setStatus({ code: SpanStatusCode.ERROR });
+        throw err;
+      } finally {
+        span.end();
+      }
+    }
+  );
 }
 
 module.exports = {
