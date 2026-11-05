@@ -1,4 +1,8 @@
 require('dotenv').config({ path: require('fs').existsSync(require('path').join(require('os').homedir(), '.config/milan/backend.env')) ? require('path').join(require('os').homedir(), '.config/milan/backend.env') : require('path').join(__dirname, '.env') });
+
+// Start trace-only Cloud Trace telemetry before loading routes and services.
+const cloudTrace = require('./services/cloudTrace');
+cloudTrace.start();
 const express = require('express');
 const cors = require('cors');
 const compression = require('compression');
@@ -827,14 +831,18 @@ app.get('*', (_req, res) => {
 });
 
 const PORT = Number(process.env.PORT || 5000);
+const livePush = require('./services/livePush');
+let activeServer = null;
+let gracefulShutdownPromise = null;
 
 function listenWithFallback(port, attempts = 0) {
   const server = app.listen(port, "0.0.0.0", () => {
     console.log(`🚀 MILAN running at http://localhost:${port}`);
     console.log(`   Tagline: Your Space .Your People`);
   });
+  activeServer = server;
   // Live push over WebSocket (/ws) — same hub as the SSE /api/events stream.
-  require('./services/livePush').attachWs(server);
+  livePush.attachWs(server);
   // Large videos can take time on mobile networks and while ffmpeg remux/transcode runs.
   // Keep the socket alive so uploads finish cleanly instead of failing around Node/host defaults.
   server.requestTimeout = Number(process.env.MILAN_UPLOAD_REQUEST_TIMEOUT_MS || 30 * 60 * 1000);
@@ -853,6 +861,96 @@ function listenWithFallback(port, attempts = 0) {
 }
 
 // PostgreSQL runs this app as a long-lived Node.js web service.
+// Drain HTTP and live connections before flushing traces on instance shutdown.
+function gracefulShutdown(signal) {
+  if (gracefulShutdownPromise) return gracefulShutdownPromise;
+
+  gracefulShutdownPromise = (async () => {
+    console.warn(`[SHUTDOWN] ${signal} received; beginning graceful shutdown`);
+
+    const server = activeServer;
+    let httpClosed = Promise.resolve(true);
+
+    if (server && server.listening) {
+      httpClosed = new Promise(resolve => {
+        try {
+          server.close(err => {
+            if (err && err.code !== 'ERR_SERVER_NOT_RUNNING') {
+              console.warn('[SHUTDOWN] HTTP close warning:', err.message);
+            }
+            resolve(true);
+          });
+          // Node 22+ closes idle keep-alive connections without disrupting active work.
+          server.closeIdleConnections?.();
+        } catch (err) {
+          console.warn('[SHUTDOWN] HTTP close warning:', err.message);
+          resolve(false);
+        }
+      });
+    }
+
+    // Drain HTTP while live transports close concurrently.
+    const liveShutdown = livePush.shutdown().catch(err => {
+      console.warn('[SHUTDOWN] Live push close warning:', err.message);
+    });
+
+    let drained = await Promise.race([
+      httpClosed,
+      new Promise(resolve => setTimeout(() => resolve(false), 4500))
+    ]);
+
+    if (!drained && server) {
+      console.warn('[SHUTDOWN] HTTP drain deadline reached; closing remaining HTTP connections');
+      try { server.closeAllConnections?.(); } catch (_) {}
+      drained = await Promise.race([
+        httpClosed,
+        new Promise(resolve => setTimeout(() => resolve(false), 700))
+      ]);
+    }
+
+    await liveShutdown;
+
+    // Never close PostgreSQL while HTTP handlers might still be using the pool.
+    if (drained) {
+      try {
+        const databasePool = require('./services/milanDb');
+        const poolClosed = await Promise.race([
+          databasePool.end().then(() => true),
+          new Promise(resolve => setTimeout(() => resolve(false), 900))
+        ]);
+        if (poolClosed) {
+          console.info('[SHUTDOWN] PostgreSQL pool closed');
+        } else {
+          console.warn('[SHUTDOWN] PostgreSQL pool close deadline reached');
+        }
+      } catch (err) {
+        console.warn('[SHUTDOWN] PostgreSQL pool close warning:', err.message);
+      }
+    } else {
+      console.warn('[SHUTDOWN] HTTP connections remain; skipping PostgreSQL pool close');
+    }
+
+    await cloudTrace.shutdown(2200);
+    console.info('[SHUTDOWN] Cleanup complete');
+
+    // Ensure final stdout/stderr writes are flushed before exiting the instance.
+    await Promise.all([
+      new Promise(resolve => process.stdout.write('', resolve)),
+      new Promise(resolve => process.stderr.write('', resolve))
+    ]);
+    process.exit(0);
+  })().catch(err => {
+    console.error('[SHUTDOWN] Graceful shutdown failed:', err.message);
+    process.exit(1);
+  });
+
+  return gracefulShutdownPromise;
+}
+
+process.once('SIGTERM', () => { void gracefulShutdown('SIGTERM'); });
+process.once('SIGINT', () => { void gracefulShutdown('SIGINT'); });
+
+
 // Bind the HTTP port before snapshot hydration so liveness checks are available immediately.
 listenWithFallback(PORT);
 
