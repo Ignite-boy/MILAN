@@ -9,7 +9,8 @@
     "run": "node scripts/run-matrix.js --run",
     "smoke": "node scripts/run-matrix.js --smoke",
     "validate": "node scripts/run-matrix.js --validate",
-    "continuous": "node scripts/run-matrix.js --continuous"
+    "continuous": "node scripts/run-matrix.js --continuous",
+    "test:cross-browser-mobile": "node scripts/cross-browser-mobile-self-test.js"
   },
   "dependencies": {
     "playwright": "^1.55.0"

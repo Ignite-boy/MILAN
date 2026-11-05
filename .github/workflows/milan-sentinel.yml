@@ -22,8 +22,12 @@ jobs:
       - name: Install Sentinel
         run: npm ci
         working-directory: Milan-Sentinel
-      - name: Install Chromium for browser adapters
-        run: npx playwright install --with-deps chromium
+      - name: Install Chromium, Firefox and WebKit
+        run: npx playwright install --with-deps chromium firefox webkit
+        working-directory: Milan-Sentinel
+      - name: Run cross-browser mobile regression
+        if: github.event_name != 'pull_request'
+        run: npm run test:cross-browser-mobile
         working-directory: Milan-Sentinel
       - name: Validate theoretical 10M combinations
         run: npm run validate
