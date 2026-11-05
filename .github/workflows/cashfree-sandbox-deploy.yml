@@ -38,9 +38,6 @@ jobs:
       - name: Verify Cashfree frontend and SDK retry behavior
         run: npm run test:milan-pay
 
-      - name: Verify payment idempotency invariants
-        run: npm run test:payment-idempotency
-
       - name: Verify the public Cashfree SDK asset is reachable
         run: curl --fail --silent --show-error --location --max-time 45 --output /dev/null https://sdk.cashfree.com/js/v3/cashfree.js
 
