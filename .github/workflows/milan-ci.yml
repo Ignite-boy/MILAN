@@ -92,8 +92,6 @@ jobs:
       - name: Verify MILAN Pay architecture
         run: npm run test:payment
 
-      - name: Verify MILAN Pay checkout details
-        run: npm run test:milan-pay
 
       - name: Verify persistence failure visibility
         run: npm run test:persistence-visibility
@@ -119,17 +117,17 @@ jobs:
           test -s frontend/milan-login-pro.css
           echo "✅ Critical MILAN frontend files present"
 
-      - name: Set up Python for identity-security tests
+      - name: Set up Python for full Travel-Agent tests
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
-      - name: Install focused Python test dependencies
-        run: python -m pip install --disable-pip-version-check pytest fastapi requests
+      - name: Install complete Travel-Agent test dependencies
+        run: python -m pip install --disable-pip-version-check -r Travel-Agent/requirements.txt pytest
 
-      - name: Test Travel Agent identity boundary
+      - name: Run complete Travel-Agent test suite
         working-directory: Travel-Agent
-        run: python -m pytest -q tests/test_auth.py
+        run: python -m pytest -q
 
       - name: PASS summary
         run: |

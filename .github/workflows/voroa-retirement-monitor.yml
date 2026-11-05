@@ -94,7 +94,7 @@ jobs:
             --exclude-dir=.venv \
             --exclude-dir=venv \
             '(vercel(\.app|\.com|\.link)?|supabase|onrender\.com|render\.com|@vercel/|@supabase/|SUPABASE_[A-Z0-9_]+|RENDER_[A-Z0-9_]+)' \
-            backend frontend Live-UI-Update Travel-Agent DWN DWN-Wallet web4-ai scripts package.json package-lock.json 2>/dev/null; then
+            backend frontend Live-UI-Update Travel-Agent DWN scripts package.json package-lock.json 2>/dev/null; then
             echo "Legacy provider identifier found in runtime or configuration paths."
             exit 1
           fi

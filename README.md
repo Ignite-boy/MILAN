@@ -16,13 +16,13 @@ MILAN is a privacy-oriented social application built around DID-based identity c
 | Identity and user spaces | DID and per-user space identifiers are associated with authoritative user records. A logical per-user namespace is not by itself proof of a live standards-compliant DWN node. |
 | C++ DWN component | Standalone experimental implementation in `DWN/`; its canonical CMake target uses LevelDB. It is **not currently verified as the protocol engine used by the main production API**. |
 | Quality/testing | `Milan-Sentinel/` defines a 10,000,000-combination Cartesian test space. Only cases with implemented adapters can produce PASS; unimplemented combinations must be SKIP. |
-| Other components | `Travel-Agent/`, `DWN-Wallet/`, `Inventory/` and `Live-UI-Update/` are consolidated components with different maturity levels; do not infer production readiness from their presence in this repository. |
+| Other components | `Travel-Agent/`, `Inventory/` and `Live-UI-Update/` are consolidated components with different maturity levels; do not infer production readiness from their presence in this repository. |
 
 ## Important architecture boundary
 
 The main API reports `realDwnProtocol: false` in its current persistence metadata. Voroa PostgreSQL persistence and DID-scoped application records are part of the current implementation, but signed DWN protocol execution by a dedicated per-user DWN engine is **not verified in the main production path**. The former documentation describing `backend/services/realDwnEngine.js` did not match the current source tree and has been corrected.
 
-Similarly, the C++ DWN subproject and the wallet/travel components are standalone or experimental until their own integration, persistence, authorization, deployment and end-to-end tests pass. The repository's directory layout is not proof that these services are deployed from this monorepo.
+Similarly, the C++ DWN subproject and the travel component are standalone or experimental until their own integration, persistence, authorization, deployment and end-to-end tests pass. The repository's directory layout is not proof that these services are deployed from this monorepo.
 
 ## Local verification
 
@@ -64,7 +64,6 @@ Deploy the repository root as a Node.js web service on Voroa. Use `npm ci && npm
 - `Milan-Sentinel/` — matrix definition and executable checks
 - `DWN/` — standalone C++/LevelDB DWN experiment
 - `Travel-Agent/` — FastAPI/LangGraph travel prototype
-- `DWN-Wallet/` — wallet prototype
 - `Inventory/`, `Live-UI-Update/`, `Milan-Sentinel/` — companion utilities and tooling
 
 ---

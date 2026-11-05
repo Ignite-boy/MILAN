@@ -20,7 +20,6 @@
   "components": {
     "DWN/": "Standalone C++20/LevelDB experiment; experimental integration status.",
     "Travel-Agent/": "FastAPI/LangGraph travel prototype; external provider/service deployment and authorization require separate verification.",
-    "DWN-Wallet/": "Prototype component; in-memory implementation is not durable storage.",
     "Milan-Sentinel/": "Quality tooling with explicit PASS/FAIL/SKIP semantics.",
     "Live-UI-Update/": "UI/SEO automation tooling; frontend/ remains the production UI source of truth."
   },

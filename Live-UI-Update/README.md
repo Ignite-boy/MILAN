@@ -25,4 +25,3 @@ This component is maintained in the main **MILAN** repository at `Live-UI-Update
 
 - **MILAN App** — `../frontend/` and `../backend/`
 - **DWN** — `../DWN/`
-- **DWN Wallet** — `../DWN-Wallet/`

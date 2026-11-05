@@ -17,45 +17,6 @@ const MAX_ACTIVE_USERS = 250;
 const MAX_SOURCE_CIDS_PER_USER = 100;
 const MAX_TARGETS_PER_SOURCE = 10;       // older transitions lose weight over time
 
-// Optional internal Python GRU service; secret stays server-side.
-const AI_SERVICE_URL = (
-  process.env.MILAN_WEB4_AI_URL || 'http://127.0.0.1:8787'
-).replace(/\/+$/, '');
-const AI_SHARED_SECRET = process.env.MILAN_WEB4_AI_SECRET || '';
-const AI_REQUEST_TIMEOUT_MS = 350;
-
-async function requestWeb4Ai(path, payload) {
-  if (!AI_SHARED_SECRET || typeof fetch !== 'function') return null;
-  try {
-    const options = {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Milan-AI-Key': AI_SHARED_SECRET
-      },
-      body: JSON.stringify(payload)
-    };
-    if (typeof AbortSignal !== 'undefined' &&
-        typeof AbortSignal.timeout === 'function') {
-      options.signal = AbortSignal.timeout(AI_REQUEST_TIMEOUT_MS);
-    }
-    const response = await fetch(AI_SERVICE_URL + path, options);
-    if (!response.ok) return null;
-    return await response.json();
-  } catch (_) {
-    return null;
-  }
-}
-
-function recordAiView(userId, recordId) {
-  void requestWeb4Ai('/internal/v1/view', {
-    user_id: userId,
-    record_id: recordId
-  });
-}
-
-
-
 class MarkovPredictor {
   constructor() {
     // transitions[userId][fromCid][toCid] = weight
@@ -193,7 +154,6 @@ async function recordView(req, res) {
     }
 
     predictor.record(userId, contentCid);
-    recordAiView(userId, contentCid);
     return res.json({ ok: true });
   } catch (e) {
     console.error('[MILAN STREAM] record view failed:', e.message);
@@ -227,20 +187,7 @@ async function getPrefetch(req, res) {
         !/[\u0000-\u001f]/.test(value)));
 
     const markovIds = predictor.predict(userId);
-    const aiResult = await requestWeb4Ai('/internal/v1/predict', {
-      user_id: userId,
-      top_k: TOP_N
-    });
-
-    const aiIds = aiResult && aiResult.model_ready &&
-      Array.isArray(aiResult.predictions)
-      ? aiResult.predictions
-          .map(item => item && item.record_id)
-          .filter(id => typeof id === 'string' && id.length > 0 &&
-            id.length <= 256 && !/[\u0000-\u001f]/.test(id))
-      : [];
-
-    const recordIds = [...new Set([...aiIds, ...markovIds])]
+    const recordIds = [...new Set(markovIds)]
       .filter(id => !suppliedFilter || allowed.has(id))
       .slice(0, TOP_N);
 
