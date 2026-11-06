@@ -8,7 +8,7 @@ node_modules/
 !.env.example
 *.log
 **/__pycache__/
-**/*.py[cod
+**/*.py[cod]
 /RESOLVERCACHE/**
 /backend/RESOLVERCACHE/**
 /backend/real-dwn-engine/**
@@ -24,3 +24,6 @@ node_modules/
 /gradle/**
 /app/**
 /android/**
+
+# Exclude local pre-edit backups from production build uploads.
+*.before-*
