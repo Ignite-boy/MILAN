@@ -1,0 +1,26 @@
+.gcloudignore
+.git
+.git/**
+node_modules/
+**/node_modules/
+.env
+.env.*
+!.env.example
+*.log
+**/__pycache__/
+**/*.py[cod
+/RESOLVERCACHE/**
+/backend/RESOLVERCACHE/**
+/backend/real-dwn-engine/**
+/backend/dwn/**
+/backend/isolated-users/**
+
+# Production service is Node.js; exclude Android Gradle project.
+/build.gradle
+/settings.gradle
+/gradle.properties
+/gradlew
+/gradlew.bat
+/gradle/**
+/app/**
+/android/**

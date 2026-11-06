@@ -44,4 +44,5 @@ User-agent: Applebot
 Allow: /
 
 Host: milanlife.in
-Sitemap: https://milanlife.in/sitemap.xml
+
+Sitemap: https://milanlife.in/sitemap-index.xml

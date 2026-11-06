@@ -531,9 +531,6 @@ Disallow: /forgot-password
 # Topic / keyword index: ${PUBLIC_BASE_URL}/keywords
 Host: ${PUBLIC_BASE_URL.replace(/^https?:\/\//, '')}
 Sitemap: ${PUBLIC_BASE_URL}/sitemap-index.xml
-Sitemap: ${PUBLIC_BASE_URL}/sitemap.xml
-Sitemap: ${PUBLIC_BASE_URL}/sitemap-keywords.xml
-Sitemap: ${PUBLIC_BASE_URL}/sitemap-cities.xml
 `);
 });
 app.get('/favicon.ico', (_req, res) => {
@@ -567,12 +564,7 @@ app.get('/sitemap.xml', (_req, res) => {
       <image:caption>Privacy-first decentralized social network built on DWN and DID.</image:caption>
     </image:image>
   </url>
-  <url>
-    <loc>${PUBLIC_BASE_URL}/app</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.9</priority>
-  </url>
+
   <url>
     <loc>${PUBLIC_BASE_URL}/music</loc>
     <lastmod>${today}</lastmod>
@@ -639,24 +631,9 @@ app.get('/sitemap.xml', (_req, res) => {
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
-  <url>
-    <loc>${PUBLIC_BASE_URL}/keywords</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>${PUBLIC_BASE_URL}/llms.txt</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>${PUBLIC_BASE_URL}/ai-info</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
+
+
+
 </urlset>`);
 });
 app.get(['/keywords', '/keywords.html', '/topics'], (_req, res) => res.sendFile(path.join(__dirname, '../frontend/keywords.html')));
@@ -680,14 +657,8 @@ app.get(['/sitemap-index.xml', '/sitemap_index.xml'], (_req, res) => {
     <loc>${PUBLIC_BASE_URL}/sitemap.xml</loc>
     <lastmod>${today}</lastmod>
   </sitemap>
-  <sitemap>
-    <loc>${PUBLIC_BASE_URL}/sitemap-keywords.xml</loc>
-    <lastmod>${today}</lastmod>
-  </sitemap>
-  <sitemap>
-    <loc>${PUBLIC_BASE_URL}/sitemap-cities.xml</loc>
-    <lastmod>${today}</lastmod>
-  </sitemap>
+
+
 </sitemapindex>`);
 });
 app.get(['/decentralized-social-media', '/decentralized-social-network', '/own-your-data', '/own-your-data-social-media', '/data-ownership-social-network', '/web5-social-network'], (_req, res) => res.sendFile(path.join(__dirname, '../frontend/decentralized-social-media.html')));
@@ -962,6 +933,6 @@ listenWithFallback(PORT);
   console.log('[STARTUP] initDwn done');
   console.log('DWN storage status:', status);
   console.log('[STARTUP] Voroa PostgreSQL-authoritative DWN storage ready');
-})(); module.exports = app; 
+})(); module.exports = app;
 
 
