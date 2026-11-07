@@ -24,7 +24,9 @@ dwn-node/node_modules/
 backend/node_modules/
 node_modules/
 
-# Secrets
+# Secrets and ephemeral Google Workload Identity Federation credentials
+gha-creds-*.json
+**/gha-creds-*.json
 .env
 .env.*
 !.env.example
