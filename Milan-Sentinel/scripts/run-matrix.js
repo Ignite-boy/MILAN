@@ -135,7 +135,8 @@ async function main() {
 
   do {
     const batch = await runBatch({ start, count, stride, mode: mode === 'continuous' ? 'continuous-sample' : 'sample' });
-    if (batch.failed > 0 || batch.passed === 0) process.exitCode = 2;
+    // Unsupported combinations are recorded as SKIP; only actual test failures fail a sample shard.
+    if (batch.failed > 0) process.exitCode = 2;
     if (mode !== 'continuous') break;
     start = start + count * stride > product ? 1 : start + count * stride;
     await sleep(interval);
