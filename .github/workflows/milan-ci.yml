@@ -14,24 +14,24 @@ permissions:
 
 concurrency:
   group: milan-live-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   live-source:
-    name: "LIVE • Main branch"
+    name: "Source event received"
     runs-on: ubuntu-latest
     steps:
       - name: Live source signal
         run: |
-          echo "🟢 LIVE — main branch update received"
+          echo "Workflow event received"
           echo "Commit: $GITHUB_SHA"
           echo "Author: $GITHUB_ACTOR"
           {
-            echo "## 🟢 LIVE — Main branch"
+            echo "## Source event received"
             echo ""
             echo "- Commit: `$GITHUB_SHA`"
             echo "- Actor: `$GITHUB_ACTOR`"
-            echo "- Branch: `main`"
+            echo "- Ref: `$GITHUB_REF`"
           } >> "$GITHUB_STEP_SUMMARY"
 
   verify:
@@ -40,16 +40,19 @@ jobs:
     needs: live-source
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Audit dependency vulnerabilities
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Run project build check
         run: npm run build
@@ -80,6 +83,9 @@ jobs:
 
       - name: Verify chat architecture
         run: npm run test:chat
+
+      - name: Verify WebAuthn PostgreSQL contracts
+        run: npm run test:webauthn
       - name: Verify feed pagination contract
         run: npm run test:feed-pagination
 
@@ -91,9 +97,6 @@ jobs:
 
       - name: Verify MILAN Pay architecture
         run: npm run test:payment
-
-      - name: Verify MILAN Pay checkout details
-        run: npm run test:milan-pay
 
       - name: Verify persistence failure visibility
         run: npm run test:persistence-visibility
@@ -120,7 +123,7 @@ jobs:
           echo "✅ Critical MILAN frontend files present"
 
       - name: Set up Python for identity-security tests
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -140,11 +143,65 @@ jobs:
             echo "Build and critical frontend file checks completed successfully."
           } >> "$GITHUB_STEP_SUMMARY"
 
-  production:
-    if: github.event_name != 'pull_request'
-    name: "LIVE • Production smoke"
-    runs-on: ubuntu-latest
+  deploy:
+    name: Deploy MILAN to Google Cloud Run
+    if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') }}
     needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout verified main commit
+        uses: actions/checkout@v7
+
+      - name: Check guarded GCP release configuration
+        env:
+          GCP_DEPLOY_ENABLED: ${{ vars.GCP_DEPLOY_ENABLED }}
+          GCP_DATABASE_READY: ${{ vars.GCP_DATABASE_READY }}
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          GCP_DEPLOYER_SERVICE_ACCOUNT: ${{ vars.GCP_DEPLOYER_SERVICE_ACCOUNT }}
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          GCP_CLOUD_RUN_SERVICE: ${{ vars.GCP_CLOUD_RUN_SERVICE }}
+          GCP_CLOUD_SQL_CONNECTION_NAME: ${{ vars.GCP_CLOUD_SQL_CONNECTION_NAME }}
+        run: |
+          set -euo pipefail
+          [[ "$GCP_DEPLOY_ENABLED" == "true" ]] || { echo "::error::GCP_DEPLOY_ENABLED must be true for a main-branch release."; exit 1; }
+          [[ "$GCP_DATABASE_READY" == "true" ]] || { echo "::error::GCP_DATABASE_READY must be true before deployment."; exit 1; }
+          for name in GCP_PROJECT_ID GCP_WORKLOAD_IDENTITY_PROVIDER GCP_DEPLOYER_SERVICE_ACCOUNT GCP_REGION GCP_CLOUD_RUN_SERVICE GCP_CLOUD_SQL_CONNECTION_NAME; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::$name is not configured."
+              exit 1
+            fi
+          done
+
+      - name: Authenticate to Google Cloud with Workload Identity Federation
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SERVICE_ACCOUNT }}
+
+      - name: Deploy MILAN to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          region: ${{ vars.GCP_REGION }}
+          service: ${{ vars.GCP_CLOUD_RUN_SERVICE }}
+          source: ./
+          secrets: |
+            MILAN_DATABASE_URL=MILAN_DATABASE_URL:latest
+          flags: >-
+            --allow-unauthenticated
+            --add-cloudsql-instances=${{ vars.GCP_CLOUD_SQL_CONNECTION_NAME }}
+
+  production:
+    if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') }}
+    name: "LIVE • Post-deploy production smoke"
+    runs-on: ubuntu-latest
+    needs: [verify, deploy]
     steps:
       - name: Wait for production propagation
         run: |

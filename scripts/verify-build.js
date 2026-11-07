@@ -25,7 +25,10 @@ const requiredFiles = [
   'Milan-Sentinel/scripts/run-matrix.js',
   'Milan-Sentinel/scripts/execute-case.js',
   'docs/MILAN_ONE_ARCHITECTURE.md',
-  'docs/ENVIRONMENT_CONTRACT.md'
+  'docs/ENVIRONMENT_CONTRACT.md',
+  '.github/workflows/milan-ci.yml',
+  '.github/dependabot.yml',
+  '.gcloudignore'
 ];
 for (const file of requiredFiles) check(exists(file), `Required file missing: ${file}`);
 
@@ -123,6 +126,19 @@ if (exists('backend/services/cloudDwnRegistry.js')) {
   check(dwn.includes('realDwnProtocol: false'), 'Current main API must not claim unintegrated DWN protocol readiness.');
   check(dwn.includes('protocolReady: false'), 'DWN status must distinguish logical storage from protocol readiness.');
 }
+const deployWorkflow = read('.github/workflows/milan-ci.yml');
+check(deployWorkflow.includes('google-github-actions/auth@v3') &&
+  deployWorkflow.includes('google-github-actions/deploy-cloudrun@v3'),
+  'The main pipeline must own the Google Cloud Run deployment path.');
+check(!exists('.github/workflows/milan-gcp-cloud-run.yml'),
+  'The old branch-specific GCP workflow must remain retired; main CI is the single deployment path.');
+check(read('.gitignore').includes('gha-creds-*.json') && read('.gcloudignore').includes('gha-creds-*.json'),
+  'Ephemeral Google Workload Identity credentials must be excluded from Git and Cloud Build source uploads.');
+check(deployWorkflow.includes('npm audit --omit=dev --audit-level=high'),
+  'Main-branch deployment must be gated by a production dependency vulnerability audit.');
+const sentinelMatrixSource = read('Milan-Sentinel/scripts/run-matrix.js');
+check(sentinelMatrixSource.includes('if (batch.failed > 0) process.exitCode = 2;'),
+  'Sentinel sample shards must fail on actual failures, not skip-only coverage.');
 for (const workflow of ['.github/workflows/milan-live-auto.yml', '.github/workflows/milan-ui-plan.yml']) {
   if (exists(workflow)) check(!read(workflow).includes('while true; do'), `Unbounded self-trigger/retry loop found in ${workflow}.`);
 }
