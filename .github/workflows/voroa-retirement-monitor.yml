@@ -1,6 +1,9 @@
 name: Voroa Readiness Monitor
 
 on:
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
   schedule:
     - cron: "17 * * * *"
@@ -31,6 +34,7 @@ jobs:
         run: npm ci
 
       - name: Verify Voroa database (read-only)
+        if: github.event_name != 'pull_request'
         env:
           MILAN_DATABASE_URL: ${{ secrets.MILAN_DATABASE_URL || secrets.VOROA_DATABASE_URL }}
         run: |
@@ -84,24 +88,24 @@ jobs:
       - name: Verify no active legacy provider dependencies
         shell: bash
         run: |
-          set -e
-          if grep -RniE \
-            --exclude='*.before*' \
-            --exclude='*.md' \
-            --exclude='*.txt' \
-            --exclude-dir=.git \
-            --exclude-dir=node_modules \
-            --exclude-dir=.venv \
-            --exclude-dir=venv \
+          set -euo pipefail
+          if git grep -nI -E \
             '(vercel(\.app|\.com|\.link)?|supabase|onrender\.com|render\.com|@vercel/|@supabase/|SUPABASE_[A-Z0-9_]+|RENDER_[A-Z0-9_]+)' \
-            backend frontend Live-UI-Update Travel-Agent DWN DWN-Wallet web4-ai scripts package.json package-lock.json 2>/dev/null; then
-            echo "Legacy provider identifier found in runtime or configuration paths."
+            -- . \
+            ':!*.md' \
+            ':!**/*.md' \
+            ':!*.txt' \
+            ':!**/*.txt' \
+            ':!.github/workflows/voroa-retirement-monitor.yml'; then
+            echo "Legacy provider identifiers found in tracked runtime or configuration files."
             exit 1
           fi
-          echo "No legacy provider identifiers found in runtime/configuration paths."
+          echo "No legacy provider identifiers found in tracked runtime/configuration files."
           node -e "const fs=require('node:fs'); for (const f of ['package.json','package-lock.json']) JSON.parse(fs.readFileSync(f,'utf8'))"
 
       - name: Run integrity and upload regression tests
+        env:
+          MILAN_DATABASE_URL: postgres://milan-test:milan-test@127.0.0.1:1/milan_test
         run: |
           npm run build
           npm run test:security
